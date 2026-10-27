@@ -1,0 +1,265 @@
+# =============================================================================
+# Kustos 配置文件模板
+#
+# 使用方式:
+#   cp config.example.toml config.toml
+#   然后根据需要修改 config.toml
+#
+# 敏感配置（密钥、数据库密码等）通过环境变量注入，不写入此文件。
+# 环境变量优先级高于 config.toml。
+# =============================================================================
+
+[server]
+# 监听地址
+host = "0.0.0.0"
+# 监听端口
+port = 8000
+# 开发模式启用热重载（仅 Uvicorn）
+reload = false
+# 日志级别: debug | info | warning | error | critical
+log_level = "info"
+
+[app]
+title = "Kustos API"
+description = "A Git-based collaborative development tool API"
+version = "0.1.0"
+# 慢请求告警阈值（毫秒；ObservabilityMiddleware 记录 LOG 级日志）
+slow_request_threshold_ms = 30000
+# debug 模式由环境变量 KUSTOS_APP_DEBUG 控制，此文件中的设置不生效
+
+[gunicorn]
+# Worker 进程数，建议 2-4 x CPU 核心数
+workers = 4
+# Worker 类
+worker_class = "gunicorn_worker.KustosUvicornWorker"
+# 每个 worker 的线程数（仅 sync worker 有效）
+threads = 1
+# 最大并发连接数
+worker_connections = 1000
+# 等待连接的最大队列长度
+backlog = 2048
+# Worker 超时时间（秒）
+timeout = 30
+# 优雅关闭超时时间（秒）
+graceful_timeout = 30
+# Keep-alive 连接超时时间（秒）
+keepalive = 2
+# Worker 最大请求数：0 = 关闭按请求数回收 worker（默认关闭——
+# 周期回收会造成 WS/协作长连接重连风暴；内存泄漏防护交给编排层滚动重启）
+max_requests = 0
+max_requests_jitter = 0
+# 是否预加载应用
+preload_app = false
+# 是否以守护进程模式运行
+daemon = false
+# 是否启用访问日志
+access_log = true
+# 是否捕获 stdout/stderr
+capture_output = true
+# 是否启用 SO_REUSEPORT（Linux 多核优化）
+enable_reuse_port = true
+
+[cors]
+# 允许的源列表，生产环境应限制为具体域名
+allow_origins = ["*"]
+allow_credentials = true
+allow_methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+allow_headers = ["Content-Type", "Authorization", "X-Requested-With"]
+max_age = 600
+
+[storage]
+# Git 仓库根目录
+repo_root = "./repositories"
+# 单个仓库最大大小（字节，默认 1GB）
+max_repo_size = 1073741824
+# 单个文件最大大小（字节，默认 100MB）
+max_file_size = 104857600
+# 上传文件公共根目录（附件/头像/发行附件挂其下子目录）
+upload_root = "./data/uploads"
+# 聊天附件大小上限（字节，默认 20MB）
+attachment_max_size = 20971520
+# 头像大小上限（字节，默认 5MB）
+avatar_max_size = 5242880
+# 发行附件大小上限（字节，默认 50MB）
+release_asset_max_size = 52428800
+
+[security]
+# JWT 密钥由环境变量 KUSTOS_SECURITY_SECRET_KEY 注入，不写入配置文件
+# 访问令牌过期时间（分钟）
+access_token_expire_minutes = 30
+# 刷新令牌过期时间（天）
+refresh_token_expire_days = 7
+# JWT 加密算法
+algorithm = "HS256"
+# require_status_checks 严格模式（默认 false = "无 CI 即通过"；开启后零检查记录视为未通过）
+strict_status_checks = false
+# OAuth state 临时存储 TTL（秒，默认 10 分钟）
+oauth_state_ttl_seconds = 600
+# refresh 轮换宽限期（秒）；超出宽限期重放旧 refresh 视为重用、吊销整个 family
+refresh_rotation_grace_seconds = 60
+# 撤销黑名单正缓存 TTL（秒，已撤销条目）
+revocation_positive_ttl = 3600
+# 撤销黑名单负缓存 TTL（秒，未撤销条目）
+revocation_negative_ttl = 60
+# HSTS max-age（秒，由 ObservabilityMiddleware 下发）
+hsts_max_age = 31536000
+
+[logging]
+# 审计日志文件路径（启用日期目录时实际写入 <父目录>/<YYYY-MM-DD>/<文件名>，
+# 默认值 logs/audit.log 因此落位 logs/<日期>/audit.log）
+audit_log_path = "logs/audit.log"
+# 审计日志文件最大大小（字节，默认 10MB）
+audit_log_max_size = 10485760
+# 审计日志备份文件数量
+audit_log_backup_count = 5
+# 是否启用审计日志（false 时审计中间件整体短路，文件/控制台/WebSocket 均不落盘）
+audit_log_enabled = true
+# 日期日志目录 logs/<YYYY-MM-DD>/ 自动保留天数，0 = 关闭自动清理
+log_keep_days = 30
+# Activity 审计表（activities）自动保留天数，0 = 不清理
+activity_keep_days = 180
+# 自动保留任务运行间隔（小时）
+retention_interval_hours = 6
+# Agent 作业步骤（agent_steps）保留天数，只作用于已收尾的作业；0 = 不清理
+agent_steps_keep_days = 30
+
+[sentry]
+# Sentry 错误监控：DSN 为空（默认）不启用；生产环境建议设置
+# 也可通过环境变量覆盖:
+#   KUSTOS_SENTRY_DSN            DSN 地址
+#   KUSTOS_SENTRY_TRACES_SAMPLE_RATE  事务采样率 (0~1)
+#   KUSTOS_SENTRY_ENVIRONMENT    环境名（为空自动按 debug 推导）
+#   KUSTOS_SENTRY_RELEASE        构建版本号
+# dsn = ""
+# traces_sample_rate = 1.0
+# environment = ""
+# release = ""
+
+[database]
+# 数据库 URL 由环境变量 DATABASE_URL 注入，不写入配置文件
+# 连接池大小
+pool_size = 20
+# 最大溢出连接数
+max_overflow = 40
+# 获取连接超时时间（秒）
+pool_timeout = 10
+# 连接回收时间（秒）
+pool_recycle = 1800
+# 是否打印 SQL 语句（调试用）
+echo = false
+
+# PostgreSQL 专用配置
+pg_ssl_mode = "prefer"
+pg_connect_timeout = 10
+pg_application_name = "kustos"
+
+[metrics]
+# admin 概览趋势图：请求/进程分钟桶保留时长（分钟，默认 24h）
+history_minutes = 1440
+# 进程内存/CPU 采样间隔（秒）
+sample_interval_seconds = 15
+# 时序接口单次返回的最大点数（超出则降采样）
+max_points = 120
+
+[search]
+# 是否启用搜索功能（kill switch：关闭时搜索 API 返回空结果、Agent 搜索工具禁用）
+enabled = true
+# 最大搜索结果数（service 默认值兼硬上限，显式传参受其约束）
+max_results = 100
+# 索引/扫描/兜底搜索的单文件大小上限（字节，默认 2MB）——
+# 与 [storage].max_file_size（git 写入 blob 上限）是不同语义
+max_file_size = 2097152
+# 语义检索（embedding）开关；key 只走环境变量，不写入配置文件
+embedding_enabled = false
+# 索引构建资源护栏（默认值 = 既有模块常量，迁移零行为变化）
+index_max_files = 5000
+index_max_bytes = 33554432
+scan_file_limit = 200
+symbol_scan_max_files = 2000
+symbol_scan_max_bytes = 16777216
+rebuild_lock_ttl = 180
+index_file_batch = 200
+index_row_batch = 2000
+model_heal_cooldown = 300.0
+# 变更图索引（repo_commit_files）单次构建/回填最大提交数
+commit_index_max_commits = 300
+# 切分护栏（chunker）
+chunk_max_lines = 400
+chunk_max_bytes = 65536
+chunk_max_chunks_per_file = 200
+chunk_max_refs_per_file = 4000
+
+[realtime]
+# WebSocket / 实时配置（原散落 api/websocket· 与 services/realtime· 模块常量）
+ws_heartbeat_timeout_seconds = 120
+ws_max_message_bytes = 262144
+presence_ttl_seconds = 90
+chat_max_content_length = 10000
+collab_save_max_content_chars = 2000000
+log_buffer_max = 10000
+
+[webhook]
+# WebHook 投递治理配置（原 services/webhook_service 模块常量）
+max_concurrent_deliveries = 20
+delivery_timeout_seconds = 30.0
+max_retries = 3
+shutdown_timeout_seconds = 5.0
+
+[collab]
+# 协作文档 / 邀请配置（原 services/collab_invite_service 模块常量）
+invite_default_ttl_minutes = 60
+invite_max_ttl_minutes = 1440
+
+[git]
+# Git / 仓库运维配置（原 utils/git_utils· 与 services/git_event_service· 模块常量）
+push_max_commits = 200
+git_thread_pool_workers = 4
+repo_exists_cache_ttl_seconds = 30
+
+# 限流配置已移至 Nginx（参见 docker/nginx/nginx.conf）
+# Python 端不再处理速率限制
+
+# =============================================================================
+# 以下配置仅通过环境变量注入，在此文件中设置无效
+#
+# 必需的环境变量:
+#   DATABASE_URL                   数据库连接 URL（仅 PostgreSQL）
+#     postgresql://user:pass@host:5432/dbname
+#   KUSTOS_SECURITY_SECRET_KEY     JWT 签名密钥（必需）
+#
+# 可选的环境变量:
+#   KUSTOS_APP_DEBUG               true/false，调试模式
+#   KUSTOS_STRESS_TEST             true/false，压力测试模式
+# =============================================================================
+
+# =============================================================================
+# 内置 Agent（API key 不写入本文件：api_key_env 指向存放 key 的环境变量，默认
+# KUSTOS_AGENT_API_KEY，运行期从子进程环境读取其值，也可由请求在内存携带）
+# =============================================================================
+[agent]
+enabled = false
+provider = "openai"
+base_url = "https://api.openai.com/v1"
+model = "gpt-4o-mini"
+max_steps = 8
+max_tokens = 1024
+temperature = 0.2
+# 作业 prompt 注入模型的字符上限
+max_prompt_chars = 8000
+# 工具结果预算：各工具上限应小于 runtime 兜底 max_tool_result_chars
+# （触发兜底说明某工具未自夹取，会额外告警并追加 _truncated 标记）
+max_tool_result_chars = 14000
+read_file_max_chars = 12000
+list_tree_max_entries = 300
+list_items_max = 50
+# 会话记忆：注入下一次作业的会话摘要字符上限（0=关闭会话记忆）
+max_summary_chars = 2000
+# 单作业 token 预算：达上限即优雅降级（0=不限）
+job_token_budget = 0
+# Agent 触发器（事件驱动/定时巡航）；触发作业为自主只读，结论回帖频道
+triggers_enabled = false
+# 定时触发器扫描的 cron 分钟位（每小时第 N 分钟；改后需重启 worker）
+trigger_sweep_minute = 0
+# arq worker 进程参数（修改后需重启 worker 容器生效）
+worker_max_jobs = 4
+worker_job_timeout_seconds = 600

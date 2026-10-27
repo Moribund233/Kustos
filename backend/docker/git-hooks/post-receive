@@ -1,0 +1,71 @@
+#!/bin/sh
+# =============================================================================
+# Kustos post-receive hook
+#
+# 推送完成后回调应用：分支表全量对账、增量提交入库、触发 push/tag_push webhook。
+# 与 pre-receive 不同，本 hook **永不阻断推送**（git 也忽略其退出码），
+# 失败仅输出日志，等待下一次推送自愈。
+#
+# 输入（stdin，git 约定）：<old-oid> <new-oid> <ref> 每行一条。
+# =============================================================================
+set -u
+
+HOOK_DIR=$(cd "$(dirname "$0")" && pwd)
+if [ ! -r "$HOOK_DIR/hook.conf" ]; then
+    echo "kustos-hook: hook.conf missing, skip post-receive sync" >&2
+    exit 0
+fi
+# shellcheck disable=SC1091
+. "$HOOK_DIR/hook.conf"
+if [ -z "${KUSTOS_GIT_HOOK_SECRET:-}" ] || [ -z "${KUSTOS_GIT_HOOK_URL:-}" ]; then
+    echo "kustos-hook: hook.conf incomplete, skip post-receive sync" >&2
+    exit 0
+fi
+
+ZERO=0000000000000000000000000000000000000000
+ROOT="${KUSTOS_GIT_HOOK_ROOT:-/data/repositories}"
+
+git_dir=$(cd "${GIT_DIR:-.}" 2>/dev/null && pwd) || {
+    echo "kustos-hook: cannot resolve git dir, skip sync" >&2
+    exit 0
+}
+case "$git_dir" in
+    "$ROOT"/*) repo_path=${git_dir#"$ROOT"/} ;;
+    *)
+        echo "kustos-hook: repo outside root: $git_dir, skip sync" >&2
+        exit 0
+        ;;
+esac
+repo_path=${repo_path%.git}
+
+# 收集所有引用更新（分支 + 标签；is_force 仅 pre-receive 关心，此处恒 false）
+updates=""
+while read -r old new ref; do
+    [ -n "${ref:-}" ] || continue
+    case "$ref" in
+        refs/heads/*|refs/tags/*) ;;
+        *) continue ;;
+    esac
+    esc=$(printf '%s' "$ref" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')
+    if [ -n "$updates" ]; then
+        updates="$updates,"
+    fi
+    updates="$updates{\"ref\":\"$esc\",\"old\":\"$old\",\"new\":\"$new\",\"is_force\":false}"
+done
+
+[ -n "$updates" ] || exit 0
+
+body=$(printf '{"repo_path":"%s","updates":[%s]}' "$repo_path" "$updates")
+tmp=$(mktemp) || exit 0
+trap 'rm -f "$tmp"' EXIT INT TERM
+
+if ! printf '%s' "$body" | curl -sS -o "$tmp" --max-time 15 \
+    -H 'Content-Type: application/json' \
+    -H "X-Git-Hook-Secret: $KUSTOS_GIT_HOOK_SECRET" \
+    --data-binary @- \
+    "${KUSTOS_GIT_HOOK_URL}/post-receive" 2>>"$tmp"; then
+    echo "kustos-hook: post-receive callback failed (push itself succeeded)" >&2
+    sed -e 's/^/  /' "$tmp" >&2 2>/dev/null || true
+fi
+
+exit 0

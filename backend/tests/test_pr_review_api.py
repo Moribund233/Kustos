@@ -1,0 +1,348 @@
+"""
+PR Code Review API 集成测试
+
+逐行评论（含行级定位）
+Review 状态流转（approve/changes_requested）
+"""
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from tests.test_helpers import create_test_repo, create_test_pr, create_test_user
+
+
+# =============================================================================
+# 逐行评论 API 测试
+# =============================================================================
+
+@pytest.mark.asyncio
+async def test_create_pr_comment_api(
+    test_client: TestClient, auth_headers: dict, db
+):
+    """
+    测试创建 PR 评论 API
+
+    验证点：
+    1. 可以创建 PR 评论
+    2. 返回正确的评论信息
+    """
+    repo = create_test_repo(db)
+    pr = create_test_pr(db, repo.id, 1, "Test PR")
+
+    response = test_client.post(
+        f"/api/v1/repositories/{repo.id}/pull-requests/{pr.pr_number}/comments",
+        json={
+            "content": "This is a great PR!"
+        },
+        headers=auth_headers
+    )
+
+    assert response.status_code == 200, f"应该返回 200, 实际返回 {response.status_code}"
+    data = response.json()
+    assert data["content"] == "This is a great PR!"
+    assert "author" in data
+
+    print("✓ test_create_pr_comment_api 通过")
+
+
+@pytest.mark.asyncio
+async def test_create_inline_comment_api(
+    test_client: TestClient, auth_headers: dict, db
+):
+    """
+    测试创建行级评论 API
+
+    验证点：
+    1. 可以创建针对特定文件/行的评论
+    2. 返回包含文件路径和行号的信息
+    """
+    repo = create_test_repo(db)
+    pr = create_test_pr(db, repo.id, 1, "Test PR")
+
+    response = test_client.post(
+        f"/api/v1/repositories/{repo.id}/pull-requests/{pr.pr_number}/comments",
+        json={
+            "content": "This line needs refactoring",
+            "file_path": "src/main.py",
+            "line_number": 42,
+            "commit_hash": "abc123def456"
+        },
+        headers=auth_headers
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["content"] == "This line needs refactoring"
+    assert data["file_path"] == "src/main.py"
+    assert data["line_number"] == 42
+    assert data["commit_hash"] == "abc123def456"
+
+    print("✓ test_create_inline_comment_api 通过")
+
+
+@pytest.mark.asyncio
+async def test_list_pr_comments_api(
+    test_client: TestClient, auth_headers: dict, db
+):
+    """
+    测试获取 PR 评论列表 API
+
+    验证点：
+    1. 可以获取 PR 的所有评论
+    """
+    repo = create_test_repo(db)
+    pr = create_test_pr(db, repo.id, 1, "Test PR")
+
+    # 创建两个评论
+    for i in range(2):
+        test_client.post(
+            f"/api/v1/repositories/{repo.id}/pull-requests/{pr.pr_number}/comments",
+            json={"content": f"Comment {i + 1}"},
+            headers=auth_headers
+        )
+
+    # 获取列表
+    response = test_client.get(
+        f"/api/v1/repositories/{repo.id}/pull-requests/{pr.pr_number}/comments",
+        headers=auth_headers
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 2
+
+    print("✓ test_list_pr_comments_api 通过")
+
+
+@pytest.mark.asyncio
+async def test_create_pr_comment_empty_content(
+    test_client: TestClient, auth_headers: dict, db
+):
+    """
+    测试创建空内容的 PR 评论
+
+    验证点：
+    1. 空内容应该返回 400 错误
+    """
+    repo = create_test_repo(db)
+    pr = create_test_pr(db, repo.id, 1, "Test PR")
+
+    response = test_client.post(
+        f"/api/v1/repositories/{repo.id}/pull-requests/{pr.pr_number}/comments",
+        json={"content": ""},
+        headers=auth_headers
+    )
+
+    assert response.status_code == 422, f"Pydantic 验证返回 422, 实际返回 {response.status_code}"
+
+    print("✓ test_create_pr_comment_empty_content 通过")
+
+
+@pytest.mark.asyncio
+async def test_create_pr_comment_unauthorized(
+    test_client: TestClient, db
+):
+    """
+    测试未认证用户创建 PR 评论
+
+    验证点：
+    1. 未认证用户收到 401
+    """
+    repo = create_test_repo(db)
+    pr = create_test_pr(db, repo.id, 1, "Test PR")
+
+    response = test_client.post(
+        f"/api/v1/repositories/{repo.id}/pull-requests/{pr.pr_number}/comments",
+        json={"content": "Comment"}
+    )
+
+    assert response.status_code == 401
+
+    print("✓ test_create_pr_comment_unauthorized 通过")
+
+
+# =============================================================================
+# Review 状态流转 API 测试
+# =============================================================================
+
+@pytest.mark.asyncio
+async def test_approve_pr_review_api(
+    test_client: TestClient, auth_headers: dict, db
+):
+    """
+    测试 PR 审查批准 API
+
+    验证点：
+    1. 可以提交 approved 审查（审查者非 PR 作者——自我 approve 已禁止）
+    """
+    repo = create_test_repo(db)
+    author = create_test_user(db, username="prauthor1")
+    pr = create_test_pr(db, repo.id, 1, "Test PR", author_id=author.id)
+
+    response = test_client.post(
+        f"/api/v1/repositories/{repo.id}/pull-requests/{pr.pr_number}/reviews",
+        json={
+            "status": "approved",
+            "comment": "LGTM!"
+        },
+        headers=auth_headers
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "approved"
+    assert data["comment"] == "LGTM!"
+
+    print("✓ test_approve_pr_review_api 通过")
+
+
+@pytest.mark.asyncio
+async def test_self_approve_rejected_api(
+    test_client: TestClient, auth_headers: dict, db
+):
+    """
+    测试作者不能批准自己的 PR（自我 approve 禁止，无论角色）
+
+    验证点：
+    1. 作者提交 approved 返回 400
+    """
+    repo = create_test_repo(db)
+    pr = create_test_pr(db, repo.id, 1, "Self approve PR")  # 作者 = 请求者本人
+
+    response = test_client.post(
+        f"/api/v1/repositories/{repo.id}/pull-requests/{pr.pr_number}/reviews",
+        json={
+            "status": "approved",
+            "comment": "LGTM!"
+        },
+        headers=auth_headers
+    )
+
+    assert response.status_code == 400
+
+    print("✓ test_self_approve_rejected_api 通过")
+
+
+@pytest.mark.asyncio
+async def test_request_changes_review_api(
+    test_client: TestClient, auth_headers: dict, db
+):
+    """
+    测试 PR 审查请求变更 API
+
+    验证点：
+    1. 可以提交 changes_requested 审查
+    """
+    repo = create_test_repo(db)
+    pr = create_test_pr(db, repo.id, 1, "Test PR")
+
+    response = test_client.post(
+        f"/api/v1/repositories/{repo.id}/pull-requests/{pr.pr_number}/reviews",
+        json={
+            "status": "changes_requested",
+            "comment": "Please fix the naming convention"
+        },
+        headers=auth_headers
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "changes_requested"
+    assert data["comment"] == "Please fix the naming convention"
+
+    print("✓ test_request_changes_review_api 通过")
+
+
+@pytest.mark.asyncio
+async def test_review_update_existing(
+    test_client: TestClient, auth_headers: dict, db
+):
+    """
+    测试更新已有审查（同用户再次审查）
+
+    验证点：
+    1. 同用户再次审查会更新已有记录而非新建（审查者非 PR 作者——自我 approve 已禁止）
+    """
+    repo = create_test_repo(db)
+    author = create_test_user(db, username="prauthor2")
+    pr = create_test_pr(db, repo.id, 1, "Test PR", author_id=author.id)
+
+    # 先提交 changes_requested
+    test_client.post(
+        f"/api/v1/repositories/{repo.id}/pull-requests/{pr.pr_number}/reviews",
+        json={
+            "status": "changes_requested",
+            "comment": "Please fix"
+        },
+        headers=auth_headers
+    )
+
+    # 再次提交 approved（更新）
+    response = test_client.post(
+        f"/api/v1/repositories/{repo.id}/pull-requests/{pr.pr_number}/reviews",
+        json={
+            "status": "approved",
+            "comment": "Looks good now"
+        },
+        headers=auth_headers
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "approved"
+    assert data["comment"] == "Looks good now"
+
+    print("✓ test_review_update_existing 通过")
+
+
+@pytest.mark.asyncio
+async def test_review_invalid_status(
+    test_client: TestClient, auth_headers: dict, db
+):
+    """
+    测试无效的审查状态
+
+    验证点：
+    1. 无效状态返回 400
+    """
+    repo = create_test_repo(db)
+    pr = create_test_pr(db, repo.id, 1, "Test PR")
+
+    response = test_client.post(
+        f"/api/v1/repositories/{repo.id}/pull-requests/{pr.pr_number}/reviews",
+        json={
+            "status": "invalid_status",
+            "comment": "test"
+        },
+        headers=auth_headers
+    )
+
+    assert response.status_code == 400
+
+    print("✓ test_review_invalid_status 通过")
+
+
+@pytest.mark.asyncio
+async def test_review_unauthorized(
+    test_client: TestClient, db
+):
+    """
+    测试未认证用户提交审查
+
+    验证点：
+    1. 未认证用户收到 401
+    """
+    repo = create_test_repo(db)
+    pr = create_test_pr(db, repo.id, 1, "Test PR")
+
+    response = test_client.post(
+        f"/api/v1/repositories/{repo.id}/pull-requests/{pr.pr_number}/reviews",
+        json={
+            "status": "approved",
+            "comment": "LGTM"
+        }
+    )
+
+    assert response.status_code == 401
+
+    print("✓ test_review_unauthorized 通过")

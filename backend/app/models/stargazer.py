@@ -1,0 +1,18 @@
+"""仓库收藏数据模型"""
+from sqlalchemy import Integer, ForeignKey, UniqueConstraint, Uuid as SAUuid
+from sqlalchemy.orm import relationship, mapped_column
+from app.models.base import BaseModel
+
+
+class Stargazer(BaseModel):
+    __tablename__ = "stargazers"
+
+    repository_id = mapped_column(SAUuid(as_uuid=True), ForeignKey("repositories.id"), nullable=False)
+    user_id       = mapped_column(SAUuid(as_uuid=True), ForeignKey("users.id"), nullable=False)
+
+    repository = relationship("Repository", backref="stargazers")
+    user       = relationship("User", backref="starred_repos")
+
+    __table_args__ = (
+        UniqueConstraint("repository_id", "user_id", name="uq_repo_user_star"),
+    )

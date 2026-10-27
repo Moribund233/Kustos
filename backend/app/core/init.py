@@ -1,0 +1,559 @@
+"""
+应用初始化模块
+
+负责服务端完整的初始化流程，采用分层初始化检查架构：
+
+初始化层级（按优先级排序）：
+1. 核心层 (core): 最基础的环境变量，不依赖任何其他配置
+   - KUSTOS_SECURITY_SECRET_KEY: JWT安全密钥（可选，未设置时使用开发默认密钥）
+   - KUSTOS_APP_DEBUG: 调试模式标志
+
+2. 数据库层 (database): 数据库相关配置
+   - DATABASE_URL: 数据库连接URL（必需）
+   - KUSTOS_STRESS_TEST: 压力测试模式标志（可选）
+
+3. 应用层 (app): FastAPI应用配置（预留）
+
+4. 服务层 (service): 各种服务初始化（预留）
+
+安全要求：
+- 生产环境必须通过环境变量 KUSTOS_SECURITY_SECRET_KEY 设置 JWT 密钥
+- 开发环境无需设置，自动使用 fallback 密钥
+
+使用示例:
+    from app.core.init import init_app
+    
+    # 初始化应用
+    if init_app():
+        print("初始化成功")
+    else:
+        print("初始化失败")
+"""
+import os
+import sys
+from typing import Any, Dict, Optional, List, Callable
+from dataclasses import dataclass, field
+from enum import Enum, auto
+
+# 注意：.env 加载被延迟到 AppInitializer.initialize() 内执行，
+# 避免模块导入期的隐式环境注入污染测试进程与 CLI 工具
+
+
+def _in_pytest() -> bool:
+    """当前是否处于 pytest 测试进程"""
+    return "pytest" in sys.modules or "PYTEST_CURRENT_TEST" in os.environ
+
+
+class InitStage(Enum):
+    """初始化阶段枚举"""
+    CORE = auto()      # 核心层
+    DATABASE = auto()  # 数据库层
+    APP = auto()       # 应用层
+    SERVICE = auto()   # 服务层
+
+
+@dataclass
+class EnvVarConfig:
+    """环境变量配置定义"""
+    name: str                      # 环境变量名称
+    description: str               # 变量描述
+    example: str                   # 示例值
+    required: bool = True          # 是否必需
+    sensitive: bool = False        # 是否为敏感信息（不在日志中显示）
+
+
+@dataclass
+class InitLayer:
+    """初始化层定义"""
+    name: str                      # 层级名称
+    stage: InitStage               # 初始化阶段
+    env_vars: List[EnvVarConfig]   # 该层需要的环境变量
+    init_func: Optional[Callable] = None  # 该层的初始化函数（可选）
+    description: str = ""          # 层级描述
+
+
+# ============================================
+# 环境变量配置定义（新增变量只需在这里添加）
+# ============================================
+
+# 核心层环境变量
+CORE_ENV_VARS = [
+    EnvVarConfig(
+        name="KUSTOS_SECURITY_SECRET_KEY",
+        description="JWT安全密钥，用于令牌签名和验证",
+        example="your-secret-key-here",
+        sensitive=True
+    ),
+    EnvVarConfig(
+        name="KUSTOS_APP_DEBUG",
+        description="调试模式标志，'true'启用调试，'false'为生产模式",
+        example="true",
+        required=False,
+    ),
+]
+
+# 数据库层环境变量
+DATABASE_ENV_VARS = [
+    EnvVarConfig(
+        name="DATABASE_URL",
+        description="数据库连接URL",
+        example="postgresql://user:pass@localhost:5432/kustos"
+    ),
+    EnvVarConfig(
+        name="KUSTOS_INIT_DATABASE",
+        description="数据库初始化模式，'true'启动时执行迁移+管理员引导，'false'仅做就绪校验（生产多容器推荐）",
+        example="false",
+        required=False,
+    ),
+    EnvVarConfig(
+        name="KUSTOS_STRESS_TEST",
+        description="压力测试模式标志，'true'启用压力测试优化",
+        example="false",
+        required=False,
+    ),
+]
+
+# 初始化层定义列表（按优先级排序）
+INIT_LAYERS: List[InitLayer] = [
+    InitLayer(
+        name="核心层",
+        stage=InitStage.CORE,
+        env_vars=CORE_ENV_VARS,
+        description="基础安全配置，不依赖其他模块"
+    ),
+    InitLayer(
+        name="数据库层",
+        stage=InitStage.DATABASE,
+        env_vars=DATABASE_ENV_VARS,
+        description="数据库连接配置"
+    ),
+]
+
+
+class EnvVarChecker:
+    """环境变量检查器"""
+    
+    @staticmethod
+    def check_layer(layer: InitLayer) -> tuple[bool, List[str]]:
+        """
+        检查单个初始化层的环境变量
+        
+        Args:
+            layer: 初始化层定义
+            
+        Returns:
+            tuple: (是否全部通过, 缺失的变量名列表)
+        """
+        missing = []
+        for env_var in layer.env_vars:
+            if env_var.required and not os.environ.get(env_var.name):
+                missing.append(env_var.name)
+        return len(missing) == 0, missing
+    
+    @staticmethod
+    def print_error_report(layers_with_missing: List[tuple[InitLayer, List[str]]]) -> None:
+        """
+        打印环境变量缺失错误报告
+        
+        Args:
+            layers_with_missing: 包含缺失变量的层列表
+        """
+        print("=" * 70)
+        print("错误：缺少必需的环境变量")
+        print("=" * 70)
+        
+        for layer, missing_vars in layers_with_missing:
+            print(f"\n【{layer.name}】")
+            print(f"  描述: {layer.description}")
+            print("  缺失变量:")
+            for var_name in missing_vars:
+                # 查找变量配置
+                var_config = next(
+                    (v for v in layer.env_vars if v.name == var_name), 
+                    None
+                )
+                if var_config:
+                    print(f"    - {var_config.name}")
+                    print(f"      说明: {var_config.description}")
+                    print(f"      示例: {var_config.example}")
+                else:
+                    print(f"    - {var_name}")
+        
+        print("\n" + "=" * 70)
+        print("请设置以下必需的环境变量：")
+        print("")
+
+        for layer in INIT_LAYERS:
+            for var in layer.env_vars:
+                if var.required:
+                    if var.sensitive:
+                        print(f"  {var.name} = 'your-{var.name.lower().replace('_', '-')}-here'")
+                    else:
+                        print(f"  {var.name} = '{var.example}'")
+
+        print("")
+        print("方式一：export 设置（Linux/Mac）")
+        print("  export KUSTOS_SECURITY_SECRET_KEY='your-secret'")
+        print("  export DATABASE_URL='postgresql://user:pass@localhost:5432/kustos'")
+        print("")
+        print("方式二：.env 文件（需要 python-dotenv）")
+        print("     pip install python-dotenv")
+        print("     在项目根目录创建 .env 文件，包含：")
+        
+        for layer in INIT_LAYERS:
+            for var in layer.env_vars:
+                if var.sensitive:
+                    print(f"     {var.name}=your-secret-value")
+                else:
+                    print(f"     {var.name}={var.example}")
+        
+        print("")
+        print("安全提示：")
+        print("  - JWT Secret Key 应该是一串随机的安全字符串")
+        print("  - 在生产环境中，请确保使用强密钥并妥善保管")
+        print("  - 不要将该密钥提交到版本控制")
+        print("=" * 70)
+
+
+class AppInitializer:
+    """应用初始化器，负责服务端完整的初始化流程"""
+
+    def __init__(self, config_path: str = "config.toml"):
+        self.config_path = config_path
+        self.config_manager: Any = None
+        self._logger: Any = None
+        self._checker = EnvVarChecker()
+
+    def _check_all_env_vars(self) -> bool:
+        """
+        检查所有初始化层的环境变量
+        
+        Returns:
+            bool: 所有必需环境变量都存在返回True，否则返回False
+        """
+        layers_with_missing = []
+        
+        for layer in INIT_LAYERS:
+            passed, missing = self._checker.check_layer(layer)
+            if not passed:
+                layers_with_missing.append((layer, missing))
+        
+        if layers_with_missing:
+            self._checker.print_error_report(layers_with_missing)
+            return False
+        
+        return True
+
+    def _init_imports(self) -> bool:
+        """
+        延迟导入依赖模块
+
+        在确认环境变量已设置后，才导入可能触发数据库配置加载的模块
+
+        Returns:
+            bool: 导入是否成功
+        """
+        try:
+            from app.core.config import ConfigManager
+            from app.utils.logging import init_logging, get_logger
+
+            self.config_manager = ConfigManager(self.config_path)
+            self._logger = get_logger("init")
+            return True
+        except ValueError as e:
+            # 数据库配置错误
+            print("=" * 70)
+            print("数据库配置错误")
+            print("=" * 70)
+            print(str(e))
+            print("=" * 70)
+            return False
+        except Exception as e:
+            print(f"导入依赖模块时发生错误: {e}")
+            return False
+
+    def _init_config(self) -> bool:
+        """加载配置（来源：环境变量 + ``app_config`` + 默认值）。
+
+        ``config.toml`` 已弃用——不再要求存在、也不再读取；若容器/仓库里仍残留
+        该文件，仅提示一次以免运维误以为改它会生效。
+        """
+        if os.path.exists(self.config_path):
+            self._logger.info(
+                f"检测到 {self.config_path}：该文件已弃用，配置来源为环境变量 + app_config"
+            )
+
+        try:
+            self.config_manager.reload()
+            return True
+        except Exception as e:
+            self._logger.error(f"配置加载失败: {e}")
+            return False
+
+    def _validate_config(self) -> bool:
+        """
+        执行配置完整性校验
+
+        验证所有关键配置项的合理性，包括：
+        - 数据库配置
+        - 存储路径可写性
+        - 安全配置
+        - 服务器配置
+
+        Returns:
+            bool: 配置校验是否通过
+        """
+        from app.core.config import validate_config
+
+        result = validate_config()
+        result.print_report()
+
+        if not result.is_valid:
+            self._logger.error("配置完整性校验失败，应用无法启动")
+            return False
+
+        if result.warnings:
+            self._logger.warning(f"配置存在 {len(result.warnings)} 个警告，建议检查")
+
+        return True
+
+    _dotenv_loaded = False
+
+    def _load_dotenv_once(self) -> None:
+        """延迟加载 .env 文件 (进程内仅一次, 真实环境变量优先不被覆盖)"""
+        if AppInitializer._dotenv_loaded:
+            return
+        AppInitializer._dotenv_loaded = True
+        try:
+            from dotenv import load_dotenv
+
+            load_dotenv(encoding="utf-8", override=False)
+        except ImportError:
+            pass  # python-dotenv 未安装, 跳过
+
+    def _init_secret_key(self) -> bool:
+        """检查 JWT Secret Key 是否已通过环境变量设置"""
+        secret_key = os.environ.get("KUSTOS_SECURITY_SECRET_KEY")
+        if secret_key:
+            return True
+        else:
+            self._logger.error(
+                "KUSTOS_SECURITY_SECRET_KEY 未设置\n"
+                "  JWT 密钥是必需的，请通过环境变量设置:\n"
+                "    export KUSTOS_SECURITY_SECRET_KEY='your-secret-key'"
+            )
+            return False
+
+    def _init_database(self) -> bool:
+        """初始化数据库。
+
+        模式由环境变量 ``KUSTOS_INIT_DATABASE`` 控制：
+          - true/1/yes/on（默认，开发便捷）→ 启动时执行迁移 + 管理员引导
+          - false/0/no/off（生产多容器）   → 仅做只读就绪校验，
+             schema 需已由独立的 init 任务（scripts/init_db.py）迁移到位
+        """
+        init_db_mode = os.environ.get("KUSTOS_INIT_DATABASE", "true").strip().lower()
+        auto_init = init_db_mode in ("1", "true", "yes", "on")
+
+        from app.utils.db_migrate import get_head_revision
+
+        if auto_init:
+            from app.utils.init_database import init_database
+
+            if not init_database():
+                self._logger.error("数据库初始化失败")
+                return False
+            self._logger.info(f"数据库迁移/初始化完成 (schema head={get_head_revision()})")
+            return True
+
+        from app.utils.init_database import verify_database_ready
+
+        ready, state = verify_database_ready()
+        if not ready:
+            self._logger.critical(
+                "数据库 schema 未就绪，拒绝启动。"
+                "请先运行一次初始化任务: python scripts/init_db.py\n"
+                f"  applied={state.get('applied')}  head={state.get('head')}"
+            )
+            return False
+        self._logger.info(
+            f"数据库就绪校验通过 (schema applied={state.get('applied')} head={state.get('head')})"
+        )
+        return True
+
+    def _init_repository_root(self) -> bool:
+        """初始化仓库根目录"""
+        from app.utils.git_utils import ensure_repository_root
+        
+        try:
+            ensure_repository_root()
+            return True
+        except Exception as e:
+            self._logger.error(f"仓库根目录初始化失败: {e}")
+            return False
+
+    def _init_logging(self) -> bool:
+        """初始化日志系统"""
+        from app.utils.logging import init_logging
+        
+        try:
+            init_logging(
+                log_dir="logs",
+                app_name="kustos",
+                level="info",
+                console_output=True,
+                use_date_directory=True,
+                separate_error_log=True,
+                websocket_output=True
+            )
+            return True
+        except Exception as e:
+            print(f"日志初始化失败: {e}")
+            return False
+
+    def initialize(
+        self,
+        init_db: bool = True,
+    ) -> bool:
+        """
+        执行完整初始化流程
+
+        初始化顺序：
+        1. .env 加载（延迟执行，测试进程跳过）
+        2. 环境变量检查（最高优先级）
+        3. 延迟导入依赖模块
+        4. 配置文件初始化
+        5. 日志系统初始化
+        6. 安全密钥检查
+        7. 数据库初始化（迁移 + 自动引导管理员；由 KUSTOS_INIT_DATABASE 控制自动或就绪校验；测试进程跳过）
+        8. 仓库目录初始化
+
+        Args:
+            init_db: 是否初始化数据库
+
+        Returns:
+            bool: 初始化是否全部成功
+        """
+        # ========== 阶段 0: .env 加载（延迟执行） ==========
+        # pytest 进程禁止加载 .env: 测试环境变量由容器/conftest 显式控制,
+        # 开发机 .env 中的 KUSTOS_ADMIN_* 会与测试 fixture 冲突
+        if not _in_pytest():
+            self._load_dotenv_once()
+
+        # ========== 阶段 1: 环境变量检查（最高优先级） ==========
+        if not self._check_all_env_vars():
+            return False
+
+        # ========== 阶段 2: 延迟导入依赖模块 ==========
+        if not self._init_imports():
+            return False
+
+        # ========== 阶段 3: 配置文件 ==========
+        if not self._init_config():
+            return False
+
+        # ========== 阶段 4: 配置完整性校验 ==========
+        if not self._validate_config():
+            return False
+
+        # ========== 阶段 5: 日志系统 ==========
+        if not self._init_logging():
+            return False
+
+        # ========== 阶段 6: 安全密钥 ==========
+        if not self._init_secret_key():
+            return False
+
+        # ========== 阶段 7: 数据库 ==========
+        # 测试进程跳过: 表结构与管理员由 tests/conftest.py 的 fixture 负责,
+        # 引导管理员会与测试用户数据 (如 admin@example.com) 产生唯一约束冲突
+        if init_db and not _in_pytest():
+            if not self._init_database():
+                return False
+            # 数据库就绪后播种配置表（幂等：只补缺键，不覆盖已有值）。失败仅
+            # 告警——此时配置退回 env + 默认值仍可用
+            try:
+                from app.services.config_store import seed_from_example
+
+                self._logger.info(f"配置表播种: {seed_from_example()}")
+            except Exception as e:
+                self._logger.warning(f"配置表播种失败（配置退回 env/默认值）: {e}")
+
+        # ========== 阶段 8: 仓库目录 ==========
+        if not self._init_repository_root():
+            return False
+
+        self._logger.info("应用初始化完成")
+        return True
+
+    def reset_config(self) -> None:
+        """重置配置为默认值（把模板种子覆盖写入 ``app_config``）"""
+        self._logger.info("重置配置为模板默认值（app_config）")
+        from app.services.config_store import reset_to_seed
+
+        try:
+            reset_to_seed()
+            self.config_manager.get_config(force_reload=True)
+            self._logger.info("配置已重置为默认值")
+        except Exception as e:
+            self._logger.error(f"重置配置失败: {e}")
+
+    def update_config(self, new_config: Dict[str, Any]) -> None:
+        """更新配置（写入 ``app_config``，先持久化后改内存）"""
+        self._logger.info("更新配置（app_config）")
+        self.config_manager.update_config(new_config)
+
+
+# 创建全局初始化器实例
+initializer = AppInitializer()
+
+
+def init_app(
+    init_db: bool = True,
+) -> bool:
+    """
+    初始化应用的便捷函数
+
+    Args:
+        init_db: 是否初始化数据库
+
+    Returns:
+        bool: 初始化是否成功
+    """
+    return initializer.initialize(
+        init_db=init_db,
+    )
+
+
+def get_required_env_vars() -> List[str]:
+    """
+    获取所有必需的环境变量名称列表
+    
+    Returns:
+        List[str]: 环境变量名称列表
+    """
+    return [
+        var.name
+        for layer in INIT_LAYERS
+        for var in layer.env_vars
+        if var.required
+    ]
+
+
+def print_env_var_guide() -> None:
+    """打印环境变量配置指南"""
+    print("=" * 70)
+    print("环境变量配置指南")
+    print("=" * 70)
+    
+    for layer in INIT_LAYERS:
+        print(f"\n【{layer.name}】")
+        print(f"  描述: {layer.description}")
+        print("  必需变量:")
+        for var in layer.env_vars:
+            if var.required:
+                print(f"    - {var.name}")
+                print(f"      说明: {var.description}")
+                print(f"      示例: {var.example}")
+    
+    print("\n" + "=" * 70)

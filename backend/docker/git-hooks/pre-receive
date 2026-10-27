@@ -1,0 +1,100 @@
+#!/bin/sh
+# =============================================================================
+# Kustos pre-receive hook
+#
+# 保护分支校验：拒绝删除受保护分支、拒绝向受保护分支强推（non-fast-forward）。
+# 是否放行由应用裁决（HTTP 403 = 拒绝并回显原因）；应用不可达时 fail-closed。
+#
+# 生效方式：git-cgi / sshd 镜像内 `git config --system core.hooksPath
+#           /opt/kustos/hooks`；本文件随镜像 COPY，运行时由 entrypoint/CMD
+#           生成同目录 hook.conf（应用端点 + 共享密钥 + 仓库根）。
+#
+# 输入（stdin，git 约定）：<old-oid> <new-oid> <ref> 每行一条。
+# 退出码：0 放行；非 0 拒绝（打印原因到 stderr）。
+# =============================================================================
+set -u
+
+HOOK_DIR=$(cd "$(dirname "$0")" && pwd)
+if [ ! -r "$HOOK_DIR/hook.conf" ]; then
+    echo "kustos-hook: hook.conf missing, push rejected (fail-closed)" >&2
+    exit 1
+fi
+# shellcheck disable=SC1091
+. "$HOOK_DIR/hook.conf"
+if [ -z "${KUSTOS_GIT_HOOK_SECRET:-}" ]; then
+    echo "kustos-hook: KUSTOS_GIT_HOOK_SECRET empty, push rejected (fail-closed)" >&2
+    exit 1
+fi
+if [ -z "${KUSTOS_GIT_HOOK_URL:-}" ]; then
+    echo "kustos-hook: KUSTOS_GIT_HOOK_URL empty, push rejected (fail-closed)" >&2
+    exit 1
+fi
+
+ZERO=0000000000000000000000000000000000000000
+ROOT="${KUSTOS_GIT_HOOK_ROOT:-/data/repositories}"
+
+# 解析仓库相对路径（owner/repo）。bare 仓库 hook 的工作目录即 git 目录。
+git_dir=$(cd "${GIT_DIR:-.}" 2>/dev/null && pwd) || {
+    echo "kustos-hook: cannot resolve git dir" >&2
+    exit 1
+}
+case "$git_dir" in
+    "$ROOT"/*) repo_path=${git_dir#"$ROOT"/} ;;
+    *)
+        echo "kustos-hook: repo outside root: $git_dir" >&2
+        exit 1
+        ;;
+esac
+repo_path=${repo_path%.git}
+
+# 收集分支更新（仅 refs/heads；tag 不受保护规则约束）
+updates=""
+while read -r old new ref; do
+    [ -n "${ref:-}" ] || continue
+    case "$ref" in
+        refs/heads/*) ;;
+        *) continue ;;
+    esac
+
+    is_force=false
+    if [ "$old" != "$ZERO" ] && [ "$new" != "$ZERO" ]; then
+        # 无法确证 fast-forward（git 缺失 / merge-base 求解失败，退出码 >1）时
+        # 按强推处理——fail-closed：宁可误杀也不让非快进绕过受保护分支
+        if ! command -v git >/dev/null 2>&1 \
+            || ! git merge-base --is-ancestor "$old" "$new" 2>/dev/null; then
+            is_force=true
+        fi
+    fi
+
+    # ref 名可能包含 " 或 \（git-check-ref-format 允许），做最小 JSON 转义
+    esc=$(printf '%s' "$ref" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')
+    if [ -n "$updates" ]; then
+        updates="$updates,"
+    fi
+    updates="$updates{\"ref\":\"$esc\",\"old\":\"$old\",\"new\":\"$new\",\"is_force\":$is_force}"
+done
+
+# 无分支更新（纯 tag 推送）→ 无需保护校验
+[ -n "$updates" ] || exit 0
+
+body=$(printf '{"repo_path":"%s","updates":[%s]}' "$repo_path" "$updates")
+tmp=$(mktemp) || exit 1
+trap 'rm -f "$tmp"' EXIT INT TERM
+
+code=$(printf '%s' "$body" | curl -sS -o "$tmp" -w '%{http_code}' --max-time 5 \
+    -H 'Content-Type: application/json' \
+    -H "X-Git-Hook-Secret: $KUSTOS_GIT_HOOK_SECRET" \
+    --data-binary @- \
+    "${KUSTOS_GIT_HOOK_URL}/pre-receive" 2>>"$tmp") || {
+    echo "kustos-hook: app unreachable, push rejected (fail-closed)" >&2
+    sed -e 's/^/  /' "$tmp" >&2 2>/dev/null || true
+    exit 1
+}
+
+if [ "$code" = "200" ]; then
+    exit 0
+fi
+
+echo "kustos-hook: pre-receive rejected (HTTP ${code:-?})" >&2
+sed -e 's/^/  /' "$tmp" >&2 2>/dev/null || true
+exit 1

@@ -1,0 +1,706 @@
+"""
+WebSocket连接管理器
+
+管理所有WebSocket连接，提供：
+- 连接注册/注销
+- 用户绑定和查询
+- 分组广播（按仓库、按用户）
+- 心跳检测
+- 消息发送
+"""
+import asyncio
+import json
+import uuid
+from typing import Dict, List, Optional, Set, Any, Callable
+from datetime import datetime, timedelta
+from fastapi import WebSocket, WebSocketDisconnect
+from app.core.config import get_config_value
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class Connection:
+    """
+    WebSocket连接包装类
+    
+    封装单个WebSocket连接，维护连接状态和用户绑定信息
+    """
+    
+    def __init__(self, websocket: WebSocket, connection_id: str):
+        self.websocket = websocket
+        self.connection_id = connection_id
+        self.user_id: Optional[uuid.UUID] = None
+        self.username: Optional[str] = None
+        self.repository_ids: Set[uuid.UUID] = set()  # 用户关注的仓库ID列表
+        self.rooms: Set[uuid.UUID] = set()  # 已加入的聊天房间ID列表
+        self.connected_at: datetime = datetime.now()
+        self.last_ping: datetime = datetime.now()
+        self.is_alive: bool = True
+        self.metadata: Dict[str, Any] = {}  # 扩展元数据
+    
+    async def send(self, message: Dict[str, Any]) -> bool:
+        """
+        发送消息到客户端
+        
+        Args:
+            message: 消息字典，会被序列化为JSON
+            
+        Returns:
+            bool: 发送成功返回True
+        """
+        try:
+            # send_json 内部 json.dumps 不支持 UUID 等类型, 消息 payload 中
+            # (user_id, 消息 id 等) 常见 UUID 对象, 统一 default=str 兜底
+            await self.websocket.send_text(json.dumps(message, ensure_ascii=False, default=str))
+            return True
+        except Exception as e:
+            logger.error(f"发送消息失败 connection_id={self.connection_id}: {e}")
+            self.is_alive = False
+            return False
+    
+    def bind_user(self, user_id: uuid.UUID, username: str) -> None:
+        """绑定用户到连接"""
+        self.user_id = user_id
+        self.username = username
+        logger.info(f"用户绑定 connection_id={self.connection_id}, user_id={user_id}, username={username}")
+    
+    def subscribe_repository(self, repository_id: uuid.UUID) -> None:
+        """订阅仓库消息"""
+        self.repository_ids.add(repository_id)
+        logger.debug(f"订阅仓库 connection_id={self.connection_id}, repository_id={repository_id}")
+    
+    def unsubscribe_repository(self, repository_id: uuid.UUID) -> None:
+        """取消订阅仓库消息"""
+        self.repository_ids.discard(repository_id)
+        logger.debug(f"取消订阅仓库 connection_id={self.connection_id}, repository_id={repository_id}")
+    
+    def update_ping(self) -> None:
+        """更新心跳时间"""
+        self.last_ping = datetime.now()
+    
+    def is_timeout(self, timeout_seconds: Optional[int] = None) -> bool:
+        """检查连接是否超时（缺省读 ``[realtime] ws_heartbeat_timeout_seconds``，默认 120s）"""
+        if timeout_seconds is None:
+            timeout_seconds = int(get_config_value("realtime", "ws_heartbeat_timeout_seconds", 120))
+        if timeout_seconds <= 0:
+            return False
+        return (datetime.now() - self.last_ping).total_seconds() > timeout_seconds
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典表示"""
+        return {
+            "connection_id": self.connection_id,
+            "user_id": self.user_id,
+            "username": self.username,
+            "repository_ids": list(self.repository_ids),
+            "connected_at": self.connected_at.isoformat(),
+            "last_ping": self.last_ping.isoformat(),
+            "is_alive": self.is_alive,
+        }
+
+
+class ConnectionManager:
+    """
+    WebSocket连接管理器（单例模式）
+    
+    管理所有活跃的WebSocket连接，提供高效的连接查询和消息广播功能
+    """
+    
+    _instance: Optional['ConnectionManager'] = None
+    _initialized: bool = False
+    
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+    
+    def __init__(self):
+        if ConnectionManager._initialized:
+            return
+        
+        # 连接存储: connection_id -> Connection
+        self._connections: Dict[str, Connection] = {}
+        
+        # 用户索引: user_id -> set of connection_ids
+        self._user_index: Dict[uuid.UUID, Set[str]] = {}
+        
+        # 仓库索引: repository_id -> set of connection_ids
+        self._repository_index: Dict[uuid.UUID, Set[str]] = {}
+
+        # 房间索引: room_id -> set of connection_ids
+        self._room_index: Dict[uuid.UUID, Set[str]] = {}
+        
+        # 连接ID计数器
+        self._connection_counter: int = 0
+        
+        # 消息处理器注册表: message_type -> handler function
+        self._message_handlers: Dict[str, Callable] = {}
+        
+        # 并发控制锁
+        self._lock: asyncio.Lock = asyncio.Lock()
+
+        # 跨 worker 广播总线（None = 纯进程内，行为与旧版一致）
+        self._bus = None
+
+        # 跨 worker 在线状态注册表（None = 纯本进程，行为与旧版一致）
+        self._presence = None
+
+        ConnectionManager._initialized = True
+
+    def set_bus(self, bus) -> None:
+        """注入跨 worker 广播总线（由 lifespan 启动时调用）"""
+        self._bus = bus
+
+    def set_presence(self, presence) -> None:
+        """注入跨 worker 在线状态注册表（由 lifespan 启动时调用）"""
+        self._presence = presence
+
+    async def _publish(self, scope: str, target_id, message: Dict[str, Any],
+                       exclude_user_id: Optional[uuid.UUID] = None) -> None:
+        """把消息发布到广播总线，供其他 worker 投递（本 worker 已直投）"""
+        if self._bus is None:
+            return
+        try:
+            await self._bus.publish(scope, target_id, message, exclude_user_id)
+        except Exception as e:  # noqa: BLE001 — 发布失败不影响本地投递
+            logger.warning(f"实时广播发布失败 scope={scope}: {e}")
+    
+    def _generate_connection_id(self) -> str:
+        """生成唯一的连接ID（调用者需持有锁）"""
+        self._connection_counter += 1
+        return f"conn_{self._connection_counter}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    
+    async def connect(self, websocket: WebSocket) -> Connection:
+        """
+        接受新的WebSocket连接
+
+        Args:
+            websocket: FastAPI WebSocket对象
+
+        Returns:
+            Connection: 创建的连接对象
+        """
+        # 客户端若用 ``Sec-WebSocket-Protocol`` 携带 token，握手**必须回显**
+        # 其中之一（RFC 6455：响应里的子协议必须来自客户端提供的列表），
+        # 否则浏览器会以 "server did not accept the offered subprotocol" 拒绝连接。
+        # 延迟导入避免包级循环（auth 不依赖 manager，但 __init__ 可能互相引用）。
+        from app.api.ws.auth import requested_subprotocols
+
+        offered = requested_subprotocols(websocket)
+        if offered:
+            # 注意：Starlette 1.x 的签名是单数 subprotocol(str)，旧版才是列表
+            await websocket.accept(subprotocol=offered[0])
+        else:
+            await websocket.accept()
+
+        async with self._lock:
+            connection_id = self._generate_connection_id()
+            connection = Connection(websocket, connection_id)
+            self._connections[connection_id] = connection
+
+        logger.debug(f"WebSocket连接: {connection_id}, 当前: {len(self._connections)}")
+
+        return connection
+    
+    async def disconnect(self, connection: Connection) -> None:
+        """
+        断开WebSocket连接并清理资源
+        
+        Args:
+            connection: 要断开的连接对象
+        """
+        connection.is_alive = False
+        connection_id = connection.connection_id
+
+        async with self._lock:
+            # 从用户索引中移除
+            if connection.user_id is not None:
+                if connection.user_id in self._user_index:
+                    self._user_index[connection.user_id].discard(connection_id)
+                    if not self._user_index[connection.user_id]:
+                        del self._user_index[connection.user_id]
+            
+            # 从仓库索引中移除
+            for repo_id in list(connection.repository_ids):
+                if repo_id in self._repository_index:
+                    self._repository_index[repo_id].discard(connection_id)
+                    if not self._repository_index[repo_id]:
+                        del self._repository_index[repo_id]
+
+            # 捕获房间订阅（用于断开后广播/清理）
+            subscribed_room_ids = set(connection.rooms)
+            for room_id, conn_ids in list(self._room_index.items()):
+                if connection_id in conn_ids:
+                    subscribed_room_ids.add(room_id)
+
+            # 从房间索引中移除
+            for room_id in subscribed_room_ids:
+                if room_id in self._room_index:
+                    self._room_index[room_id].discard(connection_id)
+                    if not self._room_index[room_id]:
+                        del self._room_index[room_id]
+            connection.rooms.clear()
+
+            # 从连接池中移除
+            if connection_id in self._connections:
+                del self._connections[connection_id]
+
+        # 清理跨 worker 在线状态
+        if connection.user_id is not None and self._presence is not None:
+            for room_id in subscribed_room_ids:
+                await self._presence.remove(room_id, connection.user_id)
+
+        # 广播 presence_leave 到所有订阅的房间
+        if connection.user_id is not None and connection.username:
+            for room_id in subscribed_room_ids:
+                try:
+                    await self.send_to_room(room_id, {
+                        "type": "presence_leave",
+                        "room_id": room_id,
+                        "user_id": connection.user_id,
+                        "username": connection.username,
+                        "timestamp": datetime.now().isoformat(),
+                    })
+                except Exception:
+                    pass
+
+        logger.debug(f"WebSocket断开: {connection_id}, 当前连接数: {len(self._connections)}")
+    
+    async def bind_user(self, connection: Connection, user_id: uuid.UUID, username: str) -> None:
+        """
+        将连接绑定到用户
+        
+        Args:
+            connection: 连接对象
+            user_id: 用户ID
+            username: 用户名
+        """
+        async with self._lock:
+            # 如果之前绑定过其他用户，先清理
+            if connection.user_id is not None and connection.user_id != user_id:
+                old_user_id = connection.user_id
+                if old_user_id in self._user_index:
+                    self._user_index[old_user_id].discard(connection.connection_id)
+            
+            # 绑定新用户
+            connection.bind_user(user_id, username)
+            
+            # 更新用户索引
+            if user_id not in self._user_index:
+                self._user_index[user_id] = set()
+            self._user_index[user_id].add(connection.connection_id)
+    
+    async def subscribe_repository(self, connection: Connection, repository_id: uuid.UUID) -> None:
+        """
+        订阅仓库消息
+        
+        Args:
+            connection: 连接对象
+            repository_id: 仓库ID
+        """
+        async with self._lock:
+            connection.subscribe_repository(repository_id)
+            
+            # 更新仓库索引
+            if repository_id not in self._repository_index:
+                self._repository_index[repository_id] = set()
+            self._repository_index[repository_id].add(connection.connection_id)
+    
+    async def unsubscribe_repository(self, connection: Connection, repository_id: uuid.UUID) -> None:
+        """
+        取消订阅仓库消息
+        
+        Args:
+            connection: 连接对象
+            repository_id: 仓库ID
+        """
+        async with self._lock:
+            connection.unsubscribe_repository(repository_id)
+            
+            # 更新仓库索引
+            if repository_id in self._repository_index:
+                self._repository_index[repository_id].discard(connection.connection_id)
+                if not self._repository_index[repository_id]:
+                    del self._repository_index[repository_id]
+    
+    # ==================== 房间管理方法 ====================
+
+    async def subscribe_room(self, connection: Connection, room_id: uuid.UUID) -> None:
+        """
+        订阅房间消息
+
+        Args:
+            connection: 连接对象
+            room_id: 房间ID
+        """
+        async with self._lock:
+            newly_added = room_id not in connection.rooms
+            connection.rooms.add(room_id)
+            if room_id not in self._room_index:
+                self._room_index[room_id] = set()
+            self._room_index[room_id].add(connection.connection_id)
+
+        # 幂等：同一连接重复 subscribe 不重复计数（多连接/多 worker 由引用计数聚合）
+        if newly_added and connection.user_id is not None and self._presence is not None:
+            await self._presence.add(room_id, connection.user_id, connection.username)
+
+    async def unsubscribe_room(self, connection: Connection, room_id: uuid.UUID) -> None:
+        """
+        取消订阅房间消息
+
+        Args:
+            connection: 连接对象
+            room_id: 房间ID
+        """
+        async with self._lock:
+            was_present = room_id in connection.rooms
+            connection.rooms.discard(room_id)
+            if room_id in self._room_index:
+                self._room_index[room_id].discard(connection.connection_id)
+                if not self._room_index[room_id]:
+                    del self._room_index[room_id]
+
+        if was_present and connection.user_id is not None and self._presence is not None:
+            await self._presence.remove(room_id, connection.user_id)
+
+    async def send_to_room(self, room_id: uuid.UUID, message: Dict[str, Any], exclude_user_id: Optional[uuid.UUID] = None) -> int:
+        """发送消息到房间的所有订阅者（本地直投 + 广播到其他 worker）"""
+        count = await self._deliver_room(room_id, message, exclude_user_id)
+        await self._publish("room", room_id, message, exclude_user_id)
+        return count
+
+    async def _deliver_room(self, room_id: uuid.UUID, message: Dict[str, Any], exclude_user_id: Optional[uuid.UUID] = None) -> int:
+        """
+        发送消息到房间的所有订阅者（仅本 worker）
+
+        Args:
+            room_id: 房间ID
+            message: 消息字典
+            exclude_user_id: 排除的用户ID
+
+        Returns:
+            int: 成功发送的连接数
+        """
+        async with self._lock:
+            connection_ids = set(self._room_index.get(room_id, set()))
+        success_count = 0
+
+        for conn_id in connection_ids:
+            async with self._lock:
+                connection = self._connections.get(conn_id)
+            if connection and connection.is_alive:
+                if exclude_user_id is not None and connection.user_id == exclude_user_id:
+                    continue
+                if await connection.send(message):
+                    success_count += 1
+
+        return success_count
+
+    # ==================== 消息发送方法 ====================
+    
+    async def send_to_connection(self, connection_id: str, message: Dict[str, Any]) -> bool:
+        """
+        发送消息到指定连接
+
+        Args:
+            connection_id: 连接ID
+            message: 消息字典
+
+        Returns:
+            bool: 发送成功返回True
+        """
+        async with self._lock:
+            connection = self._connections.get(connection_id)
+        if connection and connection.is_alive:
+            return await connection.send(message)
+        return False
+
+    async def send_to_connection_list(self, connection_ids, message: Dict[str, Any]) -> int:
+        """
+        发送消息到一组连接 (协作会话广播等场景)
+
+        Args:
+            connection_ids: 连接ID列表/集合
+            message: 消息字典
+
+        Returns:
+            int: 成功发送的连接数
+        """
+        success_count = 0
+        for conn_id in set(connection_ids):
+            if await self.send_to_connection(conn_id, message):
+                success_count += 1
+        return success_count
+    
+    async def send_to_user(self, user_id: uuid.UUID, message: Dict[str, Any]) -> int:
+        """发送消息给用户的所有连接（本地直投 + 广播到其他 worker）"""
+        count = await self._deliver_user(user_id, message)
+        await self._publish("user", user_id, message)
+        return count
+
+    async def _deliver_user(self, user_id: uuid.UUID, message: Dict[str, Any]) -> int:
+        """
+        发送消息给用户的所有连接（仅本 worker）
+        
+        Args:
+            user_id: 用户ID
+            message: 消息字典
+            
+        Returns:
+            int: 成功发送的连接数
+        """
+        async with self._lock:
+            connection_ids = set(self._user_index.get(user_id, set()))
+        success_count = 0
+        
+        for conn_id in connection_ids:
+            if await self.send_to_connection(conn_id, message):
+                success_count += 1
+        
+        return success_count
+    
+    async def send_to_repository(self, repository_id: uuid.UUID, message: Dict[str, Any], exclude_user_id: Optional[uuid.UUID] = None) -> int:
+        """广播消息到仓库的所有订阅者（本地直投 + 广播到其他 worker）"""
+        count = await self._deliver_repository(repository_id, message, exclude_user_id)
+        await self._publish("repository", repository_id, message, exclude_user_id)
+        return count
+
+    async def _deliver_repository(self, repository_id: uuid.UUID, message: Dict[str, Any], exclude_user_id: Optional[uuid.UUID] = None) -> int:
+        """
+        广播消息到仓库的所有订阅者（仅本 worker）
+        
+        Args:
+            repository_id: 仓库ID
+            message: 消息字典
+            exclude_user_id: 排除的用户ID（可选，用于不发送给操作者自己）
+            
+        Returns:
+            int: 成功发送的连接数
+        """
+        async with self._lock:
+            connection_ids = set(self._repository_index.get(repository_id, set()))
+        success_count = 0
+        
+        for conn_id in connection_ids:
+            async with self._lock:
+                connection = self._connections.get(conn_id)
+            if connection and connection.is_alive:
+                # 如果指定了排除用户，跳过该用户的连接
+                if exclude_user_id is not None and connection.user_id == exclude_user_id:
+                    continue
+                if await connection.send(message):
+                    success_count += 1
+        
+        return success_count
+    
+    async def broadcast(self, message: Dict[str, Any]) -> int:
+        """广播消息给所有连接（本地直投 + 广播到其他 worker）"""
+        count = await self._deliver_broadcast(message)
+        await self._publish("broadcast", None, message)
+        return count
+
+    async def _deliver_broadcast(self, message: Dict[str, Any]) -> int:
+        """
+        广播消息给所有连接（仅本 worker）
+        
+        Args:
+            message: 消息字典
+            
+        Returns:
+            int: 成功发送的连接数
+        """
+        async with self._lock:
+            snapshot = list(self._connections.items())
+        
+        success_count = 0
+        dead_connections: List[str] = []
+        
+        for conn_id, connection in snapshot:
+            if connection.is_alive:
+                if await connection.send(message):
+                    success_count += 1
+                else:
+                    dead_connections.append(conn_id)
+            else:
+                dead_connections.append(conn_id)
+        
+        # 清理死连接
+        for conn_id in dead_connections:
+            async with self._lock:
+                conn = self._connections.get(conn_id)
+            if conn:
+                await self.disconnect(conn)
+        
+        return success_count
+    
+    # ==================== 消息处理器 ====================
+    
+    def register_handler(self, message_type: str, handler: Callable) -> None:
+        """
+        注册消息处理器
+        
+        Args:
+            message_type: 消息类型
+            handler: 处理函数，接收(connection, message)参数
+        """
+        self._message_handlers[message_type] = handler
+    
+    async def handle_message(self, connection: Connection, message: Dict[str, Any]) -> None:
+        """
+        处理收到的消息
+        
+        Args:
+            connection: 连接对象
+            message: 消息字典
+        """
+        msg_type = message.get("type", "unknown")
+        handler = self._message_handlers.get(msg_type)
+        
+        if handler:
+            try:
+                await handler(connection, message)
+            except Exception as e:
+                logger.error(f"消息处理失败 type={msg_type}: {e}")
+                await connection.send({
+                    "type": "error",
+                    "error": f"消息处理失败: {str(e)}",
+                    "original_type": msg_type
+                })
+        else:
+            logger.warning(f"未找到消息处理器: {msg_type}")
+            await connection.send({
+                "type": "error",
+                "error": f"未知的消息类型: {msg_type}",
+                "supported_types": list(self._message_handlers.keys())
+            })
+    
+    # ==================== 后台任务 ====================
+    
+    async def heartbeat_checker(self) -> None:
+        """
+        心跳检测任务
+        
+        由 lifespan 管理器启动，用于监控连接健康状态
+        """
+        while True:
+            try:
+                await asyncio.sleep(30)
+                await self._cleanup_timeout_connections()
+                await self._refresh_presence()
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"心跳检测任务异常: {e}")
+
+    async def _refresh_presence(self) -> None:
+        """心跳续期本进程有连接的房间的在线状态 TTL"""
+        if self._presence is None:
+            return
+        async with self._lock:
+            room_ids = list(self._room_index.keys())
+        if not room_ids:
+            return
+        try:
+            await self._presence.refresh(room_ids)
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"presence 心跳续期失败: {e}")
+
+    @classmethod
+    def reset_instance(cls) -> None:
+        """重置单例（仅用于测试）"""
+        cls._instance = None
+        cls._initialized = False
+
+    @property
+    def active_connections(self) -> Dict[str, 'Connection']:
+        """获取所有活跃连接"""
+        return self._connections
+
+    @property
+    def user_connections(self) -> Dict[uuid.UUID, Set[str]]:
+        """获取用户连接索引"""
+        return self._user_index
+    
+    
+    async def _cleanup_timeout_connections(self) -> None:
+        """清理超时连接"""
+        async with self._lock:
+            timeout_connections = [
+                conn for conn in self._connections.values()
+                if conn.is_timeout()
+            ]
+        
+        for connection in timeout_connections:
+            logger.info(f"清理超时连接 connection_id={connection.connection_id}")
+            try:
+                await connection.websocket.close(code=1001, reason="Connection timeout")
+            except:
+                pass
+            await self.disconnect(connection)
+    
+    async def get_room_connections(self, room_id: uuid.UUID) -> List['Connection']:
+        """获取房间的所有活跃连接"""
+        async with self._lock:
+            conn_ids = set(self._room_index.get(room_id, set()))
+            return [
+                self._connections[cid] for cid in conn_ids
+                if cid in self._connections and self._connections[cid].is_alive
+            ]
+
+    async def get_room_online_users(self, room_id: uuid.UUID) -> List[Dict[str, Any]]:
+        """获取房间的在线用户列表（按用户去重，跨 worker 聚合）"""
+        if self._presence is not None:
+            try:
+                if await self._presence.enabled():
+                    return await self._presence.list_users(room_id)
+            except Exception as e:  # noqa: BLE001 — 回退本进程
+                logger.warning(f"presence 查询失败，回退本进程: {e}")
+        connections = await self.get_room_connections(room_id)
+        seen: Dict[uuid.UUID, Dict[str, Any]] = {}
+        for conn in connections:
+            if conn.user_id is not None and conn.user_id not in seen:
+                seen[conn.user_id] = {
+                    "user_id": conn.user_id,
+                    "username": conn.username,
+                }
+        return list(seen.values())
+
+    # ==================== 统计信息 ====================
+    
+    async def get_stats(self) -> Dict[str, Any]:
+        """
+        获取连接统计信息
+        
+        Returns:
+            Dict: 统计信息字典
+        """
+        async with self._lock:
+            return {
+                "total_connections": len(self._connections),
+                "active_users": len(self._user_index),
+                "subscribed_repositories": len(self._repository_index),
+                "connections": [conn.to_dict() for conn in self._connections.values()],
+            }
+    
+    async def get_user_connections(self, user_id: uuid.UUID) -> List[Dict[str, Any]]:
+        """
+        获取用户的所有连接信息
+        
+        Args:
+            user_id: 用户ID
+            
+        Returns:
+            List: 连接信息列表
+        """
+        async with self._lock:
+            connection_ids = set(self._user_index.get(user_id, set()))
+            return [
+                self._connections[conn_id].to_dict()
+                for conn_id in connection_ids
+                if conn_id in self._connections
+            ]
+
+
+# 全局连接管理器实例
+manager = ConnectionManager()

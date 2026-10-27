@@ -1,0 +1,96 @@
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Optional
+
+from app.models.async_db import get_async_db
+from app.models.user import User
+from app.api.deps import get_current_user
+from app.services.realtime.chat_service import ChatService
+from app.services.realtime.room_service import RoomService
+from app.core.exception import NotFoundException, ValidationException
+from app.core.constants import DEFAULT_PAGE_SIZE_LARGE, MAX_PAGE_SIZE
+import uuid
+
+
+router = APIRouter(tags=["chat"])
+
+
+@router.get("/api/v1/rooms/unread")
+async def get_unread_counts(
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await ChatService.get_unread_counts(db, current_user.id)
+
+
+@router.post("/api/v1/rooms/{room_id}/read")
+async def mark_room_read(
+    room_id: uuid.UUID,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user),
+):
+    success = await ChatService.mark_read(db, room_id, current_user.id)
+    return {"success": success}
+
+
+@router.get("/api/v1/rooms/{room_id}/messages")
+async def get_room_messages(
+    room_id: uuid.UUID,
+    before: Optional[uuid.UUID] = Query(None),
+    limit: int = Query(DEFAULT_PAGE_SIZE_LARGE, ge=1, le=MAX_PAGE_SIZE),
+    q: Optional[str] = Query(None, description="按内容关键词筛选消息"),
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user),
+):
+    room = await RoomService.get_room(db, room_id)
+    if not room:
+        raise NotFoundException("Room not found", error_code="room_not_found")
+    return await ChatService.get_messages(db, room_id, current_user.id, before=before, limit=limit, q=q)
+
+
+@router.get("/api/v1/messages/search")
+async def search_messages(
+    q: str = Query(..., description="搜索关键词"),
+    limit: int = Query(DEFAULT_PAGE_SIZE_LARGE, ge=1, le=MAX_PAGE_SIZE),
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user),
+):
+    """跨当前用户加入的全部会话检索消息（聊天侧边栏搜索框）"""
+    return await ChatService.search_messages(db, current_user.id, q=q, limit=limit)
+
+
+@router.delete("/api/v1/rooms/{room_id}/messages/{msg_id}")
+async def delete_message(
+    room_id: uuid.UUID,
+    msg_id: uuid.UUID,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user),
+):
+    success = await ChatService.delete_message(db, msg_id, current_user.id)
+    if not success:
+        raise NotFoundException("Message not found", error_code="message_not_found")
+    return {"success": True}
+
+
+@router.post("/api/v1/rooms/{room_id}/messages/{msg_id}/reactions")
+async def add_message_reaction(
+    room_id: uuid.UUID,
+    msg_id: uuid.UUID,
+    payload: dict,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user),
+):
+    emoji: str = (payload or {}).get("emoji") or ""
+    return await ChatService.add_reaction(db, msg_id, current_user.id, emoji)
+
+
+@router.delete("/api/v1/rooms/{room_id}/messages/{msg_id}/reactions")
+async def remove_message_reaction(
+    room_id: uuid.UUID,
+    msg_id: uuid.UUID,
+    payload: dict,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user),
+):
+    emoji: str = (payload or {}).get("emoji") or ""
+    return await ChatService.remove_reaction(db, msg_id, current_user.id, emoji)

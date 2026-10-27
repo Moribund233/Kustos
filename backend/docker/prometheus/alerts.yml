@@ -1,0 +1,56 @@
+# Kustos 告警规则
+# 目标：错误率（5xx 占比）超过 1% 持续 5 分钟触发告警
+groups:
+  - name: kustos
+    rules:
+      # 抓取目标存活：实例宕机 / 抓取中断立即告警（序列消失由 absent() 兜底）
+      - alert: KustosTargetDown
+        expr: up{job="kustos"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: kustos-app
+        annotations:
+          summary: "Kustos 抓取目标不可达"
+          description: "up{job=\"kustos\"} 已为 0 持续 2 分钟，应用可能已宕机或 /metrics 不可达。"
+
+      # 序列消失兜底：up 本身也丢时（target 被移除/配置错误）仍能告警
+      - alert: KustosMetricsAbsent
+        expr: absent(kustos_http_requests_total)
+        for: 5m
+        labels:
+          severity: warning
+          service: kustos-app
+        annotations:
+          summary: "Kustos 请求指标序列消失"
+          description: "kustos_http_requests_total 已 5 分钟无样本，抓取或指标上报可能中断。"
+
+      - record: job:kustos:error_ratio:rate5m
+        expr: |
+          sum(rate(kustos_http_requests_total{status="5xx"}[5m]))
+            / (sum(rate(kustos_http_requests_total[5m])) + 1e-9)
+        labels:
+          service: kustos-app
+
+      - alert: KustosErrorRateHigh
+        expr: job:kustos:error_ratio:rate5m > 0.01
+        for: 5m
+        labels:
+          severity: critical
+          service: kustos-app
+        annotations:
+          summary: "Kustos 请求错误率超过 1%"
+          description: "最近 5 分钟 5xx 占比为 {{ printf \"%.2f\" $value }}%，超过 1% 阈值，请检查后端日志与依赖服务。"
+
+      - alert: KustosRequestLatencyHigh
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(kustos_http_request_duration_seconds_bucket[5m]))
+          ) > 2
+        for: 10m
+        labels:
+          severity: warning
+          service: kustos-app
+        annotations:
+          summary: "Kustos P95 延迟超过 2s"
+          description: "最近 10 分钟 P95 请求延迟为 {{ printf \"%.2f\" $value }}s，超过 2s 阈值。"

@@ -1,0 +1,60 @@
+from sqlalchemy import String, Integer, Text, DateTime, ForeignKey, UniqueConstraint, Uuid as SAUuid
+from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship, mapped_column
+from app.models.base import BaseModel
+
+
+class Commit(BaseModel):
+    """
+    提交数据模型
+    
+    存储Git仓库的提交信息，包括哈希值、作者、提交信息等
+    """
+    __tablename__ = "commits"  # 数据库表名
+
+    hash = mapped_column(String(40), nullable=False)
+    """提交哈希值，长度为40个字符(sha1)
+
+    唯一性为 ``(repository_id, hash)`` 复合：
+    跨仓共享提交（fork/镜像）各仓各存一行，不再互相挤掉。"""
+
+    repository_id = mapped_column(SAUuid(as_uuid=True), ForeignKey("repositories.id"), nullable=False)
+    """仓库ID，外键关联到repositories表"""
+
+    branch_id = mapped_column(SAUuid(as_uuid=True), ForeignKey("branches.id"), nullable=True)
+    """分支ID，外键关联到branches表
+
+    可空：分支删除时提交行**保留**（branch_id 置 NULL），
+    仓库级历史不再随分支删除丢失；分支重建后由后续 push 重新挂靠。"""
+
+    __table_args__ = (
+        UniqueConstraint("repository_id", "hash", name="uq_commits_repository_hash"),
+    )
+    
+    author_name = mapped_column(String(100), nullable=False)
+    """作者名称，长度不超过100个字符"""
+    
+    author_email = mapped_column(String(100), nullable=False)
+    """作者邮箱，长度不超过100个字符"""
+    
+    committer_name = mapped_column(String(100), nullable=False)
+    """提交者名称，长度不超过100个字符"""
+    
+    committer_email = mapped_column(String(100), nullable=False)
+    """提交者邮箱，长度不超过100个字符"""
+    
+    commit_message = mapped_column(Text, nullable=False)
+    """提交信息"""
+    
+    commit_date = mapped_column(DateTime(timezone=True), server_default=func.now())
+    """提交时间，默认值为当前时间"""
+    
+    parent_hashes = mapped_column(Text, nullable=True)
+    """父提交哈希值，多个哈希值用逗号分隔"""
+    
+    # 关系定义
+    repository = relationship("Repository", back_populates="commits")
+    """关联的仓库对象"""
+    
+    branch = relationship("Branch", back_populates="commits")
+    """关联的分支对象"""

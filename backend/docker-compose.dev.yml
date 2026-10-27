@@ -1,0 +1,313 @@
+# =============================================================================
+# Kustos 开发环境 Docker Compose 配置（精简版）
+#
+# 适用场景：
+#   开发环境（自包含）：内置 PostgreSQL（容器 kustos-postgres-dev，独立数据卷）；
+#   前端本地 Vite、网关容器内置 Nginx 反代。
+#
+# 架构:
+#   本地 Vite (localhost:5173) → 前端开发服务器
+#   网关容器 (localhost:8080) → git-http-backend (CGI) — Git HTTP Smart Protocol
+#   网关容器 (localhost:8080) → FastAPI (proxy)        — API / WebSocket
+#   FastAPI → PostgreSQL（compose 内置 postgres 服务）  — 数据库
+#
+# 前置条件:
+#   1. .env 已设置 POSTGRES_PASSWORD（与生产共用 .env）
+#
+# 使用方式:
+#   1. 复制环境变量模板: cp .env.dev .env
+#   2. 修改 .env 中的配置（特别是 JWT 密钥和数据库连接）
+#   3. 启动服务: docker compose -f docker-compose.dev.yml up -d
+#
+# 服务访问地址:
+#   - 前端: http://localhost:5173
+#   - API: 通过外部 Nginx 代理（如 http://localhost:8080/api）
+#   - WebSocket: 通过外部 Nginx 代理（如 ws://localhost:8080/ws）
+#   - Git HTTP: 通过外部 Nginx 代理（如 http://localhost:8080/username/repo.git）
+#
+# 常用命令:
+#   docker compose -f docker-compose.dev.yml logs -f app      # 查看后端日志
+#   docker compose -f docker-compose.dev.yml exec app bash    # 进入后端容器
+#   docker compose -f docker-compose.dev.yml down             # 停止服务
+#   docker compose -f docker-compose.dev.yml down -v          # 停止并清除数据
+# =============================================================================
+
+services:
+  # =============================================
+  # PostgreSQL（开发自包含；独立容器/数据卷，避免与生产 kustos-postgres 冲突）
+  # =============================================
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: kustos-postgres-dev
+    environment:
+      POSTGRES_USER: kustos
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?错误：请设置 POSTGRES_PASSWORD 到 .env 文件}
+      POSTGRES_DB: kustos
+      TZ: Asia/Shanghai
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kustos -d kustos"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # =============================================
+  # FastAPI 后端 (开发模式，支持热重载)
+  # =============================================
+  app:
+    build:
+      context: .
+      dockerfile: docker/dev/Dockerfile.backend
+    container_name: kustos-backend-dev
+    environment:
+      # 数据库连接（compose 内置 PostgreSQL）
+      DATABASE_URL: postgresql://kustos:${POSTGRES_PASSWORD:?错误：请设置 POSTGRES_PASSWORD 到 .env 文件}@postgres:5432/kustos
+      # Redis 连接（可选）
+      # REDIS_URL: ${REDIS_URL:-redis://host.docker.internal:6379/0}
+      # JWT 密钥（必需修改！）
+      KUSTOS_SECURITY_SECRET_KEY: ${KUSTOS_SECURITY_SECRET_KEY:?错误：请设置 JWT 密钥到 .env 文件}
+      # 调试模式
+      KUSTOS_APP_DEBUG: "true"
+      KUSTOS_STRESS_TEST: "false"
+      # 开发模式：启动时自动执行迁移 + 管理员引导（幂等）
+      KUSTOS_INIT_DATABASE: "true"
+      # 日志级别
+      LOG_LEVEL: debug
+      # 时区
+      TZ: Asia/Shanghai
+      # Git 裸仓库根目录（与 git-cgi 共享 volume）
+      KUSTOS_STORAGE_REPO_ROOT: /data/repositories
+      # 首次运行管理员引导（通过 .env 文件配置）
+      KUSTOS_ADMIN_USERNAME: ${KUSTOS_ADMIN_USERNAME:-admin}
+      KUSTOS_ADMIN_PASSWORD: ${KUSTOS_ADMIN_PASSWORD}
+      KUSTOS_ADMIN_EMAIL: ${KUSTOS_ADMIN_EMAIL:-admin@example.com}
+      # 协作内部端点密钥 (与 collab 服务共享; 未设置时用开发默认值)
+      KUSTOS_COLLAB_INTERNAL_SECRET: ${KUSTOS_COLLAB_INTERNAL_SECRET:-dev-collab-internal-secret}
+      # 编排组件状态（admin 控制台）：经只读 docker-socket-proxy 查询容器
+      # Git hook 内部密钥（git-cgi 的 pre/post-receive 回调校验，开发默认值）
+      KUSTOS_GIT_HOOK_SECRET: ${KUSTOS_GIT_HOOK_SECRET:-dev-git-hook-secret}
+      KUSTOS_DOCKER_HOST: "http://docker-socket-proxy:2375"
+      # 窄写 Docker 代理：admin 控制台开关可选服务栈（启停容器）
+      KUSTOS_DOCKER_WRITE_HOST: "http://docker-write-proxy:2376"
+      # 监控栈（Grafana SSO）：开发环境与生产共用 .env 的 GRAFANA_ADMIN_PASSWORD
+      KUSTOS_GRAFANA_URL: "http://grafana:3000"
+      KUSTOS_GRAFANA_SUBPATH: "/grafana"
+      KUSTOS_GRAFANA_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:-}"
+    volumes:
+      # 代码挂载（支持热重载）
+      - .:/app
+      # 仓库数据持久化
+      - repos_dev:/data/repositories
+      # LFS 对象存储持久化
+      - lfs_dev:/data/lfs
+      # 日志目录
+      - ./logs:/app/logs
+    ports:
+      # 暴露后端端口（供外部 Nginx 反向代理 / 前端直连）
+      # 宿主 8002 避免与生产网关 8000 冲突
+      - "127.0.0.1:8002:8000"
+    # 使用 unless-stopped 而非 "no"，确保 reloader 崩溃后自动重启
+    restart: unless-stopped
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+    # 启用交互式终端（方便调试）
+    stdin_open: true
+    tty: true
+    # 使用 host.docker.internal 访问宿主机上的外部服务
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # =============================================
+  # 协作编辑 Yjs 网关 (Hocuspocus 哑管道, 开发模式热重载)
+  # =============================================
+  collab:
+    build:
+      context: .
+      dockerfile: docker/collab/Dockerfile
+    container_name: kustos-collab-dev
+    command: ["node", "--watch", "server.mjs"]
+    environment:
+      KUSTOS_APP_URL: http://app:8000
+      KUSTOS_COLLAB_INTERNAL_SECRET: ${KUSTOS_COLLAB_INTERNAL_SECRET:-dev-collab-internal-secret}
+      TZ: Asia/Shanghai
+    volumes:
+      # 源码挂载 (支持热重载)
+      - ./collab-gateway:/app/gateway
+      # 屏蔽宿主 node_modules (Windows 二进制与 Linux 容器不兼容), 使用镜像内依赖
+      - collab_gateway_node_modules:/app/gateway/node_modules
+    depends_on:
+      - app
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # =============================================
+  # 只读 Docker socket 代理 — 供 app 查询编排组件状态（admin 控制台）
+  # 仅暴露 /containers* 的 GET，禁止一切写操作（POST=0）
+  # =============================================
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:0.2.0
+    container_name: kustos-docker-proxy-dev
+    environment:
+      CONTAINERS: "1"   # 允许 GET /containers/*
+      POST: "0"         # 禁止写操作
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 32M
+        reservations:
+          memory: 16M
+
+  # =============================================
+  # 窄写 Docker 代理 — 供 admin 控制台启停可选服务栈（监控栈）
+  # 仅放行 POST /containers/{id}/{start|stop|restart}; 内网部署，目标容器
+  # 选择在应用层审计，代理层只做最小写窗口
+  # =============================================
+  docker-write-proxy:
+    image: openresty/openresty:1.31.1.1-0-bookworm-fat
+    container_name: kustos-docker-write-proxy-dev
+    volumes:
+      - ./docker/docker-write-proxy/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro
+      - ./docker/docker-write-proxy/docker_write_acl.lua:/etc/nginx/docker_write_acl.lua:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 32M
+        reservations:
+          memory: 16M
+
+  # =============================================
+  # 一次性测试容器（运行后自动退出）
+  # 注意: conftest 会在 setup/teardown 清空 KUSTOS_STORAGE_REPO_ROOT
+  # 下的所有内容, 因此必须用独立的仓库根目录, 严禁挂载 repos_dev 卷
+  # =============================================
+  test:
+    build:
+      context: .
+      dockerfile: docker/dev/Dockerfile.backend
+    container_name: kustos-test-runner
+    environment:
+      DATABASE_URL: postgresql://kustos:${POSTGRES_PASSWORD:?错误：请设置 POSTGRES_PASSWORD 到 .env 文件}@postgres:5432/kustos
+      KUSTOS_SECURITY_SECRET_KEY: test-secret-key-for-testing
+      KUSTOS_APP_DEBUG: "true"
+      KUSTOS_STRESS_TEST: "false"
+      KUSTOS_STORAGE_REPO_ROOT: /tmp/kustos-test-repositories
+      LOG_LEVEL: error
+      TZ: Asia/Shanghai
+    volumes:
+      - .:/app
+    # 直接执行 pytest，跳过 Dockerfile.backend 的 entrypoint（其 init_app 会作用到
+    # 共享的 dev 库；测试用 conftest 自建的临时库，无需也不应触碰 dev 库）
+    entrypoint: []
+    # 默认命令是跑测试，但可以通过命令行覆盖
+    command: ["python", "-m", "pytest", "tests/", "-v"]
+    # 不自动重启（一次性任务）
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+  # =============================================
+  # git-http-backend CGI 容器
+  # =============================================
+  git-cgi:
+    build:
+      # 上下文为 ./docker：镜像需 COPY git-hooks/ 集中 hook 脚本
+      context: ./docker
+      dockerfile: git-cgi/Dockerfile
+      # 针对国内网络环境优化
+      args:
+        - ALPINE_MIRROR=mirrors.aliyun.com
+    container_name: kustos-git-cgi-dev
+    volumes:
+      - repos_dev:/data/repositories
+    environment:
+      FCGI_PORT: "9000"
+      GIT_PROJECT_ROOT: /data/repositories
+      GIT_HTTP_EXPORT_ALL: "1"
+      # Git hook 回调应用（pre/post-receive；开发默认密钥，与 app 环境一致）
+      KUSTOS_APP_URL: http://app:8000
+      KUSTOS_GIT_HOOK_SECRET: ${KUSTOS_GIT_HOOK_SECRET:-dev-git-hook-secret}
+    ports:
+      # 暴露 FCGI 端口（供外部 Nginx 连接）
+      # 宿主 9001 避免与生产 git-cgi 9000 冲突
+      - "127.0.0.1:9001:9000"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  # =============================================
+  # 网关容器（Nginx）：CORS 统一处理 + API/WS/Git 代理
+  # 配置文件: docker/dev/nginx.dev.conf
+  # CORS 白名单: localhost / 127.0.0.1 / 内网段
+  # =============================================
+  gateway:
+    image: nginx:1.27-alpine
+    container_name: kustos-gateway-dev
+    volumes:
+      - ./docker/dev/nginx.dev.conf:/etc/nginx/conf.d/default.conf:ro
+      - repos_dev:/data/repositories
+    ports:
+      # 统一入口: http://localhost:8080 (API / WebSocket / Git HTTP)
+      - "127.0.0.1:8080:80"
+    extra_hosts:
+      # 访问宿主机上的 Vite 开发服务器 (localhost:5173)
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - app
+      - git-cgi
+      - collab
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+# =============================================
+# 数据卷定义
+# =============================================
+volumes:
+  repos_dev:
+    driver: local
+  lfs_dev:
+    driver: local
+  collab_gateway_node_modules:
+    driver: local
+  postgres_dev_data:
+    driver: local
+
+# =============================================
+# 网络配置
+# =============================================
+networks:
+  default:
+    name: kustos-dev-network
+    driver: bridge

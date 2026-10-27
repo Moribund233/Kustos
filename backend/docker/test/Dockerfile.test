@@ -1,0 +1,44 @@
+# =============================================================================
+# Kustos 测试镜像
+#
+# 基于生产应用镜像 (kustos-app:latest) 追加测试依赖, 运行 pytest。
+# 源码通过 compose 卷挂载 (./:/app), 改动代码无需重新构建本镜像。
+#
+# 用法 (在编排目录):
+#   docker compose --profile test build test
+#   docker compose --profile test run --rm test                       # 全量
+#   docker compose --profile test run --rm test tests/test_collab_ws.py
+# =============================================================================
+FROM kustos-app:latest
+
+USER root
+
+# 测试期编译依赖 (与生产构建阶段一致)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    libffi-dev \
+    libgit2-dev \
+    libpq-dev \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+# 清华 PyPI 镜像 (阿里云 CDN 会导致容器内 pip 下载长连接卡死)
+ENV PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple/
+ENV PIP_TRUSTED_HOST=pypi.tuna.tsinghua.edu.cn
+
+# pytest 及测试栈依赖 (对应 pyproject [project.optional-dependencies].dev)
+# 注意: tests/ 被 .dockerignore 排除, 测试代码通过 compose 卷挂载 ./tests:/app/tests
+# （测试库为 PostgreSQL，由 compose 的 postgres 服务提供）
+RUN pip install --no-cache-dir \
+    pytest \
+    pytest-asyncio \
+    respx \
+    httpx \
+    -i https://pypi.tuna.tsinghua.edu.cn/simple/
+
+USER kustos
+
+WORKDIR /app
+
+CMD ["python", "-m", "pytest", "tests/", "-v", "--tb=short"]

@@ -1,0 +1,410 @@
+# =============================================================================
+# Kustos 业务层编排（基础设施见 docker-compose.base.yml，通过 include 合并）
+#
+# 部署 & 运维（推荐）:
+#   bash scripts/install.sh                 # 一键安装（含初始化）
+#   bash scripts/mgt.sh start|stop|status   # 生命周期
+#   bash scripts/mgt.sh upgrade             # 升级（自动备份+迁移）
+#   bash scripts/mgt.sh backup / restore    # 备份 / 恢复
+#   bash scripts/mgt.sh reset-admin         # 重设管理员密码
+#
+# 手工流程（与 install.sh 等价）:
+#   docker compose up -d postgres redis
+#   docker compose --profile init run --rm init
+#   docker compose up -d
+#
+# 镜像版本控制:
+#   KUSTOS_IMAGE_TAG    镜像标签（默认 latest；固定版本如 v0.1.0）
+#   KUSTOS_IMAGE_PREFIX 镜像前缀（默认 kustos；推送私有仓库时设置为
+#                        registry.example.com/kustos，并配合 docker compose pull）
+# =============================================================================
+
+include:
+  - docker-compose.base.yml
+
+services:
+  # FastAPI 后端
+  app:
+    image: ${KUSTOS_IMAGE_PREFIX:-kustos}-app:${KUSTOS_IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kustos-app
+    environment:
+      DATABASE_URL: postgresql://kustos:${POSTGRES_PASSWORD:?必需设置数据库密码}@postgres:5432/kustos
+      REDIS_URL: redis://redis:6379/0
+      KUSTOS_SECURITY_SECRET_KEY: ${KUSTOS_SECURITY_SECRET_KEY:?必需设置 JWT 密钥}
+      KUSTOS_APP_DEBUG: "${KUSTOS_APP_DEBUG:-false}"
+      KUSTOS_STRESS_TEST: "false"
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
+      # 生产多容器：schema 迁移由 init 服务完成，app 启动仅做只读就绪校验
+      KUSTOS_INIT_DATABASE: "false"
+      KUSTOS_STORAGE_REPO_ROOT: /data/repositories
+      TZ: Asia/Shanghai
+      KUSTOS_ADMIN_USERNAME: ${KUSTOS_ADMIN_USERNAME:-admin}
+      KUSTOS_ADMIN_PASSWORD: ${KUSTOS_ADMIN_PASSWORD:?必需设置管理员初始密码}
+      KUSTOS_ADMIN_EMAIL: ${KUSTOS_ADMIN_EMAIL:-admin@kustos.local}
+      KUSTOS_COLLAB_INTERNAL_SECRET: ${KUSTOS_COLLAB_INTERNAL_SECRET:?必需设置协作网关内部密钥 (scripts/generate_env.py)}
+      # 编排组件状态：经只读 docker-socket-proxy 查询容器状态（admin 控制台）
+      # Git hook 内部密钥（git-cgi/sshd 的 pre/post-receive 回调校验，与两者共享）
+      KUSTOS_GIT_HOOK_SECRET: ${KUSTOS_GIT_HOOK_SECRET:?必需设置 Git hook 内部密钥 (scripts/generate_env.py)}
+      KUSTOS_DOCKER_HOST: "http://docker-socket-proxy:2375"
+      # 窄写 Docker 代理：admin 控制台开关可选服务栈（启停容器，仅 start/stop/restart）
+      KUSTOS_DOCKER_WRITE_HOST: "http://docker-write-proxy:2376"
+      # 监控栈（Grafana SSO）：内网地址 + 部署注入的管理员凭据（监控栈未启用时留空无害）
+      KUSTOS_GRAFANA_URL: "http://grafana:3000"
+      KUSTOS_GRAFANA_SUBPATH: "/grafana"
+      KUSTOS_GRAFANA_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:-}"
+      # 内置 Agent（key 只经环境变量注入，不写入 config.toml/数据库）
+      KUSTOS_AGENT_ENABLED: "${KUSTOS_AGENT_ENABLED:-false}"
+      KUSTOS_AGENT_API_KEY: "${KUSTOS_AGENT_API_KEY:-}"
+      # 语义检索开关（key 复用上面的 KUSTOS_AGENT_API_KEY；未配 key 时语义自动降级为关键词，
+      # search_code 响应的 semantic_used 会如实标记为 false）
+      KUSTOS_SEARCH_EMBEDDING_ENABLED: "${KUSTOS_SEARCH_EMBEDDING_ENABLED:-false}"
+    volumes:
+      - repos:/data/repositories
+      - lfs:/data/lfs
+      - app-logs:/app/logs
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+    ports:
+      - "127.0.0.1:8001:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - default
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 512M
+
+  # 内置 Agent 作业 worker（arq 消费；Redis 不可用时 app 内联兜底，本服务可不启）
+  agent-worker:
+    image: ${KUSTOS_IMAGE_PREFIX:-kustos}-app:${KUSTOS_IMAGE_TAG:-latest}
+    container_name: kustos-agent-worker
+    command: ["arq", "app.services.agent.worker.WorkerSettings"]
+    environment:
+      DATABASE_URL: postgresql://kustos:${POSTGRES_PASSWORD:?必需设置数据库密码}@postgres:5432/kustos
+      REDIS_URL: redis://redis:6379/0
+      KUSTOS_SECURITY_SECRET_KEY: ${KUSTOS_SECURITY_SECRET_KEY:?必需设置 JWT 密钥}
+      KUSTOS_STRESS_TEST: "false"
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
+      KUSTOS_INIT_DATABASE: "false"
+      KUSTOS_STORAGE_REPO_ROOT: /data/repositories
+      TZ: Asia/Shanghai
+      # 模型 provider key 仅经环境变量注入（请求可在内存携带 per-request key）
+      KUSTOS_AGENT_ENABLED: "${KUSTOS_AGENT_ENABLED:-false}"
+      KUSTOS_AGENT_API_KEY: "${KUSTOS_AGENT_API_KEY:-}"
+      # 语义检索开关（key 复用上面的 KUSTOS_AGENT_API_KEY；未配 key 时语义自动降级为关键词，
+      # search_code 响应的 semantic_used 会如实标记为 false）
+      KUSTOS_SEARCH_EMBEDDING_ENABLED: "${KUSTOS_SEARCH_EMBEDDING_ENABLED:-false}"
+    volumes:
+      - repos:/data/repositories
+      - app-logs:/app/logs
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - default
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  # 协作编辑 Yjs 网关 (Hocuspocus 哑管道: CRDT 同步 + app 回调)
+  # 多副本就绪: 移除 container_name 以允许 --scale collab=N;
+  # 同一文档落在不同副本时经 Redis pub/sub 收敛 (m4)。默认仍单副本,
+  # nginx 动态解析与负载均衡留待真正扩容时处理 (见 docs/plans/collab-f204-vs-cwm.md 5.6)。
+  collab:
+    image: ${KUSTOS_IMAGE_PREFIX:-kustos}-collab:${KUSTOS_IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: docker/collab/Dockerfile
+    environment:
+      KUSTOS_APP_URL: http://app:8000
+      KUSTOS_COLLAB_INTERNAL_SECRET: ${KUSTOS_COLLAB_INTERNAL_SECRET:?必需设置协作网关内部密钥 (scripts/generate_env.py)}
+      # 配置后启用: 跨副本即时同步 (pub/sub) + 会话快照持久化
+      REDIS_URL: redis://redis:6379/0
+      KUSTOS_COLLAB_SESSION_TTL_MS: "${KUSTOS_COLLAB_TTL_MS:-600000}"
+      KUSTOS_COLLAB_MAX_CONTENT_CHARS: "${KUSTOS_COLLAB_MAX_CONTENT_CHARS:-2000000}"
+      KUSTOS_COLLAB_MAX_CONNECTIONS_PER_DOC: "${KUSTOS_COLLAB_MAX_CONNECTIONS_PER_DOC:-50}"
+      TZ: Asia/Shanghai
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - default
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.2'
+          memory: 128M
+
+  # git-http-backend CGI
+  git-cgi:
+    image: ${KUSTOS_IMAGE_PREFIX:-kustos}-git-cgi:${KUSTOS_IMAGE_TAG:-latest}
+    build:
+      # 上下文为 ./docker：镜像需 COPY git-hooks/ 集中 hook 脚本
+      context: ./docker
+      dockerfile: git-cgi/Dockerfile
+    container_name: kustos-git-cgi
+    volumes:
+      - repos:/data/repositories
+    environment:
+      FCGI_PORT: "9000"
+      GIT_PROJECT_ROOT: /data/repositories
+      GIT_HTTP_EXPORT_ALL: "1"
+      # Git hook 回调应用（pre/post-receive；密钥与 app 共享，未配置则 hook fail-closed）
+      KUSTOS_APP_URL: http://app:8000
+      KUSTOS_GIT_HOOK_SECRET: ${KUSTOS_GIT_HOOK_SECRET:?必需设置 Git hook 内部密钥 (scripts/generate_env.py)}
+    ports:
+      - "127.0.0.1:9000:9000"
+    restart: unless-stopped
+    networks:
+      - default
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+        reservations:
+          cpus: '0.1'
+          memory: 32M
+
+  # OpenResty 网关（镜像内嵌 Web 构建产物，见 docker/gateway/Dockerfile）
+  gateway:
+    image: ${KUSTOS_IMAGE_PREFIX:-kustos}-gateway:${KUSTOS_IMAGE_TAG:-latest}
+    build:
+      # 上下文为 client/web：容器内完成 pnpm build，宿主机无需 Node/pnpm
+      context: ./client/web
+      dockerfile: ../../docker/gateway/Dockerfile
+    container_name: kustos-gateway
+    ports:
+      - "${KUSTOS_GATEWAY_PORT:-8000}:8000"
+    volumes:
+      - ./docker/gateway/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro
+      # Admin 白名单 Lua（/api/app/* 与 /grafana/* 共用），运行时读取
+      - ./docker/gateway/admin_acl.lua:/etc/nginx/admin_acl.lua:ro
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      # Admin 控制台来源白名单 (IP / IPv4 CIDR，逗号分号或空格分隔)。
+      # 由 scripts/generate_env.py 写入 .env；留空 = 网关拒绝一切 admin API。
+      KUSTOS_ADMIN_ALLOWED_SOURCES: "${KUSTOS_ADMIN_ALLOWED_SOURCES:-}"
+    networks:
+      - default
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      app:
+        condition: service_healthy
+      git-cgi:
+        condition: service_started
+      collab:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 64M
+
+  # SSH 服务器 — Git over SSH
+  sshd:
+    image: ${KUSTOS_IMAGE_PREFIX:-kustos}-sshd:${KUSTOS_IMAGE_TAG:-latest}
+    build:
+      # 上下文为 ./docker：镜像需 COPY git-hooks/ 集中 hook 脚本
+      context: ./docker
+      dockerfile: ssh/Dockerfile
+    container_name: kustos-sshd
+    ports:
+      - "127.0.0.1:2222:2222"
+    volumes:
+      - repos:/data/repositories
+    environment:
+      # Git hook 回调应用（SSH push 的 pre/post-receive）
+      KUSTOS_APP_URL: http://app:8000
+      KUSTOS_GIT_HOOK_SECRET: ${KUSTOS_GIT_HOOK_SECRET:?必需设置 Git hook 内部密钥 (scripts/generate_env.py)}
+      KUSTOS_DB_URL: "host=postgres dbname=kustos user=kustos password=${POSTGRES_PASSWORD:?必需设置数据库密码}"
+    networks:
+      - default
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 64M
+
+  # 只读 Docker socket 代理 — 供 app 查询编排组件状态（admin 控制台）
+  # 仅暴露 /containers* 的 GET，禁止一切写操作（POST=0），
+  # 避免把 Docker 控制面直接交给应用容器。
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:0.2.0
+    container_name: kustos-docker-proxy
+    environment:
+      CONTAINERS: "1"   # 允许 GET /containers/*
+      POST: "0"         # 禁止写操作
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - default
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 32M
+        reservations:
+          cpus: '0.05'
+          memory: 16M
+
+  # 窄写 Docker 代理 — 仅放行应用对项目的 start/stop/restart（admin 控制台开关
+  # 监控栈等可选服务栈）。读仍走 docker-socket-proxy（只读）；本代理严格限定
+  # 方法/路径，不给 create/exec 等控制面权限（见 docker/docker-write-proxy）。
+  # 内网部署场景，目标容器选择在应用层审计，代理层只做最小写窗口。
+  docker-write-proxy:
+    image: openresty/openresty:1.31.1.1-0-bookworm-fat
+    container_name: kustos-docker-write-proxy
+    volumes:
+      - ./docker/docker-write-proxy/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro
+      - ./docker/docker-write-proxy/docker_write_acl.lua:/etc/nginx/docker_write_acl.lua:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - default
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 32M
+        reservations:
+          cpus: '0.05'
+          memory: 16M
+  # 运行: docker compose --profile init run --rm init
+  init:
+    image: ${KUSTOS_IMAGE_PREFIX:-kustos}-app:${KUSTOS_IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kustos-init
+    command: ["python", "scripts/init_db.py"]
+    profiles: ["init"]
+    environment:
+      DATABASE_URL: postgresql://kustos:${POSTGRES_PASSWORD:?必需设置数据库密码}@postgres:5432/kustos
+      KUSTOS_SECURITY_SECRET_KEY: ${KUSTOS_SECURITY_SECRET_KEY:?必需设置 JWT 密钥}
+      KUSTOS_APP_DEBUG: "${KUSTOS_APP_DEBUG:-false}"
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
+      TZ: Asia/Shanghai
+      KUSTOS_ADMIN_USERNAME: ${KUSTOS_ADMIN_USERNAME:-admin}
+      KUSTOS_ADMIN_PASSWORD: ${KUSTOS_ADMIN_PASSWORD:?必需设置管理员初始密码}
+      KUSTOS_ADMIN_EMAIL: ${KUSTOS_ADMIN_EMAIL:-admin@kustos.local}
+    volumes:
+      - app-logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - default
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.2'
+          memory: 128M
+
+  # 测试容器（专用 profile: docker compose --profile test run --rm test [pytest 参数]）
+  test:
+    build:
+      context: .
+      dockerfile: docker/test/Dockerfile.test
+    profiles: ["test"]
+    environment:
+      DATABASE_URL: postgresql://kustos:${POSTGRES_PASSWORD:?必需设置数据库密码}@postgres:5432/kustos
+      KUSTOS_SECURITY_SECRET_KEY: test-secret-key-not-for-production
+      KUSTOS_STRESS_TEST: "false"
+      LOG_LEVEL: warning
+      TZ: Asia/Shanghai
+    volumes:
+      # 挂载源码, 测试始终运行最新代码, 无需重建镜像
+      - ./tests:/app/tests
+      # docker/ 也需挂载：nginx/compose 等静态配置的回归断言（网关封禁
+      # git-internal）读的是仓库实况，否则是镜像构建时烤入的副本
+      - ./docker:/app/docker:ro
+      # 应用代码整包挂载（app/ 是唯一的导入根，controller 与 api 已并入）
+      - ./app:/app/app
+      - ./alembic:/app/alembic
+      # config.example.toml 也需挂载：播种与模板护栏断言读的是仓库实况，
+      # 否则容器内是镜像构建时烤入的副本，模板改动不生效
+      - ./config.example.toml:/app/config.example.toml
+      # admin 组件目录只读挂载：元数据一致性护栏断言 configField.ts 的
+      # 可编辑节/只读字段与 SECTION_META 对齐（client/ 整体不进测试镜像）
+      - ./client/web/src/components/admin:/app/client/web/src/components/admin:ro
+      # scripts 也需挂载：部分用例直接覆盖运维脚本逻辑（如 migrate_lfs_layout），
+      # 否则容器内是镜像构建时烤入的副本，改动不生效
+      - ./scripts:/app/scripts
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - default
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+
+volumes:
+  repos:
+    driver: local
+  lfs:
+    driver: local
+  app-logs:
+    driver: local

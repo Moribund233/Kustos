@@ -1,0 +1,480 @@
+"""
+仓库代码浏览控制器层
+
+处理代码浏览相关的 HTTP 请求：
+- 文件树浏览
+- 文件内容查看
+- 提交历史
+- 代码对比
+"""
+from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from typing import Optional
+
+from app.api.prefixes import get_route_prefix
+from app.core.permissions import require_repo_read, require_repo_permission, Action
+from app.models.async_db import get_async_db
+from app.models import Repository
+from app.models.user import User
+from app.api.deps import get_current_user
+from app.services.repository_browser_service import (
+    get_tree_entries,
+    get_blob_content,
+    get_commits,
+    get_diff,
+    get_blame,
+    get_commit_graph,
+    compare,
+    get_readme_content,
+    get_file_symbols,
+    detect_file_language,
+    commit_file,
+    remove_file,
+    move_file
+)
+from app.utils.git_utils import get_repository_storage_path
+from app.core.exception import NotFoundException
+import uuid
+
+# 创建路由实例
+# router 级读可见性——公开仓匿名放行、私仓需 REPO_READ（缺仓 404 先于认证）
+router = APIRouter(
+    prefix=get_route_prefix("repository_browser"),
+    tags=["repository-browser"],
+    dependencies=[Depends(require_repo_read())],
+)
+
+
+async def _get_repo_path(repo_id: uuid.UUID, db: AsyncSession) -> str:
+    """
+    获取仓库物理路径
+
+    Args:
+        repo_id: 仓库ID
+        db: 数据库会话
+
+    Returns:
+        str: 仓库物理路径
+
+    Raises:
+        NotFoundException: 仓库不存在
+    """
+    result = await db.execute(select(Repository).filter(Repository.id == repo_id))
+    repo = result.scalar_one_or_none()
+    if not repo:
+        raise NotFoundException(detail="Repository not found", error_code="repository_not_found")
+
+    return get_repository_storage_path(repo.path)
+
+
+@router.get("/{repo_id}/tree")
+async def get_repository_tree(
+    repo_id: uuid.UUID,
+    ref: str = Query("HEAD", description="分支名或提交SHA"),
+    path: str = Query("", description="子目录路径"),
+    last_commit: bool = Query(False, description="是否附带每个条目（文件/目录）最近提交信息"),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    获取仓库文件树
+
+    Args:
+        repo_id: 仓库ID
+        ref: 分支名或提交SHA，默认 HEAD
+        path: 子目录路径，默认根目录
+        last_commit: 是否附带每个条目（文件/目录）最近提交信息
+        db: 数据库会话
+
+    Returns:
+        dict: 文件树数据
+
+    Raises:
+        HTTPException: 仓库或路径不存在
+    """
+    repo_path = await _get_repo_path(repo_id, db)
+    return await get_tree_entries(repo_path, ref=ref, path=path, last_commit=last_commit)
+
+
+@router.get("/{repo_id}/blob")
+async def get_repository_blob(
+    repo_id: uuid.UUID,
+    path: str = Query(..., description="文件路径"),
+    ref: str = Query("HEAD", description="分支名或提交SHA"),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    获取文件内容
+
+    Args:
+        repo_id: 仓库ID
+        path: 文件路径（必填）
+        ref: 分支名或提交SHA，默认 HEAD
+        db: 数据库会话
+
+    Returns:
+        dict: 文件内容数据
+
+    Raises:
+        HTTPException: 文件不存在或是目录
+    """
+    repo_path = await _get_repo_path(repo_id, db)
+    return await get_blob_content(repo_path, ref=ref, path=path)
+
+
+class FileCommitRequest(BaseModel):
+    """文件提交请求体"""
+    content: str = Field(..., description="文件文本内容")
+    message: Optional[str] = Field(None, description="提交信息, 默认 Update <path>")
+    branch: Optional[str] = Field(None, description="目标分支, 默认仓库默认分支")
+
+
+@router.put("/{repo_id}/contents/{file_path:path}")
+async def update_repository_file(
+    repo_id: uuid.UUID,
+    file_path: str,
+    data: FileCommitRequest,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user),
+    _perm: None = Depends(require_repo_permission(Action.REPO_WRITE, "write repository files")),
+):
+    """
+    在指定分支创建/更新文件并提交 (Editor 保存链路)
+
+    空仓库时创建初始提交并建立默认分支
+    """
+    result = await db.execute(select(Repository).filter(Repository.id == repo_id))
+    repo = result.scalar_one_or_none()
+    if not repo:
+        raise NotFoundException(detail="Repository not found", error_code="repository_not_found")
+
+    repo_path = await _get_repo_path(repo_id, db)
+    branch = data.branch or repo.default_branch or "main"
+    message = data.message or f"Update {file_path}"
+
+    # 本地 pygit2 写统一过保护裁决（与 pre-receive 同一规则）
+    from app.services.git_event_service import ensure_local_write
+    await ensure_local_write(db, repo_id, branch)
+
+    return await commit_file(
+        repo_path,
+        branch,
+        file_path,
+        data.content,
+        current_user.full_name or current_user.username,
+        current_user.email,
+        message,
+    )
+
+
+@router.delete("/{repo_id}/contents/{file_path:path}")
+async def delete_repository_file(
+    repo_id: uuid.UUID,
+    file_path: str,
+    branch: Optional[str] = Query(None, description="目标分支, 默认仓库默认分支"),
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user),
+    _perm: None = Depends(require_repo_permission(Action.REPO_WRITE, "delete repository files")),
+):
+    """在指定分支删除文件并提交"""
+    result = await db.execute(select(Repository).filter(Repository.id == repo_id))
+    repo = result.scalar_one_or_none()
+    if not repo:
+        raise NotFoundException(detail="Repository not found", error_code="repository_not_found")
+
+    repo_path = await _get_repo_path(repo_id, db)
+    target_branch = branch or repo.default_branch or "main"
+
+    # 本地 pygit2 写统一过保护裁决
+    from app.services.git_event_service import ensure_local_write
+    await ensure_local_write(db, repo_id, target_branch)
+
+    return await remove_file(
+        repo_path,
+        target_branch,
+        file_path,
+        current_user.full_name or current_user.username,
+        current_user.email,
+        f"Delete {file_path}",
+    )
+
+
+class FileMoveRequest(BaseModel):
+    """文件重命名/移动请求体"""
+    from_path: str = Field(..., min_length=1, description="源文件路径")
+    to_path: str = Field(..., min_length=1, description="目标路径")
+    message: Optional[str] = Field(None, description="提交信息, 默认 Move <from> -> <to>")
+    branch: Optional[str] = Field(None, description="目标分支, 默认仓库默认分支")
+
+
+@router.post("/{repo_id}/contents/move")
+async def move_repository_file(
+    repo_id: uuid.UUID,
+    data: FileMoveRequest,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user),
+    _perm: None = Depends(require_repo_permission(Action.REPO_WRITE, "move repository files")),
+):
+    """
+    在指定分支重命名/移动文件并提交 (单次提交内 copy+delete)
+
+    目标父目录不存在时自动创建; 目标已存在则返回 409。
+    """
+    result = await db.execute(select(Repository).filter(Repository.id == repo_id))
+    repo = result.scalar_one_or_none()
+    if not repo:
+        raise NotFoundException(detail="Repository not found", error_code="repository_not_found")
+
+    repo_path = await _get_repo_path(repo_id, db)
+    branch = data.branch or repo.default_branch or "main"
+    message = data.message or f"Move {data.from_path} -> {data.to_path}"
+
+    # 本地 pygit2 写统一过保护裁决
+    from app.services.git_event_service import ensure_local_write
+    await ensure_local_write(db, repo_id, branch)
+
+    return await move_file(
+        repo_path,
+        branch,
+        data.from_path,
+        data.to_path,
+        current_user.full_name or current_user.username,
+        current_user.email,
+        message,
+    )
+
+
+@router.get("/{repo_id}/commits")
+async def get_repository_commits(
+    repo_id: uuid.UUID,
+    ref: str = Query("HEAD", description="分支名"),
+    path: Optional[str] = Query(None, description="特定文件路径"),
+    page: int = Query(1, ge=1, description="页码"),
+    per_page: int = Query(30, ge=1, le=100, description="每页数量"),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    获取提交历史
+
+    Args:
+        repo_id: 仓库ID
+        ref: 分支名，默认 HEAD
+        path: 特定文件路径，None 表示所有提交
+        page: 页码，默认 1
+        per_page: 每页数量，默认 30
+        db: 数据库会话
+
+    Returns:
+        dict: 提交历史数据
+
+    Raises:
+        HTTPException: 仓库不存在
+    """
+    repo_path = await _get_repo_path(repo_id, db)
+    return await get_commits(repo_path, ref=ref, path=path, page=page, per_page=per_page)
+
+
+@router.get("/{repo_id}/diff")
+async def get_repository_diff(
+    repo_id: uuid.UUID,
+    head: str = Query(..., description="对比提交SHA"),
+    base: Optional[str] = Query(None, description="基准提交SHA"),
+    path: Optional[str] = Query(None, description="特定文件路径"),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    获取代码差异
+
+    Args:
+        repo_id: 仓库ID
+        head: 对比提交SHA（必填）
+        base: 基准提交SHA，None 表示与空树对比
+        path: 特定文件路径，None 表示所有文件
+        db: 数据库会话
+
+    Returns:
+        dict: 差异数据
+
+    Raises:
+        HTTPException: 提交不存在
+    """
+    repo_path = await _get_repo_path(repo_id, db)
+    return await get_diff(repo_path, base=base, head=head, path=path)
+
+
+@router.get("/{repo_id}/blame")
+async def get_repository_blame(
+    repo_id: uuid.UUID,
+    path: str = Query(..., description="文件路径"),
+    ref: str = Query("HEAD", description="分支名或提交SHA"),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    获取文件行级追溯 (Blame)
+
+    Args:
+        repo_id: 仓库ID
+        path: 文件路径（必填）
+        ref: 分支名或提交SHA，默认 HEAD
+        db: 数据库会话
+
+    Returns:
+        dict: 按 hunk 聚合的行级作者信息
+
+    Raises:
+        HTTPException: 仓库/引用/文件不存在
+    """
+    repo_path = await _get_repo_path(repo_id, db)
+    return await get_blame(repo_path, ref=ref, path=path)
+
+
+@router.get("/{repo_id}/graph")
+async def get_repository_graph(
+    repo_id: uuid.UUID,
+    ref: str = Query("HEAD", description="起始分支名或提交SHA"),
+    limit: int = Query(100, ge=1, le=500, description="最大节点数"),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    获取提交图（拓扑序节点 + 父边 + 引用标签）
+
+    Args:
+        repo_id: 仓库ID
+        ref: 起始引用，默认 HEAD
+        limit: 最大节点数，默认 100
+        db: 数据库会话
+
+    Returns:
+        dict: 提交图节点列表，由前端据 parents 计算泳道布局
+
+    Raises:
+        HTTPException: 仓库或引用不存在
+    """
+    repo_path = await _get_repo_path(repo_id, db)
+    return await get_commit_graph(repo_path, ref=ref, limit=limit)
+
+
+@router.get("/{repo_id}/compare")
+async def get_repository_compare(
+    repo_id: uuid.UUID,
+    base: str = Query(..., description="基准分支/标签/提交"),
+    head: str = Query(..., description="目标分支/标签/提交"),
+    path: Optional[str] = Query(None, description="特定文件路径"),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    对比两个引用（base...head）
+
+    Args:
+        repo_id: 仓库ID
+        base: 基准引用（必填）
+        head: 目标引用（必填）
+        path: 特定文件路径，None 表示所有文件
+        db: 数据库会话
+
+    Returns:
+        dict: 合并基、领先提交数、提交列表与逐文件差异
+
+    Raises:
+        HTTPException: 仓库或引用不存在
+    """
+    repo_path = await _get_repo_path(repo_id, db)
+    return await compare(repo_path, base=base, head=head, path=path)
+
+
+@router.get("/{repo_id}/readme")
+async def get_repository_readme(
+    repo_id: uuid.UUID,
+    ref: str = Query("HEAD", description="分支名或提交SHA"),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    获取 README 文件内容
+
+    自动查找 README.md, README.rst, README.txt, README 等常见 README 文件
+
+    Args:
+        repo_id: 仓库ID
+        ref: 分支名或提交SHA，默认 HEAD
+        db: 数据库会话
+
+    Returns:
+        dict: README 文件信息
+        {
+            "found": bool,
+            "filename": str or None,
+            "content": str or None,
+            "language": str,
+            "encoding": str
+        }
+    """
+    repo_path = await _get_repo_path(repo_id, db)
+    return await get_readme_content(repo_path, ref=ref)
+
+
+@router.get("/{repo_id}/symbols")
+async def get_repository_file_symbols(
+    repo_id: uuid.UUID,
+    path: str = Query(..., description="文件路径"),
+    ref: str = Query("HEAD", description="分支名或提交SHA"),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    获取文件符号（函数、类、变量等）
+
+    目前支持 Python 文件的符号提取，其他语言返回空列表
+
+    Args:
+        repo_id: 仓库ID
+        path: 文件路径（必填）
+        ref: 分支名或提交SHA，默认 HEAD
+        db: 数据库会话
+
+    Returns:
+        dict: 符号列表
+        {
+            "path": str,
+            "language": str,
+            "symbols": [
+                {
+                    "name": str,
+                    "type": str,
+                    "line": int
+                }
+            ]
+        }
+    """
+    repo_path = await _get_repo_path(repo_id, db)
+    return await get_file_symbols(repo_path, ref=ref, path=path)
+
+
+@router.get("/{repo_id}/language")
+async def detect_repository_file_language(
+    repo_id: uuid.UUID,
+    path: str = Query(..., description="文件路径"),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    检测文件语言类型
+
+    Args:
+        repo_id: 仓库ID
+        path: 文件路径（必填）
+        db: 数据库会话
+
+    Returns:
+        dict: 语言信息
+        {
+            "path": str,
+            "language": str
+        }
+    """
+    # 验证仓库存在
+    await _get_repo_path(repo_id, db)
+
+    language = detect_file_language(path)
+    return {
+        "path": path,
+        "language": language
+    }

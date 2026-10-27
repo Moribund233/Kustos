@@ -1,0 +1,77 @@
+# =============================================================================
+# Kustos 基础设施层：PostgreSQL + Redis + 数据卷 + 网络
+#
+# 由业务层 docker-compose.yml 通过 include 引入；也可以按层单独操作：
+#   docker compose -f docker-compose.base.yml up -d postgres redis
+#
+# 卷与网络在此定义，升级业务层（docker-compose.yml）时不会触碰基础设施。
+# =============================================================================
+
+services:
+  # PostgreSQL 数据库
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: kustos-postgres
+    environment:
+      POSTGRES_USER: kustos
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?必需设置数据库密码}
+      POSTGRES_DB: kustos
+      TZ: Asia/Shanghai
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kustos -d kustos"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  # Redis（可选缓存，为空则应用不使用）
+  #
+  # 淘汰策略：volatile-lru 仅淘汰**带 TTL 的键**，保护无 TTL 的持久键
+  # （如 collab 网关的 Y.Doc 快照 kustos:collab:doc:*）。应用侧新增键
+  # （kustos:req:* / kustos:oauth:*）均带 TTL，仍可被正常回收。
+  # 详见 docs/archive/plans/redis-expansion.md D4。
+  redis:
+    image: redis:7-alpine
+    container_name: kustos-redis
+    command: ["redis-server", "--appendonly", "no", "--maxmemory", "512mb", "--maxmemory-policy", "volatile-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 640M
+
+volumes:
+  postgres-data:
+    driver: local
+
+networks:
+  default:
+    name: ${KUSTOS_NETWORK_NAME:-kustos-network}
+    driver: bridge

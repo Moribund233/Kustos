@@ -1,0 +1,28 @@
+# Prometheus 抓取配置（Kustos 监控栈）
+# 由 docker-compose.monitoring.yml 挂载 /etc/prometheus/prometheus.yml
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: kustos
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  - job_name: kustos
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - app:8000
+        labels:
+          service: kustos-app
+
+  # Redis 服务端指标（redis_exporter sidecar，见 docker-compose.monitoring.yml）
+  # 应用层 worker/订阅健康见 /api/app/redis/status（Redis 心跳注册表）
+  - job_name: redis
+    static_configs:
+      - targets:
+          - redis-exporter:9121
+        labels:
+          service: kustos-redis
