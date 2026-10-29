@@ -80,7 +80,7 @@ start() {
     success "服务启动成功！"
     echo ""
     echo "访问地址:"
-    echo "  - 前端:       http://localhost:5173 (请在 client/web 目录运行 pnpm dev)"
+    echo "  - 前端:       http://localhost:5173 (请在 frontend/web 目录运行 pnpm dev)"
     echo "  - 后端直连:   http://localhost:8002 (API 文档 /docs)"
     echo "  - 网关:       http://localhost:8080"
     echo "  - git-cgi:    localhost:9001"

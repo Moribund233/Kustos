@@ -1,0 +1,51 @@
+/**
+ * Web 字体。
+ *
+ * 只加载西文（latin）片段：
+ * - 中文不进 webfont，走系统黑体（见 globals.css 的字体栈）；
+ * - 每个 @font-face 都带 unicode-range，浏览器只下载 latin 字符覆盖到的那个
+ *   woff2，中文页面不会为用不到的字体付出流量。
+ *
+ * 字体自托管而非走 CDN：Kustos 是自托管产品，实例可能处于内网或离线环境，
+ * 依赖外部 CDN 会让首屏字体拿不到。
+ *
+ * Fraunces 用可变字重（opsz + wght），标题不必为每个字号单独引一份。
+ */
+
+/* latin 字符区间：ASCII 与常用西文标点/符号。中文不在其中，
+   因此中文永远由系统字体承接，不会触发 webfont 下载。 */
+@font-face {
+  font-family: "Fraunces Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("@fontsource-variable/fraunces/files/fraunces-latin-wght-normal.woff2")
+    format("woff2-variations");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("@fontsource-variable/inter/files/inter-latin-wght-normal.woff2")
+    format("woff2-variations");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "JetBrains Mono Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url("@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2")
+    format("woff2-variations");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}

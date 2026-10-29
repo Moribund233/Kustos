@@ -1,0 +1,58 @@
+import { expect, test } from "@playwright/test";
+
+test("应用外壳可加载", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("navigation")).toBeVisible();
+  // 内容区由 Outlet 渲染，首页应出现占位内容
+  await expect(page.locator("main")).not.toBeEmpty();
+});
+
+test("西文 webfont 实际生效", async ({ page }) => {
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+
+  const loaded = await page.evaluate(() =>
+    ["Fraunces Variable", "Inter Variable"].filter((name) =>
+      document.fonts.check(`16px "${name}"`),
+    ),
+  );
+
+  expect(loaded).toEqual(expect.arrayContaining(["Fraunces Variable", "Inter Variable"]));
+});
+
+test("中文字符走系统字体而非西文 webfont", async ({ page }) => {
+  await page.goto("/issues");
+  await page.waitForLoadState("networkidle");
+
+  // 中文字体排在西文 webfont 之后，逐字符回退时中文由系统字体承接
+  const fontFamily = await page.evaluate(() => {
+    const heading = document.querySelector("h1");
+    return heading ? getComputedStyle(heading).fontFamily : "";
+  });
+
+  expect(fontFamily).toContain("Microsoft YaHei");
+});
+
+test("语言切换会改变界面文案", async ({ page }) => {
+  await page.goto("/");
+  const nav = page.getByRole("navigation");
+  const before = await nav.getAttribute("aria-label");
+
+  // 顶栏的语言切换器；浏览器默认语言是 en，这里切到中文看文案是否变化
+  await page.getByRole("button", { name: /语言|Language/ }).click();
+  await page.getByRole("menuitemradio").filter({ hasText: "简体中文" }).click();
+
+  await expect(nav).not.toHaveAttribute("aria-label", before ?? "");
+});
+
+test("命令面板可用快捷键唤起", async ({ page }) => {
+  await page.goto("/");
+  await page.keyboard.press("Control+k");
+  await expect(page.getByPlaceholder(/搜索页面|Search pages/)).toBeVisible();
+});
+
+test("代码页渲染编辑器", async ({ page }) => {
+  await page.goto("/code");
+  // CodeMirror 的可编辑区域
+  await expect(page.locator(".cm-content")).toBeVisible();
+});

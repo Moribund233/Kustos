@@ -1,0 +1,163 @@
+# Kustos Web
+
+Kustos 的前端。仓库是 bare repo，前端只负责界面与交互，全部业务能力来自后端 API。
+
+它同时是网关镜像的构建输入：`backend/docker-compose.yml` 里 `gateway.build.context`
+指向本目录，镜像内用 Node 22 + pnpm 11 构建 `dist`，再交给 OpenResty 托管。
+
+## 技术栈
+
+| 领域        | 选型                                                                      |
+| ----------- | ------------------------------------------------------------------------- |
+| 基线        | Vite 6 + React 18 + TypeScript（strict）                                  |
+| 组件        | shadcn/ui 风格（Radix primitives + CVA + `cn()`），Tailwind CSS v4 做样式 |
+| 图标        | lucide-react                                                              |
+| 字体        | Fraunces / Inter / JetBrains Mono（自托管 latin 分片）+ 中文系统黑体      |
+| 路由        | React Router v7（库模式 `createBrowserRouter`，子路由走 `<Outlet/>`）     |
+| 服务端状态  | TanStack Query                                                            |
+| 客户端状态  | Zustand（仅主题、侧栏折叠这类纯偏好）                                     |
+| 国际化      | i18next + react-i18next（zh / en，与后端 `core/i18n.py` 对齐）            |
+| 编辑器      | CodeMirror 6（只读浏览、Markdown 编辑、diff），语言包按需加载             |
+| 协作        | Yjs + Hocuspocus Provider（对接 `backend/collab-gateway`）                |
+| Markdown    | react-markdown + remark-gfm + rehype-sanitize + rehype-highlight          |
+| 命令面板    | cmdk（`Ctrl/⌘ + K`）                                                      |
+| 表单        | react-hook-form + zod                                                     |
+| 图表 / 表格 | recharts / TanStack Table + TanStack Virtual                              |
+| 接口类型    | `openapi-typescript` 从后端 OpenAPI 生成 + `openapi-fetch` 运行时         |
+| 测试        | Vitest + Testing Library + MSW（单测），Playwright（E2E）                 |
+
+### 字体
+
+西文 webfont 自托管（`@fontsource-variable/*`），只引 latin 片段并带 `unicode-range`，
+中文不进 webfont——中文字符由字体栈逐字符回退到系统黑体（PingFang SC / 微软雅黑 /
+思源黑体）。这样既避免中文艺术字与 Fraunces 的割裂，也省下中文字体的体积。
+
+字体栈定义在 `src/styles/globals.css` 的 `@theme` 里，`src/styles/fonts.css` 声明
+`@font-face`。改动时保持「西文在前、中文系统字体紧随其后」的顺序。
+
+## 目录
+
+```text
+frontend/web/
+├── components.json          # shadcn CLI 配置（新增组件走 `pnpm dlx shadcn add`）
+├── e2e/                     # Playwright 用例
+├── scripts/generate-api.mjs # 从后端 OpenAPI 生成类型
+├── src/
+│   ├── api/schema.d.ts      # 自动生成，勿手改
+│   ├── components/
+│   │   ├── layout/          # AppShell / Sidebar / Topbar
+│   │   └── ui/              # 基础组件（button/input/dialog/…）
+│   ├── features/            # 按后端领域切分，见 features/README.md
+│   ├── hooks/               # 跨领域通用 hook
+│   ├── lib/
+│   │   ├── api/              # openapi client 与查询封装
+│   │   ├── query-client.ts
+│   │   ├── router.tsx
+│   │   └── utils.ts          # cn()
+│   ├── pages/               # 路由级页面
+│   ├── stores/              # Zustand
+│   ├── styles/globals.css   # Tailwind v4 + 设计令牌
+│   └── test/                # 测试环境与 MSW
+├── package.json
+├── pnpm-workspace.yaml      # pnpm 11 的 allowBuilds（esbuild 等必须放行）
+├── tsconfig.json
+├── vite.config.ts
+├── vitest.config.ts
+└── playwright.config.ts
+```
+
+## 命令
+
+```bash
+pnpm install          # 依赖（pnpm 11；allowBuilds 在 pnpm-workspace.yaml）
+pnpm dev              # 开发服务器（默认 5173，/api 代理到后端）
+pnpm build            # 类型检查 + 构建，产物在 dist/
+pnpm preview          # 预览构建产物
+pnpm typecheck        # tsc --noEmit
+pnpm lint             # ESLint（flat config）
+pnpm format           # Prettier 写回
+pnpm test             # Vitest
+pnpm test:e2e         # Playwright（需先 `pnpm exec playwright install`）
+pnpm api:generate     # 从后端 OpenAPI 重新生成类型
+```
+
+## 环境变量
+
+| 变量                  | 作用                                                                          |
+| --------------------- | ----------------------------------------------------------------------------- |
+| `VITE_API_URL`        | API 基址；**留空 = 与页面同源**（生产经网关访问 `/api/v1`），构建时注入       |
+| `VITE_DEV_API_ORIGIN` | 仅开发期：vite 代理把 `/api` 转发到的后端地址（默认 `http://127.0.0.1:8002`） |
+
+## 接口类型
+
+后端契约以 OpenAPI 为准，不手写 DTO：
+
+```bash
+# 默认读本地后端
+pnpm api:generate
+# 或指定地址 / 本地文件
+OPENAPI_URL=http://127.0.0.1:8001/openapi.json pnpm api:generate
+OPENAPI_FILE=./openapi.json pnpm api:generate
+```
+
+产物是 `src/api/schema.d.ts`（`paths` / `components`），配合 `src/lib/api/client.ts` 的
+`openapi-fetch` 客户端，调用即有类型：
+
+```ts
+const { data } = await api.GET("/api/v1/repositories/{repo_id}/pull-requests", {
+  params: { path: { repo_id } },
+});
+```
+
+后端接口变更后重新生成一次，并把它作为接口契约的落点。
+
+## 样式与设计令牌
+
+`src/styles/globals.css` 里的 `@theme` 与 `docs/prototype/assets/css/tokens.css` 同源：
+墨蓝底（`ink-*`）、骨白字（`bone`）、琥珀色只用于注意力与行动（`amber`），
+辅助色为 `sage` / `sky` / `rose` / `ember`。
+
+新增样式一律走 Tailwind 工具类与主题变量，不要写死颜色值；组件样式用 `cn()` 合并，
+避免与 shadcn 变体冲突。
+
+## 与后端联调
+
+- 开发：`pnpm dev` 时 `/api` 由 vite 代理到 `VITE_DEV_API_ORIGIN`（默认后端 dev compose 的 `127.0.0.1:8002`）。
+- 生产：与网关同源，浏览器直接请求 `/api/v1/...`；WebSocket 走同源的 `/api/v1` 升级路径。
+
+## 网关构建的硬约束
+
+改构建配置前先看 `backend/docker/gateway/Dockerfile`，它对工程有三个硬要求：
+
+1. 产物目录必须是 **`dist`**（镜像里 `COPY --from=web-builder /app/dist`）。
+2. 根目录必须同时有 **`package.json`、`pnpm-lock.yaml`、`pnpm-workspace.yaml`**；
+   `pnpm-workspace.yaml` 里的 `allowBuilds` 决定 esbuild 等依赖能否执行安装脚本，缺了 `pnpm install` 会直接失败。
+3. 镜像内是 **Node 22 + pnpm 11**，本地锁文件版本要与之一致。
+
+## 测试
+
+- 单测：Vitest + Testing Library，接口用 MSW mock（`src/test/msw/handlers.ts`）。
+- E2E：Playwright，默认跑 `pnpm preview` 起的静态产物（`playwright.config.ts` 里的 `webServer`）。
+
+## 当前状态
+
+骨架已就绪：工程配置、设计令牌、基础组件、外壳布局、路由与测试链路可用。
+
+通用基建已就位（i18n、编辑器、Markdown 渲染、协作、命令面板、表单、图表、表格），
+页面按 `src/features/README.md` 的分域逐个落地。当前只有 Watch / Code / Issues
+三页有实际实现，其余仍是占位。
+
+## 约定
+
+- **路由**：数据路由的子路由由 `<Outlet/>` 承载，`AppShell` 不接 `children`。
+- **编辑器**：用 CodeMirror 6 而不是 Monaco——后端 `collab-gateway` 已约定
+  `yCollab(ydoc.getText("content"), provider.awareness)`，与 `y-codemirror.next` 对得上。
+  共享文本名必须与网关一致（见 `src/lib/collab/client.ts`）。
+- **鉴权**：WebSocket 的 token 走 `Sec-WebSocket-Protocol` 握手头，不放 URL query
+  （query 会被网关 access_log 记录）。HTTP 请求通过客户端中间件带 `Accept-Language`，
+  与后端 `core/i18n.py` 的双语约定对齐。
+- **diff**：后端已把 diff 序列化成 `files → hunks → lines` 结构，前端直接消费，
+  不自己解析 unified diff 文本。
+- **新增 UI 组件**：`pnpm dlx shadcn add <name>` 拉取后需改写为主题令牌
+  （`ink-*` / `amber` / `bone`）与 `@/lib/utils` 的 `cn` 导入——CLI 默认模板用的是
+  通用 `primary`/`accent` 变量与 `radix-ui` 聚合包，与本项目不兼容。

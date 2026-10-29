@@ -1,0 +1,79 @@
+@import "tailwindcss";
+/* Radix 弹层的进出场动画（popover / select / dialog 等组件用到 animate-in） */
+@import "tw-animate-css";
+/* 西文 webfont（自托管，仅 latin 片段） */
+@import "./fonts.css";
+
+/* Kustos design tokens —— 与 docs/prototype/assets/css/tokens.css 同源。
+   夜巡提灯：墨蓝底、骨白字、琥珀色只用于注意力与行动。 */
+@theme {
+  --color-ink-1000: #06090b;
+  --color-ink-950: #080d10;
+  --color-ink-900: #0a1115;
+  --color-ink-850: #0d161b;
+  --color-ink-800: #111c22;
+  --color-ink-750: #15232a;
+  --color-ink-700: #1b2c34;
+  --color-ink-650: #223740;
+
+  --color-bone: #f0e7d8;
+  --color-bone-2: #d8cdbb;
+  --color-muted: #9aa5a7;
+  --color-muted-2: #758185;
+  --color-faint: #536064;
+
+  --color-amber: #f2ae5b;
+  --color-amber-2: #ffd08a;
+  --color-amber-3: #c97a32;
+  --color-ember: #d46b45;
+  --color-sage: #86b79e;
+  --color-sage-2: #aed6bf;
+  --color-sky: #83a9c4;
+  --color-rose: #d98282;
+  --color-rose-2: #f0aaaa;
+
+  --color-edge-1: rgba(240, 231, 216, 0.07);
+  --color-edge-2: rgba(240, 231, 216, 0.12);
+  --color-edge-3: rgba(240, 231, 216, 0.22);
+
+  /* 字体栈按「逐字符回退」工作：西文取自 webfont，中文字符落到栈中下一个
+     能显示它的字体。因此西文字体在前、中文系统字体紧随其后。
+
+     中文刻意走黑体（无衬线）而非宋体/楷体：Fraunces 是带装饰的西文衬线，
+     配中文宋体会显得割裂；产品本身偏技术风格，中文用中性黑体更稳。
+     栈里不放任何中文艺术字，也避免依赖体积庞大的中文 webfont。 */
+  --font-sans:
+    "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans SC", "Noto Sans CJK SC",
+    "WenQuanYi Micro Hei", sans-serif;
+  --font-display:
+    "Fraunces Variable", "Fraunces", "Iowan Old Style", Georgia, "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Source Han Sans SC", "Noto Sans CJK SC", "WenQuanYi Micro Hei", sans-serif;
+  --font-mono:
+    "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas,
+    "PingFang SC", "Microsoft YaHei", "Noto Sans Mono CJK SC", monospace;
+
+  --radius-panel: 10px;
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-ink-1000 text-bone-2 font-sans antialiased;
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+
+  ::selection {
+    background: rgba(242, 174, 91, 0.25);
+  }
+}

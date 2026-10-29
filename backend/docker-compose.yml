@@ -215,9 +215,11 @@ services:
   gateway:
     image: ${KUSTOS_IMAGE_PREFIX:-kustos}-gateway:${KUSTOS_IMAGE_TAG:-latest}
     build:
-      # 上下文为 client/web：容器内完成 pnpm build，宿主机无需 Node/pnpm
-      context: ./client/web
-      dockerfile: ../../docker/gateway/Dockerfile
+      # 上下文为仓库根下的 frontend/web：容器内完成 pnpm build，宿主机无需 Node/pnpm
+      context: ../frontend/web
+      # dockerfile 相对构建上下文解析：frontend/web → 仓库根的 backend/docker/gateway
+      # 上下文是 frontend/web，回退两级才是仓库根
+      dockerfile: ../../backend/docker/gateway/Dockerfile
     container_name: kustos-gateway
     ports:
       - "${KUSTOS_GATEWAY_PORT:-8000}:8000"
@@ -384,9 +386,6 @@ services:
       # config.example.toml 也需挂载：播种与模板护栏断言读的是仓库实况，
       # 否则容器内是镜像构建时烤入的副本，模板改动不生效
       - ./config.example.toml:/app/config.example.toml
-      # admin 组件目录只读挂载：元数据一致性护栏断言 configField.ts 的
-      # 可编辑节/只读字段与 SECTION_META 对齐（client/ 整体不进测试镜像）
-      - ./client/web/src/components/admin:/app/client/web/src/components/admin:ro
       # scripts 也需挂载：部分用例直接覆盖运维脚本逻辑（如 migrate_lfs_layout），
       # 否则容器内是镜像构建时烤入的副本，改动不生效
       - ./scripts:/app/scripts
