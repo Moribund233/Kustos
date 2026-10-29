@@ -373,9 +373,9 @@ export function CodePage({ path, content, diff }: CodePageProps) {
           <CircleDot className="size-[13px]" aria-hidden="true" />
           {t("nav.issues")}
         </Link>
-        <button type="button" onClick={() => toast.info("Release 由发布控制器管理，界面暂未接入。")} className={cn(TAB_BASE, "text-muted hover:bg-ink-800/35 hover:text-bone")}>
+        <Link to="/releases" className={cn(TAB_BASE, "text-muted hover:bg-ink-800/35 hover:text-bone")}>
           Releases
-        </button>
+        </Link>
         <Link to="/chat" className={cn(TAB_BASE, "text-muted hover:bg-ink-800/35 hover:text-bone")}>
           <MessageSquare className="size-[13px]" aria-hidden="true" />
           {t("nav.chat")}
