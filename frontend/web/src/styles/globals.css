@@ -37,18 +37,18 @@
   --color-edge-3: rgba(240, 231, 216, 0.22);
 
   /* 字体栈按「逐字符回退」工作：西文取自 webfont，中文字符落到栈中下一个
-     能显示它的字体。因此西文字体在前、中文系统字体紧随其后。
+     能显示它的字体。因此西文字体在前、中文字体紧随其后。
 
-     中文刻意走黑体（无衬线）而非宋体/楷体：Fraunces 是带装饰的西文衬线，
-     配中文宋体会显得割裂；产品本身偏技术风格，中文用中性黑体更稳。
-     栈里不放任何中文艺术字，也避免依赖体积庞大的中文 webfont。 */
+     中文用 MiSans（见 fonts.css）：现代无衬线、技术感强，与产品的夜巡气质
+     一致；宋体/楷体偏古风，不用。MiSans 未覆盖的生僻字再回退系统黑体。 */
   --font-sans:
-    "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", "PingFang SC",
-    "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans SC", "Noto Sans CJK SC",
+    "Inter Variable", "Inter", "MiSans", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans SC", "Noto Sans CJK SC",
     "WenQuanYi Micro Hei", sans-serif;
   --font-display:
-    "Fraunces Variable", "Fraunces", "Iowan Old Style", Georgia, "PingFang SC", "Hiragino Sans GB",
-    "Microsoft YaHei", "Source Han Sans SC", "Noto Sans CJK SC", "WenQuanYi Micro Hei", sans-serif;
+    "Fraunces Variable", "Fraunces", "Iowan Old Style", Georgia, "MiSans", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans SC", "Noto Sans CJK SC",
+    "WenQuanYi Micro Hei", sans-serif;
   --font-mono:
     "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas,
     "PingFang SC", "Microsoft YaHei", "Noto Sans Mono CJK SC", monospace;

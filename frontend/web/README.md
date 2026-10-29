@@ -12,7 +12,7 @@ Kustos 的前端。仓库是 bare repo，前端只负责界面与交互，全部
 | 基线        | Vite 6 + React 18 + TypeScript（strict）                                  |
 | 组件        | shadcn/ui 风格（Radix primitives + CVA + `cn()`），Tailwind CSS v4 做样式 |
 | 图标        | lucide-react                                                              |
-| 字体        | Fraunces / Inter / JetBrains Mono（自托管 latin 分片）+ 中文系统黑体      |
+| 字体        | Fraunces / Inter / JetBrains Mono（自托管 latin 分片）+ MiSans 中文 |
 | 路由        | React Router v7（库模式 `createBrowserRouter`，子路由走 `<Outlet/>`）     |
 | 服务端状态  | TanStack Query                                                            |
 | 客户端状态  | Zustand（仅主题、侧栏折叠这类纯偏好）                                     |
@@ -28,12 +28,13 @@ Kustos 的前端。仓库是 bare repo，前端只负责界面与交互，全部
 
 ### 字体
 
-西文 webfont 自托管（`@fontsource-variable/*`），只引 latin 片段并带 `unicode-range`，
-中文不进 webfont——中文字符由字体栈逐字符回退到系统黑体（PingFang SC / 微软雅黑 /
-思源黑体）。这样既避免中文艺术字与 Fraunces 的割裂，也省下中文字体的体积。
+西文 webfont 自托管（`@fontsource-variable/*`），只引 latin 片段并带 `unicode-range`。
+中文用 MiSans（`misans` 包，小米免费商用授权）：同样是自托管切片，浏览器只下载页面
+实际用到的码位区间。中文不用宋体/楷体——那类字体偏古风，和产品的技术感不符；
+MiSans 未覆盖的生僻字回退系统黑体（PingFang SC / 微软雅黑 / 思源黑体）。
 
 字体栈定义在 `src/styles/globals.css` 的 `@theme` 里，`src/styles/fonts.css` 声明
-`@font-face`。改动时保持「西文在前、中文系统字体紧随其后」的顺序。
+`@font-face`。改动时保持「西文在前、中文字体紧随其后」的顺序。
 
 ## 目录
 

@@ -1,16 +1,21 @@
 /**
  * Web 字体。
  *
- * 只加载西文（latin）片段：
- * - 中文不进 webfont，走系统黑体（见 globals.css 的字体栈）；
+ * 中文使用 MiSans（小米，免费商用）：界面偏技术感，不用宋体/楷体这类
+ * 带古风气息的衬线中文字体。MiSans 的 CSS 由官方码位切片生成，每个
+ * @font-face 都带 unicode-range，浏览器只下载页面实际用到的切片。
+ *
+ * 西文仍是 latin 片段：
  * - 每个 @font-face 都带 unicode-range，浏览器只下载 latin 字符覆盖到的那个
- *   woff2，中文页面不会为用不到的字体付出流量。
+ *   woff2，不会为用不到的字体付出流量。
+ * - Fraunces 用可变字重（opsz + wght），标题不必为每个字号单独引一份。
  *
  * 字体自托管而非走 CDN：Kustos 是自托管产品，实例可能处于内网或离线环境，
  * 依赖外部 CDN 会让首屏字体拿不到。
- *
- * Fraunces 用可变字重（opsz + wght），标题不必为每个字号单独引一份。
  */
+@import "misans/lib/Normal/MiSans-Regular.min.css";
+@import "misans/lib/Normal/MiSans-Medium.min.css";
+@import "misans/lib/Normal/MiSans-Bold.min.css";
 
 /* latin 字符区间：ASCII 与常用西文标点/符号。中文不在其中，
    因此中文永远由系统字体承接，不会触发 webfont 下载。 */
