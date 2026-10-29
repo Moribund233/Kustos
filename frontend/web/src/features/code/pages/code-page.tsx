@@ -44,6 +44,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { type CodeFile, type SymbolNode } from "@/features/code/types";
+import { FileBlameDialog } from "@/features/code/components/file-blame-dialog";
+import { FileEditDialog } from "@/features/code/components/file-edit-dialog";
+import { FileHistoryDialog } from "@/features/code/components/file-history-dialog";
 import { api, getAccessToken } from "@/lib/api/client";
 import {
   createCollabSession,
@@ -185,6 +188,9 @@ export function CodePage({ path, content, diff }: CodePageProps) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState("");
   const [branchOpen, setBranchOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [blameOpen, setBlameOpen] = useState(false);
   const filterRef = useRef<HTMLInputElement | null>(null);
 
   // 协作编辑会话：为空表示处于只读浏览，非空表示当前文件已接入 CRDT
@@ -438,7 +444,7 @@ export function CodePage({ path, content, diff }: CodePageProps) {
         <div className="border-edge-2 flex flex-col items-center gap-2 rounded-[10px] border py-24">
           <p className="text-bone-2 text-[13px] font-medium">还没有仓库</p>
           <p className="text-muted-2 max-w-[42ch] text-center text-[11.5px] leading-relaxed">
-            在左侧边栏「新建」创建一个仓库，或用 git push 推送现有仓库，然后回到这里浏览代码。
+            在顶栏「新建 → 新建仓库」或侧栏 Repositories 旁的 + 创建仓库，或用 git push 推送现有仓库，然后回到这里浏览代码。
           </p>
         </div>
       </div>
@@ -692,15 +698,30 @@ export function CodePage({ path, content, diff }: CodePageProps) {
               </span>
             </div>
             <div className="flex flex-none items-center gap-px">
-              <button type="button" className={QUIET_BTN} onClick={() => toast.info("Web 编辑接口尚未提供。")}>
+              <button
+                type="button"
+                className={QUIET_BTN}
+                onClick={() => setEditOpen(true)}
+                disabled={!selectedPath || !blob || blob.is_binary || Boolean(collab)}
+              >
                 <Pencil className="size-3" aria-hidden="true" />
                 编辑
               </button>
-              <button type="button" className={QUIET_BTN} onClick={() => toast.info("提交历史入口暂未提供。")}>
+              <button
+                type="button"
+                className={QUIET_BTN}
+                onClick={() => setHistoryOpen(true)}
+                disabled={!selectedPath}
+              >
                 <History className="size-3" aria-hidden="true" />
                 {t("code.history")}
               </button>
-              <button type="button" className={QUIET_BTN} onClick={() => toast.info("Blame 入口暂未提供。")}>
+              <button
+                type="button"
+                className={QUIET_BTN}
+                onClick={() => setBlameOpen(true)}
+                disabled={!selectedPath}
+              >
                 <Eye className="size-3" aria-hidden="true" />
                 {t("code.blame")}
               </button>
@@ -887,6 +908,38 @@ export function CodePage({ path, content, diff }: CodePageProps) {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {selectedPath ? (
+      <>
+        <FileEditDialog
+          repoId={repoId}
+          branch={branch}
+          path={selectedPath}
+          initialContent={file.content}
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          onSaved={() => {
+            void blobQuery.refetch();
+            void treeQuery.refetch();
+            void lastCommitQuery.refetch();
+          }}
+        />
+        <FileHistoryDialog
+          repoId={repoId}
+          branch={branch}
+          path={selectedPath}
+          open={historyOpen}
+          onOpenChange={setHistoryOpen}
+        />
+        <FileBlameDialog
+          repoId={repoId}
+          branch={branch}
+          path={selectedPath}
+          open={blameOpen}
+          onOpenChange={setBlameOpen}
+        />
+      </>
+    ) : null}
     </>
   );
 }
