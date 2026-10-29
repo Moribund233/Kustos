@@ -5,6 +5,7 @@ import { Link, NavLink, useLocation, useNavigate } from "react-router";
 import { toast } from "sonner";
 
 import { ToneAvatar } from "@/components/kit/kit";
+import { BrandMark } from "@/components/brand/brand-mark";
 import { INSTANCE_SECTION, NAV_SECTIONS, type NavSection } from "@/components/layout/nav-sections";
 import { formatRelative } from "@/lib/datetime/format";
 import { cn } from "@/lib/utils";
@@ -147,12 +148,10 @@ export function Sidebar() {
       aria-label={t("nav.watch")}
       className="border-edge-1 bg-ink-900 flex w-[252px] shrink-0 flex-col border-r px-3"
     >
-      {/* 品牌 */}
+      {/* 品牌：提灯标记 + 字标（标记为原型原始 SVG，不自绘） */}
       <div className="flex flex-none items-center gap-2.5 px-2.5 pt-[21px] pb-[15px]">
         <Link to="/" className="flex min-w-0 items-center gap-2.5 rounded-md">
-          <span className="bg-amber/15 text-amber-2 font-display grid size-[31px] shrink-0 place-items-center rounded-md text-[15px]">
-            K
-          </span>
+          <BrandMark size={31} />
           <span className="min-w-0">
             <span className="font-display text-bone block text-[18px] font-semibold tracking-[0.155em] leading-none">
               KUSTOS
@@ -168,9 +167,9 @@ export function Sidebar() {
       <div className="border-edge-1 bg-ink-750/55 mb-1 flex flex-none items-center gap-[9px] rounded-md border px-[9px] py-[7px]">
         <span
           aria-hidden="true"
-          className="border-amber/35 bg-amber/10 text-amber-2 font-display grid size-[25px] shrink-0 place-items-center rounded-md border text-[14px] leading-none"
+          className="border-amber/35 bg-amber/10 grid size-[25px] shrink-0 place-items-center rounded-md border"
         >
-          K
+          <BrandMark size={17} />
         </span>
         <span className="min-w-0 flex-1">
           <span className="text-bone-2 block truncate text-[12.5px] font-semibold leading-tight">

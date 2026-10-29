@@ -14,6 +14,7 @@ import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 
+import { BrandMark } from "@/components/brand/brand-mark";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
 
@@ -79,20 +80,19 @@ export function LoginPage() {
           aria-hidden="true"
           className="pointer-events-none absolute top-0 bottom-0 left-[54px] w-px bg-[linear-gradient(180deg,transparent,rgba(242,174,91,0.16)_30%,rgba(242,174,91,0.04)_72%,transparent)] lg:left-[74px]"
         />
-        {/* 右下角大水印字标 */}
-        <span
+        {/* 右下角大水印：原型用提灯标记铺底，而不是字标 */}
+        <img
+          src="/brand/kustos-mark.svg"
+          alt=""
           aria-hidden="true"
-          className="font-display pointer-events-none absolute -right-[140px] -bottom-[180px] text-[480px] leading-none text-bone opacity-[0.045] select-none lg:-right-[90px] lg:-bottom-[90px] lg:text-[560px]"
-        >
-          K
-        </span>
+          className="pointer-events-none absolute -right-[150px] -bottom-[160px] w-[440px] opacity-[0.05] select-none lg:-right-[110px] lg:-bottom-[120px] lg:w-[520px]"
+          draggable={false}
+        />
 
         {/* 字标 + 自托管胶囊 */}
         <div className="relative z-[1] flex items-start justify-between gap-5">
           <span className="inline-flex items-center gap-3">
-            <span className="bg-amber/15 text-amber-2 font-display grid size-[42px] shrink-0 place-items-center rounded-md text-[20px]">
-              K
-            </span>
+            <BrandMark size={42} />
             <span>
               <span className="font-display text-bone block text-[24px] font-semibold tracking-[0.16em] leading-none">
                 KUSTOS

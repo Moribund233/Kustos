@@ -65,3 +65,16 @@ test("代码页渲染编辑器", async ({ page }) => {
   await gotoApp(page, "/code?path=README.md");
   await expect(page.locator(".cm-content")).toBeVisible();
 });
+
+test("品牌标记使用原型资产且真实加载", async ({ page }) => {
+  await gotoApp(page, "/");
+
+  // 侧栏与登录页都用 /brand/kustos-mark.svg，不是画出来的字母
+  const mark = page.locator('img[src="/brand/kustos-mark.svg"]').first();
+  await expect(mark).toBeVisible();
+  await expect
+    .poll(() => mark.evaluate((img: HTMLImageElement) => img.naturalWidth))
+    .toBeGreaterThan(0);
+
+  await expect(page.locator('link[rel="icon"]')).toHaveAttribute("href", "/brand/favicon.svg");
+});
