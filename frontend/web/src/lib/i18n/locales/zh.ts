@@ -412,6 +412,7 @@ export default {
     unlinkFailed: "解绑失败。",
   },
   settings: {
+    visibility: "可见性",
     tagColor: "颜色",
     tagNameLabel: "Git 标签名",
     confirmRepoName: "确认仓库名",

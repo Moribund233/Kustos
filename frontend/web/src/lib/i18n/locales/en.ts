@@ -412,6 +412,7 @@ export default {
     unlinkFailed: "Failed to unlink.",
   },
   settings: {
+    visibility: "Visibility",
     tagColor: "Color",
     tagNameLabel: "Git tag name",
     confirmRepoName: "Confirm repository name",
