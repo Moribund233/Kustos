@@ -39,6 +39,7 @@ export default {
     signInRequired: "Please sign in first",
   },
   nav: {
+    toggleSidebar: "Toggle sidebar",
     watch: "Watch",
     code: "Code",
     pullRequests: "Pull requests",

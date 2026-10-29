@@ -39,6 +39,7 @@ export default {
     actions: "操作",
   },
   nav: {
+    toggleSidebar: "切换侧栏",
     watch: "值守",
     code: "代码",
     pullRequests: "Pull Request",

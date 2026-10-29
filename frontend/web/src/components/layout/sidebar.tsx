@@ -9,6 +9,8 @@ import { CreateRepositoryDialog } from "@/features/repository/components/create-
 import { INSTANCE_SECTION, NAV_SECTIONS, type NavSection } from "@/components/layout/nav-sections";
 import { formatRelative } from "@/lib/datetime/format";
 import { cn } from "@/lib/utils";
+import { LOCALE_LABELS, SUPPORTED_LOCALES, type Locale } from "@/lib/i18n/locales";
+import { setLocale } from "@/lib/i18n";
 import { useAuthStore } from "@/stores/auth-store";
 import { useRepoStore, type RepoSummary } from "@/stores/repo-store";
 import {
@@ -16,6 +18,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -143,7 +147,7 @@ function RepoRow({
  * 一致：当前仓库页在仓库条目下方嵌套「视图 · 对象」两行，共享同一块底色。
  */
 export function Sidebar() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { pathname } = useLocation();
   const here = REPO_HERE[pathname];
   const user = useAuthStore((state) => state.user);
@@ -293,6 +297,20 @@ export function Sidebar() {
                 </Link>
               </DropdownMenuItem>
             ) : null}
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-faint text-[9.5px] font-semibold tracking-[0.13em] uppercase">
+              {t("common.language")}
+            </DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={i18n.resolvedLanguage ?? i18n.language}
+              onValueChange={(value) => setLocale(value as Locale)}
+            >
+              {SUPPORTED_LOCALES.map((locale) => (
+                <DropdownMenuRadioItem key={locale} value={locale}>
+                  {LOCALE_LABELS[locale]}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onSelect={() => {

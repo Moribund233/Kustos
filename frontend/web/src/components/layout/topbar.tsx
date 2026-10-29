@@ -1,17 +1,15 @@
-import { Bell, Bot, BookOpen, Command, LogOut, Plus, Search, Shield, UserRound, Zap } from "lucide-react";
+import { Bell, Bot, BookOpen, PanelLeft, Plus, Search, Zap } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate } from "react-router";
+import { Link } from "react-router";
 import { toast } from "sonner";
 
-import { Lamp, ToneAvatar } from "@/components/kit/kit";
-import { LocaleSwitcher } from "@/components/layout/locale-switcher";
+import { Lamp } from "@/components/kit/kit";
 import { CreateRepositoryDialog } from "@/features/repository/components/create-repository-dialog";
 import { api } from "@/lib/api/client";
 import { formatRelative } from "@/lib/datetime/format";
 import { cn } from "@/lib/utils";
-import { useAuthStore } from "@/stores/auth-store";
 import { useUiStore } from "@/stores/ui-store";
 import { useApiQuery } from "@/lib/api/hooks";
 import {
@@ -19,7 +17,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -52,19 +49,9 @@ function useSearchShortcut() {
   return label;
 }
 
-function initialsOf(name: string | null | undefined, fallback: string): string {
-  const source = (name ?? "").trim();
-  if (!source) return fallback.slice(0, 2).toUpperCase();
-  return source
-    .split(/\s+/)
-    .map((part) => part[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-}
-
 /**
- * 顶栏：面包屑 + 全局搜索 + Agent 状态 + 通知 / 新建 / 账号菜单。
+ * 顶栏：侧栏折叠 + 面包屑 + 全局搜索 + Agent 状态 + 通知 / 新建。
+ * 账号与语言入口在侧栏底部（对齐原型）。
  *
  * 面包屑由当前页面写入 ui-store；搜索触发命令面板（状态也在 ui-store，
  * 与 Ctrl/⌘+K 共用一个开关）。通知来自站内信接口。
@@ -73,12 +60,10 @@ export function Topbar() {
   const { t } = useTranslation();
   const crumbs = useUiStore((state) => state.crumbs);
   const setPaletteOpen = useUiStore((state) => state.setPaletteOpen);
+  const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
+  const toggleSidebar = useUiStore((state) => state.toggleSidebar);
   const shortcut = useSearchShortcut();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const user = useAuthStore((state) => state.user);
-  const logout = useAuthStore((state) => state.logout);
-  const isAdmin = user?.is_admin ?? false;
   const [createRepoOpen, setCreateRepoOpen] = useState(false);
 
   const { data: notifications } = useApiQuery<NotificationItem[]>({
@@ -101,6 +86,17 @@ export function Topbar() {
 
   return (
     <header className="border-edge-1 bg-ink-950/80 sticky top-0 z-40 flex h-14 shrink-0 items-center gap-4 border-b px-7 backdrop-blur-[16px] saturate-[1.05] after:pointer-events-none after:absolute after:inset-x-0 after:-bottom-px after:h-px after:bg-[linear-gradient(90deg,transparent,rgba(242,174,91,0.12),transparent)] after:content-['']">
+      {/* 侧边栏折叠：原型顶栏最左侧的面板按钮 */}
+      <button
+        type="button"
+        aria-label={t("nav.toggleSidebar")}
+        aria-pressed={sidebarCollapsed}
+        onClick={toggleSidebar}
+        className="text-muted-2 hover:text-bone hover:bg-ink-800 grid size-[30px] shrink-0 place-items-center rounded-md transition-colors"
+      >
+        <PanelLeft className="size-[15px]" aria-hidden="true" />
+      </button>
+
       {/* 面包屑 */}
       <nav aria-label="Breadcrumb" className="flex min-w-0 flex-[0_1_auto] items-center gap-[7px] overflow-hidden text-[12px] whitespace-nowrap">
         {crumbs.map((crumb, index) => (
@@ -269,46 +265,6 @@ export function Topbar() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* 账号 */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button type="button" aria-label="账号菜单" className="rounded-full">
-              <ToneAvatar initials={initialsOf(user?.full_name, user?.username ?? "?")} tone="amber" size="md" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-[214px]">
-            <DropdownMenuLabel className="text-[11px]">{user?.username}</DropdownMenuLabel>
-            <DropdownMenuItem asChild>
-              <Link to="/account">
-                <UserRound className="text-muted-2 size-[14px]" aria-hidden="true" />
-                资料与偏好
-              </Link>
-            </DropdownMenuItem>
-            {isAdmin ? (
-              <DropdownMenuItem asChild>
-                <Link to="/admin">
-                  <Shield className="text-muted-2 size-[14px]" aria-hidden="true" />
-                  管理控制台
-                </Link>
-              </DropdownMenuItem>
-            ) : null}
-            <DropdownMenuItem onSelect={() => toast.info("快捷键：Ctrl K 搜索 · A 新建运行。")}>
-              <Command className="text-muted-2 size-[14px]" aria-hidden="true" />
-              键盘快捷键
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onSelect={() => {
-                void logout().then(() => navigate("/login", { replace: true }));
-              }}
-            >
-              <LogOut className="text-muted-2 size-[14px]" aria-hidden="true" />
-              退出登录
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <LocaleSwitcher />
       </div>
 
       <CreateRepositoryDialog open={createRepoOpen} onOpenChange={setCreateRepoOpen} />
