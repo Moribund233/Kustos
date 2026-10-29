@@ -251,6 +251,10 @@ export default {
     you: "你",
   },
   admin: {
+    accessHint: "实例级的访问来源限制由部署侧维护，控制台不读取也不展示具体条目；如果管理功能不可用，请联系实例维护者。",
+    unavailableTitle: "管理控制台暂不可用",
+    unavailableHint: "这个实例还没有开放管理控制台，或当前访问环境不允许进入。请联系实例维护者。",
+    backToWatch: "返回值守",
     title: "管理控制台",
     overview: "概览",
     runtime: "运行时",

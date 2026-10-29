@@ -251,6 +251,10 @@ export default {
     typing: "typing",
   },
   admin: {
+    accessHint: "Instance-level access restrictions are maintained by the deployment; the console neither reads nor lists them. Contact the maintainer if admin features are unavailable.",
+    unavailableTitle: "Admin console unavailable",
+    unavailableHint: "This instance has not enabled the admin console, or the current environment is not allowed to open it. Contact the instance maintainer.",
+    backToWatch: "Back to Watch",
     title: "Admin console",
     overview: "Overview",
     runtime: "Runtime",

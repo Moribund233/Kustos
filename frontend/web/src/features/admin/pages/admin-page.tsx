@@ -1,4 +1,5 @@
 import { Activity, Lock, RefreshCw, XCircle } from "lucide-react";
+import { Link, Navigate } from "react-router";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
@@ -42,6 +43,7 @@ import type {
   ComponentState,
   ConfigSection,
 } from "@/features/admin/types";
+import { useAuthStore } from "@/stores/auth-store";
 import { useUiStore } from "@/stores/ui-store";
 import { cn } from "@/lib/utils";
 import type { components } from "@/api/schema";
@@ -182,7 +184,20 @@ function statusTone(status: number): Tone {
  * /api/app/* 与 /api/v1/users 真实端点；分区用 Tabs 组织，危险操作
  * （重启/关机/配置重置）走确认对话框后调用真实接口。
  */
+/**
+ * 管理控制台入口。
+ *
+ * 非全局管理员直接回退到值守页（不渲染任何管理界面）；真正的管理台
+ * 组件只在确认 `is_admin` 后挂载，避免先请求一批注定 403 的管理端点。
+ */
 export function AdminPage() {
+  const user = useAuthStore((state) => state.user);
+  if (!user) return null;
+  if (!user.is_admin) return <Navigate to="/" replace />;
+  return <AdminConsole />;
+}
+
+function AdminConsole() {
   const { t } = useTranslation();
   const setCrumbs = useUiStore((state) => state.setCrumbs);
   const queryClient = useQueryClient();
@@ -416,6 +431,29 @@ export function AdminPage() {
     onError: (error) => toast.error(`Grafana 暂不可用：${error.message}`),
   });
 
+  // 管理员但来源被网关拦截：给中性提示，不暴露门禁细节
+  if (forbidden) {
+    return (
+      <div className="mx-auto flex w-full max-w-[1560px] flex-col items-center px-[34px] pt-[120px] pb-20">
+        <div className="border-edge-2 bg-ink-900/60 flex max-w-[440px] flex-col items-center rounded-xl border px-8 py-10 text-center">
+          <Lock className="text-faint size-7" aria-hidden="true" />
+          <h1 className="font-display text-bone mt-3 text-[19px] font-medium">
+            {t("admin.unavailableTitle")}
+          </h1>
+          <p className="text-muted-2 mt-2 text-[12px] leading-relaxed">
+            {t("admin.unavailableHint")}
+          </p>
+          <Link
+            to="/"
+            className="border-edge-2 text-muted hover:border-edge-3 hover:text-bone-2 mt-5 inline-flex h-8 items-center rounded-md border px-3 text-[11px] transition-colors"
+          >
+            {t("admin.backToWatch")}
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto w-full max-w-[1560px] px-[34px] pt-[30px] pb-20">
       {/* 页头 */}
@@ -454,40 +492,7 @@ export function AdminPage() {
         </div>
       </header>
 
-      {/* 门禁说明：管理面是双层受限区域 */}
-      <div className="border-edge-2 bg-ink-900/60 mb-4 flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-[11px] leading-[1.5] text-muted">
-        <span
-          aria-hidden="true"
-          className="border-sky/25 bg-sky/10 text-sky grid size-6 shrink-0 place-items-center rounded-md border"
-        >
-          <Lock className="size-3" />
-        </span>
-        <p className="min-w-0">
-          <strong className="text-bone-2 font-semibold">受限区域。</strong>
-          <code className={CODE_CLS}>/api/app/*</code> 与 <code className={CODE_CLS}>/grafana</code>
-          双层门禁——先过网关来源白名单，再校验 <code className={CODE_CLS}>User.is_admin</code>
-          ；成员得 403，匿名得 401。
-        </p>
-      </div>
-
-      {forbidden ? (
-        /* 非全局管理员：端点一律 403，整块降级为受限提示 */
-        <div className="border-amber/30 bg-amber/10 flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-[11px] leading-[1.5] text-amber-2">
-          <span
-            aria-hidden="true"
-            className="grid size-6 shrink-0 place-items-center rounded-md border border-amber/30 bg-amber/10"
-          >
-            <Lock className="size-3" />
-          </span>
-          <p className="min-w-0">
-            <strong className="font-semibold">受限区域：</strong>
-            需要全局管理员权限。当前账号不是全局管理员，或来源不在网关
-            <code className={CODE_CLS}>KUSTOS_ADMIN_ALLOWED_SOURCES</code>
-            白名单内。
-          </p>
-        </div>
-      ) : (
-        <Tabs defaultValue="overview">
+      <Tabs defaultValue="overview">
           <TabsList>
             <TabsTrigger value="overview" type="button">
               {t("admin.overview")}
@@ -756,8 +761,7 @@ export function AdminPage() {
           {/* ---------------------------------------------- 访问控制 */}
           <TabsContent value="access">
             <p className="border-edge-2 bg-ink-900/55 text-muted-2 mb-3.5 rounded-lg border px-3.5 py-2.5 text-[10.5px] leading-relaxed">
-              网关白名单来自部署侧 <code className={CODE_CLS}>KUSTOS_ADMIN_ALLOWED_SOURCES</code>
-              环境变量——后端没有读取端点，控制台不展示具体条目；空列表即拒绝一切来源。
+              {t("admin.accessHint")}
             </p>
 
             <section className="border-edge-1 bg-ink-850/40 rounded-[10px] border shadow-[inset_0_1px_0_rgba(240,231,216,0.04)]">
@@ -1086,7 +1090,6 @@ export function AdminPage() {
             </section>
           </TabsContent>
         </Tabs>
-      )}
 
       {/* 危险操作确认（重启 / 关机 / 配置重置） */}
       <Dialog open={danger !== null} onOpenChange={(open) => !open && setDanger(null)}>

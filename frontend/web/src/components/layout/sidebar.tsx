@@ -1,4 +1,4 @@
-import { Languages, LogOut, MoreHorizontal, PanelLeftOpen, Plus, Shield, UserRound } from "lucide-react";
+import { Languages, LogOut, MoreHorizontal, Plus, Shield, UserRound } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, NavLink, useLocation, useNavigate } from "react-router";
@@ -145,15 +145,14 @@ function RepoRow({
 }
 
 /**
- * 折叠态：不占全高的图标 dock。
+ * 折叠态：垂直居中的图标 dock。
  *
- * 只保留纯图标导航（含当前仓库页跳转），底部提供展开按钮；
- * 悬停 title 与 aria-label 给出可读名称。收起后不挤压内容，也不留空白条。
+ * 只保留导航图标（含管理员控制台），不重复品牌与展开按钮；
+ * 展开由顶栏最左侧的折叠按钮负责。
  */
 function SidebarDock() {
   const { t } = useTranslation();
   const user = useAuthStore((state) => state.user);
-  const expand = useUiStore((state) => state.toggleSidebar);
   const isAdmin = user?.is_admin ?? false;
 
   const items = [
@@ -164,16 +163,8 @@ function SidebarDock() {
   return (
     <nav
       aria-label={t("nav.toggleSidebar")}
-      className="border-edge-2 bg-ink-900/85 sticky top-4 z-30 m-3 flex h-fit w-[54px] shrink-0 flex-col items-center gap-1 rounded-xl border p-1.5 shadow-[0_14px_34px_rgba(0,0,0,0.4)] backdrop-blur"
+      className="border-edge-2 bg-ink-900/85 my-auto mx-3 flex h-fit w-[54px] shrink-0 flex-col items-center gap-1 rounded-xl border p-1.5 shadow-[0_14px_34px_rgba(0,0,0,0.4)] backdrop-blur"
     >
-      <Link
-        to="/"
-        aria-label="Kustos"
-        className="hover:bg-ink-800 grid size-9 place-items-center rounded-lg transition-colors"
-      >
-        <BrandMark size={24} />
-      </Link>
-      <span aria-hidden="true" className="bg-edge-1 my-1 h-px w-6" />
       {items.map((item) => (
         <NavLink
           key={item.id}
@@ -192,16 +183,6 @@ function SidebarDock() {
           <item.icon className="size-[18px]" aria-hidden="true" />
         </NavLink>
       ))}
-      <span aria-hidden="true" className="bg-edge-1 my-1 h-px w-6" />
-      <button
-        type="button"
-        onClick={expand}
-        aria-label={t("nav.toggleSidebar")}
-        title={t("nav.toggleSidebar")}
-        className="text-muted-2 hover:bg-ink-800 hover:text-bone grid size-9 place-items-center rounded-lg transition-colors"
-      >
-        <PanelLeftOpen className="size-[16px]" aria-hidden="true" />
-      </button>
     </nav>
   );
 }
