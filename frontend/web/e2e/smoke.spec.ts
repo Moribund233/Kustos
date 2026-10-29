@@ -1,14 +1,23 @@
 import { expect, test } from "@playwright/test";
 
+import { gotoApp } from "./session";
+
+/**
+ * 冒烟用例。
+ *
+ * 会话与后端由 `session.ts` 桩住，断言只覆盖"前端产物能跑起来"这件事：
+ * 外壳、字体、i18n、命令面板、编辑器。业务逻辑由 Vitest 单测覆盖。
+ */
+
 test("应用外壳可加载", async ({ page }) => {
-  await page.goto("/");
-  await expect(page.getByRole("navigation")).toBeVisible();
-  // 内容区由 Outlet 渲染，首页应出现占位内容
+  await gotoApp(page, "/");
+  await expect(page.getByRole("navigation").first()).toBeVisible();
+  // 内容区由 Outlet 渲染
   await expect(page.locator("main")).not.toBeEmpty();
 });
 
 test("西文 webfont 实际生效", async ({ page }) => {
-  await page.goto("/");
+  await gotoApp(page, "/");
   await page.waitForLoadState("networkidle");
 
   const loaded = await page.evaluate(() =>
@@ -21,7 +30,7 @@ test("西文 webfont 实际生效", async ({ page }) => {
 });
 
 test("中文字符走系统字体而非西文 webfont", async ({ page }) => {
-  await page.goto("/issues");
+  await gotoApp(page, "/issues");
   await page.waitForLoadState("networkidle");
 
   // 中文字体排在西文 webfont 之后，逐字符回退时中文由系统字体承接
@@ -34,8 +43,8 @@ test("中文字符走系统字体而非西文 webfont", async ({ page }) => {
 });
 
 test("语言切换会改变界面文案", async ({ page }) => {
-  await page.goto("/");
-  const nav = page.getByRole("navigation");
+  await gotoApp(page, "/");
+  const nav = page.getByRole("navigation").first();
   const before = await nav.getAttribute("aria-label");
 
   // 顶栏的语言切换器；浏览器默认语言是 en，这里切到中文看文案是否变化
@@ -46,13 +55,13 @@ test("语言切换会改变界面文案", async ({ page }) => {
 });
 
 test("命令面板可用快捷键唤起", async ({ page }) => {
-  await page.goto("/");
+  await gotoApp(page, "/");
   await page.keyboard.press("Control+k");
   await expect(page.getByPlaceholder(/搜索页面|Search pages/)).toBeVisible();
 });
 
 test("代码页渲染编辑器", async ({ page }) => {
-  await page.goto("/code");
-  // CodeMirror 的可编辑区域
+  // 需要选中文件才会拉 blob 并挂载 CodeMirror
+  await gotoApp(page, "/code?path=README.md");
   await expect(page.locator(".cm-content")).toBeVisible();
 });

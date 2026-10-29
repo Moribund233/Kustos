@@ -86,7 +86,7 @@ pnpm api:generate     # 从后端 OpenAPI 重新生成类型
 | 变量                  | 作用                                                                          |
 | --------------------- | ----------------------------------------------------------------------------- |
 | `VITE_API_URL`        | API 基址；**留空 = 与页面同源**（生产经网关访问 `/api/v1`），构建时注入       |
-| `VITE_DEV_API_ORIGIN` | 仅开发期：vite 代理把 `/api` 转发到的后端地址（默认 `http://127.0.0.1:8002`） |
+| `VITE_DEV_API_ORIGIN` | 仅开发期：vite 把 `/api` 与 `/ws` 转发到的后端地址（默认 `http://127.0.0.1:8001` 即 `docker-compose.yml` 的 API 直连端口；跑 `docker-compose.dev.yml` 时改为 `8002`） |
 
 ## 接口类型
 
@@ -122,8 +122,9 @@ const { data } = await api.GET("/api/v1/repositories/{repo_id}/pull-requests", {
 
 ## 与后端联调
 
-- 开发：`pnpm dev` 时 `/api` 由 vite 代理到 `VITE_DEV_API_ORIGIN`（默认后端 dev compose 的 `127.0.0.1:8002`）。
-- 生产：与网关同源，浏览器直接请求 `/api/v1/...`；WebSocket 走同源的 `/api/v1` 升级路径。
+- 开发：`pnpm dev` 时 `/api` 与 `/ws` 都由 vite 代理到 `VITE_DEV_API_ORIGIN`
+  （默认后端 dev compose 的 `127.0.0.1:8001`）；`/ws` 必须单独代理，实时通道不走 `/api` 前缀。
+- 生产：与网关同源，浏览器直接请求 `/api/v1/...`；WebSocket 走同源的 `/ws/` 升级路径。
 
 ## 网关构建的硬约束
 
@@ -141,11 +142,22 @@ const { data } = await api.GET("/api/v1/repositories/{repo_id}/pull-requests", {
 
 ## 当前状态
 
-骨架已就绪：工程配置、设计令牌、基础组件、外壳布局、路由与测试链路可用。
+八个页面全部接上真实后端：Watch（工作台）、Code、Issues、Pull Request、Agent、Chat、
+Admin 与登录页。页面里没有写死的演示数据，空态一律如实说明缺什么。
 
-通用基建已就位（i18n、编辑器、Markdown 渲染、协作、命令面板、表单、图表、表格），
-页面按 `src/features/README.md` 的分域逐个落地。当前只有 Watch / Code / Issues
-三页有实际实现，其余仍是占位。
+实时能力：聊天页走 `/ws/`（`Sec-WebSocket-Protocol` 带令牌），收发消息、输入指示、
+房间在线状态、断线重连都在 `features/chat/use-room-channel.ts` 里，REST 与实时帧写
+同一份 React Query 缓存（合并与去重见 `features/chat/lib/messages.ts`）。presence 由
+服务端按房间聚合，连接重建后自动重新订阅。
+
+已知缺口（都需要后端配合，前端不做伪实现）：
+
+- **协作编辑器还没有入口**：`components/editor/collab-editor.tsx` 与 `lib/collab/client.ts`
+  已能对接 Hocuspocus，但"打开文档 → 申请会话 → 保存落 Git"的产品流程未定，因此没有页面挂它。
+- **Issue 搜索**：列表接口没有 `q` 参数，前端不提供只过滤当前页的伪搜索。
+- **Release 页、仓库设置页、房间内搜索、消息附件与表情**：后端有接口或需补充接口，前端未实现。
+- **扁平路由**：仓库级页面仍是 `/code`、`/issues` 这类扁平路径，`/:owner/:repo/*`
+  尚未落地，当前仓库由 `stores/repo-store.ts` 承担。
 
 ## 约定
 

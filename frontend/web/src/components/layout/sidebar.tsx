@@ -1,67 +1,288 @@
+import { MoreHorizontal, LogOut, UserRound, KeyRound, Shield } from "lucide-react";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { NavLink } from "react-router";
+import { Link, NavLink, useLocation, useNavigate } from "react-router";
+import { toast } from "sonner";
 
+import { ToneAvatar } from "@/components/kit/kit";
+import { INSTANCE_SECTION, NAV_SECTIONS, type NavSection } from "@/components/layout/nav-sections";
+import { formatRelative } from "@/lib/datetime/format";
 import { cn } from "@/lib/utils";
-import { INSTANCE_ICON, NAV_SECTIONS, type NavSection } from "./nav-sections";
+import { useAuthStore } from "@/stores/auth-store";
+import { useRepoStore, type RepoSummary } from "@/stores/repo-store";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-interface SidebarProps {
-  /** 过滤后的导航分区；未传则显示全部。 */
-  sections?: NavSection[];
+/** 当前仓库页在侧栏嵌套的「你在这里」视图；对象详情由页面自己显示。 */
+const REPO_HERE: Record<string, string> = {
+  "/code": "nav.code",
+  "/pull-requests": "nav.pullRequests",
+  "/issues": "nav.issues",
+  "/chat": "nav.chat",
+};
+
+/** 由用户名推导头像缩写（full_name 优先，取首字母）。 */
+function initialsOf(name: string | null | undefined, fallback: string): string {
+  const source = (name ?? "").trim();
+  if (!source) return fallback.slice(0, 2).toUpperCase();
+  return source
+    .split(/\s+/)
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 }
 
-export function Sidebar({ sections = NAV_SECTIONS }: SidebarProps) {
+function NavItemRow({ item }: { item: NavSection["items"][number] }) {
   const { t } = useTranslation();
-  const InstanceIcon = INSTANCE_ICON;
+  return (
+    <NavLink
+      to={item.to}
+      end={item.to === "/"}
+      className={({ isActive }) =>
+        cn(
+          "relative mb-0.5 flex h-[34px] items-center gap-2.5 rounded-md px-2.5 text-[12.5px] font-medium transition-colors",
+          "text-muted hover:bg-ink-750/55 hover:text-bone",
+          isActive &&
+            "bg-[linear-gradient(90deg,rgba(242,174,91,0.14),rgba(242,174,91,0.025))] text-bone before:absolute before:top-2 before:bottom-2 before:-left-px before:w-0.5 before:rounded-sm before:bg-amber before:shadow-[0_0_12px_rgba(242,174,91,0.55)] before:content-['']",
+        )
+      }
+    >
+      <item.icon
+        className={cn("size-[18px] shrink-0 text-muted-2", item.badgeAmber && "text-amber")}
+        aria-hidden="true"
+      />
+      <span className="truncate">{t(item.labelKey)}</span>
+      {item.badge ? (
+        <span
+          className={cn(
+            "ml-auto rounded-full bg-bone/[0.06] px-1.5 font-mono text-[9.5px] leading-4 text-muted-2",
+            item.badgeAmber && "bg-amber/10 text-amber",
+            item.id === "admin" &&
+              "rounded-full border border-edge-2 bg-transparent px-1.5 text-[9px] uppercase tracking-[0.05em]",
+          )}
+          aria-hidden="true"
+        >
+          {item.badge}
+        </span>
+      ) : null}
+    </NavLink>
+  );
+}
+
+function NavGroup({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <nav aria-label={label} className="mt-[18px]">
+      <p className="text-faint px-2.5 pb-[7px] text-[10px] font-semibold tracking-[0.16em] uppercase">
+        {label}
+      </p>
+      {children}
+    </nav>
+  );
+}
+
+function RepoRow({
+  repo,
+  isActive,
+  onSelect,
+}: {
+  repo: RepoSummary;
+  isActive: boolean;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        "mb-0.5 grid w-full grid-cols-[8px_minmax(0,1fr)_auto] items-center gap-[9px] rounded-md px-2.5 py-1.5 text-left transition-colors",
+        isActive ? "bg-ink-750/40 text-bone" : "text-muted hover:bg-ink-750/45 hover:text-bone-2",
+      )}
+      onClick={() => onSelect(repo.id)}
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          "size-[5px] shrink-0 rounded-full",
+          isActive ? "bg-amber shadow-[0_0_8px_rgba(242,174,91,0.65)]" : "bg-faint",
+        )}
+      />
+      <span className="min-w-0 flex flex-col gap-px">
+        <span className="truncate text-[12px] font-medium leading-tight">{repo.name}</span>
+        <span className="text-faint truncate text-[10px] leading-snug">
+          {formatRelative(repo.updated_at)}推送
+        </span>
+      </span>
+      <span aria-hidden="true" className="text-faint mt-0.5 self-start font-mono text-[10px]">
+        {repo.watch_count || repo.star_count || ""}
+      </span>
+    </button>
+  );
+}
+
+/**
+ * 侧栏：品牌 → 实例卡 → 个人/仓库导航 → 仓库列表 → 底部账号。
+ *
+ * 仓库列表与账号信息来自真实会话（repo-store / auth-store）；层级与原型
+ * 一致：当前仓库页在仓库条目下方嵌套「视图 · 对象」两行，共享同一块底色。
+ */
+export function Sidebar() {
+  const { t } = useTranslation();
+  const { pathname } = useLocation();
+  const here = REPO_HERE[pathname];
+  const user = useAuthStore((state) => state.user);
+  const logout = useAuthStore((state) => state.logout);
+  const { repos, current, select } = useRepoStore();
+  const navigate = useNavigate();
+
+  const isAdmin = user?.is_admin ?? false;
 
   return (
     <nav
       aria-label={t("nav.watch")}
-      className="border-edge-1 bg-ink-950 flex w-[232px] shrink-0 flex-col border-r"
+      className="border-edge-1 bg-ink-900 flex w-[252px] shrink-0 flex-col border-r px-3"
     >
-      <div className="flex h-14 items-center gap-2 px-4">
-        <span className="bg-amber/15 text-amber-2 grid size-6 place-items-center rounded text-[13px]">
+      {/* 品牌 */}
+      <div className="flex flex-none items-center gap-2.5 px-2.5 pt-[21px] pb-[15px]">
+        <Link to="/" className="flex min-w-0 items-center gap-2.5 rounded-md">
+          <span className="bg-amber/15 text-amber-2 font-display grid size-[31px] shrink-0 place-items-center rounded-md text-[15px]">
+            K
+          </span>
+          <span className="min-w-0">
+            <span className="font-display text-bone block text-[18px] font-semibold tracking-[0.155em] leading-none">
+              KUSTOS
+            </span>
+            <span className="text-faint mt-1 block text-[8px] font-semibold tracking-[0.19em]">
+              SELF-HOSTED
+            </span>
+          </span>
+        </Link>
+      </div>
+
+      {/* 实例卡：只是标签，没有可切换的 workspace 实体 */}
+      <div className="border-edge-1 bg-ink-750/55 mb-1 flex flex-none items-center gap-[9px] rounded-md border px-[9px] py-[7px]">
+        <span
+          aria-hidden="true"
+          className="border-amber/35 bg-amber/10 text-amber-2 font-display grid size-[25px] shrink-0 place-items-center rounded-md border text-[14px] leading-none"
+        >
           K
         </span>
-        <span className="font-display text-bone text-[15px]">Kustos</span>
+        <span className="min-w-0 flex-1">
+          <span className="text-bone-2 block truncate text-[12.5px] font-semibold leading-tight">
+            Kustos 实例
+          </span>
+          <span className="text-muted-2 block truncate font-mono text-[10px] leading-snug">
+            {window.location.host}
+          </span>
+        </span>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-2 pb-4">
-        {sections.map((section) => (
-          <div key={section.label} className="mt-4">
-            <p className="text-faint px-2 pb-1.5 text-[10px] font-semibold tracking-[0.15em] uppercase">
-              {section.label}
-            </p>
-            <ul className="space-y-0.5">
+      {/* 导航 */}
+      <div className="min-h-0 flex-1 overflow-y-auto pb-3">
+        {NAV_SECTIONS.map((section, index) => (
+          <div key={section.label} className={cn(index > 0 && "mt-4 border-edge-1 border-t pt-[15px]")}>
+            <NavGroup label={section.label}>
               {section.items.map((item) => (
-                <li key={item.id}>
-                  <NavLink
-                    to={item.to}
-                    end={item.to === "/"}
-                    className={({ isActive }) =>
-                      cn(
-                        "text-muted hover:bg-ink-850 hover:text-bone-2 flex h-8 items-center gap-2 rounded-md px-2 text-[12.5px]",
-                        isActive && "bg-ink-850 text-bone-2",
-                      )
-                    }
-                  >
-                    <item.icon className="text-faint size-4 shrink-0" />
-                    <span className="truncate">{t(item.labelKey)}</span>
-                    {item.badge ? (
-                      <span className="text-faint ml-auto font-mono text-[10px]">{item.badge}</span>
-                    ) : null}
-                  </NavLink>
-                </li>
+                <NavItemRow key={item.id} item={item} />
               ))}
-            </ul>
+            </NavGroup>
           </div>
         ))}
+
+        {/* 仓库列表（真实数据） */}
+        <div className="mt-4 border-edge-1 border-t pt-[15px]">
+          <NavGroup label="Repositories">
+            {repos.length === 0 ? (
+              <p className="text-faint px-2.5 py-1 text-[10.5px]">
+                {useRepoStore.getState().loading ? "加载中…" : "还没有仓库"}
+              </p>
+            ) : (
+              repos.map((repo) => {
+                const isActive = repo.id === current?.id;
+                return (
+                  <div key={repo.id}>
+                    <RepoRow repo={repo} isActive={isActive} onSelect={select} />
+                    {isActive && here ? (
+                      <div className="relative mb-1.5 flex flex-col gap-0.5 rounded-md bg-ink-750/40 py-1.5 pr-2.5 pl-[25px] before:absolute before:top-2 before:bottom-[9px] before:left-4 before:w-px before:bg-amber/40 before:content-['']">
+                        <span className="text-amber text-[10px] font-semibold tracking-[0.04em] leading-snug">
+                          {t(here)}
+                        </span>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })
+            )}
+          </NavGroup>
+        </div>
+
+        {isAdmin ? (
+          <div className="mt-4 border-edge-1 border-t pt-[15px]">
+            <NavGroup label={INSTANCE_SECTION.label}>
+              {INSTANCE_SECTION.items.map((item) => (
+                <NavItemRow key={item.id} item={item} />
+              ))}
+            </NavGroup>
+          </div>
+        ) : null}
       </div>
 
-      <div className="border-edge-1 text-faint border-t px-4 py-3 text-[11px]">
-        <span className="inline-flex items-center gap-1.5">
-          <InstanceIcon className="size-3.5" />
-          {t("auth.selfHosted")}
-        </span>
+      {/* 底部账号行 */}
+      <div className="border-edge-1 relative flex-none border-t px-1 pt-2.5 pb-[13px]">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="hover:bg-ink-750/50 flex w-full items-center gap-[9px] rounded-md px-[9px] py-[7px] text-left transition-colors"
+            >
+              <ToneAvatar initials={initialsOf(user?.full_name, user?.username ?? "?")} tone="amber" size="sm" />
+              <span className="min-w-0 flex-1">
+                <span className="text-bone-2 block truncate text-[12px] font-medium leading-tight">
+                  {user?.full_name || user?.username || "—"}
+                </span>
+                <span className="text-muted-2 block text-[10px] leading-tight">
+                  {isAdmin ? "全局管理员" : "成员"}
+                </span>
+              </span>
+              <MoreHorizontal className="text-muted-2 size-[15px]" aria-hidden="true" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="top" align="start" className="w-[214px]">
+            <DropdownMenuLabel className="text-[11px]">
+              {user?.username} · @{user?.username}
+            </DropdownMenuLabel>
+            <DropdownMenuItem onSelect={() => toast.info("账号设置页尚未落地（auth/ssh_key 控制器已就绪）。")}>
+              <UserRound className="text-muted-2 size-[14px]" aria-hidden="true" />
+              资料与偏好
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => toast.info("SSH 密钥管理页尚未落地（keys 控制器已就绪）。")}>
+              <KeyRound className="text-muted-2 size-[14px]" aria-hidden="true" />
+              SSH 与访问密钥
+            </DropdownMenuItem>
+            {isAdmin ? (
+              <DropdownMenuItem asChild>
+                <Link to="/admin">
+                  <Shield className="text-muted-2 size-[14px]" aria-hidden="true" />
+                  管理控制台
+                </Link>
+              </DropdownMenuItem>
+            ) : null}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={() => {
+                void logout().then(() => navigate("/login", { replace: true }));
+              }}
+            >
+              <LogOut className="text-muted-2 size-[14px]" aria-hidden="true" />
+              退出登录
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </nav>
   );

@@ -21,8 +21,17 @@ export default defineConfig({
     port: 5173,
     proxy: {
       // 开发期把 API 打到本地后端；生产走网关同源，不需要代理。
+      // 默认指向 API 直连端口：网关会按 KUSTOS_ADMIN_ALLOWED_SOURCES 在
+      // nginx 层拦掉 /api/app/*，直连端口没有这一层，管理台接口也能通。
       "/api": {
-        target: process.env.VITE_DEV_API_ORIGIN ?? "http://127.0.0.1:8002",
+        target: process.env.VITE_DEV_API_ORIGIN ?? "http://127.0.0.1:8001",
+        changeOrigin: true,
+        ws: true,
+      },
+      // 实时通道走 /ws 前缀（不经 /api/v1）；生产由网关整段反代到应用，
+      // 开发期同样要转发，否则聊天与 presence 一点就连不上。
+      "/ws": {
+        target: process.env.VITE_DEV_API_ORIGIN ?? "http://127.0.0.1:8001",
         changeOrigin: true,
         ws: true,
       },

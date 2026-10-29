@@ -30,5 +30,12 @@ export default tseslint.config(
       "react-refresh/only-export-components": "off",
     },
   },
+  {
+    // 演示数据文件是「数据常量 + 渲染小组件」混排，fast-refresh 规则不适用
+    files: ["src/features/*/demo.tsx"],
+    rules: {
+      "react-refresh/only-export-components": "off",
+    },
+  },
   prettier,
 );

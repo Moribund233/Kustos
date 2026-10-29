@@ -28,6 +28,8 @@ export interface CodeViewProps {
   /** 只读浏览（默认）；协作编辑由 collab editor 承担。 */
   readOnly?: boolean;
   onChange?: (value: string) => void;
+  /** 需要滚动到并选中的行号（1 起）；用于符号大纲跳转。 */
+  revealLine?: number;
 }
 
 /**
@@ -37,7 +39,14 @@ export interface CodeViewProps {
  * 语言包用 `@codemirror/language-data` 按需加载，避免把二十多个语言包打进首屏；
  * 装载结果通过 Compartment 重配，不需要销毁重建编辑器实例。
  */
-export function CodeView({ content, path, className, readOnly = true, onChange }: CodeViewProps) {
+export function CodeView({
+  content,
+  path,
+  className,
+  readOnly = true,
+  onChange,
+  revealLine,
+}: CodeViewProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
   const languageCompartment = useRef(new Compartment());
@@ -126,6 +135,20 @@ export function CodeView({ content, path, className, readOnly = true, onChange }
     if (current === content) return;
     view.dispatch({ changes: { from: 0, to: current.length, insert: content } });
   }, [content]);
+
+  // 跳到指定行：符号大纲点击后把光标放过去并滚到视口中央
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || !revealLine) return;
+    const total = view.state.doc.lines;
+    const target = Math.min(Math.max(revealLine, 1), total);
+    const line = view.state.doc.line(target);
+    view.dispatch({
+      selection: { anchor: line.from },
+      effects: EditorView.scrollIntoView(line.from, { y: "center" }),
+    });
+    view.focus();
+  }, [revealLine]);
 
   return <div ref={hostRef} className={cn("bg-ink-950 overflow-auto", className)} />;
 }
