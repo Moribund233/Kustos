@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Plus, SlidersHorizontal, Tag } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Search, SlidersHorizontal, Tag } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
@@ -16,11 +16,15 @@ import {
   fetchIssueComments,
   fetchIssueDetail,
   fetchIssueLabels,
+  fetchFilteredIssues,
   fetchIssues,
   fetchIssueTotal,
+  fetchRepoMembers,
   postIssueComment,
   reopenIssue,
+  updateIssue,
   type ApiLabel,
+  type ApiRepoMember,
   type IssueListResult,
 } from "@/features/issue/api";
 import { IssueLabel } from "@/features/issue/components/issue-label";
@@ -80,6 +84,11 @@ export function IssuesPage() {
   const [labelFilter, setLabelFilter] = useState("");
   const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
+  /** 正在编辑的 Issue；null 表示弹窗关闭。 */
+  const [editTarget, setEditTarget] = useState<Issue | null>(null);
+  /** 输入框原文；防抖后再进查询，避免每敲一个字打一次接口。 */
+  const [keyword, setKeyword] = useState("");
+  const [search, setSearch] = useState("");
 
   const repoId = repo?.id ?? "";
   // 选中项由 ?issue=<编号> 驱动；无效或缺失时列表自愈回落到首条
@@ -89,15 +98,38 @@ export function IssuesPage() {
     setCrumbs([{ label: repo?.name ?? "—" }, { label: t("nav.issues") }]);
   }, [setCrumbs, t, repo?.name]);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSearch(keyword.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [keyword]);
+
   // 筛选条件变化后回到第一页
   useEffect(() => {
     setPage(1);
-  }, [statusFilter, labelFilter, repoId]);
+  }, [statusFilter, labelFilter, repoId, search]);
+
+  const labelsQuery = useApiQuery<ApiLabel[]>({
+    queryKey: ["issue-labels", repoId],
+    enabled: !!repoId,
+    queryFn: () => fetchIssueLabels(repoId),
+  });
 
   const listQuery = useApiQuery<IssueListResult>({
-    queryKey: ["issues", repoId, "list", { status: statusFilter, label: labelFilter, page }],
+    queryKey: ["issues", repoId, "list", { status: statusFilter, label: labelFilter, page, search }],
     enabled: !!repoId,
-    queryFn: () => fetchIssues(repoId, { status: statusFilter, label: labelFilter || undefined, page }),
+    queryFn: () => {
+      // 有检索词时走 filter 端点（唯一支持 search 的入口），其余条件原样带上
+      if (search) {
+        const labelId = labelsQuery.data?.find((item) => item.name === labelFilter)?.id;
+        return fetchFilteredIssues(repoId, {
+          search,
+          statuses: [statusFilter],
+          labelIds: labelId ? [labelId] : undefined,
+          page,
+        });
+      }
+      return fetchIssues(repoId, { status: statusFilter, label: labelFilter || undefined, page });
+    },
   });
 
   const openCountQuery = useApiQuery<number>({
@@ -116,12 +148,6 @@ export function IssuesPage() {
     queryKey: ["issues", repoId, "count", "assigned"],
     enabled: !!repoId && !!user,
     queryFn: () => fetchIssueTotal(repoId, { status: "open", assignee: user?.id }),
-  });
-
-  const labelsQuery = useApiQuery<ApiLabel[]>({
-    queryKey: ["issue-labels", repoId],
-    enabled: !!repoId,
-    queryFn: () => fetchIssueLabels(repoId),
   });
 
   const items = useMemo(() => listQuery.data?.items ?? [], [listQuery.data]);
@@ -189,6 +215,33 @@ export function IssuesPage() {
       onError: (error) => toast.error(error.message),
     },
   );
+
+  // 编辑弹窗：指派候选按需拉取，避免每次进页面都为下拉框付一次请求
+  const membersQuery = useApiQuery<ApiRepoMember[]>({
+    queryKey: ["repo-members", repoId],
+    enabled: !!repoId && editTarget !== null,
+    queryFn: () => fetchRepoMembers(repoId),
+  });
+
+  const editMutation = useApiMutation<
+    Issue,
+    {
+      issueNumber: number;
+      title: string;
+      description: string;
+      priority: string;
+      assigneeId: string | null;
+      labelIds: string[];
+    }
+  >((input) => updateIssue(repoId, input.issueNumber, input), {
+    onSuccess: (issue) => {
+      toast.success(`Issue #${issue.id} 已更新。`);
+      void queryClient.invalidateQueries({ queryKey: ["issues", repoId] });
+      void queryClient.invalidateQueries({ queryKey: ["issue-comments", repoId, issue.id] });
+      setEditTarget(null);
+    },
+    onError: (error) => toast.error(error.message),
+  });
 
   /** 未选择仓库时渲染空态，不回落到演示数据。 */
   if (!repo) {
@@ -265,8 +318,19 @@ export function IssuesPage() {
               ))}
             </div>
 
-            {/* 列表接口没有 q 参数，搜索框待接口支持后恢复 */}
-            <div className="flex items-center justify-end">
+            {/* 关键词检索走 POST /issues/filter（GET 列表没有 q 参数） */}
+            <div className="flex items-center gap-1.5">
+              <div className="border-edge-2 bg-ink-900/70 focus-within:border-amber/40 flex h-[31px] min-w-0 flex-1 items-center gap-1.5 rounded-md border px-2 transition-colors">
+                <Search className="text-faint size-3 shrink-0" aria-hidden="true" />
+                <input
+                  type="search"
+                  value={keyword}
+                  onChange={(event) => setKeyword(event.target.value)}
+                  placeholder="搜索标题与描述…"
+                  aria-label="搜索 Issue"
+                  className="text-bone placeholder:text-muted-2 min-w-0 flex-1 bg-transparent text-[11px] outline-none"
+                />
+              </div>
               <button
                 type="button"
                 aria-label="排序"
@@ -370,6 +434,7 @@ export function IssuesPage() {
           onComment={(_issue, text) => {
             if (activeNumber !== null) commentMutation.mutate({ issueNumber: activeNumber, content: text });
           }}
+          onEdit={setEditTarget}
         />
       </div>
 
@@ -379,6 +444,21 @@ export function IssuesPage() {
         labels={labelsQuery.data ?? []}
         pending={createMutation.isPending}
         onSubmit={(input) => createMutation.mutate(input)}
+      />
+
+      <EditIssueDialog
+        open={editTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditTarget(null);
+        }}
+        issue={editTarget}
+        labels={labelsQuery.data ?? []}
+        members={membersQuery.data ?? []}
+        pending={editMutation.isPending}
+        onSubmit={(input) => {
+          if (!editTarget) return;
+          editMutation.mutate({ issueNumber: editTarget.id, ...input });
+        }}
       />
     </Stage>
   );
@@ -583,6 +663,140 @@ function CreateIssueDialog({
           </Button>
           <Button onClick={submit} disabled={!title.trim() || pending}>
             {pending ? "创建中…" : "创建"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** 优先级档位：与后端 `Issue.priority` 取值一致。 */
+const EDIT_PRIORITIES = ["low", "medium", "high", "critical"] as const;
+
+/**
+ * 编辑 Issue 弹窗。
+ *
+ * 打开时用当前值预填；只提交被修改的语义（整表单提交，字段少且都有值）。
+ * 指派候选来自仓库成员，未指派时提交 null 以清空。
+ */
+function EditIssueDialog({
+  open,
+  onOpenChange,
+  issue,
+  labels,
+  members,
+  pending,
+  onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  issue: Issue | null;
+  labels: ApiLabel[];
+  members: ApiRepoMember[];
+  pending: boolean;
+  onSubmit: (input: {
+    title: string;
+    description: string;
+    priority: string;
+    assigneeId: string | null;
+    labelIds: string[];
+  }) => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [priority, setPriority] = useState<string>("medium");
+  const [assigneeId, setAssigneeId] = useState("");
+  const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
+
+  // 每次打开都按最新数据预填，避免沿用上一次编辑残留
+  useEffect(() => {
+    if (!open || !issue) return;
+    setTitle(issue.title);
+    setDescription(issue.body);
+    setPriority(issue.priority);
+    setAssigneeId(issue.assigneeId ?? "");
+    setSelectedLabels(labels.filter((label) => issue.labels.includes(label.name)).map((label) => label.id));
+  }, [open, issue, labels]);
+
+  const toggleLabel = (labelId: string) =>
+    setSelectedLabels((prev) =>
+      prev.includes(labelId) ? prev.filter((id) => id !== labelId) : [...prev, labelId],
+    );
+
+  const submit = () => {
+    const trimmed = title.trim();
+    if (!trimmed || pending) return;
+    onSubmit({
+      title: trimmed,
+      description,
+      priority,
+      assigneeId: assigneeId || null,
+      labelIds: selectedLabels,
+    });
+  };
+
+  const candidates = members.filter((member) => member.user && member.is_active !== false);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-[560px]">
+        <DialogHeader>
+          <DialogTitle>编辑 Issue #{issue?.id ?? ""}</DialogTitle>
+          <DialogDescription>修改标题、描述、优先级、指派人与标签。</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-3">
+          <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="标题" aria-label="标题" />
+          <div className="border-edge-2 bg-ink-950/45 overflow-hidden rounded-md border">
+            <MarkdownEditor
+              value={description}
+              onChange={setDescription}
+              placeholder="描述（Markdown）…"
+              className="text-bone px-2.5 py-2 text-[11px]"
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1" aria-label="优先级">
+            <span className="text-faint mr-1 text-[9.5px] font-semibold tracking-[0.12em] uppercase">优先级</span>
+            {EDIT_PRIORITIES.map((level) => (
+              <Chip key={level} active={priority === level} onClick={() => setPriority(level)}>
+                {level}
+              </Chip>
+            ))}
+          </div>
+
+          <label className="flex items-center gap-2">
+            <span className="text-faint text-[9.5px] font-semibold tracking-[0.12em] uppercase">指派给</span>
+            <select
+              value={assigneeId}
+              onChange={(event) => setAssigneeId(event.target.value)}
+              aria-label="指派给"
+              className="border-edge-2 bg-ink-900 text-bone-2 focus:border-amber/45 h-[30px] min-w-0 flex-1 rounded-md border px-2 text-[11.5px] outline-none"
+            >
+              <option value="">未指派</option>
+              {candidates.map((member) => (
+                <option key={member.user?.id} value={member.user?.id}>
+                  {member.user?.full_name || member.user?.username}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {labels.length ? (
+            <div className="flex flex-wrap gap-1" aria-label="选择标签">
+              {labels.map((label) => (
+                <Chip key={label.id} active={selectedLabels.includes(label.id)} onClick={() => toggleLabel(label.id)}>
+                  {label.name}
+                </Chip>
+              ))}
+            </div>
+          ) : null}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            取消
+          </Button>
+          <Button onClick={submit} disabled={!title.trim() || pending}>
+            {pending ? "保存中…" : "保存"}
           </Button>
         </DialogFooter>
       </DialogContent>

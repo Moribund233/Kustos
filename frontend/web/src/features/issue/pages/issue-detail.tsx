@@ -1,7 +1,6 @@
 import { MoreHorizontal } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
 
 import { MarkdownEditor } from "@/components/editor/markdown-editor";
 import { Button } from "@/components/ui/button";
@@ -25,6 +24,8 @@ interface IssueDetailProps {
   onToggleStatus?: (issue: Issue) => void;
   /** 提交评论时回调，正文为 Markdown 原文；提示由页面的提交结果负责。 */
   onComment?: (issue: Issue, text: string) => void;
+  /** 打开编辑弹窗（标题/描述/优先级/指派/标签）。 */
+  onEdit?: (issue: Issue) => void;
 }
 
 /**
@@ -40,8 +41,9 @@ interface IssueDetailProps {
  *   onRetry: 错误态下的重试回调。
  *   onToggleStatus: 关闭/重新打开回调。
  *   onComment: 评论提交回调。
+ *   onEdit: 打开编辑弹窗的回调。
  */
-export function IssueDetail({ issue, comments, error, onRetry, onToggleStatus, onComment }: IssueDetailProps) {
+export function IssueDetail({ issue, comments, error, onRetry, onToggleStatus, onComment, onEdit }: IssueDetailProps) {
   const { t } = useTranslation();
   const [draft, setDraft] = useState("");
   const me = useAuthStore((state) => state.user);
@@ -128,7 +130,7 @@ export function IssueDetail({ issue, comments, error, onRetry, onToggleStatus, o
               variant="outline"
               size="icon-sm"
               aria-label={t("common.more")}
-              onClick={() => toast.info("更多 Issue 操作（编辑、指派、标签）尚未接入。")}
+              onClick={() => onEdit?.(issue)}
             >
               <MoreHorizontal aria-hidden="true" />
             </Button>

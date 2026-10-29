@@ -138,6 +138,7 @@ export function toIssue(dto: ApiIssue): Issue {
     labels: (dto.labels ?? []).map((label) => label.name),
     author: toPerson(dto.author) ?? UNKNOWN_PERSON,
     assignee: toPerson(dto.assignee),
+    assigneeId: dto.assignee?.id ?? null,
     opened: relativeTime(dto.created_at),
     updated: relativeTime(dto.updated_at),
     closedBy: toPerson(dto.closed_by)?.name,
@@ -196,6 +197,56 @@ export async function fetchIssueTotal(repoId: string, filters: IssueListFilters)
   return (await fetchIssues(repoId, { ...filters, limit: 1 })).total;
 }
 
+/**
+ * 关键词/高级筛选。
+ *
+ * `GET /issues` 只有单值 query 参数，关键词检索在 `POST /issues/filter` 上
+ * （`IssueFilterRequest.search` 匹配标题与描述）。两个端点返回同一个分页壳，
+ * 因此页面可以按条件切换而不改渲染。
+ */
+export async function fetchFilteredIssues(
+  repoId: string,
+  filters: {
+    search?: string;
+    statuses?: string[];
+    priority?: string;
+    labelIds?: string[];
+    assigneeId?: string;
+    page?: number;
+    limit?: number;
+  },
+): Promise<IssueListResult> {
+  const keyword = filters.search?.trim();
+  const res = await api.POST("/api/v1/repositories/{repo_id}/issues/filter", {
+    params: {
+      path: { repo_id: repoId },
+      query: {
+        page: filters.page ?? 1,
+        per_page: filters.limit ?? 20,
+      },
+    },
+    body: {
+      search: keyword || null,
+      statuses: filters.statuses?.length ? filters.statuses : null,
+      priorities: filters.priority ? [filters.priority] : null,
+      label_ids: filters.labelIds?.length ? filters.labelIds : null,
+      assignee_ids: filters.assigneeId ? [filters.assigneeId] : null,
+    },
+  });
+  if (res.error) throw fail(res.error);
+  const payload = res.data as
+    | { items?: ApiIssue[]; total?: number; page?: number; pages?: number; has_next?: boolean; has_prev?: boolean }
+    | null;
+  return {
+    items: (payload?.items ?? []).map(toIssue),
+    total: payload?.total ?? 0,
+    page: payload?.page ?? filters.page ?? 1,
+    pages: payload?.pages ?? 0,
+    hasNext: payload?.has_next ?? false,
+    hasPrev: payload?.has_prev ?? false,
+  };
+}
+
 /** 拉取 Issue 详情。 */
 export async function fetchIssueDetail(repoId: string, issueNumber: number): Promise<Issue> {
   const res = await api.GET("/api/v1/repositories/{repo_id}/issues/{issue_number}", {
@@ -251,8 +302,7 @@ export async function postIssueComment(repoId: string, issueNumber: number, cont
   return toComment(res.data as ApiComment);
 }
 
-/** 新建 Issue；后端字段为 title/description/label_ids（优先级走默认 medium）。 */
-export async function createIssue(
+/** 新建 Issue；后端字段为 title/description/label_ids（优先级走默认 medium）。 */export async function createIssue(
   repoId: string,
   input: { title: string; description?: string; labelIds?: string[] },
 ): Promise<Issue> {
@@ -267,4 +317,51 @@ export async function createIssue(
   });
   if (res.error) throw fail(res.error);
   return toIssue(res.data as ApiIssue);
+}
+
+/**
+ * 更新 Issue（标题 / 描述 / 优先级 / 指派 / 标签）。
+ *
+ * 后端 `IssueUpdateRequest` 的字段都是可选，只传要改的键；传 null 表示清空
+ * 指派人或标签。
+ */
+export async function updateIssue(
+  repoId: string,
+  issueNumber: number,
+  patch: {
+    title?: string;
+    description?: string | null;
+    priority?: string;
+    assigneeId?: string | null;
+    labelIds?: string[];
+  },
+): Promise<Issue> {
+  const res = await api.PATCH("/api/v1/repositories/{repo_id}/issues/{issue_number}", {
+    params: { path: { repo_id: repoId, issue_number: issueNumber } },
+    body: {
+      title: patch.title,
+      description: patch.description,
+      priority: patch.priority,
+      assignee_id: patch.assigneeId ?? null,
+      label_ids: patch.labelIds ?? null,
+    },
+  });
+  if (res.error) throw fail(res.error);
+  return toIssue(res.data as ApiIssue);
+}
+
+/** 仓库成员（指派候选）：后端返回 `{ user, role, is_active }` 形态。 */
+export interface ApiRepoMember {
+  user?: ApiUser | null;
+  role?: string;
+  is_active?: boolean;
+}
+
+/** 拉取仓库成员，供指派选择器使用。 */
+export async function fetchRepoMembers(repoId: string): Promise<ApiRepoMember[]> {
+  const res = await api.GET("/api/v1/repositories/{repo_id}/members", {
+    params: { path: { repo_id: repoId } },
+  });
+  if (res.error) throw fail(res.error);
+  return Array.isArray(res.data) ? (res.data as ApiRepoMember[]) : [];
 }

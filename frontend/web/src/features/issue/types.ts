@@ -44,6 +44,8 @@ export interface Issue {
   labels: string[];
   author: Person;
   assignee: Person | null;
+  /** 指派人的用户 ID；编辑弹窗回填选择器要用，展示层不必渲染。 */
+  assigneeId?: string | null;
   opened: string;
   updated: string;
   /** 关闭者姓名，仅已关闭的 Issue 有值。 */
