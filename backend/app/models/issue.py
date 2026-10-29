@@ -60,6 +60,14 @@ class Issue(BaseModel):
     labels = relationship("Label", secondary=issue_label_association, backref="issues")
     comments = relationship("IssueComment", back_populates="issue", cascade="all, delete-orphan")
 
+    # 关联的 PR（同一仓库内，见 PullRequestIssueLink）
+    pull_request_links = relationship(
+        "PullRequestIssueLink",
+        back_populates="issue",
+        cascade="all, delete-orphan",
+        order_by="PullRequestIssueLink.created_at",
+    )
+
 
 class Label(BaseModel):
     """

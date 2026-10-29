@@ -154,10 +154,10 @@ Token 由 `token_service` 签发：
 | `branch_controller` | 10 | 分支 CRUD、保护设置、合并检查 | 读 + `repo:write/admin` |
 | `commit_controller` | 9 | 提交列表/详情/diff/文件/评论 | 读 |
 | `tag_controller` | 4 | 标签列表/创建/删除/详情 | 写 |
-| `pull_request_controller` | 11 | CRUD、close、merge、comments、reviews、diff | 读/写 + `PR_MERGE` |
+| `pull_request_controller` | 17 | CRUD、close、merge、comments、reviews、diff、关联 Issue、评审请求 | 读/写 + `PR_MERGE`；关联/请求限作者或仓库管理员 |
 | `pr_label_controller` | 7 | PR 标签定义/绑定 | `PRLABEL_MANAGE` |
 | `release_controller` | 10 | Release CRUD、发布、附件上传/下载 | `RELEASE_MANAGE` |
-| `issue_controller` | 14 | CRUD、批量关闭/重开/更新/加/移标签、评论 | 参与型/写 |
+| `issue_controller` | 17 | CRUD、批量关闭/重开/更新/加/移标签、评论、关联 PR | 参与型/写 |
 | `build_controller` | 5 | 构建列表/详情/日志/状态回调（CI secret） | 读 + CI secret/用户 token |
 | `webhook_controller` | 8 | CRUD、测试投递、投递历史 | `WEBHOOK_READ/MANAGE` |
 | `stats_controller` | 1 | 仓库统计 | 读 |

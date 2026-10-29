@@ -161,6 +161,8 @@ from app.models.repository_member import RepositoryMember
 from app.models.branch import Branch
 from app.models.commit import Commit
 from app.models.pull_request import PullRequest, PRComment, PRReview
+from app.models.pr_issue_link import PullRequestIssueLink
+from app.models.pr_review_request import PRReviewRequest
 from app.models.issue import Issue, Label, IssueComment
 from app.models.release import Release, ReleaseAsset
 from app.models.webhook import WebHook, WebHookDelivery
@@ -196,7 +198,8 @@ __all__ = [
     "Base", "SessionLocal", "BaseModel",
     "init_engine", "get_engine", "get_db_config",
     "User", "Repository", "RepositoryMember", "Branch", "Commit",
-    "PullRequest", "PRComment", "PRReview", "Issue", "Label", "IssueComment",
+    "PullRequest", "PRComment", "PRReview", "PullRequestIssueLink", "PRReviewRequest",
+    "Issue", "Label", "IssueComment",
     "Release", "ReleaseAsset",
     "WebHook", "WebHookDelivery",
     "SSHKey",

@@ -47,7 +47,9 @@ def _make_alembic_config(db_url: Optional[str] = None) -> Config:
     """构建 Alembic Config（script_location 定位到仓库内的 alembic 目录，不受 CWD 影响）。"""
     cfg = Config(str(ALEMBIC_INI))
     cfg.set_main_option("script_location", str(ALEMBIC_DIR))
-    cfg.set_main_option("sqlalchemy.url", _resolve_db_url(db_url))
+    # 密码经 URL 编码后可能含 %（如 ! → %21），configparser 会把它当插值符；
+    # 写为 %% 转义，get_main_option 读回时还原为单个 %。
+    cfg.set_main_option("sqlalchemy.url", _resolve_db_url(db_url).replace("%", "%%"))
     # 程序化调用时跳过 alembic/env.py 的日志重配置，保留应用现有的日志处理器
     cfg.attributes["kustos_skip_logging_config"] = True
     return cfg

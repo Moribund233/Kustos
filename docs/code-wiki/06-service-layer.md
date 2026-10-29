@@ -46,6 +46,8 @@
 | 服务 | 职责 | 关键函数 | 说明 |
 | --- | --- | --- | --- |
 | `pull_request_service` | PR 全生命周期 | `create_pull_request`、`publish_draft`、`update_pull_request`、`close_pull_request`、`merge_pull_request`、`enforce_merge_protection`、`has_effective_approval`、`evaluate_status_checks`、`get_pr_diff`、`get_pr_file_diff`、`create_pr_comment`、`create_pr_review` | 合并方式 merge/squash/rebase；自我 approve 不计；admin bypass 写审计 |
+| `pr_issue_link_service` | PR ↔ Issue 关联 | `link_issue_to_pr`/`unlink_issue_from_pr`、`auto_link_from_description`、`close_linked_issues` | 只认同仓库；`Fixes #N` 自动建边；合并按 `closes_on_merge` 关单 |
+| `pr_review_request_service` | 评审请求（requested reviewer） | `request_reviewers`、`remove_reviewer`、`list_review_requests` | 评审人是仓库成员；state 由 `pr_reviews` 推导；请求后发通知 |
 | `pr_activity_service` | PR 活动流 | `record_pr_activity`、列表查询 | 与 Activity 表分离 |
 | `pr_label_service` | PR 标签定义/绑定 | CRUD + 批量绑定 | 仓库级定义 |
 | `issue_service` | Issue 全生命周期 | 列表（状态/标签/指派/作者过滤）、创建、更新、关闭/重开、批量操作、评论 | 编号仓库内自增 |

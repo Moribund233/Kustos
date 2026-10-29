@@ -38,6 +38,9 @@ erDiagram
     repositories ||--o{ pull_requests : has
     pull_requests ||--o{ pr_comments : has
     pull_requests ||--o{ pr_reviews : has
+    pull_requests ||--o{ pr_review_requests : requests
+    pull_requests ||--o{ pull_request_issue_links : links
+    issues ||--o{ pull_request_issue_links : linked_by
     repositories ||--o{ issues : has
     issues ||--o{ issue_comments : has
     issues }o--o{ labels : tags
@@ -97,13 +100,15 @@ erDiagram
 | `build_log_entries` | `BuildLogEntry` | build_id, seq, line | `(build_id, seq)` 唯一 | 结构化日志行 |
 | `repo_commit_files` | `RepoCommitFile` | repository_id, commit_sha, path, status, additions, deletions, changed_ranges | 复合索引 repo+commit / repo+path | 变更图索引：每提交每文件改动 |
 
-### 2.3 协作流程：PR / Issue / 评论 / 标签（12）
+### 2.3 协作流程：PR / Issue / 评论 / 标签（14）
 
 | 表 | ORM | 关键字段 | 约束/索引 | 说明 |
 | --- | --- | --- | --- | --- |
 | `pull_requests` | `PullRequest` | repository_id, pr_number, title, description, source/target_branch, author_id, status, is_draft, merged_by, merged_commit_hash | `(repo, pr_number)` 唯一 | open/merged/closed |
 | `pr_comments` | `PRComment` | pull_request_id, author_id, content, file_path, line_number, commit_hash, parent_id | — | 支持行级与回复 |
-| `pr_reviews` | `PRReview` | pull_request_id, reviewer_id, status, comment | — | pending/approved/changes_requested |
+| `pr_reviews` | `PRReview` | pull_request_id, reviewer_id, status, comment | — | 已提交的评审结论：pending/approved/changes_requested |
+| `pr_review_requests` | `PRReviewRequest` | pull_request_id, reviewer_id, requested_by | `(pr, reviewer)` 唯一 | 评审请求；state 由 `pr_reviews` 推导，未提交即 pending |
+| `pull_request_issue_links` | `PullRequestIssueLink` | pull_request_id, issue_id, created_by, closes_on_merge | `(pr, issue)` 唯一 | PR ↔ Issue 关联；`closes_on_merge` 决定合并是否关单 |
 | `pr_activities` | `PRActivity` | pull_request_id, actor_id, action, details | — | PR 活动流（含 merge_override 审计） |
 | `pr_label_definitions` | `PRLabel` | repository_id, name, color, description | — | 仓库级 PR 标签定义 |
 | `pr_labels` | 关联表 | pull_request_id, pr_label_id | — | PR ↔ 标签 |

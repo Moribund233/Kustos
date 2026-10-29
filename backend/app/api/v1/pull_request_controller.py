@@ -3,7 +3,7 @@ Pull Request 控制器层
 
 处理 Pull Request 相关的 HTTP 请求
 """
-from typing import Optional
+from typing import List, Optional
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,6 +26,16 @@ from app.services.pull_request_service import (
     list_pr_comments as service_list_pr_comments,
     get_pr_diff as service_get_pr_diff,
     get_pr_file_diff as service_get_pr_file_diff,
+)
+from app.services.pr_issue_link_service import (
+    list_linked_issues as service_list_linked_issues,
+    link_issue_to_pr as service_link_issue_to_pr,
+    unlink_issue_from_pr as service_unlink_issue_from_pr,
+)
+from app.services.pr_review_request_service import (
+    list_review_requests as service_list_review_requests,
+    request_reviewers as service_request_reviewers,
+    remove_reviewer as service_remove_reviewer,
 )
 
 # 创建路由实例
@@ -71,6 +81,18 @@ class PRMergeRequest(BaseModel):
     merge_method: str = Field(default="merge", description="合并方式：merge/squash/rebase")
     override: bool = Field(default=False, description="admin bypass：跳过保护分支裁决（需仓库 owner/admin，留审计）")
     override_reason: Optional[str] = Field(default=None, description="bypass 原因（写入 PR 活动流）")
+
+
+class PRLinkIssueRequest(BaseModel):
+    """关联 Issue 请求体"""
+    issue_number: int = Field(..., gt=0, description="同仓库内的 Issue 编号")
+    closes_on_merge: bool = Field(default=True, description="合并 PR 时自动关闭该 Issue")
+
+
+class PRReviewersRequest(BaseModel):
+    """请求评审请求体（user_ids 与 usernames 二选一或并用）"""
+    user_ids: Optional[List[uuid.UUID]] = Field(default=None, description="评审人用户ID列表")
+    usernames: Optional[List[str]] = Field(default=None, description="评审人用户名列表")
 
 
 @router.get("/{repo_id}/pull-requests")
@@ -396,4 +418,102 @@ async def get_pr_file_diff(
         repository_id=repo_id,
         pr_number=pr_number,
         file_path=file_path
+    )
+
+
+# ==================== 关联 Issue ====================
+
+@router.get("/{repo_id}/pull-requests/{pr_number}/issues")
+async def list_pr_linked_issues(
+    repo_id: uuid.UUID,
+    pr_number: int,
+    db: AsyncSession = Depends(get_async_db),
+):
+    """列出该 PR 关联的 Issue。"""
+    return await service_list_linked_issues(db=db, repository_id=repo_id, pr_number=pr_number)
+
+
+@router.post("/{repo_id}/pull-requests/{pr_number}/issues", status_code=201)
+async def link_pr_issue(
+    repo_id: uuid.UUID,
+    pr_number: int,
+    data: PRLinkIssueRequest,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user),
+):
+    """把同仓库的 Issue 关联到该 PR（幂等）。"""
+    return await service_link_issue_to_pr(
+        db=db,
+        repository_id=repo_id,
+        pr_number=pr_number,
+        actor_id=current_user.id,
+        issue_number=data.issue_number,
+        closes_on_merge=data.closes_on_merge,
+    )
+
+
+@router.delete("/{repo_id}/pull-requests/{pr_number}/issues/{issue_number}")
+async def unlink_pr_issue(
+    repo_id: uuid.UUID,
+    pr_number: int,
+    issue_number: int,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user),
+):
+    """解除该 PR 与 Issue 的关联。"""
+    return await service_unlink_issue_from_pr(
+        db=db,
+        repository_id=repo_id,
+        pr_number=pr_number,
+        actor_id=current_user.id,
+        issue_number=issue_number,
+    )
+
+
+# ==================== 评审请求 ====================
+
+@router.get("/{repo_id}/pull-requests/{pr_number}/reviewers")
+async def list_pr_reviewers(
+    repo_id: uuid.UUID,
+    pr_number: int,
+    db: AsyncSession = Depends(get_async_db),
+):
+    """列出被请求的评审人，state 由已提交的评审推导。"""
+    return await service_list_review_requests(db=db, repository_id=repo_id, pr_number=pr_number)
+
+
+@router.post("/{repo_id}/pull-requests/{pr_number}/reviewers", status_code=201)
+async def request_pr_reviewers(
+    repo_id: uuid.UUID,
+    pr_number: int,
+    data: PRReviewersRequest,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user),
+):
+    """请求一个或多个仓库成员评审该 PR（重复请求幂等）。"""
+    return await service_request_reviewers(
+        db=db,
+        repository_id=repo_id,
+        pr_number=pr_number,
+        actor_id=current_user.id,
+        user_ids=data.user_ids,
+        usernames=data.usernames,
+    )
+
+
+@router.delete("/{repo_id}/pull-requests/{pr_number}/reviewers/{reviewer_id}")
+async def remove_pr_reviewer(
+    repo_id: uuid.UUID,
+    pr_number: int,
+    reviewer_id: uuid.UUID,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user),
+):
+    """撤回评审请求（已提交的评审记录不受影响）。"""
+    return await service_remove_reviewer(
+        db=db,
+        repository_id=repo_id,
+        pr_number=pr_number,
+        actor_id=current_user.id,
+        reviewer_id=reviewer_id,
     )

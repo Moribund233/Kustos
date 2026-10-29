@@ -57,6 +57,20 @@ class PullRequest(BaseModel):
     comments = relationship("PRComment", back_populates="pull_request", cascade="all, delete-orphan")
     reviews = relationship("PRReview", back_populates="pull_request", cascade="all, delete-orphan")
 
+    # 关联的 Issue 与被请求的评审人（请求 ≠ 已提交的评审，见对应模型注释）
+    issue_links = relationship(
+        "PullRequestIssueLink",
+        back_populates="pull_request",
+        cascade="all, delete-orphan",
+        order_by="PullRequestIssueLink.created_at",
+    )
+    review_requests = relationship(
+        "PRReviewRequest",
+        back_populates="pull_request",
+        cascade="all, delete-orphan",
+        order_by="PRReviewRequest.created_at",
+    )
+
 
 class PRComment(BaseModel):
     """

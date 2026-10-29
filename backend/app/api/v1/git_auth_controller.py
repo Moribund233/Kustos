@@ -139,7 +139,9 @@ async def _check_user_access(
     )
 
 
-@router.api_route("/git-auth", methods=["GET", "POST", "HEAD"])
+# 仅供 nginx auth_request 内部调用，客户端不会直接请求；多方法共用处理函数
+# 无法生成唯一 operationId，因此不进 OpenAPI 文档。
+@router.api_route("/git-auth", methods=["GET", "POST", "HEAD"], include_in_schema=False)
 async def git_auth(request: Request, db: AsyncSession = Depends(get_async_db)):
     # Nginx 通过 X-Git-Request-URI 头传递原始 Git 请求 URI
     uri = request.headers.get("X-Git-Request-URI") or str(request.url.path)

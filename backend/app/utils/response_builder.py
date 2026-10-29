@@ -6,6 +6,21 @@
 from typing import Optional, List, Dict, Any, Callable
 from datetime import datetime
 
+from sqlalchemy import inspect as sa_inspect
+
+
+def _is_loaded(obj, attr: str) -> bool:
+    """关系是否已被 eager load。
+
+    异步会话下访问未加载的惰性关系会抛 ``MissingGreenlet``，所以可选关联
+    （PR ↔ Issue、评审请求）在序列化前先探测一次，没加载就不放进响应，由
+    需要它的接口显式预加载。
+    """
+    try:
+        return attr not in sa_inspect(obj).unloaded
+    except Exception:
+        return False
+
 
 def build_user_info(user, fields: Optional[List[str]] = None) -> Optional[Dict[str, Any]]:
     """
@@ -117,7 +132,56 @@ def build_issue_response(issue, include_details: bool = False) -> Dict[str, Any]
     if include_details:
         data["comments"] = [build_issue_comment_response(c) for c in issue.comments]
 
+    # 关联 PR 需要调用方预加载 issue.pull_request_links(+pull_request)
+    if _is_loaded(issue, "pull_request_links"):
+        data["pull_requests"] = [
+            build_issue_pull_request_response(link)
+            for link in issue.pull_request_links
+            if _is_loaded(link, "pull_request")
+        ]
+
     return data
+
+
+def build_issue_pull_request_response(link) -> Dict[str, Any]:
+    """Issue 侧的关联 PR 摘要"""
+    pr = link.pull_request
+    return {
+        "id": pr.id,
+        "pr_number": pr.pr_number,
+        "title": pr.title,
+        "status": pr.status,
+        "source_branch": pr.source_branch,
+        "target_branch": pr.target_branch,
+        "closes_on_merge": link.closes_on_merge,
+        "linked_at": format_datetime(link.created_at),
+    }
+
+
+def build_pr_linked_issue_response(link) -> Dict[str, Any]:
+    """PR 侧的关联 Issue 摘要"""
+    issue = link.issue
+    return {
+        "id": issue.id,
+        "issue_number": issue.issue_number,
+        "title": issue.title,
+        "status": issue.status,
+        "priority": issue.priority,
+        "closes_on_merge": link.closes_on_merge,
+        "linked_at": format_datetime(link.created_at),
+    }
+
+
+def build_pr_review_request_response(request, review=None) -> Dict[str, Any]:
+    """评审请求；state 从已提交的 PRReview 推导，未提交则为 pending"""
+    return {
+        "reviewer": build_user_info(request.reviewer),
+        "state": review.status if review else "pending",
+        "comment": review.comment if review else None,
+        "requested_by": build_user_info(request.requester, ["id", "username"]),
+        "requested_at": format_datetime(request.created_at),
+        "reviewed_at": format_datetime(review.updated_at or review.created_at) if review else None,
+    }
 
 
 def build_issue_comment_response(comment) -> Dict[str, Any]:
@@ -183,6 +247,24 @@ def build_pr_response(pr, include_details: bool = False, include_reviewers: bool
             reviewers.append(build_user_info(reviewer))
         data["reviewers"] = reviewers
         data["review_count"] = len(pr.reviews)
+
+    # 关联 Issue 与评审请求同样按需输出（需调用方预加载）
+    if _is_loaded(pr, "issue_links"):
+        data["linked_issues"] = [
+            build_pr_linked_issue_response(link)
+            for link in pr.issue_links
+            if _is_loaded(link, "issue")
+        ]
+
+    if _is_loaded(pr, "review_requests"):
+        review_by_user = {}
+        if _is_loaded(pr, "reviews"):
+            review_by_user = {r.reviewer_id: r for r in pr.reviews}
+        data["review_requests"] = [
+            build_pr_review_request_response(req, review_by_user.get(req.reviewer_id))
+            for req in pr.review_requests
+            if _is_loaded(req, "reviewer")
+        ]
 
     if include_details:
         data["comments"] = [build_pr_comment_response(c) for c in pr.comments]

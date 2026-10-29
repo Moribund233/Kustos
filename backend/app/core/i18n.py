@@ -661,6 +661,26 @@ ERROR_MESSAGES: dict[str, dict[str, str]] = {
         LOCALE_ZH: "获取文件差异失败",
         LOCALE_EN: "Failed to get file diff",
     },
+    "pr_reviewer_required": {
+        LOCALE_ZH: "请至少指定一名评审人",
+        LOCALE_EN: "Provide at least one reviewer",
+    },
+    "pr_reviewer_not_found": {
+        LOCALE_ZH: "评审人不存在",
+        LOCALE_EN: "Reviewer not found",
+    },
+    "pr_reviewer_not_member": {
+        LOCALE_ZH: "请求的评审人不是该仓库成员",
+        LOCALE_EN: "Requested reviewer is not a member of this repository",
+    },
+    "pr_review_request_not_found": {
+        LOCALE_ZH: "评审请求不存在",
+        LOCALE_EN: "Review request not found",
+    },
+    "pr_issue_link_not_found": {
+        LOCALE_ZH: "该 Issue 未关联到此 Pull Request",
+        LOCALE_EN: "Issue is not linked to this pull request",
+    },
 
     # =========================================================
     # Release / 附件（聊天 / Release）

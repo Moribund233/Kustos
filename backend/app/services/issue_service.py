@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy import select, func, or_
 
-from app.models import Issue, Label, IssueComment
+from app.models import Issue, Label, IssueComment, PullRequestIssueLink
 from app.services.repository_service import get_accessible_repository_ids
 from app.core.exception import ValidationException, NotFoundException
 from app.core.permissions import ensure_author_or_admin
@@ -26,6 +26,29 @@ from app.services.activity_service import try_record_activity
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+#: Issue 响应里会读取的关联（含反向的关联 PR）。集中一处，避免各查询各写一份。
+_ISSUE_RESPONSE_OPTIONS = (
+    selectinload(Issue.author),
+    selectinload(Issue.assignee),
+    selectinload(Issue.labels),
+    selectinload(Issue.closer),
+    selectinload(Issue.pull_request_links).joinedload(
+        PullRequestIssueLink.pull_request
+    ),
+)
+
+
+async def _reload_for_response(db: AsyncSession, issue: Issue) -> Issue:
+    """按响应所需关联重取一次 Issue（写入后刷新）。"""
+    result = await db.execute(
+        select(Issue)
+        .options(*_ISSUE_RESPONSE_OPTIONS)
+        .filter(Issue.id == issue.id)
+        .execution_options(populate_existing=True)
+    )
+    return result.unique().scalar_one()
 
 
 async def list_issues(
@@ -68,12 +91,7 @@ async def list_issues(
     if label:
         stmt = stmt.join(Issue.labels).filter(Label.name == label)
 
-    stmt = stmt.options(
-        selectinload(Issue.author),
-        selectinload(Issue.assignee),
-        selectinload(Issue.labels),
-        selectinload(Issue.closer)
-    )
+    stmt = stmt.options(*_ISSUE_RESPONSE_OPTIONS)
 
     stmt = stmt.order_by(Issue.created_at.desc())
     issues, total = await paginate(db, stmt, page, limit)
@@ -170,12 +188,7 @@ async def get_issue(
     )
 
     # 预加载关联数据
-    stmt = stmt.options(
-        selectinload(Issue.author),
-        selectinload(Issue.assignee),
-        selectinload(Issue.labels),
-        selectinload(Issue.closer)
-    )
+    stmt = stmt.options(*_ISSUE_RESPONSE_OPTIONS)
 
     if include_details:
         stmt = stmt.options(
@@ -254,12 +267,7 @@ async def create_issue(
     result = await db.execute(
         select(Issue)
         .filter(Issue.id == issue.id)
-        .options(
-            selectinload(Issue.author),
-            selectinload(Issue.assignee),
-            selectinload(Issue.labels),
-            selectinload(Issue.closer)
-        )
+        .options(*_ISSUE_RESPONSE_OPTIONS)
     )
     issue = result.scalar_one()
 
@@ -325,12 +333,7 @@ async def filter_issues(
     stmt = select(Issue).filter(Issue.repository_id == repository_id)
 
     # 预加载关联数据
-    stmt = stmt.options(
-        selectinload(Issue.author),
-        selectinload(Issue.assignee),
-        selectinload(Issue.labels),
-        selectinload(Issue.closer)
-    )
+    stmt = stmt.options(*_ISSUE_RESPONSE_OPTIONS)
 
     # 状态筛选
     if filters.get("statuses"):
@@ -741,6 +744,7 @@ async def update_issue(
 
     await db.flush()
     await db.refresh(issue)
+    issue = await _reload_for_response(db, issue)
 
     return build_issue_response(issue)
 
@@ -783,12 +787,7 @@ async def close_issue(
     result = await db.execute(
         select(Issue)
         .filter(Issue.id == issue.id)
-        .options(
-            selectinload(Issue.author),
-            selectinload(Issue.assignee),
-            selectinload(Issue.labels),
-            selectinload(Issue.closer)
-        )
+        .options(*_ISSUE_RESPONSE_OPTIONS)
     )
     issue = result.scalar_one()
 
@@ -840,12 +839,7 @@ async def reopen_issue(
     result = await db.execute(
         select(Issue)
         .filter(Issue.id == issue.id)
-        .options(
-            selectinload(Issue.author),
-            selectinload(Issue.assignee),
-            selectinload(Issue.labels),
-            selectinload(Issue.closer)
-        )
+        .options(*_ISSUE_RESPONSE_OPTIONS)
     )
     issue = result.scalar_one()
 
@@ -1130,12 +1124,7 @@ async def add_label_to_issue(
     result = await db.execute(
         select(Issue)
         .filter(Issue.id == issue.id)
-        .options(
-            selectinload(Issue.author),
-            selectinload(Issue.assignee),
-            selectinload(Issue.labels),
-            selectinload(Issue.closer)
-        )
+        .options(*_ISSUE_RESPONSE_OPTIONS)
     )
     issue = result.scalar_one()
 
@@ -1201,12 +1190,7 @@ async def remove_label_from_issue(
     result = await db.execute(
         select(Issue)
         .filter(Issue.id == issue.id)
-        .options(
-            selectinload(Issue.author),
-            selectinload(Issue.assignee),
-            selectinload(Issue.labels),
-            selectinload(Issue.closer)
-        )
+        .options(*_ISSUE_RESPONSE_OPTIONS)
     )
     issue = result.scalar_one()
 

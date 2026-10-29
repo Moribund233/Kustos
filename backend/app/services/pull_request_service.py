@@ -11,7 +11,14 @@ from sqlalchemy.orm import joinedload, selectinload
 import uuid
 from sqlalchemy import select
 
-from app.models import PullRequest, PRComment, PRReview, User
+from app.models import (
+    PRReview,
+    PRReviewRequest,
+    PRComment,
+    PullRequest,
+    PullRequestIssueLink,
+    User,
+)
 from app.services.repository_service import get_accessible_repository_ids
 from app.core.exception import ValidationException, NotFoundException, AuthorizationException
 from app.core.permissions import Action, ensure_author_or_admin, has_repo_action
@@ -27,6 +34,10 @@ from app.services.build_service import BuildService
 from app.services.search_service import SearchService
 from app.services.activity_service import try_record_activity
 from app.services.pr_activity_service import record_activity as record_pr_activity
+from app.services.pr_issue_link_service import (
+    auto_link_from_description,
+    close_linked_issues,
+)
 from app.services.realtime.event_service import (
     broadcast_pr_opened, broadcast_pr_closed,
     broadcast_pr_comment_added, broadcast_pr_review_submitted,
@@ -35,6 +46,32 @@ from app.services.realtime.room_service import RoomService
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def _pr_response_options() -> tuple:
+    """build_pr_response 会读取的关联。
+
+    放进函数而不是模块常量：``pr_labels`` 是 PRLabel 侧定义的 backref，
+    模块导入阶段可能还没配置到 mapper 上。
+    """
+    return (
+        selectinload(PullRequest.author),
+        selectinload(PullRequest.merger),
+        selectinload(PullRequest.pr_labels),
+        selectinload(PullRequest.issue_links).joinedload(PullRequestIssueLink.issue),
+        selectinload(PullRequest.review_requests).joinedload(PRReviewRequest.reviewer),
+    )
+
+
+async def _reload_for_response(db: AsyncSession, pr: PullRequest) -> PullRequest:
+    """按响应所需的预加载重取一次 PR（写入后刷新，避免异步惰性加载）。"""
+    result = await db.execute(
+        select(PullRequest)
+        .options(*_pr_response_options())
+        .filter(PullRequest.id == pr.id)
+        .execution_options(populate_existing=True)
+    )
+    return result.unique().scalar_one()
 
 
 async def list_pull_requests(
@@ -68,6 +105,7 @@ async def list_pull_requests(
             selectinload(PullRequest.merger),
             selectinload(PullRequest.pr_labels),
             selectinload(PullRequest.reviews).selectinload(PRReview.reviewer),
+            selectinload(PullRequest.issue_links).joinedload(PullRequestIssueLink.issue),
         )
         .filter(PullRequest.repository_id == repository_id)
     )
@@ -124,6 +162,7 @@ async def list_pull_requests_for_user(
             selectinload(PullRequest.merger),
             selectinload(PullRequest.pr_labels),
             selectinload(PullRequest.reviews).selectinload(PRReview.reviewer),
+            selectinload(PullRequest.issue_links).joinedload(PullRequestIssueLink.issue),
         )
         .filter(PullRequest.repository_id.in_(accessible_ids))
         .filter(PullRequest.author_id == user_id)
@@ -174,7 +213,9 @@ async def get_pull_request(
     stmt = stmt.options(
         joinedload(PullRequest.author),
         joinedload(PullRequest.merger),
-        selectinload(PullRequest.pr_labels)
+        selectinload(PullRequest.pr_labels),
+        selectinload(PullRequest.issue_links).joinedload(PullRequestIssueLink.issue),
+        selectinload(PullRequest.review_requests).joinedload(PRReviewRequest.reviewer),
     )
 
     if include_details:
@@ -246,8 +287,10 @@ async def create_pull_request(
     db.add(pr)
     await db.flush()
     await db.refresh(pr)
-    # 预加载 pr_labels, 供 build_pr_response 序列化 (避免懒加载 MissingGreenlet)
-    await db.refresh(pr, attribute_names=["pr_labels"])
+
+    # "Fixes #12" 这类引用在创建时落成关联边，之后合并即可关闭 Issue
+    await auto_link_from_description(db, pr, author_id)
+    pr = await _reload_for_response(db, pr)
 
     try:
         room = await RoomService.get_repository_room(db, repository_id)
@@ -285,8 +328,8 @@ async def publish_draft(repo_id: uuid.UUID, pr_number: int, user_id: uuid.UUID, 
     pr.is_draft = False
     await db.flush()
     await db.refresh(pr)
-    # 预加载 pr_labels, 供 build_pr_response 序列化 (避免懒加载 MissingGreenlet)
-    await db.refresh(pr, attribute_names=["pr_labels"])
+    await auto_link_from_description(db, pr, user_id)
+    pr = await _reload_for_response(db, pr)
 
     return build_pr_response(pr)
 
@@ -337,8 +380,9 @@ async def update_pull_request(
 
     await db.flush()
     await db.refresh(pr)
-    # 预加载 pr_labels, 供 build_pr_response 序列化 (避免懒加载 MissingGreenlet)
-    await db.refresh(pr, attribute_names=["pr_labels"])
+    # 描述改动可能新增/变更 Fixes 引用；已有边保留，不会被静默删掉
+    await auto_link_from_description(db, pr, user_id)
+    pr = await _reload_for_response(db, pr)
 
     return build_pr_response(pr)
 
@@ -375,8 +419,7 @@ async def close_pull_request(
     pr.status = "closed"
     await db.flush()
     await db.refresh(pr)
-    # 预加载 pr_labels, 供 build_pr_response 序列化 (避免懒加载 MissingGreenlet)
-    await db.refresh(pr, attribute_names=["pr_labels"])
+    pr = await _reload_for_response(db, pr)
 
     try:
         room = await RoomService.get_repository_room(db, repository_id)
@@ -626,8 +669,16 @@ async def merge_pull_request(
 
     await db.flush()
     await db.refresh(pr)
-    # 预加载 pr_labels, 供 build_pr_response 序列化 (避免懒加载 MissingGreenlet)
-    await db.refresh(pr, attribute_names=["pr_labels"])
+
+    # 合并即关闭 "Fixes #N" 关联的 Issue（仅 closes_on_merge 的边）
+    closed_issue_numbers: List[int] = []
+    try:
+        closed_issue_numbers = await close_linked_issues(db, pr, merger_id)
+    except Exception as link_err:
+        # 关闭失败不应让已经完成的 Git 合并变成 500
+        logger.warning("Failed to close linked issues after merge: %s", link_err)
+
+    pr = await _reload_for_response(db, pr)
 
     # PR 合并后自动创建 CI Build 记录
     try:
@@ -676,7 +727,10 @@ async def merge_pull_request(
         action="merged", details=pr.title, db=db,
     )
 
-    return build_pr_response(pr)
+    response = build_pr_response(pr)
+    if closed_issue_numbers:
+        response["closed_issues"] = closed_issue_numbers
+    return response
 
 
 async def create_pr_comment(

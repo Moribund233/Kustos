@@ -30,6 +30,11 @@ from app.services.issue_service import (
     batch_add_labels as service_batch_add_labels,
     batch_remove_labels as service_batch_remove_labels,
 )
+from app.services.pr_issue_link_service import (
+    list_linked_pull_requests as service_list_linked_prs,
+    link_pr_to_issue as service_link_pr_to_issue,
+    unlink_pr_from_issue as service_unlink_pr_from_issue,
+)
 
 # 创建路由实例
 # router 级读可见性（issue 列表/详情/评论此前完全匿名可达）
@@ -38,6 +43,12 @@ router = APIRouter(
     tags=["issues"],
     dependencies=[Depends(require_repo_read())],
 )
+
+
+class IssueLinkPRRequest(BaseModel):
+    """关联 PR 请求体"""
+    pr_number: int = Field(..., gt=0, description="同仓库内的 PR 编号")
+    closes_on_merge: bool = Field(default=True, description="该 PR 合并时自动关闭此 Issue")
 
 
 class IssueCreateRequest(BaseModel):
@@ -503,3 +514,54 @@ async def create_issue_comment(
     )
 
 
+
+
+# ==================== 关联 PR ====================
+
+@router.get("/{repo_id}/issues/{issue_number}/pull-requests")
+async def list_issue_linked_prs(
+    repo_id: uuid.UUID,
+    issue_number: int,
+    db: AsyncSession = Depends(get_async_db),
+):
+    """列出关联该 Issue 的 PR。"""
+    return await service_list_linked_prs(
+        db=db, repository_id=repo_id, issue_number=issue_number
+    )
+
+
+@router.post("/{repo_id}/issues/{issue_number}/pull-requests", status_code=201)
+async def link_issue_pr(
+    repo_id: uuid.UUID,
+    issue_number: int,
+    data: IssueLinkPRRequest,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user),
+):
+    """从 Issue 侧关联一个 PR（幂等）。"""
+    return await service_link_pr_to_issue(
+        db=db,
+        repository_id=repo_id,
+        issue_number=issue_number,
+        actor_id=current_user.id,
+        pr_number=data.pr_number,
+        closes_on_merge=data.closes_on_merge,
+    )
+
+
+@router.delete("/{repo_id}/issues/{issue_number}/pull-requests/{pr_number}")
+async def unlink_issue_pr(
+    repo_id: uuid.UUID,
+    issue_number: int,
+    pr_number: int,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user),
+):
+    """解除 Issue 与 PR 的关联。"""
+    return await service_unlink_pr_from_issue(
+        db=db,
+        repository_id=repo_id,
+        issue_number=issue_number,
+        actor_id=current_user.id,
+        pr_number=pr_number,
+    )
