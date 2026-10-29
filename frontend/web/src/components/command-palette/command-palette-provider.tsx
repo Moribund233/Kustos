@@ -1,18 +1,27 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 
 import { CommandPalette, type CommandItem } from "@/components/command-palette/command-palette";
 import { INSTANCE_SECTION, NAV_SECTIONS } from "@/components/layout/nav-sections";
 import { useAuthStore } from "@/stores/auth-store";
+import { api } from "@/lib/api/client";
+import { useApiQuery } from "@/lib/api/hooks";
 import { useRepoStore } from "@/stores/repo-store";
 import { useUiStore } from "@/stores/ui-store";
+
+/** GET /api/v1/search/global 的返回体。 */
+interface GlobalSearchResult {
+  repositories: { repository_id: string; name: string; path: string }[];
+  issues: { repository_id: string; repository_path: string; issue_number: number; title: string }[];
+  pull_requests: { repository_id: string; repository_path: string; pr_number: number; title: string }[];
+}
 
 /**
  * 命令面板容器。
  *
- * 汇总三类可跳转条目：固定页面、当前用户可访问的仓库、实例管理面（仅管理员）。
- * PR / Issue / Agent 运行等对象级条目要等各自页面的检索接口，不在这里造静态结果。
+ * 汇总固定页面、仓库、实例管理面，以及输入关键词后的全局检索结果
+ * （仓库 / Issue / PR，来自 `/api/v1/search/global`）。
  */
 export function CommandPaletteProvider() {
   const { t } = useTranslation();
@@ -23,6 +32,21 @@ export function CommandPaletteProvider() {
   const repos = useRepoStore((state) => state.repos);
   const selectRepo = useRepoStore((state) => state.select);
   const isAdmin = useAuthStore((state) => state.user?.is_admin ?? false);
+  const [query, setQuery] = useState("");
+  const trimmed = query.trim();
+
+  // 只在面板打开且有输入时请求；输入变化后由 React Query 去重缓存
+  const searchQuery = useApiQuery<GlobalSearchResult>({
+    queryKey: ["global-search", trimmed],
+    enabled: open && trimmed.length > 0,
+    queryFn: async () => {
+      const res = await api.GET("/api/v1/search/global", {
+        params: { query: { q: trimmed, per_type: 5 } },
+      });
+      if (res.error) throw new Error("搜索失败。");
+      return res.data as unknown as GlobalSearchResult;
+    },
+  });
 
   // Ctrl/⌘ + K 唤起；`/` 在非输入态也唤起，与原型一致
   useEffect(() => {
@@ -51,7 +75,7 @@ export function CommandPaletteProvider() {
         onSelect: () => navigate(item.to),
       })),
     );
-    const repoItems: CommandItem[] = repos.map((repo) => ({
+    const repoItems: CommandItem[] = (trimmed ? [] : repos).map((repo) => ({
       id: `repo-${repo.id}`,
       label: repo.path,
       group: t("command.groupRepositories"),
@@ -70,10 +94,54 @@ export function CommandPaletteProvider() {
           onSelect: () => navigate(item.to),
         }))
       : [];
-    return [...pages, ...instance, ...repoItems];
-  }, [navigate, t, repos, selectRepo, isAdmin]);
+    const result = searchQuery.data;
+    const searchItems: CommandItem[] = trimmed
+      ? [
+          ...(result?.repositories ?? []).map((repo) => ({
+            id: `search-repo-${repo.repository_id}`,
+            label: repo.path,
+            group: t("command.groupRepositories"),
+            hint: repo.name,
+            onSelect: () => {
+              selectRepo(repo.repository_id);
+              navigate("/code");
+            },
+          })),
+          ...(result?.issues ?? []).map((issue) => ({
+            id: `search-issue-${issue.repository_id}-${issue.issue_number}`,
+            label: issue.title,
+            group: t("command.groupIssues"),
+            hint: `${issue.repository_path}#${issue.issue_number}`,
+            onSelect: () => {
+              selectRepo(issue.repository_id);
+              navigate(`/issues?issue=${issue.issue_number}`);
+            },
+          })),
+          ...(result?.pull_requests ?? []).map((pr) => ({
+            id: `search-pr-${pr.repository_id}-${pr.pr_number}`,
+            label: pr.title,
+            group: t("command.groupPullRequests"),
+            hint: `${pr.repository_path}#${pr.pr_number}`,
+            onSelect: () => {
+              selectRepo(pr.repository_id);
+              navigate(`/pull-requests?pr=${pr.pr_number}`);
+            },
+          })),
+        ]
+      : [];
 
-  return <CommandPalette open={open} onOpenChange={setOpen} items={items} />;
+    return [...pages, ...instance, ...repoItems, ...searchItems];
+  }, [navigate, t, repos, selectRepo, isAdmin, trimmed, searchQuery.data]);
+
+  return (
+    <CommandPalette
+      open={open}
+      onOpenChange={setOpen}
+      items={items}
+      query={query}
+      onQueryChange={setQuery}
+    />
+  );
 }
 
 /**

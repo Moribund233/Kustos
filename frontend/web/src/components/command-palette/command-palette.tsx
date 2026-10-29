@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { Command } from "cmdk";
 import { useTranslation } from "react-i18next";
 
@@ -24,6 +24,9 @@ interface CommandPaletteProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   items: CommandItem[];
+  /** 搜索词由调用方持有：远程检索（全局搜索）需要它。 */
+  query: string;
+  onQueryChange: (query: string) => void;
 }
 
 /**
@@ -32,14 +35,19 @@ interface CommandPaletteProps {
  * 对应原型的 `Ctrl/⌘ + K`（以及 `/` 唤起）：跨页面、仓库、PR、Issue、Agent 运行检索。
  * 搜索用 cmdk 自带的模糊匹配，条目由调用方按当前上下文组装。
  */
-export function CommandPalette({ open, onOpenChange, items }: CommandPaletteProps) {
+export function CommandPalette({
+  open,
+  onOpenChange,
+  items,
+  query,
+  onQueryChange,
+}: CommandPaletteProps) {
   const { t } = useTranslation();
-  const [search, setSearch] = useState("");
 
   // 关闭时清空搜索词，下次打开是干净的
   useEffect(() => {
-    if (!open) setSearch("");
-  }, [open]);
+    if (!open) onQueryChange("");
+  }, [open, onQueryChange]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, CommandItem[]>();
@@ -69,8 +77,8 @@ export function CommandPalette({ open, onOpenChange, items }: CommandPaletteProp
           }}
         >
           <Command.Input
-            value={search}
-            onValueChange={setSearch}
+            value={query}
+            onValueChange={onQueryChange}
             placeholder={t("command.placeholder")}
             className="border-edge-2 text-bone placeholder:text-faint h-11 w-full border-b bg-transparent px-4 text-[13px] outline-none"
           />
