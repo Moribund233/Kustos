@@ -40,6 +40,10 @@ ERROR_MESSAGES: dict[str, dict[str, str]] = {
         LOCALE_ZH: "无效的角色",
         LOCALE_EN: "Invalid role",
     },
+    "room_admin_required": {
+        LOCALE_ZH: "需要房间管理员权限",
+        LOCALE_EN: "Room admin privileges required",
+    },
     "room_member_not_found": {
         LOCALE_ZH: "成员不存在",
         LOCALE_EN: "Member not found",
