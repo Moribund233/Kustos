@@ -642,6 +642,82 @@ async def update_repository(repo_id: uuid.UUID, repo_data: dict, db: AsyncSessio
     return build_repo_response(db_repo, physical_exists)
 
 
+def _repository_delete_plan() -> list:
+    """返回仓库删除涉及的表，按外键深度从深到浅排列（子表先删）。"""
+    from app.models.base import Base
+
+    tables = Base.metadata.tables
+    depth = {"repositories": 0}
+    # 迭代取「最长路径」：同一张表可能同时直接挂仓库、又被另一张子表引用
+    for _ in range(len(tables)):
+        changed = False
+        for table in tables.values():
+            if table.name == "repositories":
+                continue
+            parents = [
+                fk.column.table.name
+                for fk in table.foreign_keys
+                if fk.column.table.name in depth and fk.column.table.name != table.name
+            ]
+            if not parents:
+                continue
+            new_depth = max(depth[parent] for parent in parents) + 1
+            if depth.get(table.name, 0) < new_depth:
+                depth[table.name] = new_depth
+                changed = True
+        if not changed:
+            break
+
+    return sorted(
+        ((tables[name], level) for name, level in depth.items() if name != "repositories"),
+        key=lambda item: (item[1], item[0].name),
+        reverse=True,
+    )
+
+
+def _repository_scope_condition(table, repo_id: uuid.UUID, plan_names: set, memo: dict):
+    """
+    构造「属于该仓库」的过滤条件。
+
+    直接挂在仓库上的表按 `repository_id` 过滤；没有该列的表沿外键上溯到父表，
+    生成 `fk IN (SELECT id FROM 父表 WHERE 父表条件)`。
+    """
+    if table.name in memo:
+        return memo[table.name]
+
+    if "repository_id" in table.c:
+        condition = table.c.repository_id == repo_id
+    else:
+        conditions = []
+        for fk in table.foreign_keys:
+            parent = fk.column.table
+            # 自引用（如 chat_messages.reply_to_id）由同表其它外键覆盖
+            if parent.name == table.name or parent.name not in plan_names:
+                continue
+            conditions.append(
+                fk.parent.in_(
+                    select(parent.c.id).where(
+                        _repository_scope_condition(parent, repo_id, plan_names, memo)
+                    )
+                )
+            )
+        condition = or_(*conditions) if conditions else None
+
+    memo[table.name] = condition
+    return condition
+
+
+async def _purge_repository_rows(db: AsyncSession, repo_id: uuid.UUID) -> None:
+    """硬删除仓库前清空后代表，避免 NOT NULL 外键被 ORM 置空后触发 500。"""
+    plan = _repository_delete_plan()
+    plan_names = {table.name for table, _ in plan}
+    memo: dict = {}
+    for table, _ in plan:
+        condition = _repository_scope_condition(table, repo_id, plan_names, memo)
+        if condition is not None:
+            await db.execute(table.delete().where(condition))
+
+
 async def delete_repository(repo_id: uuid.UUID, db: AsyncSession):
     """
     删除仓库
@@ -683,16 +759,7 @@ async def delete_repository(repo_id: uuid.UUID, db: AsyncSession):
     except Exception as e:
         logger.warning(f"Failed to cleanup search index for repo {repo_id}: {e}")
 
-    from app.models.realtime_room import RealtimeRoom, RoomMember
-    room_result = await db.execute(
-        select(RealtimeRoom).filter(RealtimeRoom.repository_id == repo_id)
-    )
-    room = room_result.scalar_one_or_none()
-    if room:
-        await db.execute(
-            RoomMember.__table__.delete().where(RoomMember.room_id == room.id)
-        )
-        await db.delete(room)
+    await _purge_repository_rows(db, repo_id)
 
     await db.delete(db_repo)
     await db.flush()
