@@ -180,7 +180,7 @@ async def delete_branch(
     return await service_delete_branch(repo_id, branch_name, db)
 
 
-@router.put("/{repo_id}/branches/{branch_name}/default")
+@router.put("/{repo_id}/branches/{branch_name:path}/default")
 async def set_default_branch(
     request: Request,
     repo_id: uuid.UUID,
@@ -209,7 +209,7 @@ async def set_default_branch(
     return await service_set_default_branch(repo_id, branch.id, db)
 
 
-@router.put("/{repo_id}/branches/{branch_name}/protect")
+@router.put("/{repo_id}/branches/{branch_name:path}/protect")
 async def protect_branch(
     request: Request,
     repo_id: uuid.UUID,
@@ -241,7 +241,7 @@ async def protect_branch(
     return await service_protect_branch(repo_id, branch_name, protection_settings, db)
 
 
-@router.put("/{repo_id}/branches/{branch_name}/unprotect")
+@router.put("/{repo_id}/branches/{branch_name:path}/unprotect")
 async def unprotect_branch(
     request: Request,
     repo_id: uuid.UUID,
@@ -269,7 +269,7 @@ async def unprotect_branch(
     return await service_unprotect_branch(repo_id, branch_name, db)
 
 
-@router.get("/{repo_id}/branches/{branch_name}/protection")
+@router.get("/{repo_id}/branches/{branch_name:path}/protection")
 async def check_branch_protection(
     repo_id: uuid.UUID,
     branch_name: str,
