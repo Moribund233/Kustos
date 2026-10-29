@@ -5,6 +5,7 @@
 作业等一并清掉；否则 NOT NULL 外键（例如 pull_requests.repository_id）会
 让删除以 IntegrityError 500 收场。
 """
+
 import pytest
 from sqlalchemy import func, select
 
@@ -15,6 +16,7 @@ from app.models.issue import Issue, IssueComment
 from app.models.pull_request import PRComment, PRReview, PullRequest
 from app.models.realtime_room import RealtimeRoom, RoomMember
 from app.models.release import Release, ReleaseAsset
+from app.models.repository import Repository
 from app.models.stargazer import Stargazer
 from app.models.user import User
 from app.models.watcher import Watcher
@@ -24,7 +26,9 @@ from app.services import repository_service
 
 async def _count(db, model, *conditions) -> int:
     """统计满足条件的行数。"""
-    result = await db.execute(select(func.count()).select_from(model).where(*conditions))
+    result = await db.execute(
+        select(func.count()).select_from(model).where(*conditions)
+    )
     return int(result.scalar_one())
 
 
@@ -67,7 +71,9 @@ async def test_delete_repository_purges_children(async_db):
     async_db.add(pr)
     await async_db.flush()
     async_db.add(PRComment(pull_request_id=pr.id, author_id=user.id, content="评论"))
-    async_db.add(PRReview(pull_request_id=pr.id, reviewer_id=user.id, status="approved"))
+    async_db.add(
+        PRReview(pull_request_id=pr.id, reviewer_id=user.id, status="approved")
+    )
 
     release = Release(
         repository_id=repo_id,
@@ -79,12 +85,22 @@ async def test_delete_repository_purges_children(async_db):
     )
     async_db.add(release)
     await async_db.flush()
-    async_db.add(ReleaseAsset(release_id=release.id, name="a.txt", file_path="/tmp/a.txt", file_size=0))
+    async_db.add(
+        ReleaseAsset(
+            release_id=release.id, name="a.txt", file_path="/tmp/a.txt", file_size=0
+        )
+    )
 
-    webhook = WebHook(repository_id=repo_id, url="https://example.com/hook", events='["push"]')
+    webhook = WebHook(
+        repository_id=repo_id, url="https://example.com/hook", events='["push"]'
+    )
     async_db.add(webhook)
     await async_db.flush()
-    async_db.add(WebHookDelivery(webhook_id=webhook.id, event="push", payload="{}", is_success=True))
+    async_db.add(
+        WebHookDelivery(
+            webhook_id=webhook.id, event="push", payload="{}", is_success=True
+        )
+    )
 
     room_result = await async_db.execute(
         select(RealtimeRoom).where(RealtimeRoom.repository_id == repo_id)
@@ -105,7 +121,22 @@ async def test_delete_repository_purges_children(async_db):
     await async_db.flush()
     async_db.add(AgentStep(job_id=job.id, seq=1, type="user", content="hi"))
 
-    async_db.add(Activity(repository_id=repo_id, actor_id=user.id, entity_type="repo", entity_id=repo_id, action="created"))
+    fork = Repository(
+        name="cascade-fork",
+        path=f"{user.username}/cascade-fork",
+        owner_id=user.id,
+        forked_from_id=repo_id,
+    )
+    async_db.add(fork)
+    async_db.add(
+        Activity(
+            repository_id=repo_id,
+            actor_id=user.id,
+            entity_type="repo",
+            entity_id=repo_id,
+            action="created",
+        )
+    )
     async_db.add(Stargazer(repository_id=repo_id, user_id=user.id))
     async_db.add(Watcher(repository_id=repo_id, user_id=user.id))
     await async_db.commit()
@@ -160,3 +191,7 @@ async def test_delete_repository_purges_children(async_db):
             leftovers[model.__tablename__] = count
 
     assert not leftovers, f"删除仓库后仍有残留行: {leftovers}"
+
+    # Fork 是独立仓库：删除源仓库只解除来源引用，不连带删除 Fork
+    await async_db.refresh(fork)
+    assert fork.forked_from_id is None

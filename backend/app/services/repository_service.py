@@ -10,7 +10,7 @@ import logging
 from typing import Dict, Optional, Tuple
 import uuid
 from datetime import datetime, timedelta
-from sqlalchemy import select, asc, desc, or_
+from sqlalchemy import select, asc, desc, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Repository
@@ -675,7 +675,9 @@ def _repository_delete_plan() -> list:
     )
 
 
-def _repository_scope_condition(table, repo_id: uuid.UUID, plan_names: set, memo: dict):
+def _repository_scope_condition(
+    table, repo_id: uuid.UUID, plan_names: set, memo: dict
+):
     """
     构造「属于该仓库」的过滤条件。
 
@@ -760,6 +762,12 @@ async def delete_repository(repo_id: uuid.UUID, db: AsyncSession):
         logger.warning(f"Failed to cleanup search index for repo {repo_id}: {e}")
 
     await _purge_repository_rows(db, repo_id)
+    # Fork 是独立仓库：保留它，只把指向被删仓库的来源置空
+    await db.execute(
+        update(Repository)
+        .where(Repository.forked_from_id == repo_id)
+        .values(forked_from_id=None)
+    )
 
     await db.delete(db_repo)
     await db.flush()
