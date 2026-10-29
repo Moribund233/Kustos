@@ -1,5 +1,5 @@
-import { Tag } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Paperclip, Tag } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { toast } from "sonner";
@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { api } from "@/lib/api/client";
+import { api, getAccessToken } from "@/lib/api/client";
 import { useApiMutation, useApiQuery } from "@/lib/api/hooks";
 import { relativeTime } from "@/features/issue/api";
 import { Markdown } from "@/lib/markdown/markdown";
@@ -44,6 +44,17 @@ interface ReleaseDto {
   is_prerelease: boolean;
   created_at: string | null;
   updated_at: string | null;
+  /** 列表接口带 include_assets=true，附件元数据随行返回。 */
+  assets?: ReleaseAssetDto[];
+}
+
+/** Release 附件（release_service.build_asset_response）。 */
+interface ReleaseAssetDto {
+  id: string;
+  name: string;
+  file_size: number;
+  content_type: string;
+  download_count: number;
 }
 
 interface ReleasePage {
@@ -132,6 +143,58 @@ export function ReleasesPage() {
     },
     onError: (error) => toast.error(error.message),
   });
+
+  // 附件：同一个隐藏 input 复用，上传目标由 uploadTarget 指出
+  const assetInputRef = useRef<HTMLInputElement | null>(null);
+  const [uploadTarget, setUploadTarget] = useState<ReleaseDto | null>(null);
+
+  const pickAssetFile = (release: ReleaseDto) => {
+    setUploadTarget(release);
+    assetInputRef.current?.click();
+  };
+
+  const uploadAsset = async (file: File) => {
+    const target = uploadTarget;
+    if (!target) return;
+    const token = getAccessToken();
+    const form = new FormData();
+    form.append("file", file);
+    // multipart 走原生 fetch：openapi 客户端只拼 JSON 请求体
+    const res = await fetch(
+      `/api/v1/repositories/${repoId}/releases/${target.release_number}/assets/upload`,
+      {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body: form,
+      },
+    );
+    if (!res.ok) {
+      toast.error("附件上传失败。");
+      return;
+    }
+    toast.success("附件已上传。");
+    void queryClient.invalidateQueries({ queryKey: ["releases", repoId] });
+  };
+
+  /** 下载要带令牌，直接开链接会 401，所以取 blob 再触发保存。 */
+  const downloadAsset = async (release: ReleaseDto, asset: ReleaseAssetDto) => {
+    const token = getAccessToken();
+    const res = await fetch(
+      `/api/v1/repositories/${repoId}/releases/${release.release_number}/assets/${asset.id}/download`,
+      { headers: token ? { Authorization: `Bearer ${token}` } : undefined },
+    );
+    if (!res.ok) {
+      toast.error("附件下载失败。");
+      return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = asset.name;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   if (!repo) {
     return (
@@ -235,6 +298,29 @@ export function ReleasesPage() {
                     <Markdown content={release.description} />
                   </div>
                 ) : null}
+
+                {/* 附件：已上传的按名称列出，点击即下载；右侧上传入口按行复用 */}
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  {release.assets?.map((asset) => (
+                    <button
+                      key={asset.id}
+                      type="button"
+                      onClick={() => void downloadAsset(release, asset)}
+                      className="border-edge-2 text-muted-2 hover:border-edge-3 hover:text-bone-2 inline-flex h-[20px] items-center gap-1 rounded-full border px-2 font-mono text-[9.5px] transition-colors"
+                    >
+                      <Paperclip className="size-[10px]" aria-hidden="true" />
+                      {asset.name}
+                      <span className="text-faint">{formatSize(asset.file_size)}</span>
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => pickAssetFile(release)}
+                    className="text-faint hover:text-amber-2 inline-flex h-[20px] items-center gap-1 px-1 font-mono text-[9.5px] transition-colors"
+                  >
+                    + 上传附件
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
@@ -269,8 +355,29 @@ export function ReleasesPage() {
         pending={createMutation.isPending}
         onSubmit={(input) => createMutation.mutate(input)}
       />
+
+      <input
+        ref={assetInputRef}
+        type="file"
+        hidden
+        aria-hidden="true"
+        tabIndex={-1}
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) void uploadAsset(file);
+          event.target.value = "";
+        }}
+      />
     </div>
   );
+}
+
+/** 字节数转紧凑可读大小（附件胶囊用）。 */
+function formatSize(bytes: number): string {
+  if (!bytes) return "";
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)}K`;
+  return `${(bytes / 1024 / 1024).toFixed(1)}M`;
 }
 
 /** 新建 Release 弹窗：标签名 + 标题 + 说明（Markdown）+ 草稿/预发布。 */
