@@ -24,6 +24,11 @@ const PullPage = lazy(() =>
 const ReleasesPage = lazy(() =>
   import("@/features/release/pages/releases-page").then((m) => ({ default: m.ReleasesPage })),
 );
+const RepositorySettingsPage = lazy(() =>
+  import("@/features/settings/pages/repository-settings-page").then((m) => ({
+    default: m.RepositorySettingsPage,
+  })),
+);
 const AgentPage = lazy(() =>
   import("@/features/agent/pages/agent-page").then((m) => ({ default: m.AgentPage })),
 );
@@ -88,6 +93,14 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={<PageFallback />}>
             <PullPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "settings",
+        element: (
+          <Suspense fallback={<PageFallback />}>
+            <RepositorySettingsPage />
           </Suspense>
         ),
       },
