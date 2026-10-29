@@ -87,21 +87,39 @@ class TestRoomHandlers:
     async def test_handle_room_join_subscribes_connection(self):
         from app.api.ws.handlers.room import handle_room_join
         manager = ConnectionManager()
+        room_id = uuid.uuid4()
         conn, mock_ws = await _register_connection(manager, user_id=uuid.uuid4())
-        await handle_room_join(conn, {"type": "room_join", "room_id": 1})
+        # 客户端传字符串房间 id，订阅必须落在 UUID 键上（广播按 UUID 查）
+        await handle_room_join(conn, {"type": "room_join", "room_id": str(room_id)})
         async with manager._lock:
-            assert 1 in manager._room_index
-            assert conn.connection_id in manager._room_index[1]
+            assert room_id in manager._room_index
+            assert conn.connection_id in manager._room_index[room_id]
 
     @pytest.mark.asyncio
     async def test_handle_room_leave_unsubscribes(self):
         from app.api.ws.handlers.room import handle_room_leave
         manager = ConnectionManager()
+        room_id = uuid.uuid4()
         conn, mock_ws = await _register_connection(manager, user_id=uuid.uuid4())
-        await manager.subscribe_room(conn, 1)
-        await handle_room_leave(conn, {"type": "room_leave", "room_id": 1})
+        await manager.subscribe_room(conn, room_id)
+        await handle_room_leave(conn, {"type": "room_leave", "room_id": str(room_id)})
         async with manager._lock:
-            assert 1 not in manager._room_index or conn.connection_id not in manager._room_index[1]
+            assert (
+                room_id not in manager._room_index
+                or conn.connection_id not in manager._room_index[room_id]
+            )
+
+    @pytest.mark.asyncio
+    async def test_handle_room_join_rejects_non_uuid(self):
+        """非法房间 id 直接回错误，不留下永远收不到广播的订阅桶。"""
+        from app.api.ws.handlers.room import handle_room_join
+        manager = ConnectionManager()
+        conn, mock_ws = await _register_connection(manager, user_id=uuid.uuid4())
+        await handle_room_join(conn, {"type": "room_join", "room_id": "not-a-uuid"})
+        payload = _sent_payload(mock_ws)
+        assert payload["type"] == "error"
+        async with manager._lock:
+            assert "not-a-uuid" not in manager._room_index
 
     @pytest.mark.asyncio
     async def test_handle_room_join_requires_auth(self):

@@ -88,8 +88,9 @@ class TestPresenceHandlers:
         alice_id = uuid.uuid4()
         conn_alice, mock_alice = await _register_connection(manager, user_id=alice_id, username="alice")
         conn_bob, mock_bob = await _register_connection(manager, user_id=uuid.uuid4(), username="bob")
-        await manager.subscribe_room(conn_bob, 1)
-        await handle_room_join(conn_alice, {"type": "room_join", "room_id": 1})
+        room_id = uuid.uuid4()
+        await manager.subscribe_room(conn_bob, room_id)
+        await handle_room_join(conn_alice, {"type": "room_join", "room_id": str(room_id)})
         presence_calls = [
             c for c in mock_bob.send_text.call_args_list
             if json.loads(c[0][0]).get("type") == "presence_join"
@@ -105,10 +106,11 @@ class TestPresenceHandlers:
         alice_id = uuid.uuid4()
         conn_alice, mock_alice = await _register_connection(manager, user_id=alice_id, username="alice")
         conn_bob, mock_bob = await _register_connection(manager, user_id=uuid.uuid4(), username="bob")
-        await manager.subscribe_room(conn_alice, 1)
-        await manager.subscribe_room(conn_bob, 1)
+        room_id = uuid.uuid4()
+        await manager.subscribe_room(conn_alice, room_id)
+        await manager.subscribe_room(conn_bob, room_id)
         mock_bob.send_text.reset_mock()
-        await handle_room_leave(conn_alice, {"type": "room_leave", "room_id": 1})
+        await handle_room_leave(conn_alice, {"type": "room_leave", "room_id": str(room_id)})
         presence_calls = [
             c for c in mock_bob.send_text.call_args_list
             if json.loads(c[0][0]).get("type") == "presence_leave"
@@ -122,9 +124,10 @@ class TestPresenceHandlers:
         manager = ConnectionManager()
         conn_alice, mock_alice = await _register_connection(manager, user_id=uuid.uuid4(), username="alice")
         conn_bob, _ = await _register_connection(manager, user_id=uuid.uuid4(), username="bob")
-        await manager.subscribe_room(conn_alice, 1)
-        await manager.subscribe_room(conn_bob, 1)
-        await handle_presence_list(conn_alice, {"type": "presence_list", "room_id": 1})
+        room_id = uuid.uuid4()
+        await manager.subscribe_room(conn_alice, room_id)
+        await manager.subscribe_room(conn_bob, room_id)
+        await handle_presence_list(conn_alice, {"type": "presence_list", "room_id": str(room_id)})
         sent = _sent_payload(mock_alice)
         assert sent["type"] == "presence_list"
         assert len(sent["users"]) == 2

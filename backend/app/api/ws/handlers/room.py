@@ -1,5 +1,12 @@
+"""房间订阅与在线状态的 WebSocket 处理器。
+
+订阅索引与广播都以 UUID 为键，客户端传来的 id 是字符串，必须统一归一化，
+否则 ``_room_index["<uuid>"]`` 与 ``_room_index[UUID(...)]`` 是两个不同的桶，
+加入房间成功但一条广播都收不到。
+"""
 from typing import Dict, Any
 from datetime import datetime, timezone
+from uuid import UUID
 from app.api.ws.manager import Connection, ConnectionManager
 import logging
 
@@ -11,6 +18,23 @@ def _get_manager():
     return ConnectionManager()
 
 
+def _parse_room_id(value: Any) -> UUID | None:
+    """把客户端传来的房间 id 归一化成 UUID.
+
+    Args:
+        value: 消息体的 ``room_id``，通常是字符串
+
+    Returns:
+        UUID 或 None（格式非法时）
+    """
+    if value is None:
+        return None
+    try:
+        return value if isinstance(value, UUID) else UUID(str(value))
+    except (ValueError, AttributeError, TypeError):
+        return None
+
+
 async def handle_room_join(connection: Connection, message: Dict[str, Any]) -> None:
     if connection.user_id is None:
         await connection.send({
@@ -20,11 +44,11 @@ async def handle_room_join(connection: Connection, message: Dict[str, Any]) -> N
         })
         return
 
-    room_id = message.get("room_id")
+    room_id = _parse_room_id(message.get("room_id"))
     if room_id is None:
         await connection.send({
             "type": "error",
-            "error": "缺少 room_id",
+            "error": "缺少或非法的 room_id",
             "original_type": "room_join"
         })
         return
@@ -60,11 +84,11 @@ async def handle_room_leave(connection: Connection, message: Dict[str, Any]) -> 
         })
         return
 
-    room_id = message.get("room_id")
+    room_id = _parse_room_id(message.get("room_id"))
     if room_id is None:
         await connection.send({
             "type": "error",
-            "error": "缺少 room_id",
+            "error": "缺少或非法的 room_id",
             "original_type": "room_leave"
         })
         return
@@ -100,11 +124,11 @@ async def handle_presence_list(connection: Connection, message: Dict[str, Any]) 
         })
         return
 
-    room_id = message.get("room_id")
+    room_id = _parse_room_id(message.get("room_id"))
     if room_id is None:
         await connection.send({
             "type": "error",
-            "error": "缺少 room_id",
+            "error": "缺少或非法的 room_id",
             "original_type": "presence_list"
         })
         return

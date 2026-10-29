@@ -55,12 +55,14 @@ class TestChatHandlers:
     async def test_handle_chat_typing_broadcasts(self):
         from app.api.ws.handlers.chat import handle_chat_typing
         manager = ConnectionManager()
+        room_id = uuid.uuid4()
         user1_id = uuid.uuid4()
         conn1, mock_ws1 = await _register_connection(manager, "c1", user_id=user1_id, username="alice")
         conn2, mock_ws2 = await _register_connection(manager, "c2", user_id=uuid.uuid4(), username="bob")
-        await manager.subscribe_room(conn1, 1)
-        await manager.subscribe_room(conn2, 1)
-        await handle_chat_typing(conn1, {"type": "chat_typing", "room_id": 1, "is_typing": True})
+        await manager.subscribe_room(conn1, room_id)
+        await manager.subscribe_room(conn2, room_id)
+        # 客户端发字符串房间 id，处理器要归一化成订阅索引用的 UUID
+        await handle_chat_typing(conn1, {"type": "chat_typing", "room_id": str(room_id), "is_typing": True})
         call_args = _sent_payload(mock_ws2)
         assert call_args["type"] == "chat_typing"
         assert call_args["user_id"] == str(user1_id)

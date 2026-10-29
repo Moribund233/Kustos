@@ -75,12 +75,13 @@ async def handle_chat_typing(connection: Connection, message: Dict[str, Any]) ->
         })
         return
 
-    room_id = message.get("room_id")
+    # 订阅索引以 UUID 为键，字符串 room_id 广播不到任何连接
+    room_id = _parse_uuid(message.get("room_id"))
     is_typing = message.get("is_typing", True)
 
-    if not room_id:
+    if room_id is None:
         await connection.send({
-            "type": "error", "error": "缺少 room_id",
+            "type": "error", "error": "缺少或非法的 room_id",
             "original_type": "chat_typing"
         })
         return
