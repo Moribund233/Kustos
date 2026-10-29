@@ -260,11 +260,7 @@ export function IssuesPage() {
   const assignedCount = assignedCountQuery.data ?? 0;
 
   return (
-    <Stage
-      dock={PANEL_DOCK}
-      panel={() => <IssuePanel issue={detailQuery.data ?? active} />}
-      className="mx-auto w-full max-w-[1560px] px-[34px] pt-[30px] pb-20"
-    >
+    <div className="mx-auto w-full max-w-[1560px] px-[34px] pt-[30px] pb-20">
       {/* 页头 */}
       <header className="mb-[22px] flex items-end justify-between gap-8">
         <div className="min-w-0">
@@ -294,6 +290,11 @@ export function IssuesPage() {
         </div>
       </header>
 
+      <Stage
+        dock={PANEL_DOCK}
+        panel={() => <IssuePanel issue={detailQuery.data ?? active} />}
+        className="mt-0"
+      >
       {/* 画布：列表 + 详情 */}
       <div className="border-edge-2 bg-ink-900/55 grid h-[calc(100vh-272px)] min-h-[540px] grid-cols-[392px_minmax(0,1fr)] overflow-hidden rounded-[14px] border">
         <aside aria-label="Issue 列表" className="border-edge-1 bg-ink-950/55 flex min-h-0 min-w-0 flex-col overflow-hidden border-r">
@@ -437,6 +438,7 @@ export function IssuesPage() {
           onEdit={setEditTarget}
         />
       </div>
+      </Stage>
 
       <CreateIssueDialog
         open={createOpen}
@@ -460,7 +462,7 @@ export function IssuesPage() {
           editMutation.mutate({ issueNumber: editTarget.id, ...input });
         }}
       />
-    </Stage>
+    </div>
   );
 }
 

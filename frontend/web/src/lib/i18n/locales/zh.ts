@@ -212,6 +212,10 @@ export default {
     answer: "回答",
   },
   chat: {
+    onlineCount: "{{count}} 人在线",
+    nobodyOnline: "当前无人在线",
+    docsHint: "共享文档在代码页打开",
+    docsSubHint: "协作编辑与会话审批走代码页的编辑器，不在频道内重复入口。",
     dmLabel: "私聊",
     requestFailed: "请求失败（{{status}}）。",
     title: "聊天",

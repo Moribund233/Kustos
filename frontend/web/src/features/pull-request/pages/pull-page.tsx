@@ -393,29 +393,7 @@ export function PullPage() {
   ];
 
   return (
-    <Stage
-      dock={dock}
-      defaultPane="reviewers"
-      panel={(pane) => (
-        <PullPanel
-          pane={pane}
-          pr={pr}
-          reviewerRows={reviewerRows}
-          issues={issuesQuery.data ?? []}
-          myState={myState}
-          mergeConditions={mergeConditions}
-          mergeBlocked={mergeBlocked}
-          repoId={activeRepoId}
-          prNumber={activePrNumber}
-          reviewPending={reviewMutation.isPending}
-          mergePending={mergeMutation.isPending}
-          onApprove={() => reviewMutation.mutate("approved")}
-          onRequestChanges={() => reviewMutation.mutate("changes_requested")}
-          onMerge={() => mergeMutation.mutate()}
-        />
-      )}
-      className="mx-auto w-full max-w-[1560px] px-[34px] pt-[30px] pb-20"
-    >
+    <div className="mx-auto w-full max-w-[1560px] px-[34px] pt-[30px] pb-20">
       {/* 页头 */}
       <header className="mb-[22px] flex items-end justify-between gap-7">
         <div className="min-w-0">
@@ -493,6 +471,28 @@ export function PullPage() {
         />
       </nav>
 
+      <Stage
+        dock={dock}
+        defaultPane="reviewers"
+        panel={(pane) => (
+          <PullPanel
+            pane={pane}
+            pr={pr}
+            reviewerRows={reviewerRows}
+            issues={issuesQuery.data ?? []}
+            myState={myState}
+            mergeConditions={mergeConditions}
+            mergeBlocked={mergeBlocked}
+            repoId={activeRepoId}
+            prNumber={activePrNumber}
+            reviewPending={reviewMutation.isPending}
+            mergePending={mergeMutation.isPending}
+            onApprove={() => reviewMutation.mutate("approved")}
+            onRequestChanges={() => reviewMutation.mutate("changes_requested")}
+            onMerge={() => mergeMutation.mutate()}
+          />
+        )}
+      >
       {tab === "conversation" && (
         <div className="min-w-0">
           {/* 描述区 */}
@@ -602,7 +602,8 @@ export function PullPage() {
           ) : null}
         </div>
       )}
-    </Stage>
+      </Stage>
+    </div>
   );
 }
 

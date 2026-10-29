@@ -1,11 +1,11 @@
-import { AtSign, Paperclip, Pin, Search, Send, Settings, Smile, X } from "lucide-react";
+import { AtSign, FileText, Paperclip, Pin, Search, Send, Settings, Smile, Users, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
 
-import { Lamp, RailBlock, ToneAvatar, type AvatarTone } from "@/components/kit/kit";
+import { Lamp, RailBlock, Stage, ToneAvatar, type AvatarTone } from "@/components/kit/kit";
 import { StartDmButton } from "@/features/chat/components/start-dm-dialog";
 import { RoomSettingsDialog } from "@/features/chat/components/room-settings-dialog";
 import { mergeMessage } from "@/features/chat/lib/messages";
@@ -334,7 +334,24 @@ export function ChatPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1560px] px-[34px] pt-[18px] pb-8">
-      <div className="border-edge-2 bg-ink-900/60 grid h-[calc(100vh-150px)] min-h-[600px] grid-cols-[218px_minmax(0,1fr)_318px] overflow-hidden rounded-[14px] border">
+      <Stage
+        dock={[
+          { id: "people", icon: Users, label: t("chat.members"), kicker: room?.name ?? "" },
+          { id: "doc", icon: FileText, label: t("chat.sharedDocs"), kicker: room?.name ?? "" },
+        ]}
+        panel={(tab) =>
+          tab.id === "people" ? (
+            <MembersPanel
+              members={sortedMembers}
+              online={channel.online}
+              currentUserId={user?.id ?? null}
+            />
+          ) : (
+            <DocsPanel />
+          )
+        }
+      >
+      <div className="border-edge-2 bg-ink-900/60 grid h-[calc(100vh-150px)] min-h-[600px] grid-cols-[218px_minmax(0,1fr)] overflow-hidden rounded-[14px] border">
         <ChannelsColumn
           groups={groups}
           dms={dms ?? []}
@@ -469,14 +486,8 @@ export function ChatPage() {
             </div>
           )}
         </section>
-        <ContextPanel
-          members={sortedMembers}
-          online={channel.online}
-          currentUserId={user?.id ?? null}
-          membersLabel={t("chat.members")}
-          sharedDocsLabel={t("chat.sharedDocs")}
-        />
       </div>
+      </Stage>
     </div>
   );
 }
@@ -987,66 +998,66 @@ function Composer({
 /* 右栏：共享文档与在线成员                                            */
 /* ------------------------------------------------------------------ */
 
-/**
- * 房间上下文面板：共享文档缓冲（collab 文档挂在代码页编辑器上，这里只做入口
- * 提示）与房间成员列表（在线灯来自实时通道的 presence）。
- */
-function ContextPanel({
+/** 房间成员面板（右缘浮窗）。 */
+function MembersPanel({
   members,
   online,
   currentUserId,
-  membersLabel,
-  sharedDocsLabel,
 }: {
   members: RoomMemberDto[];
   online: PresenceUser[];
   currentUserId: string | null;
-  membersLabel: string;
-  sharedDocsLabel: string;
 }) {
+  const { t } = useTranslation();
   const onlineIds = new Set(online.map((item) => item.user_id));
   return (
-    <aside aria-label="房间上下文" className="bg-ink-950/45 border-edge-2 flex min-w-0 flex-col overflow-hidden border-l">
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <RailBlock title={sharedDocsLabel}>
-          <div className="border-edge-2 bg-ink-1000/55 rounded-md border px-3 py-5 text-center">
-            <p className="text-muted-2 text-[11px]">共享文档在代码页打开</p>
-            <p className="text-faint mt-1 text-[9.5px] leading-[1.4]">协作编辑与会话审批走代码页的编辑器，不在频道内重复入口。</p>
-          </div>
-        </RailBlock>
+    <RailBlock title={`${t("chat.members")} · ${members.length}`}>
+      {members.length === 0 ? (
+        <p className="text-muted-2 text-[10.5px]">{t("chat.noMembers")}</p>
+      ) : (
+        <ul>
+          {members.map((member) => {
+            const isOnline = onlineIds.has(member.user_id);
+            return (
+              <li key={member.id} className="flex items-center gap-[9px] py-1.5">
+                <ToneAvatar
+                  initials={initialsOf(member.username)}
+                  tone={toneFor(member.username)}
+                  bot={member.is_bot}
+                  size="sm"
+                />
+                <span className="min-w-0 flex-1">
+                  <strong className="text-bone-2 block text-[11.5px] font-medium leading-[1.35]">{member.username}</strong>
+                  <span className="text-muted-2 block text-[10px] leading-[1.4]">
+                    {member.user_id === currentUserId
+                      ? t("chat.you")
+                      : member.role === "admin"
+                        ? t("chat.adminRole")
+                        : t("chat.member")}
+                  </span>
+                </span>
+                <Lamp tone={isOnline ? "good" : "neutral"} live={isOnline} />
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <p className="text-faint mt-2 text-[9.5px]">
+        {online.length > 0 ? t("chat.onlineCount", { count: online.length }) : t("chat.nobodyOnline")}
+      </p>
+    </RailBlock>
+  );
+}
 
-        <RailBlock title={`${membersLabel} · ${members.length}`}>
-          {members.length === 0 ? (
-            <p className="text-muted-2 text-[10.5px]">暂无成员数据。</p>
-          ) : (
-            <ul>
-              {members.map((member) => {
-                const isOnline = onlineIds.has(member.user_id);
-                return (
-                  <li key={member.id} className="flex items-center gap-[9px] py-1.5">
-                    <ToneAvatar
-                      initials={initialsOf(member.username)}
-                      tone={toneFor(member.username)}
-                      bot={member.is_bot}
-                      size="sm"
-                    />
-                    <span className="min-w-0 flex-1">
-                      <strong className="text-bone-2 block text-[11.5px] font-medium leading-[1.35]">{member.username}</strong>
-                      <span className="text-muted-2 block text-[10px] leading-[1.4]">
-                        {member.user_id === currentUserId ? "你" : member.role === "admin" ? "管理员" : "成员"}
-                      </span>
-                    </span>
-                    <Lamp tone={isOnline ? "good" : "neutral"} live={isOnline} />
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          <p className="text-faint mt-2 text-[9.5px]">
-            {online.length > 0 ? `${online.length} 人在线` : "当前无人在线"}
-          </p>
-        </RailBlock>
+/** 共享文档入口（协作编辑器在代码页）。 */
+function DocsPanel() {
+  const { t } = useTranslation();
+  return (
+    <RailBlock title={t("chat.sharedDocs")}>
+      <div className="border-edge-2 bg-ink-1000/55 rounded-md border px-3 py-5 text-center">
+        <p className="text-muted-2 text-[11px]">{t("chat.docsHint")}</p>
+        <p className="text-faint mt-1 text-[9.5px] leading-[1.4]">{t("chat.docsSubHint")}</p>
       </div>
-    </aside>
+    </RailBlock>
   );
 }

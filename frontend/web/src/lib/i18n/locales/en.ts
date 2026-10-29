@@ -212,6 +212,10 @@ export default {
     answer: "Answer",
   },
   chat: {
+    onlineCount: "{{count}} online",
+    nobodyOnline: "Nobody online",
+    docsHint: "Shared documents open in the code page",
+    docsSubHint: "Co-editing and approvals live in the code editor, not in the room.",
     startDm: "Start direct message",
     startDmHint: "Pick a member; existing conversations reopen.",
     searchUser: "Search usernames…",
