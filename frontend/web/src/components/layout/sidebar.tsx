@@ -1,4 +1,4 @@
-import { MoreHorizontal, LogOut, UserRound, Shield, Plus } from "lucide-react";
+import { Languages, LogOut, MoreHorizontal, PanelLeftOpen, Plus, Shield, UserRound } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, NavLink, useLocation, useNavigate } from "react-router";
@@ -13,6 +13,7 @@ import { LOCALE_LABELS, SUPPORTED_LOCALES, type Locale } from "@/lib/i18n/locale
 import { setLocale } from "@/lib/i18n";
 import { useAuthStore } from "@/stores/auth-store";
 import { useRepoStore, type RepoSummary } from "@/stores/repo-store";
+import { useUiStore } from "@/stores/ui-store";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,6 +22,9 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -141,6 +145,68 @@ function RepoRow({
 }
 
 /**
+ * 折叠态：不占全高的图标 dock。
+ *
+ * 只保留纯图标导航（含当前仓库页跳转），底部提供展开按钮；
+ * 悬停 title 与 aria-label 给出可读名称。收起后不挤压内容，也不留空白条。
+ */
+function SidebarDock() {
+  const { t } = useTranslation();
+  const user = useAuthStore((state) => state.user);
+  const expand = useUiStore((state) => state.toggleSidebar);
+  const isAdmin = user?.is_admin ?? false;
+
+  const items = [
+    ...NAV_SECTIONS.flatMap((section) => section.items),
+    ...(isAdmin ? INSTANCE_SECTION.items : []),
+  ];
+
+  return (
+    <nav
+      aria-label={t("nav.toggleSidebar")}
+      className="border-edge-2 bg-ink-900/85 sticky top-4 z-30 m-3 flex h-fit w-[54px] shrink-0 flex-col items-center gap-1 rounded-xl border p-1.5 shadow-[0_14px_34px_rgba(0,0,0,0.4)] backdrop-blur"
+    >
+      <Link
+        to="/"
+        aria-label="Kustos"
+        className="hover:bg-ink-800 grid size-9 place-items-center rounded-lg transition-colors"
+      >
+        <BrandMark size={24} />
+      </Link>
+      <span aria-hidden="true" className="bg-edge-1 my-1 h-px w-6" />
+      {items.map((item) => (
+        <NavLink
+          key={item.id}
+          to={item.to}
+          end={item.to === "/"}
+          title={t(item.labelKey)}
+          aria-label={t(item.labelKey)}
+          className={({ isActive }) =>
+            cn(
+              "text-muted-2 hover:bg-ink-800 hover:text-bone grid size-9 place-items-center rounded-lg transition-colors",
+              isActive &&
+                "bg-[linear-gradient(135deg,rgba(242,174,91,0.16),rgba(242,174,91,0.04))] text-amber shadow-[inset_2px_0_0_rgba(242,174,91,0.9)]",
+            )
+          }
+        >
+          <item.icon className="size-[18px]" aria-hidden="true" />
+        </NavLink>
+      ))}
+      <span aria-hidden="true" className="bg-edge-1 my-1 h-px w-6" />
+      <button
+        type="button"
+        onClick={expand}
+        aria-label={t("nav.toggleSidebar")}
+        title={t("nav.toggleSidebar")}
+        className="text-muted-2 hover:bg-ink-800 hover:text-bone grid size-9 place-items-center rounded-lg transition-colors"
+      >
+        <PanelLeftOpen className="size-[16px]" aria-hidden="true" />
+      </button>
+    </nav>
+  );
+}
+
+/**
  * 侧栏：品牌 → 实例卡 → 个人/仓库导航 → 仓库列表 → 底部账号。
  *
  * 仓库列表与账号信息来自真实会话（repo-store / auth-store）；层级与原型
@@ -157,6 +223,9 @@ export function Sidebar() {
 
   const isAdmin = user?.is_admin ?? false;
   const [createOpen, setCreateOpen] = useState(false);
+  const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
+
+  if (sidebarCollapsed) return <SidebarDock />;
 
   return (
     <nav
@@ -298,19 +367,27 @@ export function Sidebar() {
               </DropdownMenuItem>
             ) : null}
             <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-faint text-[9.5px] font-semibold tracking-[0.13em] uppercase">
-              {t("common.language")}
-            </DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={i18n.resolvedLanguage ?? i18n.language}
-              onValueChange={(value) => setLocale(value as Locale)}
-            >
-              {SUPPORTED_LOCALES.map((locale) => (
-                <DropdownMenuRadioItem key={locale} value={locale}>
-                  {LOCALE_LABELS[locale]}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Languages className="text-muted-2 size-[14px]" aria-hidden="true" />
+                {t("common.language")}
+                <span className="text-faint mr-0.5 text-[10px]">
+                  {LOCALE_LABELS[(i18n.resolvedLanguage ?? i18n.language) as Locale]}
+                </span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuRadioGroup
+                  value={i18n.resolvedLanguage ?? i18n.language}
+                  onValueChange={(value) => setLocale(value as Locale)}
+                >
+                  {SUPPORTED_LOCALES.map((locale) => (
+                    <DropdownMenuRadioItem key={locale} value={locale}>
+                      {LOCALE_LABELS[locale]}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onSelect={() => {

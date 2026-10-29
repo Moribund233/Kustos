@@ -3,7 +3,6 @@ import { Outlet } from "react-router";
 import { CommandPaletteProvider } from "@/components/command-palette/command-palette-provider";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
-import { useUiStore } from "@/stores/ui-store";
 
 /**
  * 应用外壳：氛围底色 + 侧栏 + 顶栏 + 内容区。
@@ -13,8 +12,6 @@ import { useUiStore } from "@/stores/ui-store";
  * 由 Outlet 承载，不能靠 children prop 传下来。
  */
 export function AppShell() {
-  const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
-
   return (
     <div className="bg-ink-1000 flex h-full min-h-screen">
       {/* 氛围：左上琥珀提灯 + 右上冷光，覆一层软噪点 */}
@@ -27,7 +24,7 @@ export function AppShell() {
         className="pointer-events-none fixed inset-0 z-[1] opacity-[0.032] mix-blend-soft-light bg-[url('data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20width=%27180%27%20height=%27180%27%3E%3Cfilter%20id=%27n%27%3E%3CfeTurbulence%20type=%27fractalNoise%27%20baseFrequency=%27.86%27%20numOctaves=%273%27%20stitchTiles=%27stitch%27/%3E%3C/filter%3E%3Crect%20width=%27100%25%27%20height=%27100%25%27%20filter=%27url(%23n)%27/%3E%3C/svg%3E')]"
       />
 
-      {sidebarCollapsed ? null : <Sidebar />}
+      <Sidebar />
       <div className="relative z-[2] flex min-w-0 flex-1 flex-col">
         <Topbar />
         <main className="min-h-0 flex-1 overflow-auto">
