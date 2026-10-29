@@ -47,6 +47,7 @@ import { type CodeFile, type SymbolNode } from "@/features/code/types";
 import { FileBlameDialog } from "@/features/code/components/file-blame-dialog";
 import { FileEditDialog } from "@/features/code/components/file-edit-dialog";
 import { FileHistoryDialog } from "@/features/code/components/file-history-dialog";
+import { ForkDialog } from "@/features/code/components/fork-dialog";
 import { api, getAccessToken } from "@/lib/api/client";
 import {
   createCollabSession,
@@ -191,6 +192,7 @@ export function CodePage({ path, content, diff }: CodePageProps) {
   const [editOpen, setEditOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [blameOpen, setBlameOpen] = useState(false);
+  const [forkOpen, setForkOpen] = useState(false);
   const filterRef = useRef<HTMLInputElement | null>(null);
 
   // 协作编辑会话：为空表示处于只读浏览，非空表示当前文件已接入 CRDT
@@ -509,7 +511,7 @@ export function CodePage({ path, content, diff }: CodePageProps) {
         </div>
         <div className="flex flex-none items-center gap-[5px] pb-[3px]">
           <RepoStat icon={Star} value={repo.star_count} label="Stars" onClick={() => toast.info("Star 按仓库统计。")} />
-          <RepoStat icon={GitFork} value={repo.fork_count} label="Forks" onClick={() => toast.info("Fork 按仓库统计。")} />
+          <RepoStat icon={GitFork} value={repo.fork_count} label="Forks" onClick={() => setForkOpen(true)} />
           <RepoStat icon={Eye} value={repo.watch_count} label="Watch" onClick={() => toast.info("订阅设置按用户生效。")} />
           <button
             type="button"
@@ -908,6 +910,8 @@ export function CodePage({ path, content, diff }: CodePageProps) {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <ForkDialog repoId={repoId} repoName={repo.name} open={forkOpen} onOpenChange={setForkOpen} />
 
     {selectedPath ? (
       <>
