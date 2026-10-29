@@ -147,32 +147,30 @@ const { data } = await api.GET("/api/v1/repositories/{repo_id}/pull-requests", {
 
 ## 当前状态
 
-九个页面全部接上真实后端：Watch（工作台）、Code、Issues、Pull Request、Releases、
-Agent、Chat、Admin 与登录页。页面里没有写死的演示数据，空态一律如实说明缺什么。
+十个页面全部接上真实后端：Watch（工作台）、Code、Issues、Pull Request、Releases、
+Agent、Chat、仓库设置、Admin 与登录页。页面里没有写死的演示数据，空态一律如实说明缺什么。
 
-实时能力：聊天页走 `/ws/`（`Sec-WebSocket-Protocol` 带令牌），收发消息、输入指示、
-房间在线状态、断线重连都在 `features/chat/use-room-channel.ts` 里，REST 与实时帧写
-同一份 React Query 缓存（合并与去重见 `features/chat/lib/messages.ts`）。presence 由
-服务端按房间聚合，连接重建后自动重新订阅。
+实时能力：聊天页走 `/ws/`（`Sec-WebSocket-Protocol` 带令牌），收发消息、表情回应、
+输入指示、房间在线状态、断线重连都在 `features/chat/use-room-channel.ts` 里，
+REST 与实时帧写同一份 React Query 缓存（合并与去重见 `features/chat/lib/messages.ts`）。
+消息附件走 `POST /rooms/{id}/attachments`，上传后以 Markdown 链接插入输入框。
 
 检索：Issue 关键词走 `POST /issues/filter` 的 `search`，房间内消息走
 `GET /rooms/{id}/messages?q=`——两者都是后端现成的能力，前端按条件切换数据源。
 
 协作编辑：代码页工具栏「协作编辑」按 `repo:branch:path` 连 Hocuspocus 网关，
 读写权限由网关回调 `/collab/auth` 裁决；「保存到分支」发 `collab-save` 让后端
-落成一次 Git 提交。写权限只在本地决定编辑器是否可输入，最终以保存结果为准。
+落成一次 Git 提交；「邀请」签发 60 分钟有效的只读/可编辑链接。
 
 品牌：提灯标记、favicon 与 app icon 直接使用 `docs/prototype/assets/brand/` 的原始
 SVG（复制到 `public/brand/`），由 `components/brand/brand-mark.tsx` 统一取用，不重绘。
 
 已知缺口：
 
-- **仓库设置页**：仓库有 `PUT /repositories/{id}`，界面未做。
-- **消息附件与表情回应**：附件需要文件选择与上传进度；表情后端已有 WS handler，前端未建交互。
-- **Release 附件上传与单条详情**：列表与创建已接，附件上传未做。
-- **协作邀请入口**：后端有 `/collab/invites`（外部人凭邀请令牌进入），前端未做邀请 UI。
 - **扁平路由**：仓库级页面仍是 `/code`、`/issues` 这类扁平路径，`/:owner/:repo/*`
   尚未落地，当前仓库由 `stores/repo-store.ts` 承担。
+- **命令面板**：只有页面与仓库两类条目，PR / Issue / Agent 运行的对象级检索还没有来源。
+- **消息编辑**：后端 `PATCH /rooms/{id}/messages/{msg_id}` 已就绪，前端还没有入口。
 
 ## 约定
 
