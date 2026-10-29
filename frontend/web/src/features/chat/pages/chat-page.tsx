@@ -1,4 +1,4 @@
-import { AtSign, Paperclip, Pin, Search, Send, Settings, Smile, Users, X } from "lucide-react";
+import { AtSign, Paperclip, Pin, Search, Send, Settings, Smile, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -6,6 +6,8 @@ import { useSearchParams } from "react-router";
 import { toast } from "sonner";
 
 import { Lamp, RailBlock, ToneAvatar, type AvatarTone } from "@/components/kit/kit";
+import { StartDmButton } from "@/features/chat/components/start-dm-dialog";
+import { RoomSettingsDialog } from "@/features/chat/components/room-settings-dialog";
 import { mergeMessage } from "@/features/chat/lib/messages";
 import type {
   ChatMessage,
@@ -351,6 +353,7 @@ export function ChatPage() {
                 onlineCount={channel.online.length}
                 searchActive={searchOpen}
                 onToggleSearch={toggleSearch}
+                onRoomDeleted={() => setSearchParams({})}
               />
               {searchOpen ? (
                 <div className="border-edge-2 bg-ink-950/60 mx-[18px] mt-2 flex flex-none items-center gap-2 rounded-md border px-2.5 py-1.5">
@@ -568,7 +571,12 @@ function ChannelsColumn({
         </section>
 
         <section className="px-[7px] pb-2.5">
-          <p className="text-faint px-2 pt-[9px] pb-[5px] text-[9.5px] font-semibold tracking-[0.15em] uppercase">私聊</p>
+          <p className="text-faint flex items-center gap-1 px-2 pt-[9px] pb-[5px] text-[9.5px] font-semibold tracking-[0.15em] uppercase">
+            私聊
+            <span className="ml-auto normal-case">
+              <StartDmButton onCreated={onSelect} />
+            </span>
+          </p>
           {visibleDms.length === 0 ? (
             <p className="text-muted-2 px-2 py-1 text-[10.5px]">
               {dms.length === 0 ? "还没有私聊会话。" : "没有匹配的私聊。"}
@@ -651,6 +659,7 @@ function RoomHeader({
   onlineCount,
   searchActive,
   onToggleSearch,
+  onRoomDeleted,
 }: {
   room: RoomDto;
   memberCount: number;
@@ -658,11 +667,9 @@ function RoomHeader({
   onlineCount: number;
   searchActive: boolean;
   onToggleSearch: () => void;
+  onRoomDeleted: () => void;
 }) {
-  const actions = [
-    { icon: Users, label: "房间成员", toast: "成员列表见右栏；管理入口暂未接入。" },
-    { icon: Settings, label: "房间设置", toast: "房间设置暂未接入。" },
-  ];
+  const [settingsOpen, setSettingsOpen] = useState(false);
   // 在线人数来自实时通道；未连上时只报成员总数，不谎报在线
   const summary = dm
     ? `私聊 · ${onlineCount > 0 ? `${onlineCount} 人在线` : "对方离线"}`
@@ -694,18 +701,24 @@ function RoomHeader({
         >
           <Search className="size-[14px]" aria-hidden="true" />
         </button>
-        {actions.map((action) => (
-          <button
-            key={action.label}
-            type="button"
-            aria-label={action.label}
-            onClick={() => toast.info(action.toast)}
-            className="text-muted-2 hover:bg-bone/5 hover:text-bone grid size-[26px] place-items-center rounded-md transition-colors"
-          >
-            <action.icon className="size-[14px]" aria-hidden="true" />
-          </button>
-        ))}
+        <button
+          type="button"
+          aria-label="房间设置"
+          onClick={() => setSettingsOpen(true)}
+          className="text-muted-2 hover:bg-bone/5 hover:text-bone grid size-[26px] place-items-center rounded-md transition-colors"
+        >
+          <Settings className="size-[14px]" aria-hidden="true" />
+        </button>
       </div>
+
+      <RoomSettingsDialog
+        roomId={room.id}
+        roomName={room.name}
+        isDm={dm}
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        onDeleted={onRoomDeleted}
+      />
     </header>
   );
 }
