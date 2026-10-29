@@ -8,6 +8,7 @@ import { Check, Clock3, Eye, GitMerge, Link2, ShieldCheck, Users } from "lucide-
 import { DiffViewer } from "@/components/editor/diff-viewer";
 import { Button } from "@/components/ui/button";
 import { NewPullRequestButton } from "@/features/pull-request/components/new-pull-request";
+import { SocialDialog } from "@/features/code/components/social-dialog";
 import {
   Lamp,
   RailBlock,
@@ -105,6 +106,7 @@ export function PullPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [tab, setTab] = useState<PullTab>("conversation");
   const [comment, setComment] = useState("");
+  const [watchOpen, setWatchOpen] = useState(false);
 
   const repoId = repo?.id ?? null;
   const rawPr = searchParams.get("pr");
@@ -467,7 +469,7 @@ export function PullPage() {
           </button>
           <button
             type="button"
-            onClick={() => toast.info("关注仓库后，推送与评审动态会进入你的夜巡流。")}
+            onClick={() => setWatchOpen(true)}
             className="border-edge-2 text-muted hover:border-edge-3 hover:text-bone-2 inline-flex h-8 items-center gap-[7px] rounded-md border px-2.5 text-[11px] font-medium transition-colors"
           >
             <Eye className="size-[14px]" aria-hidden="true" />
@@ -570,6 +572,16 @@ export function PullPage() {
           </div>
         </div>
       )}
+
+      {repo ? (
+        <SocialDialog
+          mode="watch"
+          repoId={repo.id}
+          repoName={repo.path}
+          open={watchOpen}
+          onOpenChange={setWatchOpen}
+        />
+      ) : null}
 
       {tab === "files" && (
         <div className="min-w-0">
