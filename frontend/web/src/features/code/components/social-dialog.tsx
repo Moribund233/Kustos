@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -47,12 +48,12 @@ export function SocialDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const loadRepos = useRepoStore((state) => state.load);
 
   const base = `/api/v1/repositories/${repoId}/${mode === "star" ? "star" : "watch"}`;
   const listPath = `${base}${mode === "star" ? "gazers" : "ers"}`;
-  const label = mode === "star" ? "Star" : "关注";
 
   const statusQuery = useApiQuery<StatusShape>({
     queryKey: [mode, repoId],
@@ -81,7 +82,7 @@ export function SocialDialog({
         await loadRepos();
         void queryClient.invalidateQueries({ queryKey: [mode, repoId] });
         void queryClient.invalidateQueries({ queryKey: [`${mode}-list`, repoId] });
-        toast.success("已更新。");
+        toast.success(t("code.updated"));
       },
       onError: (error) => toast.error(error.message),
     },
@@ -94,17 +95,17 @@ export function SocialDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[460px]">
         <DialogHeader>
-          <DialogTitle>{label}</DialogTitle>
+          <DialogTitle>{t(mode === "star" ? "code.star" : "code.watch")}</DialogTitle>
           <DialogDescription>
-            <span className="font-mono">{repoName}</span> · {people.length} 人
+            <span className="font-mono">{repoName}</span> · {t("code.peopleCount", { count: people.length })}
           </DialogDescription>
         </DialogHeader>
 
         <div className="border-edge-1 max-h-[280px] min-h-[100px] overflow-auto rounded-md border">
           {listQuery.isLoading ? (
-            <p className="text-muted-2 p-3 text-[11.5px]">加载中…</p>
+            <p className="text-muted-2 p-3 text-[11.5px]">{t("common.loading")}</p>
           ) : people.length === 0 ? (
-            <p className="text-muted-2 p-3 text-[11.5px]">还没有人。</p>
+            <p className="text-muted-2 p-3 text-[11.5px]">{t("code.noPeople")}</p>
           ) : (
             <ul>
               {people.map((person) => (
@@ -131,7 +132,7 @@ export function SocialDialog({
             onClick={() => toggleMutation.mutate(active)}
             disabled={toggleMutation.isPending}
           >
-            {active ? `取消${label}` : label}
+            {active ? t(mode === "star" ? "code.unstar" : "code.unwatch") : t(mode === "star" ? "code.star" : "code.watch")}
           </Button>
         </DialogFooter>
       </DialogContent>

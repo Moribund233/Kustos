@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -38,7 +39,12 @@ interface UserRow {
  * 房间成员接口在生成的 schema 里没有建模（rooms 组只生成了读接口），
  * 这里用原生 fetch 发写请求，避免用 any 绕过类型。
  */
-async function roomRequest(method: string, path: string, body?: unknown): Promise<unknown> {
+async function roomRequest(
+  method: string,
+  path: string,
+  body: unknown,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): Promise<unknown> {
   const token = getAccessToken();
   const res = await fetch(path, {
     method,
@@ -50,7 +56,7 @@ async function roomRequest(method: string, path: string, body?: unknown): Promis
   });
   if (!res.ok) {
     const payload = (await res.json().catch(() => ({}))) as { detail?: string };
-    throw new Error(payload.detail ?? `请求失败（${res.status}）。`);
+    throw new Error(payload.detail ?? t("chat.requestFailed", { status: res.status }));
   }
   return res.status === 204 ? null : res.json().catch(() => null);
 }
@@ -82,6 +88,7 @@ export function RoomSettingsDialog({
   const queryClient = useQueryClient();
   const me = useAuthStore((state) => state.user);
   const [addUserId, setAddUserId] = useState("");
+  const { t } = useTranslation();
   const [addRole, setAddRole] = useState("member");
 
   const membersQuery = useApiQuery<RoomMemberDto[]>({
@@ -91,7 +98,7 @@ export function RoomSettingsDialog({
       const res = await api.GET("/api/v1/rooms/{room_id}/members", {
         params: { path: { room_id: roomId } },
       });
-      if (res.error) throw new Error("成员加载失败。");
+      if (res.error) throw new Error(t("chat.memberLoadFailed"));
       return (Array.isArray(res.data) ? res.data : []) as RoomMemberDto[];
     },
   });
@@ -101,7 +108,7 @@ export function RoomSettingsDialog({
     enabled: open && !isDm,
     queryFn: async () => {
       const res = await api.GET("/api/v1/users");
-      if (res.error) throw new Error("用户列表加载失败。");
+      if (res.error) throw new Error(t("chat.memberLoadFailed"));
       return (Array.isArray(res.data) ? res.data : []) as UserRow[];
     },
   });
@@ -122,15 +129,15 @@ export function RoomSettingsDialog({
   >(
     async ({ userId, action, role }) => {
       if (action === "remove") {
-        await roomRequest("DELETE", `/api/v1/rooms/${roomId}/members/${userId}`);
+        await roomRequest("DELETE", `/api/v1/rooms/${roomId}/members/${userId}`, undefined, t);
         return;
       }
-      await roomRequest("PATCH", `/api/v1/rooms/${roomId}/members/${userId}`, { role });
+      await roomRequest("PATCH", `/api/v1/rooms/${roomId}/members/${userId}`, { role }, t);
     },
     {
       onSuccess: async () => {
         await refreshMembers();
-        toast.success("成员已更新。");
+        toast.success(t("chat.memberUpdated"));
       },
       onError: (error) => toast.error(error.message),
     },
@@ -138,13 +145,13 @@ export function RoomSettingsDialog({
 
   const addMutation = useApiMutation<void, { userId: string; role: string }>(
     async ({ userId, role }) => {
-      await roomRequest("POST", `/api/v1/rooms/${roomId}/members`, { user_id: userId, role });
+      await roomRequest("POST", `/api/v1/rooms/${roomId}/members`, { user_id: userId, role }, t);
     },
     {
       onSuccess: async () => {
         await refreshMembers();
         setAddUserId("");
-        toast.success("成员已加入。");
+        toast.success(t("chat.memberAdded"));
       },
       onError: (error) => toast.error(error.message),
     },
@@ -152,7 +159,7 @@ export function RoomSettingsDialog({
 
   const muteMutation = useApiMutation<void, boolean>(
     async (muted) => {
-      await roomRequest("POST", `/api/v1/rooms/${roomId}/members/me`, { muted });
+      await roomRequest("POST", `/api/v1/rooms/${roomId}/members/me`, { muted }, t);
     },
     {
       onSuccess: async () => {
@@ -165,11 +172,11 @@ export function RoomSettingsDialog({
 
   const deleteMutation = useApiMutation<void, void>(
     async () => {
-      await roomRequest("DELETE", `/api/v1/rooms/${roomId}`);
+      await roomRequest("DELETE", `/api/v1/rooms/${roomId}`, undefined, t);
     },
     {
       onSuccess: () => {
-        toast.success("会话已删除。");
+        toast.success(t("chat.roomDeleted"));
         onOpenChange(false);
         void queryClient.invalidateQueries({ queryKey: ["rooms"] });
         void queryClient.invalidateQueries({ queryKey: ["dm"] });
@@ -193,30 +200,30 @@ export function RoomSettingsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[560px]">
         <DialogHeader>
-          <DialogTitle>房间设置</DialogTitle>
+          <DialogTitle>{t("chat.roomSettings")}</DialogTitle>
           <DialogDescription>
-            {isDm ? "私聊 · " : "#"}
+            {isDm ? `${t("chat.dmLabel")} · ` : "#"}
             {roomName}
           </DialogDescription>
         </DialogHeader>
 
         {myMembership ? (
           <label className="border-edge-1 flex items-center justify-between gap-3 rounded-md border px-3 py-2">
-            <span className="text-muted text-[11.5px]">对我静音（不再累计未读）</span>
+<span className="text-muted text-[11.5px]">{t("chat.muteSelf")}</span>
             <Switch
               checked={myMembership.is_muted}
               disabled={muteMutation.isPending}
               onCheckedChange={(checked) => muteMutation.mutate(checked)}
-              aria-label="对我静音"
+              aria-label={t("chat.muteSelf")}
             />
           </label>
         ) : null}
 
         <div className="border-edge-1 max-h-[300px] min-h-[120px] overflow-auto rounded-md border">
           {membersQuery.isLoading ? (
-            <p className="text-muted-2 p-3 text-[11.5px]">加载中…</p>
+            <p className="text-muted-2 p-3 text-[11.5px]">{t("common.loading")}</p>
           ) : members.length === 0 ? (
-            <p className="text-muted-2 p-3 text-[11.5px]">暂无成员。</p>
+            <p className="text-muted-2 p-3 text-[11.5px]">{t("chat.noMembers")}</p>
           ) : (
             <ul>
               {members.map((member) => {
@@ -229,7 +236,7 @@ export function RoomSettingsDialog({
                     <span className="min-w-0 flex-1">
                       <span className="text-bone-2 block truncate text-[11.5px] font-medium">
                         {member.username}
-                        {isSelf ? <span className="text-faint font-normal">（你）</span> : null}
+                        {isSelf ? <span className="text-faint font-normal">{t("chat.you")}</span> : null}
                       </span>
                       {member.is_bot ? <span className="text-faint text-[10px]">bot</span> : null}
                     </span>
@@ -249,12 +256,12 @@ export function RoomSettingsDialog({
                           }
                           className={SELECT_CLASS}
                         >
-                          <option value="member">成员</option>
-                          <option value="admin">管理员</option>
+                          <option value="member">{t("chat.member")}</option>
+                          <option value="admin">{t("chat.adminRole")}</option>
                         </select>
                         <button
                           type="button"
-                          aria-label={`移除 ${member.username}`}
+                          aria-label={t("common.delete")}
                           className="text-muted-2 hover:text-rose transition-colors"
                           onClick={() =>
                             memberAction.mutate({ userId: member.user_id, action: "remove" })
@@ -278,9 +285,9 @@ export function RoomSettingsDialog({
               value={addUserId}
               onChange={(event) => setAddUserId(event.target.value)}
               className={`${SELECT_CLASS} min-w-0 flex-1`}
-              aria-label="选择要加入的成员"
+              aria-label={t("chat.addMember")}
             >
-              <option value="">添加成员…</option>
+              <option value="">{t("chat.addMember")}</option>
               {candidates.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.username}
@@ -291,40 +298,40 @@ export function RoomSettingsDialog({
               value={addRole}
               onChange={(event) => setAddRole(event.target.value)}
               className={SELECT_CLASS}
-              aria-label="成员角色"
+              aria-label={t("chat.memberRole")}
             >
-              <option value="member">成员</option>
-              <option value="admin">管理员</option>
+              <option value="member">{t("chat.member")}</option>
+              <option value="admin">{t("chat.adminRole")}</option>
             </select>
             <Button
               size="sm"
               onClick={() => addMutation.mutate({ userId: addUserId, role: addRole })}
               disabled={!addUserId || addMutation.isPending}
             >
-              加入
+              {t("chat.join")}
             </Button>
           </div>
         ) : null}
 
         <div className="border-edge-1 flex items-center justify-between border-t pt-3">
-          <span className="text-faint text-[10px]">删除后成员与消息不再可见。</span>
+          <span className="text-faint text-[10px]">{t("chat.deleteRoomHint")}</span>
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button size="sm" variant="ghost" className="text-rose hover:text-rose-2">
-                删除会话
+                {t("chat.deleteRoom")}
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>删除这个会话？</AlertDialogTitle>
+                <AlertDialogTitle>{t("chat.deleteRoomTitle")}</AlertDialogTitle>
                 <AlertDialogDescription>
-                  房间与成员关系会被删除，历史消息不再可访问。此操作无法撤销。
+                  {t("chat.deleteRoomDescription")}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>取消</AlertDialogCancel>
+                <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
                 <AlertDialogAction onClick={() => deleteMutation.mutate()}>
-                  确认删除
+                  {t("settings.confirmDelete")}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

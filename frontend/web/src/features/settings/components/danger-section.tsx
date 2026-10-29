@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useTranslation } from "react-i18next";
+
 import { api } from "@/lib/api/client";
 import { useApiMutation } from "@/lib/api/hooks";
 import { useRepoStore } from "@/stores/repo-store";
@@ -27,6 +29,7 @@ import { useRepoStore } from "@/stores/repo-store";
  * 关联数据（后端按外键级联），因此要求输入仓库名确认。
  */
 export function DangerSection({ repoId, repoName }: { repoId: string; repoName: string }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const repo = useRepoStore((state) => state.current);
@@ -43,12 +46,12 @@ export function DangerSection({ repoId, repoName }: { repoId: string; repoName: 
       const res = await api.POST(path, { params: { path: { repo_id: repoId } } });
       if (res.error) {
         const detail = (res.error as { detail?: string }).detail;
-        throw new Error(detail ?? "归档操作失败。");
+        throw new Error(detail ?? t("settings.archiveFailed"));
       }
     },
     {
       onSuccess: async (_data, archived) => {
-        toast.success(archived ? "仓库已归档。" : "仓库已取消归档。");
+        toast.success(archived ? t("settings.archived") : t("settings.unarchived"));
         await loadRepos();
         void queryClient.invalidateQueries({ queryKey: ["repositories"] });
       },
@@ -63,12 +66,12 @@ export function DangerSection({ repoId, repoName }: { repoId: string; repoName: 
       });
       if (res.error) {
         const detail = (res.error as { detail?: string }).detail;
-        throw new Error(detail ?? "删除仓库失败。");
+        throw new Error(detail ?? t("settings.deleteFailed"));
       }
     },
     {
       onSuccess: async () => {
-        toast.success("仓库已删除。");
+        toast.success(t("settings.deleted"));
         await loadRepos();
         void queryClient.invalidateQueries({ queryKey: ["repositories"] });
         navigate("/code", { replace: true });
@@ -79,15 +82,15 @@ export function DangerSection({ repoId, repoName }: { repoId: string; repoName: 
 
   return (
     <section className="border-rose/25 bg-rose/[0.04] rounded-[12px] border p-5">
-      <h2 className="text-rose-2 text-[13px] font-semibold">危险操作</h2>
+      <h2 className="text-rose-2 text-[13px] font-semibold">{t("settings.danger")}</h2>
       <p className="text-muted-2 mt-1 text-[11px]">
-        归档只影响可见性；删除会移除 Git 目录与全部关联数据，且无法撤销。
+        {t("settings.dangerHint")}
       </p>
 
       <div className="mt-4 flex flex-col gap-3">
         <div className="border-edge-1 flex items-center gap-3 border-b pb-3">
           <span className="text-muted flex-1 text-[11.5px]">
-            {isArchived ? "仓库当前已归档，普通列表里不可见。" : "归档后从普通仓库列表隐藏，数据保留。"}
+            {isArchived ? t("settings.archivedHint") : t("settings.archiveHint")}
           </span>
           <Button
             size="sm"
@@ -95,20 +98,20 @@ export function DangerSection({ repoId, repoName }: { repoId: string; repoName: 
             onClick={() => archiveMutation.mutate(!isArchived)}
             disabled={archiveMutation.isPending}
           >
-            {isArchived ? "取消归档" : "归档仓库"}
+            {isArchived ? t("settings.unarchive") : t("settings.archive")}
           </Button>
         </div>
 
         <div className="flex flex-col gap-2">
           <span className="text-muted-2 text-[11px]">
-            删除请输入仓库名 <span className="text-bone-2 font-mono">{repoName}</span> 确认。
+            {t("settings.deleteHint", { name: repoName })}
           </span>
           <div className="flex items-center gap-2">
             <Input
               value={confirmName}
               onChange={(event) => setConfirmName(event.target.value)}
               placeholder={repoName}
-              aria-label="确认仓库名"
+              aria-label={t("settings.confirmRepoName")}
               className="h-8 font-mono text-[11px]"
             />
             <AlertDialog>
@@ -119,19 +122,19 @@ export function DangerSection({ repoId, repoName }: { repoId: string; repoName: 
                   className="text-rose hover:text-rose-2"
                   disabled={confirmName !== repoName || deleteMutation.isPending}
                 >
-                  删除仓库
+                  {t("settings.deleteRepo")}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>永久删除 {repoName}？</AlertDialogTitle>
+                  <AlertDialogTitle>{t("settings.deleteConfirm", { name: repoName })}</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Git 仓库、分支、Issue、PR、Release、聊天频道与 Agent 作业会一并删除。此操作无法撤销。
+                    {t("settings.deleteDescription")}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>取消</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => deleteMutation.mutate()}>确认删除</AlertDialogAction>
+                  <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => deleteMutation.mutate()}>{t("settings.confirmDelete")}</AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>

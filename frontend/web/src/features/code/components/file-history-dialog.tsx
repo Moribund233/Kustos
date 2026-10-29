@@ -10,6 +10,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useTranslation } from "react-i18next";
+
 import { api } from "@/lib/api/client";
 import { useApiQuery } from "@/lib/api/hooks";
 import { formatRelative } from "@/lib/datetime/format";
@@ -30,7 +32,7 @@ interface CommitsResponse {
 
 /** 单行摘要：提交信息第一行，空提交给占位。 */
 function summaryOf(message: string): string {
-  return message.split("\n")[0]?.trim() || "（无提交信息）";
+  return message.split("\n")[0]?.trim() || "(no commit message)";
 }
 
 /**
@@ -52,6 +54,7 @@ export function FileHistoryDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const [selectedSha, setSelectedSha] = useState<string | null>(null);
 
   const historyQuery = useApiQuery<GitCommit[]>({
@@ -64,7 +67,7 @@ export function FileHistoryDialog({
           query: { ref: branch, path, page: 1, per_page: 50 },
         },
       });
-      if (res.error) throw new Error("提交历史加载失败。");
+      if (res.error) throw new Error(t("code.historyLoadFailed"));
       return (res.data as CommitsResponse | undefined)?.commits ?? [];
     },
   });
@@ -83,7 +86,7 @@ export function FileHistoryDialog({
           query: { head: activeSha ?? "", base: activeCommit?.parents?.[0], path } as never,
         },
       });
-      if (res.error) throw new Error("差异加载失败。");
+      if (res.error) throw new Error(t("code.diffLoadFailed"));
       return res.data as unknown as DiffPayload;
     },
   });
@@ -92,7 +95,7 @@ export function FileHistoryDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[1040px]">
         <DialogHeader>
-          <DialogTitle>提交历史</DialogTitle>
+          <DialogTitle>{t("code.historyTitle")}</DialogTitle>
           <DialogDescription>
             <span className="font-mono">{path}</span> · {branch}
           </DialogDescription>
@@ -101,20 +104,20 @@ export function FileHistoryDialog({
         <div className="grid h-[62vh] min-h-[360px] grid-cols-[280px_minmax(0,1fr)] gap-3">
           <aside
             className="border-edge-1 min-h-0 overflow-auto rounded-md border"
-            aria-label="提交列表"
+            aria-label={t("code.historyTitle")}
           >
             {historyQuery.isLoading ? (
-              <p className="text-muted-2 p-3 text-[11.5px]">加载中…</p>
+              <p className="text-muted-2 p-3 text-[11.5px]">{t("common.loading")}</p>
             ) : historyQuery.error ? (
               <button
                 type="button"
                 className="text-muted-2 hover:text-amber-2 w-full p-3 text-left text-[11.5px] hover:underline"
                 onClick={() => void historyQuery.refetch()}
               >
-                提交历史加载失败，点击重试
+                {t("code.historyLoadFailed")}
               </button>
             ) : commits.length === 0 ? (
-              <p className="text-muted-2 p-3 text-[11.5px]">这个文件还没有提交。</p>
+              <p className="text-muted-2 p-3 text-[11.5px]">{t("code.noFileCommits")}</p>
             ) : (
               <ul>
                 {commits.map((commit) => (
@@ -144,7 +147,7 @@ export function FileHistoryDialog({
 
           <section
             className="border-edge-1 min-h-0 overflow-auto rounded-md border p-3"
-            aria-label="提交差异"
+            aria-label={t("code.diffLoadFailed")}
           >
             {activeCommit ? (
               <>
@@ -158,14 +161,14 @@ export function FileHistoryDialog({
                   </p>
                 </header>
                 {diffQuery.isLoading ? (
-                  <p className="text-muted-2 text-[11.5px]">差异加载中…</p>
+                  <p className="text-muted-2 text-[11.5px]">{t("common.loading")}</p>
                 ) : diffQuery.error ? (
                   <button
                     type="button"
                     className="text-muted-2 hover:text-amber-2 text-[11.5px] hover:underline"
                     onClick={() => void diffQuery.refetch()}
                   >
-                    差异加载失败，点击重试
+                    {t("code.diffLoadFailed")}
                   </button>
                 ) : diffQuery.data ? (
                   <DiffViewer payload={diffQuery.data} />
@@ -181,7 +184,7 @@ export function FileHistoryDialog({
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            关闭
+            {t("common.close")}
           </Button>
         </DialogFooter>
       </DialogContent>

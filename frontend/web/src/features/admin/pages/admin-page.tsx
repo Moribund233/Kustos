@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CapabilitiesPanel } from "@/features/admin/components/capabilities-panel";
+import { CreateUserDialog, UserRowActions } from "@/features/admin/components/user-admin";
 import { api } from "@/lib/api/client";
 import { useApiMutation, useApiQuery } from "@/lib/api/hooks";
 import {
@@ -507,6 +509,9 @@ export function AdminPage() {
             <TabsTrigger value="configuration" type="button">
               {t("admin.configuration")}
             </TabsTrigger>
+            <TabsTrigger value="capabilities" type="button">
+              {t("admin.capabilities")}
+            </TabsTrigger>
             <TabsTrigger value="audit" type="button">
               {t("admin.audit")}
             </TabsTrigger>
@@ -759,6 +764,9 @@ export function AdminPage() {
               <div className="border-edge-1 flex items-center gap-3 border-b px-4 py-3">
                 <h3 className="text-bone text-[12.5px] font-semibold">{t("admin.users")}</h3>
                 <span className="text-faint text-[9.5px]">{usersQuery.data?.length ?? 0} 个账号 · 全局角色</span>
+                <span className="ml-auto">
+                  <CreateUserDialog />
+                </span>
               </div>
               {usersQuery.error ? (
                 <div className="px-4 py-3">
@@ -773,6 +781,7 @@ export function AdminPage() {
                         <Th>全局角色</Th>
                         <Th>状态</Th>
                         <Th className="text-right">注册时间</Th>
+                        <Th className="text-right">操作</Th>
                       </tr>
                     </thead>
                     <tbody>
@@ -797,6 +806,17 @@ export function AdminPage() {
                             </span>
                           </td>
                           <td className="text-muted text-right font-mono text-[11px]">{formatDate(user.createdAt)}</td>
+                          <td className="text-right">
+                            <UserRowActions
+                              user={{
+                                id: user.id,
+                                name: user.name,
+                                email: user.email,
+                                isAdmin: user.isAdmin,
+                                isActive: user.isActive,
+                              }}
+                            />
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -948,6 +968,10 @@ export function AdminPage() {
           </TabsContent>
 
           {/* ---------------------------------------------- 审计日志 */}
+          <TabsContent value="capabilities">
+            <CapabilitiesPanel />
+          </TabsContent>
+
           <TabsContent value="audit">
             <section className="border-edge-1 bg-ink-850/40 rounded-[10px] border shadow-[inset_0_1px_0_rgba(240,231,216,0.04)]">
               <div className="border-edge-1 flex flex-wrap items-center gap-3 border-b px-4 py-3">

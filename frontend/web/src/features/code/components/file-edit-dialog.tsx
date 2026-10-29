@@ -12,6 +12,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { useTranslation } from "react-i18next";
+
 import { api } from "@/lib/api/client";
 import { useApiMutation } from "@/lib/api/hooks";
 
@@ -39,6 +41,7 @@ export function FileEditDialog({
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
 }) {
+  const { t } = useTranslation();
   const [content, setContent] = useState(initialContent);
   const [message, setMessage] = useState("");
 
@@ -58,12 +61,12 @@ export function FileEditDialog({
       });
       if (res.error) {
         const detail = (res.error as { detail?: string }).detail;
-        throw new Error(detail ?? "保存失败。");
+        throw new Error(detail ?? t("code.editFailed"));
       }
     },
     {
       onSuccess: () => {
-        toast.success("已提交到分支。");
+        toast.success(t("code.committed"));
         onOpenChange(false);
         onSaved();
       },
@@ -77,9 +80,9 @@ export function FileEditDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[1100px]">
         <DialogHeader>
-          <DialogTitle>编辑文件</DialogTitle>
+          <DialogTitle>{t("code.editTitle")}</DialogTitle>
           <DialogDescription>
-            <span className="font-mono">{path}</span> · {branch} · 保存会生成一次提交
+            <span className="font-mono">{path}</span> · {branch} · {t("code.editHint")}
           </DialogDescription>
         </DialogHeader>
 
@@ -96,16 +99,16 @@ export function FileEditDialog({
         <Input
           value={message}
           onChange={(event) => setMessage(event.target.value)}
-          placeholder="提交信息"
-          aria-label="提交信息"
+          placeholder={t("code.commitMessage")}
+          aria-label={t("code.commitMessage")}
         />
 
         <DialogFooter>
           <span className="text-faint mr-auto self-center text-[10.5px]">
-            {changed ? "有未提交的修改" : "内容未改变"}
+            {changed ? t("code.changed") : t("code.unchanged")}
           </span>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            取消
+            {t("common.cancel")}
           </Button>
           <Button
             onClick={() =>
@@ -113,7 +116,7 @@ export function FileEditDialog({
             }
             disabled={!changed || saveMutation.isPending}
           >
-            {saveMutation.isPending ? "提交中…" : "提交"}
+            {saveMutation.isPending ? t("code.submitting") : t("code.submit")}
           </Button>
         </DialogFooter>
       </DialogContent>

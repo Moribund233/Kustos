@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -43,21 +44,23 @@ async function request(method: string, path: string, body?: unknown): Promise<un
  * 这里用同一个编辑器分别渲染，避免把两者混成一张表。
  */
 export function LabelsSection({ repoId }: { repoId: string }) {
+  const { t } = useTranslation();
   return (
     <section className="border-edge-2 bg-ink-900/50 rounded-[12px] border p-5">
-      <h2 className="text-bone text-[13px] font-semibold">标签</h2>
+      <h2 className="text-bone text-[13px] font-semibold">{t("settings.labels")}</h2>
       <p className="text-muted-2 mt-1 text-[11px]">
-        Issue 标签与 PR 标签分别维护；颜色用于列表与详情里的标签胶囊。
+        {t("settings.labelsHint")}
       </p>
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <LabelEditor repoId={repoId} kind="issue" title="Issue 标签" />
-        <LabelEditor repoId={repoId} kind="pr" title="PR 标签" />
+        <LabelEditor repoId={repoId} kind="issue" title={t("settings.issueLabels")} />
+        <LabelEditor repoId={repoId} kind="pr" title={t("settings.prLabels")} />
       </div>
     </section>
   );
 }
 
 function LabelEditor({ repoId, kind, title }: { repoId: string; kind: "issue" | "pr"; title: string }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const base = `/api/v1/repositories/${repoId}/${kind === "issue" ? "labels" : "pr-labels"}`;
   const queryKey = ["repo-labels", repoId, kind];
@@ -82,7 +85,7 @@ function LabelEditor({ repoId, kind, title }: { repoId: string; kind: "issue" | 
     },
     {
       onSuccess: () => {
-        toast.success("标签已创建。");
+        toast.success(t("settings.labelCreated"));
         setName("");
         void refresh();
       },
@@ -96,7 +99,7 @@ function LabelEditor({ repoId, kind, title }: { repoId: string; kind: "issue" | 
     },
     {
       onSuccess: () => {
-        toast.success("标签已删除。");
+        toast.success(t("settings.labelDeleted"));
         void refresh();
       },
       onError: (error) => toast.error(error.message),
@@ -108,7 +111,7 @@ function LabelEditor({ repoId, kind, title }: { repoId: string; kind: "issue" | 
       <h3 className="text-muted text-[11px] font-semibold tracking-[0.08em] uppercase">{title}</h3>
       <ul className="mt-2 flex flex-wrap gap-1.5">
         {(listQuery.data ?? []).length === 0 ? (
-          <li className="text-muted-2 text-[10.5px]">还没有标签。</li>
+          <li className="text-muted-2 text-[10.5px]">{t("settings.noLabels")}</li>
         ) : (
           (listQuery.data ?? []).map((label) => (
             <li key={label.id}>
@@ -123,7 +126,7 @@ function LabelEditor({ repoId, kind, title }: { repoId: string; kind: "issue" | 
                 {label.name}
                 <button
                   type="button"
-                  aria-label={`删除标签 ${label.name}`}
+                  aria-label={t("common.delete")}
                   className="opacity-60 transition-opacity hover:opacity-100"
                   onClick={() => deleteMutation.mutate(label.id)}
                 >
@@ -138,15 +141,15 @@ function LabelEditor({ repoId, kind, title }: { repoId: string; kind: "issue" | 
         <Input
           value={name}
           onChange={(event) => setName(event.target.value)}
-          placeholder="标签名"
-          aria-label={`${title}名称`}
+          placeholder={t("settings.labelName")}
+          aria-label={`${title} ${t("settings.labelName")}`}
           className="h-8 text-[11px]"
         />
         <input
           type="color"
           value={color}
           onChange={(event) => setColor(event.target.value)}
-          aria-label={`${title}颜色`}
+          aria-label={`${title} ${t("settings.tagColor")}`}
           className="border-edge-2 bg-ink-950/60 h-8 w-9 rounded-md border p-0.5"
         />
         <Button
@@ -154,7 +157,7 @@ function LabelEditor({ repoId, kind, title }: { repoId: string; kind: "issue" | 
           onClick={() => createMutation.mutate()}
           disabled={!name.trim() || createMutation.isPending}
         >
-          添加
+          {t("common.add")}
         </Button>
       </div>
     </div>

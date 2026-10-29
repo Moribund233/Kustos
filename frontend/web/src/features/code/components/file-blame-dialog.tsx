@@ -7,6 +7,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useTranslation } from "react-i18next";
+
 import { api } from "@/lib/api/client";
 import { useApiQuery } from "@/lib/api/hooks";
 import { formatRelative } from "@/lib/datetime/format";
@@ -48,6 +50,7 @@ export function FileBlameDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const blameQuery = useApiQuery<BlameResponse>({
     queryKey: ["code-blame", repoId, branch, path],
     enabled: open && !!repoId && !!path,
@@ -55,7 +58,7 @@ export function FileBlameDialog({
       const res = await api.GET("/api/v1/repositories/{repo_id}/blame", {
         params: { path: { repo_id: repoId }, query: { path, ref: branch } },
       });
-      if (res.error) throw new Error("Blame 加载失败。");
+      if (res.error) throw new Error(t("code.blameLoadFailed"));
       return res.data as unknown as BlameResponse;
     },
   });
@@ -66,7 +69,7 @@ export function FileBlameDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[860px]">
         <DialogHeader>
-          <DialogTitle>Blame</DialogTitle>
+          <DialogTitle>{t("code.blameTitle")}</DialogTitle>
           <DialogDescription>
             <span className="font-mono">{path}</span> · {branch}
           </DialogDescription>
@@ -74,17 +77,17 @@ export function FileBlameDialog({
 
         <div className="border-edge-1 max-h-[62vh] min-h-[240px] overflow-auto rounded-md border">
           {blameQuery.isLoading ? (
-            <p className="text-muted-2 p-3 text-[11.5px]">加载中…</p>
+            <p className="text-muted-2 p-3 text-[11.5px]">{t("common.loading")}</p>
           ) : blameQuery.error ? (
             <button
               type="button"
               className="text-muted-2 hover:text-amber-2 w-full p-3 text-left text-[11.5px] hover:underline"
               onClick={() => void blameQuery.refetch()}
             >
-              Blame 加载失败，点击重试
+              {t("code.blameLoadFailed")}
             </button>
           ) : hunks.length === 0 ? (
-            <p className="text-muted-2 p-3 text-[11.5px]">没有可追溯的行。</p>
+            <p className="text-muted-2 p-3 text-[11.5px]">{t("code.noBlameLines")}</p>
           ) : (
             <ul>
               {hunks.map((hunk) => {
@@ -116,7 +119,7 @@ export function FileBlameDialog({
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            关闭
+            {t("common.close")}
           </Button>
         </DialogFooter>
       </DialogContent>

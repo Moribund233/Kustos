@@ -2,6 +2,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { Switch } from "@/components/ui/switch";
+import { useTranslation } from "react-i18next";
+
 import { api } from "@/lib/api/client";
 import { useApiMutation, useApiQuery } from "@/lib/api/hooks";
 
@@ -21,6 +23,7 @@ interface BranchRow {
  * 需要仓库管理权限。开启了保护的仓库在 PR 合并时会读这些标志。
  */
 export function BranchesSection({ repoId }: { repoId: string }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
 
   const branchesQuery = useApiQuery<BranchRow[]>({
@@ -30,7 +33,7 @@ export function BranchesSection({ repoId }: { repoId: string }) {
       const res = await api.GET("/api/v1/repositories/{repo_id}/branches", {
         params: { path: { repo_id: repoId } },
       });
-      if (res.error) throw new Error("分支加载失败。");
+      if (res.error) throw new Error(t("settings.branchLoadFailed"));
       return (Array.isArray(res.data) ? res.data : []) as BranchRow[];
     },
   });
@@ -43,7 +46,7 @@ export function BranchesSection({ repoId }: { repoId: string }) {
         const res = await api.PUT("/api/v1/repositories/{repo_id}/branches/{branch_name}/default", {
           params: { path: { repo_id: repoId, branch_name: name } },
         });
-        if (res.error) throw new Error("设置默认分支失败。");
+        if (res.error) throw new Error(t("settings.defaultFailed"));
         return;
       }
       const res =
@@ -57,12 +60,12 @@ export function BranchesSection({ repoId }: { repoId: string }) {
             });
       if (res.error) {
         const detail = (res.error as { detail?: string }).detail;
-        throw new Error(detail ?? "分支保护更新失败。");
+        throw new Error(detail ?? t("settings.protectionFailed"));
       }
     },
     {
       onSuccess: () => {
-        toast.success("分支设置已更新。");
+        toast.success(t("settings.branchUpdated"));
         void refresh();
       },
       onError: (error) => toast.error(error.message),
@@ -73,16 +76,16 @@ export function BranchesSection({ repoId }: { repoId: string }) {
 
   return (
     <section className="border-edge-2 bg-ink-900/50 rounded-[12px] border p-5">
-      <h2 className="text-bone text-[13px] font-semibold">分支与保护</h2>
+      <h2 className="text-bone text-[13px] font-semibold">{t("settings.branches")}</h2>
       <p className="text-muted-2 mt-1 text-[11px]">
-        保护分支会阻止直接推送；要求评审 / 状态检查会在 PR 合并时校验。
+        {t("settings.branchesHint")}
       </p>
 
       <div className="mt-4 flex flex-col gap-2">
         {branchesQuery.isLoading ? (
-          <p className="text-muted-2 text-[11.5px]">加载中…</p>
+          <p className="text-muted-2 text-[11.5px]">{t("common.loading")}</p>
         ) : branches.length === 0 ? (
-          <p className="text-muted-2 text-[11.5px]">还没有分支。</p>
+          <p className="text-muted-2 text-[11.5px]">{t("settings.noBranches")}</p>
         ) : (
           branches.map((branch) => (
             <div
@@ -96,7 +99,7 @@ export function BranchesSection({ repoId }: { repoId: string }) {
                 </span>
                 {branch.is_default ? (
                   <span className="border-edge-2 text-muted rounded-full border px-1.5 py-0.5 text-[9.5px]">
-                    默认
+                    {t("settings.defaultBadge")}
                   </span>
                 ) : (
                   <button
@@ -104,7 +107,7 @@ export function BranchesSection({ repoId }: { repoId: string }) {
                     className="text-muted-2 hover:text-amber-2 text-[10px] transition-colors"
                     onClick={() => mutation.mutate({ name: branch.name, action: "default" })}
                   >
-                    设为默认
+                    {t("settings.setDefault")}
                   </button>
                 )}
                 <button
@@ -120,17 +123,17 @@ export function BranchesSection({ repoId }: { repoId: string }) {
                     })
                   }
                 >
-                  {branch.is_protected ? "取消保护" : "保护分支"}
+                  {branch.is_protected ? t("settings.unprotect") : t("settings.protect")}
                 </button>
               </div>
 
               {branch.is_protected ? (
                 <div className="border-edge-1 mt-2 flex flex-wrap items-center gap-4 border-t pt-2">
                   <label className="flex items-center gap-2">
-                    <span className="text-muted-2 text-[10.5px]">要求评审</span>
+                    <span className="text-muted-2 text-[10.5px]">{t("settings.requireReview")}</span>
                     <Switch
                       checked={branch.require_code_review ?? false}
-                      aria-label={`${branch.name} 要求评审`}
+                      aria-label={`${branch.name} ${t("settings.requireReview")}`}
                       onCheckedChange={(checked) =>
                         mutation.mutate({
                           name: branch.name,
@@ -144,10 +147,10 @@ export function BranchesSection({ repoId }: { repoId: string }) {
                     />
                   </label>
                   <label className="flex items-center gap-2">
-                    <span className="text-muted-2 text-[10.5px]">要求状态检查</span>
+                    <span className="text-muted-2 text-[10.5px]">{t("settings.requireChecks")}</span>
                     <Switch
                       checked={branch.require_status_checks ?? false}
-                      aria-label={`${branch.name} 要求状态检查`}
+                      aria-label={`${branch.name} ${t("settings.requireChecks")}`}
                       onCheckedChange={(checked) =>
                         mutation.mutate({
                           name: branch.name,

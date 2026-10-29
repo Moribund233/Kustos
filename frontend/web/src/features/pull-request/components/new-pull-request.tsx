@@ -13,6 +13,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { useTranslation } from "react-i18next";
+
 import { api } from "@/lib/api/client";
 import { useApiMutation, useApiQuery } from "@/lib/api/hooks";
 
@@ -66,6 +68,7 @@ export function NewPullRequestDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -81,7 +84,7 @@ export function NewPullRequestDialog({
       const res = await api.GET("/api/v1/repositories/{repo_id}/branches", {
         params: { path: { repo_id: repoId } },
       });
-      if (res.error) throw new Error("分支列表加载失败。");
+      if (res.error) throw new Error(t("settings.branchLoadFailed"));
       return (Array.isArray(res.data) ? res.data : []) as BranchRow[];
     },
   });
@@ -115,15 +118,15 @@ export function NewPullRequestDialog({
       });
       if (res.error) {
         const detail = (res.error as { detail?: string }).detail;
-        throw new Error(detail ?? "创建 Pull Request 失败。");
+        throw new Error(detail ?? t("pullRequest.createFailed"));
       }
       const payload = res.data as { pr_number?: number } | undefined;
-      if (!payload?.pr_number) throw new Error("创建成功但未返回 PR 编号。");
+      if (!payload?.pr_number) throw new Error(t("pullRequest.missingNumber"));
       return payload.pr_number;
     },
     {
       onSuccess: (prNumber) => {
-        toast.success(`Pull Request #${prNumber} 已创建。`);
+        toast.success(t("pullRequest.created", { number: prNumber }));
         void queryClient.invalidateQueries({ queryKey: ["pull-requests", repoId] });
         onOpenChange(false);
         navigate(`/pull-requests?pr=${prNumber}`);
@@ -140,9 +143,9 @@ export function NewPullRequestDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[560px]">
         <DialogHeader>
-          <DialogTitle>新建 Pull Request</DialogTitle>
+          <DialogTitle>{t("pullRequest.newTitle")}</DialogTitle>
           <DialogDescription>
-            源分支与目标分支不能相同；差异与合并条件由后端计算。
+            {t("pullRequest.newHint")}
           </DialogDescription>
         </DialogHeader>
 
@@ -150,29 +153,29 @@ export function NewPullRequestDialog({
           <Input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            placeholder="标题"
-            aria-label="PR 标题"
+            placeholder={t("pullRequest.titleLabel")}
+            aria-label={t("pullRequest.titleLabel")}
           />
           <textarea
             value={description}
             onChange={(event) => setDescription(event.target.value)}
             rows={4}
-            placeholder="描述（Markdown）…"
-            aria-label="PR 描述"
+            placeholder={t("pullRequest.descriptionPlaceholder")}
+            aria-label={t("pullRequest.descriptionPlaceholder")}
             className="border-edge-2 bg-ink-950/60 text-bone placeholder:text-muted-2 focus:border-amber/40 min-h-[90px] w-full resize-none rounded-md border px-2.5 py-2 text-[12px] transition-colors outline-none"
           />
           <div className="grid grid-cols-2 gap-3">
             <label className="flex flex-col gap-1.5">
               <span className="text-muted-2 text-[10px] font-semibold tracking-[0.13em] uppercase">
-                源分支
+                {t("pullRequest.sourceBranch")}
               </span>
               <select
                 value={sourceBranch}
                 onChange={(event) => setSourceBranch(event.target.value)}
                 className={SELECT_CLASS}
-                aria-label="源分支"
+                aria-label={t("pullRequest.sourceBranch")}
               >
-                <option value="">选择分支…</option>
+                <option value="">{t("pullRequest.chooseBranch")}</option>
                 {branches
                   .filter((branch) => branch.name !== targetBranch)
                   .map((branch) => (
@@ -184,13 +187,13 @@ export function NewPullRequestDialog({
             </label>
             <label className="flex flex-col gap-1.5">
               <span className="text-muted-2 text-[10px] font-semibold tracking-[0.13em] uppercase">
-                目标分支
+                {t("pullRequest.targetBranch")}
               </span>
               <select
                 value={targetBranch}
                 onChange={(event) => setTargetBranch(event.target.value)}
                 className={SELECT_CLASS}
-                aria-label="目标分支"
+                aria-label={t("pullRequest.targetBranch")}
               >
                 {branches
                   .filter((branch) => branch.name !== sourceBranch)
@@ -203,19 +206,19 @@ export function NewPullRequestDialog({
             </label>
           </div>
           {branches.length > 0 && branches.every((branch) => branch.name === defaultBranch) ? (
-            <p className="text-amber-2 text-[11px]">只有默认分支。先推送一个分支，才能发起 PR。</p>
+            <p className="text-amber-2 text-[11px]">{t("pullRequest.onlyDefaultBranch")}</p>
           ) : null}
         </div>
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            取消
+            {t("common.cancel")}
           </Button>
           <Button
             onClick={() => createMutation.mutate()}
             disabled={!canSubmit || createMutation.isPending}
           >
-            {createMutation.isPending ? "创建中…" : "创建"}
+            {createMutation.isPending ? t("common.creating") : t("common.create")}
           </Button>
         </DialogFooter>
       </DialogContent>

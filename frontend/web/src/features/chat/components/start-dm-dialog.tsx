@@ -13,6 +13,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { useTranslation } from "react-i18next";
+
 import { api } from "@/lib/api/client";
 import { useApiMutation, useApiQuery } from "@/lib/api/hooks";
 import { useAuthStore } from "@/stores/auth-store";
@@ -42,13 +44,14 @@ export function StartDmDialog({
   const queryClient = useQueryClient();
   const me = useAuthStore((state) => state.user);
   const [query, setQuery] = useState("");
+  const { t } = useTranslation();
 
   const usersQuery = useApiQuery<UserRow[]>({
     queryKey: ["users"],
     enabled: open,
     queryFn: async () => {
       const res = await api.GET("/api/v1/users");
-      if (res.error) throw new Error("用户列表加载失败。");
+      if (res.error) throw new Error(t("chat.noCandidates"));
       return (Array.isArray(res.data) ? res.data : []) as UserRow[];
     },
   });
@@ -62,10 +65,10 @@ export function StartDmDialog({
       const res = await api.POST("/api/v1/dm", { body: { peer_user_id: peerUserId } });
       if (res.error) {
         const detail = (res.error as { detail?: string }).detail;
-        throw new Error(detail ?? "创建会话失败。");
+        throw new Error(detail ?? t("chat.startDmHint"));
       }
       const room = res.data as { id?: string } | undefined;
-      if (!room?.id) throw new Error("创建成功但未返回房间。");
+      if (!room?.id) throw new Error(t("chat.startDmHint"));
       return room.id;
     },
     {
@@ -89,23 +92,23 @@ export function StartDmDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[440px]">
         <DialogHeader>
-          <DialogTitle>发起私聊</DialogTitle>
-          <DialogDescription>选择一位成员；已有会话会直接打开，不会重复创建。</DialogDescription>
+          <DialogTitle>{t("chat.startDm")}</DialogTitle>
+          <DialogDescription>{t("chat.startDmHint")}</DialogDescription>
         </DialogHeader>
 
         <Input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="搜索用户名…"
-          aria-label="搜索用户"
+          placeholder={t("chat.searchUser")}
+          aria-label={t("chat.searchUser")}
           autoFocus
         />
 
         <div className="border-edge-1 max-h-[280px] min-h-[120px] overflow-auto rounded-md border">
           {usersQuery.isLoading ? (
-            <p className="text-muted-2 p-3 text-[11.5px]">加载中…</p>
+            <p className="text-muted-2 p-3 text-[11.5px]">{t("common.loading")}</p>
           ) : candidates.length === 0 ? (
-            <p className="text-muted-2 p-3 text-[11.5px]">没有匹配的成员。</p>
+            <p className="text-muted-2 p-3 text-[11.5px]">{t("chat.noCandidates")}</p>
           ) : (
             <ul>
               {candidates.map((item) => (
@@ -129,7 +132,7 @@ export function StartDmDialog({
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            取消
+            {t("common.cancel")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -139,13 +142,14 @@ export function StartDmDialog({
 
 /** 侧栏「私聊」标题旁的 + 按钮，自带弹窗状态。 */
 export function StartDmButton({ onCreated }: { onCreated: (roomId: string) => void }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   return (
     <>
       <button
         type="button"
-        aria-label="发起私聊"
-        title="发起私聊"
+        aria-label={t("chat.startDm")}
+        title={t("chat.startDm")}
         onClick={() => setOpen(true)}
         className="text-faint hover:text-amber-2 inline-flex size-4 items-center justify-center rounded transition-colors"
       >

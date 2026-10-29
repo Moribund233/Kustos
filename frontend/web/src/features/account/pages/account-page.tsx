@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { KeyRound, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -41,15 +42,15 @@ interface LinkedAccount {
   created_at: string | null;
 }
 
-const PREF_LABELS: { key: keyof NotificationPreference; label: string }[] = [
-  { key: "email_on_mention", label: "邮件：被 @ 提及" },
-  { key: "email_on_pr_review", label: "邮件：PR 评审" },
-  { key: "email_on_issue_comment", label: "邮件：Issue 评论" },
-  { key: "email_on_pr_merge", label: "邮件：PR 合并" },
-  { key: "email_on_release", label: "邮件：发布版本" },
-  { key: "in_app_on_mention", label: "站内：被 @ 提及" },
-  { key: "in_app_on_pr_review", label: "站内：PR 评审" },
-  { key: "in_app_on_issue_comment", label: "站内：Issue 评论" },
+const PREF_LABELS: { key: keyof NotificationPreference; labelKey: string }[] = [
+  { key: "email_on_mention", labelKey: "account.prefEmailMention" },
+  { key: "email_on_pr_review", labelKey: "account.prefEmailReview" },
+  { key: "email_on_issue_comment", labelKey: "account.prefEmailComment" },
+  { key: "email_on_pr_merge", labelKey: "account.prefEmailMerge" },
+  { key: "email_on_release", labelKey: "account.prefEmailRelease" },
+  { key: "in_app_on_mention", labelKey: "account.prefInAppMention" },
+  { key: "in_app_on_pr_review", labelKey: "account.prefInAppReview" },
+  { key: "in_app_on_issue_comment", labelKey: "account.prefInAppComment" },
 ];
 
 /**
@@ -59,25 +60,26 @@ const PREF_LABELS: { key: keyof NotificationPreference; label: string }[] = [
  * `PUT /users/{id}`（后端允许本人改自己的字段）。邮箱、用户名冲突由后端裁决。
  */
 export function AccountPage() {
+  const { t } = useTranslation();
   const setCrumbs = useUiStore((state) => state.setCrumbs);
   const username = useAuthStore((state) => state.user?.username);
 
   useEffect(() => {
-    setCrumbs([{ label: "账号" }, { label: "资料与偏好" }]);
-  }, [setCrumbs]);
+    setCrumbs([{ label: t("account.kicker") }, { label: t("account.title") }]);
+  }, [setCrumbs, t]);
 
   return (
     <div className="mx-auto w-full max-w-[860px] px-[34px] pt-[30px] pb-20">
       <header className="mb-6">
         <p className="text-faint text-[10.5px] font-semibold tracking-[0.16em] uppercase">
-          Account
+          {t("account.kicker")}
         </p>
         <h1 className="font-display text-bone mt-1.5 text-[clamp(1.7rem,2.6vw,2.3rem)] leading-none font-medium tracking-[-0.028em]">
-          资料与偏好
+          {t("account.title")}
         </h1>
         <p className="text-muted-2 mt-2 text-[11.5px]">
-          当前登录 <span className="font-mono">{username ?? "—"}</span>
-          。密码、密钥等敏感操作只作用于你自己。
+          {t("account.currentUser")} <span className="font-mono">{username ?? "—"}</span>{" "}
+          · {t("account.sensitiveHint")}
         </p>
       </header>
 
@@ -115,6 +117,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 /** 资料与头像：字段少，整表单提交；成功后刷新会话里的用户信息。 */
 function ProfileSection() {
+  const { t } = useTranslation();
   const user = useAuthStore((state) => state.user);
   const reloadMe = useAuthStore((state) => state.reloadMe);
   const [fullName, setFullName] = useState(user?.full_name ?? "");
@@ -129,12 +132,12 @@ function ProfileSection() {
       });
       if (res.error) {
         const detail = (res.error as { detail?: string }).detail;
-        throw new Error(detail ?? "保存失败。");
+        throw new Error(detail ?? t("account.saveFailed"));
       }
       await reloadMe();
     },
     {
-      onSuccess: () => toast.success("资料已保存。"),
+      onSuccess: () => toast.success(t("account.saved")),
       onError: (error) => toast.error(error.message),
     },
   );
@@ -150,15 +153,15 @@ function ProfileSection() {
       body: form,
     });
     if (!res.ok) {
-      toast.error("头像上传失败。");
+      toast.error(t("account.avatarFailed"));
       return;
     }
-    toast.success("头像已更新。");
+    toast.success(t("account.avatarUpdated"));
     await reloadMe();
   };
 
   return (
-    <Section title="资料" hint="用户名与邮箱需在实例内唯一；改名会影响克隆地址里的用户名部分。">
+    <Section title={t("account.profile")} hint={t("account.profileHint")}>
       <div className="flex items-center gap-3">
         {user?.avatar_url ? (
           <img
@@ -174,7 +177,7 @@ function ProfileSection() {
           />
         )}
         <div className="flex flex-col gap-1">
-          <span className="text-muted-2 text-[10.5px]">头像（JPEG / PNG / GIF / WebP，≤5 MB）</span>
+          <span className="text-muted-2 text-[10.5px]">{t("account.avatarHint")}</span>
           <div className="flex items-center gap-2">
             <input
               ref={avatarInputRef}
@@ -188,24 +191,24 @@ function ProfileSection() {
               }}
             />
             <Button size="sm" variant="ghost" onClick={() => avatarInputRef.current?.click()}>
-              选择图片
+              {t("account.chooseImage")}
             </Button>
           </div>
         </div>
       </div>
-      <Field label="全名">
+      <Field label={t("account.fullName")}>
         <Input
           value={fullName}
           onChange={(event) => setFullName(event.target.value)}
-          aria-label="全名"
+          aria-label={t("account.fullName")}
         />
       </Field>
-      <Field label="邮箱">
+      <Field label={t("account.email")}>
         <Input
           type="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
-          aria-label="邮箱"
+          aria-label={t("account.email")}
         />
       </Field>
       <div className="border-edge-1 flex items-center gap-2 border-t pt-4">
@@ -217,7 +220,7 @@ function ProfileSection() {
             (fullName === (user?.full_name ?? "") && email === (user?.email ?? ""))
           }
         >
-          {saveMutation.isPending ? "保存中…" : "保存"}
+          {saveMutation.isPending ? t("common.saving") : t("common.save")}
         </Button>
       </div>
     </Section>
@@ -226,6 +229,7 @@ function ProfileSection() {
 
 /** 修改密码：两次新密码一致才提交，后端会校验旧密码。 */
 function PasswordSection() {
+  const { t } = useTranslation();
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -237,12 +241,12 @@ function PasswordSection() {
       });
       if (res.error) {
         const detail = (res.error as { detail?: string }).detail;
-        throw new Error(detail ?? "修改密码失败。");
+        throw new Error(detail ?? t("account.passwordFailed"));
       }
     },
     {
       onSuccess: () => {
-        toast.success("密码已修改。");
+        toast.success(t("account.passwordChanged"));
         setOldPassword("");
         setNewPassword("");
         setConfirm("");
@@ -255,42 +259,42 @@ function PasswordSection() {
   const canSubmit = oldPassword.length > 0 && newPassword.length >= 6 && confirm === newPassword;
 
   return (
-    <Section title="密码" hint="新密码至少 6 位；修改后其他会话不会自动退出。">
-      <Field label="当前密码">
+    <Section title={t("account.password")} hint={t("account.passwordHint")}>
+      <Field label={t("account.currentPassword")}>
         <Input
           type="password"
           value={oldPassword}
           onChange={(event) => setOldPassword(event.target.value)}
-          aria-label="当前密码"
+          aria-label={t("account.currentPassword")}
           autoComplete="current-password"
         />
       </Field>
-      <Field label="新密码">
+      <Field label={t("account.newPassword")}>
         <Input
           type="password"
           value={newPassword}
           onChange={(event) => setNewPassword(event.target.value)}
-          aria-label="新密码"
+          aria-label={t("account.newPassword")}
           autoComplete="new-password"
         />
       </Field>
-      <Field label="确认新密码">
+      <Field label={t("account.confirmPassword")}>
         <Input
           type="password"
           value={confirm}
           onChange={(event) => setConfirm(event.target.value)}
-          aria-label="确认新密码"
+          aria-label={t("account.confirmPassword")}
           autoComplete="new-password"
         />
       </Field>
-      {mismatch ? <p className="text-rose text-[11px]">两次输入的新密码不一致。</p> : null}
+      {mismatch ? <p className="text-rose text-[11px]">{t("account.mismatch")}</p> : null}
       <div className="border-edge-1 flex items-center gap-2 border-t pt-4">
         <Button
           size="sm"
           onClick={() => mutation.mutate()}
           disabled={!canSubmit || mutation.isPending}
         >
-          {mutation.isPending ? "提交中…" : "修改密码"}
+          {mutation.isPending ? t("common.saving") : t("account.changePassword")}
         </Button>
       </div>
     </Section>
@@ -299,6 +303,7 @@ function PasswordSection() {
 
 /** SSH 公钥：只保存公钥，指纹由后端计算。 */
 function SshKeySection() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [publicKey, setPublicKey] = useState("");
@@ -307,7 +312,7 @@ function SshKeySection() {
     queryKey: ["ssh-keys"],
     queryFn: async () => {
       const res = await api.GET("/api/v1/keys");
-      if (res.error) throw new Error("加载 SSH 密钥失败。");
+      if (res.error) throw new Error(t("account.keyLoadFailed"));
       return (res.data as unknown as SshKey[]) ?? [];
     },
   });
@@ -317,12 +322,12 @@ function SshKeySection() {
       const res = await api.POST("/api/v1/keys", { body: input as never });
       if (res.error) {
         const detail = (res.error as { detail?: string }).detail;
-        throw new Error(detail ?? "添加密钥失败。");
+        throw new Error(detail ?? t("account.keyFailed"));
       }
     },
     {
       onSuccess: async () => {
-        toast.success("SSH 密钥已添加。");
+        toast.success(t("account.keyAdded"));
         setName("");
         setPublicKey("");
         await queryClient.invalidateQueries({ queryKey: ["ssh-keys"] });
@@ -336,11 +341,11 @@ function SshKeySection() {
       const res = await api.DELETE("/api/v1/keys/{key_id}", {
         params: { path: { key_id: keyId } },
       });
-      if (res.error) throw new Error("删除密钥失败。");
+      if (res.error) throw new Error(t("account.keyDeleteFailed"));
     },
     {
       onSuccess: async () => {
-        toast.success("SSH 密钥已删除。");
+        toast.success(t("account.keyDeleted"));
         await queryClient.invalidateQueries({ queryKey: ["ssh-keys"] });
       },
       onError: (error) => toast.error(error.message),
@@ -348,11 +353,11 @@ function SshKeySection() {
   );
 
   return (
-    <Section title="SSH 密钥" hint="用于 git clone / push 的 SSH 访问；服务端只保存公钥。">
+    <Section title={t("account.sshKeys")} hint={t("account.sshHint")}>
       {listQuery.isLoading ? (
-        <p className="text-muted-2 text-[11.5px]">加载中…</p>
+        <p className="text-muted-2 text-[11.5px]">{t("common.loading")}</p>
       ) : (listQuery.data ?? []).length === 0 ? (
-        <p className="text-muted-2 text-[11.5px]">还没有密钥。</p>
+        <p className="text-muted-2 text-[11.5px]">{t("account.noKeys")}</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {(listQuery.data ?? []).map((key) => (
@@ -372,7 +377,7 @@ function SshKeySection() {
               <span className="text-faint text-[10px]">{formatRelative(key.created_at)}</span>
               <button
                 type="button"
-                aria-label={`删除 ${key.name}`}
+                aria-label={t("common.delete")}
                 className="text-muted-2 hover:text-rose transition-colors"
                 onClick={() => deleteMutation.mutate(key.id)}
               >
@@ -386,15 +391,15 @@ function SshKeySection() {
         <Input
           value={name}
           onChange={(event) => setName(event.target.value)}
-          placeholder="密钥名称（如 work laptop）"
-          aria-label="密钥名称"
+          placeholder={t("account.keyName")}
+          aria-label={t("account.keyName")}
         />
         <textarea
           value={publicKey}
           onChange={(event) => setPublicKey(event.target.value)}
           rows={3}
           placeholder="ssh-ed25519 AAAA… user@host"
-          aria-label="公钥内容"
+          aria-label={t("account.publicKey")}
           className="border-edge-2 bg-ink-950/60 text-bone placeholder:text-muted-2 focus:border-amber/40 min-h-[70px] w-full resize-none rounded-md border px-2.5 py-2 font-mono text-[11px] transition-colors outline-none"
         />
         <Button
@@ -404,7 +409,7 @@ function SshKeySection() {
           disabled={!name.trim() || !publicKey.trim() || addMutation.isPending}
         >
           <Plus className="size-[13px]" aria-hidden="true" />
-          {addMutation.isPending ? "添加中…" : "添加密钥"}
+          {addMutation.isPending ? t("common.loading") : t("account.addKey")}
         </Button>
       </div>
     </Section>
@@ -413,13 +418,14 @@ function SshKeySection() {
 
 /** 通知偏好：开关即时保存，保存后重拉一次以服务端值为准。 */
 function NotificationSection() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
 
   const prefsQuery = useApiQuery<NotificationPreference>({
     queryKey: ["notification-preferences"],
     queryFn: async () => {
       const res = await api.GET("/api/v1/notifications/preferences");
-      if (res.error) throw new Error("加载通知偏好失败。");
+      if (res.error) throw new Error(t("account.readFailed"));
       return res.data as unknown as NotificationPreference;
     },
   });
@@ -427,7 +433,7 @@ function NotificationSection() {
   const updateMutation = useApiMutation<void, Partial<NotificationPreference>>(
     async (patch) => {
       const res = await api.PUT("/api/v1/notifications/preferences", { body: patch as never });
-      if (res.error) throw new Error("保存通知偏好失败。");
+      if (res.error) throw new Error(t("account.prefSaveFailed"));
     },
     {
       onSuccess: async () => {
@@ -440,24 +446,24 @@ function NotificationSection() {
   const prefs = prefsQuery.data;
 
   return (
-    <Section title="通知偏好" hint="邮件通知需要实例已配置 SMTP；站内通知始终走通知中心。">
+    <Section title={t("account.notifications")} hint={t("account.notificationsHint")}>
       {!prefs ? (
         <p className="text-muted-2 text-[11.5px]">
-          {prefsQuery.isLoading ? "加载中…" : "读取失败。"}
+          {prefsQuery.isLoading ? t("common.loading") : t("account.readFailed")}
         </p>
       ) : (
         <div className="grid gap-2 sm:grid-cols-2">
-          {PREF_LABELS.map(({ key, label }) => (
+          {PREF_LABELS.map(({ key, labelKey }) => (
             <label
               key={key}
               className="border-edge-1 flex items-center justify-between gap-3 rounded-md border px-3 py-2"
             >
-              <span className="text-muted text-[11.5px]">{label}</span>
+              <span className="text-muted text-[11.5px]">{t(labelKey)}</span>
               <Switch
                 checked={prefs[key]}
                 disabled={updateMutation.isPending}
                 onCheckedChange={(checked) => updateMutation.mutate({ [key]: checked })}
-                aria-label={label}
+                aria-label={t(labelKey)}
               />
             </label>
           ))}
@@ -469,13 +475,14 @@ function NotificationSection() {
 
 /** 第三方账号：只做查看与解绑，绑定入口在登录页（OAuth 登录会复用/建立关联）。 */
 function OAuthSection() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
 
   const accountsQuery = useApiQuery<LinkedAccount[]>({
     queryKey: ["oauth-accounts"],
     queryFn: async () => {
       const res = await api.GET("/api/v1/users/me/oauth");
-      if (res.error) throw new Error("加载第三方账号失败。");
+      if (res.error) throw new Error(t("account.oauthLoadFailed"));
       return (res.data as unknown as LinkedAccount[]) ?? [];
     },
   });
@@ -485,11 +492,11 @@ function OAuthSection() {
       const res = await api.DELETE("/api/v1/users/me/oauth/{provider}", {
         params: { path: { provider } },
       });
-      if (res.error) throw new Error("解绑失败。");
+      if (res.error) throw new Error(t("account.unlinkFailed"));
     },
     {
       onSuccess: async () => {
-        toast.success("已解绑。");
+        toast.success(t("account.unlinked"));
         await queryClient.invalidateQueries({ queryKey: ["oauth-accounts"] });
       },
       onError: (error) => toast.error(error.message),
@@ -500,12 +507,12 @@ function OAuthSection() {
 
   return (
     <Section
-      title="第三方账号"
-      hint="绑定的 GitHub / GitLab 账号可用于登录；解绑后只能用密码登录。"
+      title={t("account.oauth")}
+      hint={t("account.oauthHint")}
     >
       {accounts.length === 0 ? (
         <p className="text-muted-2 text-[11.5px]">
-          {accountsQuery.isLoading ? "加载中…" : "还没有绑定第三方账号。"}
+          {accountsQuery.isLoading ? t("common.loading") : t("account.noOauth")}
         </p>
       ) : (
         <ul className="flex flex-col gap-2">
@@ -526,7 +533,7 @@ function OAuthSection() {
                 onClick={() => unlinkMutation.mutate(account.provider)}
                 disabled={unlinkMutation.isPending}
               >
-                解绑
+                {t("account.unlink")}
               </Button>
             </li>
           ))}

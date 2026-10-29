@@ -5,6 +5,8 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useTranslation } from "react-i18next";
+
 import { api } from "@/lib/api/client";
 import { useApiMutation, useApiQuery } from "@/lib/api/hooks";
 
@@ -22,6 +24,7 @@ interface TagRow {
  * Release 会引用同名标签，删除标签前后端会做引用检查。
  */
 export function TagsSection({ repoId }: { repoId: string }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [message, setMessage] = useState("");
@@ -33,7 +36,7 @@ export function TagsSection({ repoId }: { repoId: string }) {
       const res = await api.GET("/api/v1/repositories/{repo_id}/tags", {
         params: { path: { repo_id: repoId } },
       });
-      if (res.error) throw new Error("标签加载失败。");
+      if (res.error) throw new Error(t("settings.tagLoadFailed"));
       return (Array.isArray(res.data) ? res.data : []) as TagRow[];
     },
   });
@@ -48,12 +51,12 @@ export function TagsSection({ repoId }: { repoId: string }) {
       });
       if (res.error) {
         const detail = (res.error as { detail?: string }).detail;
-        throw new Error(detail ?? "创建标签失败。");
+        throw new Error(detail ?? t("settings.tagCreateFailed"));
       }
     },
     {
       onSuccess: () => {
-        toast.success("标签已创建。");
+        toast.success(t("settings.tagCreated"));
         setName("");
         setMessage("");
         void refresh();
@@ -69,12 +72,12 @@ export function TagsSection({ repoId }: { repoId: string }) {
       });
       if (res.error) {
         const detail = (res.error as { detail?: string }).detail;
-        throw new Error(detail ?? "删除标签失败。");
+        throw new Error(detail ?? t("settings.tagDeleteFailed"));
       }
     },
     {
       onSuccess: () => {
-        toast.success("标签已删除。");
+        toast.success(t("settings.tagDeleted"));
         void refresh();
       },
       onError: (error) => toast.error(error.message),
@@ -85,14 +88,14 @@ export function TagsSection({ repoId }: { repoId: string }) {
 
   return (
     <section className="border-edge-2 bg-ink-900/50 rounded-[12px] border p-5">
-      <h2 className="text-bone text-[13px] font-semibold">Git 标签</h2>
-      <p className="text-muted-2 mt-1 text-[11px]">标签指向某个提交；Release 会引用同名标签。</p>
+      <h2 className="text-bone text-[13px] font-semibold">{t("settings.tags")}</h2>
+      <p className="text-muted-2 mt-1 text-[11px]">{t("settings.tagsHint")}</p>
 
       <div className="mt-4 flex flex-col gap-2">
         {tagsQuery.isLoading ? (
-          <p className="text-muted-2 text-[11.5px]">加载中…</p>
+          <p className="text-muted-2 text-[11.5px]">{t("common.loading")}</p>
         ) : tags.length === 0 ? (
-          <p className="text-muted-2 text-[11.5px]">还没有标签。</p>
+          <p className="text-muted-2 text-[11.5px]">{t("settings.noTags")}</p>
         ) : (
           <ul className="border-edge-1 overflow-hidden rounded-md border">
             {tags.map((tag) => (
@@ -107,7 +110,7 @@ export function TagsSection({ repoId }: { repoId: string }) {
                 </span>
                 <button
                   type="button"
-                  aria-label={`删除标签 ${tag.name}`}
+                  aria-label={t("common.delete")}
                   className="text-muted-2 hover:text-rose transition-colors"
                   onClick={() => deleteMutation.mutate(tag.name)}
                 >
@@ -122,15 +125,15 @@ export function TagsSection({ repoId }: { repoId: string }) {
           <Input
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="v0.2.0"
-            aria-label="Git 标签名"
+            placeholder={t("settings.tagName")}
+            aria-label={t("settings.tagNameLabel")}
             className="h-8 font-mono text-[11px]"
           />
           <Input
             value={message}
             onChange={(event) => setMessage(event.target.value)}
-            placeholder="附注（可选）"
-            aria-label="标签说明"
+            placeholder={t("settings.tagMessage")}
+            aria-label={t("settings.tagMessage")}
             className="h-8 text-[11px]"
           />
           <Button
@@ -138,7 +141,7 @@ export function TagsSection({ repoId }: { repoId: string }) {
             onClick={() => createMutation.mutate()}
             disabled={!name.trim() || createMutation.isPending}
           >
-            创建
+            {t("common.create")}
           </Button>
         </div>
       </div>

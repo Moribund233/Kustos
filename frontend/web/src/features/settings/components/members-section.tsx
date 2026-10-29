@@ -5,6 +5,8 @@ import { toast } from "sonner";
 
 import { Lamp, ToneAvatar } from "@/components/kit/kit";
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "react-i18next";
+
 import { api } from "@/lib/api/client";
 import { useApiMutation, useApiQuery } from "@/lib/api/hooks";
 
@@ -23,11 +25,11 @@ interface UserRow {
 }
 
 const ROLES = ["admin", "developer", "readonly"] as const;
-const ROLE_LABEL: Record<string, string> = {
-  owner: "所有者",
-  admin: "管理员",
-  developer: "开发者",
-  readonly: "只读",
+const ROLE_KEYS: Record<string, string> = {
+  owner: "settings.roleOwner",
+  admin: "settings.roleAdmin",
+  developer: "settings.roleDeveloper",
+  readonly: "settings.roleReadonly",
 };
 
 const SELECT_CLASS =
@@ -40,6 +42,7 @@ const SELECT_CLASS =
  * readonly），最终由后端 `ACTION_MATRIX` 裁决。owner 行不允许改角色或移除。
  */
 export function MembersSection({ repoId }: { repoId: string }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [addUserId, setAddUserId] = useState("");
   const [addRole, setAddRole] = useState<string>("developer");
@@ -51,7 +54,7 @@ export function MembersSection({ repoId }: { repoId: string }) {
       const res = await api.GET("/api/v1/repositories/{repo_id}/members", {
         params: { path: { repo_id: repoId } },
       });
-      if (res.error) throw new Error("成员加载失败。");
+      if (res.error) throw new Error(t("settings.memberLoadFailed"));
       return (Array.isArray(res.data) ? res.data : []) as unknown as MemberRow[];
     },
   });
@@ -74,7 +77,7 @@ export function MembersSection({ repoId }: { repoId: string }) {
       });
       if (res.error) {
         const detail = (res.error as { detail?: string }).detail;
-        throw new Error(detail ?? "成员更新失败。");
+        throw new Error(detail ?? t("settings.memberUpdateFailed"));
       }
     },
     { onSuccess: refresh, onError: (error) => toast.error(error.message) },
@@ -88,12 +91,12 @@ export function MembersSection({ repoId }: { repoId: string }) {
       });
       if (res.error) {
         const detail = (res.error as { detail?: string }).detail;
-        throw new Error(detail ?? "添加成员失败。");
+        throw new Error(detail ?? t("settings.memberAddFailed"));
       }
     },
     {
       onSuccess: () => {
-        toast.success("成员已加入。");
+        toast.success(t("settings.memberAdded"));
         setAddUserId("");
         void refresh();
       },
@@ -108,12 +111,12 @@ export function MembersSection({ repoId }: { repoId: string }) {
       });
       if (res.error) {
         const detail = (res.error as { detail?: string }).detail;
-        throw new Error(detail ?? "移除成员失败。");
+        throw new Error(detail ?? t("settings.memberRemoveFailed"));
       }
     },
     {
       onSuccess: () => {
-        toast.success("成员已移除。");
+        toast.success(t("settings.memberRemoved"));
         void refresh();
       },
       onError: (error) => toast.error(error.message),
@@ -127,16 +130,16 @@ export function MembersSection({ repoId }: { repoId: string }) {
 
   return (
     <section className="border-edge-2 bg-ink-900/50 rounded-[12px] border p-5">
-      <h2 className="text-bone text-[13px] font-semibold">成员与角色</h2>
+      <h2 className="text-bone text-[13px] font-semibold">{t("settings.members")}</h2>
       <p className="text-muted-2 mt-1 text-[11px]">
-        仓库角色独立于全局管理员；所有者由仓库归属决定，不能在这里移除。
+        {t("settings.membersHint")}
       </p>
 
       <div className="mt-4 flex flex-col gap-2">
         {membersQuery.isLoading ? (
-          <p className="text-muted-2 text-[11.5px]">加载中…</p>
+          <p className="text-muted-2 text-[11.5px]">{t("common.loading")}</p>
         ) : members.length === 0 ? (
-          <p className="text-muted-2 text-[11.5px]">还没有成员。</p>
+          <p className="text-muted-2 text-[11.5px]">{t("settings.noMembers")}</p>
         ) : (
           <ul className="border-edge-1 overflow-hidden rounded-md border">
             {members.map((member) => {
@@ -151,8 +154,8 @@ export function MembersSection({ repoId }: { repoId: string }) {
                   <span className="min-w-0 flex-1">
                     <span className="text-bone-2 block truncate text-[12px] font-medium">{name}</span>
                     <span className="text-faint text-[10px]">
-                      {ROLE_LABEL[member.role] ?? member.role}
-                      {member.is_active ? "" : " · 已停用"}
+                      {t(ROLE_KEYS[member.role] ?? member.role)}
+                      {member.is_active ? "" : ` · ${t("settings.inactive")}`}
                     </span>
                   </span>
                   <Lamp tone={member.is_active ? "good" : "neutral"} />
@@ -168,7 +171,7 @@ export function MembersSection({ repoId }: { repoId: string }) {
                       >
                         {ROLES.map((role) => (
                           <option key={role} value={role}>
-                            {ROLE_LABEL[role]}
+                            {t(ROLE_KEYS[role] ?? role)}
                           </option>
                         ))}
                       </select>
@@ -182,11 +185,11 @@ export function MembersSection({ repoId }: { repoId: string }) {
                           })
                         }
                       >
-                        {member.is_active ? "停用" : "启用"}
+                        {member.is_active ? t("settings.deactivate") : t("settings.activate")}
                       </button>
                       <button
                         type="button"
-                        aria-label={`移除 ${name}`}
+                        aria-label={t("common.delete")}
                         className="text-muted-2 hover:text-rose transition-colors"
                         onClick={() => removeMutation.mutate(member.user_id)}
                       >
@@ -204,10 +207,10 @@ export function MembersSection({ repoId }: { repoId: string }) {
           <select
             value={addUserId}
             onChange={(event) => setAddUserId(event.target.value)}
-            aria-label="选择用户"
+            aria-label={t("settings.addMember")}
             className={`${SELECT_CLASS} h-8 min-w-0 flex-1`}
           >
-            <option value="">添加成员…</option>
+            <option value="">{t("settings.addMember")}</option>
             {candidates.map((user) => (
               <option key={user.id} value={user.id}>
                 {user.username}
@@ -217,12 +220,12 @@ export function MembersSection({ repoId }: { repoId: string }) {
           <select
             value={addRole}
             onChange={(event) => setAddRole(event.target.value)}
-            aria-label="成员角色"
+            aria-label={t("settings.roleAdmin")}
             className={`${SELECT_CLASS} h-8`}
           >
             {ROLES.map((role) => (
               <option key={role} value={role}>
-                {ROLE_LABEL[role]}
+                {t(ROLE_KEYS[role] ?? role)}
               </option>
             ))}
           </select>
@@ -231,7 +234,7 @@ export function MembersSection({ repoId }: { repoId: string }) {
             onClick={() => addMutation.mutate()}
             disabled={!addUserId || addMutation.isPending}
           >
-            加入
+            {t("settings.join")}
           </Button>
         </div>
       </div>

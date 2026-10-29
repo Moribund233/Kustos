@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { Chip } from "@/components/kit/kit";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useTranslation } from "react-i18next";
+
 import { api } from "@/lib/api/client";
 import { useApiMutation, useApiQuery } from "@/lib/api/hooks";
 import { formatRelative } from "@/lib/datetime/format";
@@ -63,6 +65,7 @@ interface Page<T> {
  * SSRF 校验，内网/回环地址会被拒绝。投递记录只读，用于排查回调失败。
  */
 export function WebhooksSection({ repoId }: { repoId: string }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [url, setUrl] = useState("");
   const [secret, setSecret] = useState("");
@@ -76,7 +79,7 @@ export function WebhooksSection({ repoId }: { repoId: string }) {
       const res = await api.GET("/api/v1/repositories/{repo_id}/webhooks", {
         params: { path: { repo_id: repoId }, query: { page: 1, limit: 50 } },
       });
-      if (res.error) throw new Error("Webhook 加载失败。");
+      if (res.error) throw new Error(t("settings.webhookLoadFailed"));
       return (res.data as Page<WebhookRow> | undefined)?.items ?? [];
     },
   });
@@ -96,12 +99,12 @@ export function WebhooksSection({ repoId }: { repoId: string }) {
       });
       if (res.error) {
         const detail = (res.error as { detail?: string }).detail;
-        throw new Error(detail ?? "创建 Webhook 失败。");
+        throw new Error(detail ?? t("settings.webhookCreateFailed"));
       }
     },
     {
       onSuccess: () => {
-        toast.success("Webhook 已创建。");
+        toast.success(t("settings.webhookCreated"));
         setUrl("");
         setSecret("");
         setEvents(["push"]);
@@ -116,11 +119,11 @@ export function WebhooksSection({ repoId }: { repoId: string }) {
       const res = await api.DELETE("/api/v1/repositories/{repo_id}/webhooks/{webhook_id}", {
         params: { path: { repo_id: repoId, webhook_id: id } },
       });
-      if (res.error) throw new Error("删除 Webhook 失败。");
+      if (res.error) throw new Error(t("settings.webhookDeleteFailed"));
     },
     {
       onSuccess: () => {
-        toast.success("Webhook 已删除。");
+        toast.success(t("settings.webhookDeleted"));
         void refresh();
       },
       onError: (error) => toast.error(error.message),
@@ -134,12 +137,12 @@ export function WebhooksSection({ repoId }: { repoId: string }) {
       });
       if (res.error) {
         const detail = (res.error as { detail?: string }).detail;
-        throw new Error(detail ?? "测试投递失败。");
+        throw new Error(detail ?? t("settings.testFailed"));
       }
     },
     {
       onSuccess: () => {
-        toast.success("测试事件已发送。");
+        toast.success(t("settings.testSent"));
         void refresh();
       },
       onError: (error) => toast.error(error.message),
@@ -153,23 +156,23 @@ export function WebhooksSection({ repoId }: { repoId: string }) {
 
   return (
     <section className="border-edge-2 bg-ink-900/50 rounded-[12px] border p-5">
-      <h2 className="text-bone text-[13px] font-semibold">Webhook</h2>
+      <h2 className="text-bone text-[13px] font-semibold">{t("settings.webhooks")}</h2>
       <p className="text-muted-2 mt-1 text-[11px]">
-        推送事件到外部地址；URL 会做 SSRF 校验，内网与回环地址会被拒绝。
+        {t("settings.webhooksHint")}
       </p>
 
       <div className="mt-4 flex flex-col gap-2">
         {listQuery.isLoading ? (
-          <p className="text-muted-2 text-[11.5px]">加载中…</p>
+          <p className="text-muted-2 text-[11.5px]">{t("common.loading")}</p>
         ) : webhooks.length === 0 ? (
-          <p className="text-muted-2 text-[11.5px]">还没有 Webhook。</p>
+          <p className="text-muted-2 text-[11.5px]">{t("settings.noWebhooks")}</p>
         ) : (
           webhooks.map((hook) => (
             <div key={hook.id} className="border-edge-1 rounded-md border px-3 py-2">
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  aria-label="投递记录"
+                  aria-label={t("settings.webhookLoadFailed")}
                   onClick={() => setExpanded((prev) => (prev === hook.id ? null : hook.id))}
                   className="text-muted-2 hover:text-bone-2 transition-colors"
                 >
@@ -191,11 +194,11 @@ export function WebhooksSection({ repoId }: { repoId: string }) {
                   className="text-muted-2 hover:text-amber-2 text-[10px] transition-colors"
                   onClick={() => testMutation.mutate(hook.id)}
                 >
-                  测试
+                  {t("settings.test")}
                 </button>
                 <button
                   type="button"
-                  aria-label="删除 Webhook"
+                  aria-label={t("common.delete")}
                   className="text-muted-2 hover:text-rose transition-colors"
                   onClick={() => deleteMutation.mutate(hook.id)}
                 >
@@ -212,15 +215,15 @@ export function WebhooksSection({ repoId }: { repoId: string }) {
             <Input
               value={url}
               onChange={(event) => setUrl(event.target.value)}
-              placeholder="https://example.com/hook"
-              aria-label="Webhook 地址"
+              placeholder={t("settings.webhookUrl")}
+              aria-label={t("settings.webhookUrl")}
               className="h-8 font-mono text-[11px]"
             />
             <Input
               value={secret}
               onChange={(event) => setSecret(event.target.value)}
-              placeholder="签名密钥（可选）"
-              aria-label="Webhook 密钥"
+              placeholder={t("settings.webhookSecret")}
+              aria-label={t("settings.webhookSecret")}
               className="h-8 text-[11px]"
             />
           </div>
@@ -237,7 +240,7 @@ export function WebhooksSection({ repoId }: { repoId: string }) {
             onClick={() => createMutation.mutate()}
             disabled={!url.trim() || events.length === 0 || createMutation.isPending}
           >
-            添加 Webhook
+            {t("settings.addWebhook")}
           </Button>
         </div>
       </div>
@@ -247,13 +250,14 @@ export function WebhooksSection({ repoId }: { repoId: string }) {
 
 /** 最近投递记录：只读，展开时才请求。 */
 function Deliveries({ repoId, webhookId }: { repoId: string; webhookId: string }) {
+  const { t } = useTranslation();
   const query = useApiQuery<DeliveryRow[]>({
     queryKey: ["webhook-deliveries", repoId, webhookId],
     queryFn: async () => {
       const res = await api.GET("/api/v1/repositories/{repo_id}/webhooks/{webhook_id}/deliveries", {
         params: { path: { repo_id: repoId, webhook_id: webhookId }, query: { page: 1, limit: 10 } },
       });
-      if (res.error) throw new Error("投递记录加载失败。");
+      if (res.error) throw new Error(t("settings.deliveryLoadFailed"));
       return (res.data as Page<DeliveryRow> | undefined)?.items ?? [];
     },
   });
@@ -263,9 +267,9 @@ function Deliveries({ repoId, webhookId }: { repoId: string; webhookId: string }
   return (
     <div className="border-edge-1 mt-2 border-t pt-2">
       {query.isLoading ? (
-        <p className="text-muted-2 text-[10.5px]">加载中…</p>
+        <p className="text-muted-2 text-[10.5px]">{t("common.loading")}</p>
       ) : deliveries.length === 0 ? (
-        <p className="text-muted-2 text-[10.5px]">还没有投递记录。</p>
+        <p className="text-muted-2 text-[10.5px]">{t("settings.noDeliveries")}</p>
       ) : (
         <ul className="flex flex-col gap-1">
           {deliveries.map((delivery) => (

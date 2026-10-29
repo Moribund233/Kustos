@@ -16,6 +16,7 @@ import {
   GitFork,
   GitPullRequest,
   History,
+  Link2,
   MessageSquare,
   Pencil,
   Search,
@@ -49,6 +50,7 @@ import { FileEditDialog } from "@/features/code/components/file-edit-dialog";
 import { FileHistoryDialog } from "@/features/code/components/file-history-dialog";
 import { ForkDialog } from "@/features/code/components/fork-dialog";
 import { SocialDialog } from "@/features/code/components/social-dialog";
+import { SymbolLookupDialog } from "@/features/code/components/symbol-lookup-dialog";
 import { api, getAccessToken } from "@/lib/api/client";
 import {
   createCollabSession,
@@ -195,6 +197,7 @@ export function CodePage({ path, content, diff }: CodePageProps) {
   const [blameOpen, setBlameOpen] = useState(false);
   const [forkOpen, setForkOpen] = useState(false);
   const [social, setSocial] = useState<"star" | "watch" | null>(null);
+  const [lookupName, setLookupName] = useState<string | null>(null);
   const filterRef = useRef<HTMLInputElement | null>(null);
 
   // 协作编辑会话：为空表示处于只读浏览，非空表示当前文件已接入 CRDT
@@ -422,11 +425,12 @@ export function CodePage({ path, content, diff }: CodePageProps) {
   });
 
   const blob = blobQuery.data;
-  // 符号大纲点击后的目标行；切文件即失效，避免滚动到新文件的旧行号
+  // 符号大纲/引用跳转的目标行；?line= 支持从搜索结果直接定位
+  const lineParam = Number(searchParams.get("line")) || null;
   const [revealLine, setRevealLine] = useState<number | null>(null);
   useEffect(() => {
-    setRevealLine(null);
-  }, [selectedPath]);
+    setRevealLine(lineParam);
+  }, [selectedPath, lineParam]);
 
   const file: CodeFile = {
     path: selectedPath,
@@ -448,7 +452,7 @@ export function CodePage({ path, content, diff }: CodePageProps) {
         <div className="border-edge-2 flex flex-col items-center gap-2 rounded-[10px] border py-24">
           <p className="text-bone-2 text-[13px] font-medium">还没有仓库</p>
           <p className="text-muted-2 max-w-[42ch] text-center text-[11.5px] leading-relaxed">
-            在顶栏「新建 → 新建仓库」或侧栏 Repositories 旁的 + 创建仓库，或用 git push 推送现有仓库，然后回到这里浏览代码。
+            {t("code.emptyHint")}
           </p>
         </div>
       </div>
@@ -486,6 +490,7 @@ export function CodePage({ path, content, diff }: CodePageProps) {
           lastCommit={lastCommit}
           symbolsQuery={symbolsQuery}
           onJumpToLine={setRevealLine}
+          onLookup={setLookupName}
         />
       )}
       className="mx-auto w-full max-w-[1560px] px-[34px] pt-[30px] pb-20"
@@ -915,6 +920,21 @@ export function CodePage({ path, content, diff }: CodePageProps) {
 
     <ForkDialog repoId={repoId} repoName={repo.name} open={forkOpen} onOpenChange={setForkOpen} />
 
+    {lookupName ? (
+      <SymbolLookupDialog
+        repoId={repoId}
+        name={lookupName}
+        open
+        onOpenChange={(next) => {
+          if (!next) setLookupName(null);
+        }}
+        onOpenFile={(nextPath, line) => {
+          setLookupName(null);
+          setSearchParams({ path: nextPath, line: String(line) });
+        }}
+      />
+    ) : null}
+
     {social ? (
       <SocialDialog
         mode={social}
@@ -1105,13 +1125,22 @@ interface CodePanelProps {
   symbolsQuery: ReturnType<typeof useApiQuery<SymbolsResponse>>;
   /** 符号点击后滚动到对应行。 */
   onJumpToLine: (line: number) => void;
+  /** 打开符号的定义/引用查询。 */
+  onLookup: (name: string) => void;
 }
 
 /** Stage 右缘面板：符号大纲 / 文件事实 / Agent 提问。 */
-function CodePanel({ tab, file, lastCommit, symbolsQuery, onJumpToLine }: CodePanelProps) {
+function CodePanel({ tab, file, lastCommit, symbolsQuery, onJumpToLine, onLookup }: CodePanelProps) {
   if (tab.id === "facts") return <FactsPane file={file} lastCommit={lastCommit} />;
   if (tab.id === "agent") return <AgentPane path={file.path} />;
-  return <SymbolsPane file={file} symbolsQuery={symbolsQuery} onJump={onJumpToLine} />;
+  return (
+    <SymbolsPane
+      file={file}
+      symbolsQuery={symbolsQuery}
+      onJump={onJumpToLine}
+      onLookup={onLookup}
+    />
+  );
 }
 
 /** 符号面板：本文件的符号大纲。 */
@@ -1119,10 +1148,12 @@ function SymbolsPane({
   file,
   symbolsQuery,
   onJump,
+  onLookup,
 }: {
   file: CodeFile;
   symbolsQuery: ReturnType<typeof useApiQuery<SymbolsResponse>>;
   onJump: (line: number) => void;
+  onLookup: (name: string) => void;
 }) {
   const jump = (node: SymbolNode) => onJump(node.line);
 
@@ -1149,7 +1180,7 @@ function SymbolsPane({
       ) : (
         <div className="flex flex-col gap-[3px]">
           {file.symbols.map((node) => (
-            <SymbolNodeRow key={`${node.name}-${node.line}`} node={node} onJump={jump} />
+            <SymbolNodeRow key={`${node.name}-${node.line}`} node={node} onJump={jump} onLookup={onLookup} />
           ))}
         </div>
       )}
@@ -1158,7 +1189,16 @@ function SymbolsPane({
 }
 
 /** 符号树行：类带轻微底色与子级缩进，函数/常量平铺。 */
-function SymbolNodeRow({ node, onJump }: { node: SymbolNode; onJump: (node: SymbolNode) => void }) {
+function SymbolNodeRow({
+  node,
+  onJump,
+  onLookup,
+}: {
+  node: SymbolNode;
+  onJump: (node: SymbolNode) => void;
+  onLookup: (name: string) => void;
+}) {
+  const { t } = useTranslation();
   return (
     <div className="min-w-0">
       <button
@@ -1178,11 +1218,30 @@ function SymbolNodeRow({ node, onJump }: { node: SymbolNode; onJump: (node: Symb
         )}
         <span className={cn("truncate font-mono", node.kind === "class" ? "text-[11px] font-medium" : "text-[10px]")}>{node.name}</span>
         <span className="text-faint ml-auto font-mono text-[10px]">{node.line}</span>
+        <span
+          role="button"
+          tabIndex={0}
+          aria-label={t("code.lookupAria", { name: node.name })}
+          className="text-faint hover:text-amber-2 shrink-0 transition-colors"
+          onClick={(event) => {
+            event.stopPropagation();
+            onLookup(node.name);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              event.stopPropagation();
+              onLookup(node.name);
+            }
+          }}
+        >
+          <Link2 className="size-3" aria-hidden="true" />
+        </span>
       </button>
       {node.children?.length ? (
         <div className="border-edge-2 ml-[10px] flex flex-col gap-px border-l pb-1 pl-[9px]">
           {node.children.map((child) => (
-            <SymbolNodeRow key={`${child.name}-${child.line}`} node={child} onJump={onJump} />
+            <SymbolNodeRow key={`${child.name}-${child.line}`} node={child} onJump={onJump} onLookup={onLookup} />
           ))}
         </div>
       ) : null}

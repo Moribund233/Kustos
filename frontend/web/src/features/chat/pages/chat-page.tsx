@@ -669,6 +669,7 @@ function RoomHeader({
   onToggleSearch: () => void;
   onRoomDeleted: () => void;
 }) {
+  const { t } = useTranslation();
   const [settingsOpen, setSettingsOpen] = useState(false);
   // 在线人数来自实时通道；未连上时只报成员总数，不谎报在线
   const summary = dm
@@ -703,7 +704,7 @@ function RoomHeader({
         </button>
         <button
           type="button"
-          aria-label="房间设置"
+          aria-label={t("chat.roomSettings")}
           onClick={() => setSettingsOpen(true)}
           className="text-muted-2 hover:bg-bone/5 hover:text-bone grid size-[26px] place-items-center rounded-md transition-colors"
         >

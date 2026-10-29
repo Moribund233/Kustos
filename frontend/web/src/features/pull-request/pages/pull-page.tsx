@@ -131,7 +131,7 @@ export function PullPage() {
     queryKey: ["pull-request", repoId, prNumber],
     enabled: !!repoId && prNumber !== null,
     queryFn: async () => {
-      if (!repoId || prNumber === null) throw new Error("缺少 PR 编号");
+      if (!repoId || prNumber === null) throw new Error(t("pullRequest.missingPr"));
       const res = await api.GET("/api/v1/repositories/{repo_id}/pull-requests/{pr_number}", {
         params: { path: { repo_id: repoId, pr_number: prNumber } },
       });
@@ -145,7 +145,7 @@ export function PullPage() {
     queryKey: ["pull-request-diff", repoId, prNumber],
     enabled: !!repoId && prNumber !== null,
     queryFn: async () => {
-      if (!repoId || prNumber === null) throw new Error("缺少 PR 编号");
+      if (!repoId || prNumber === null) throw new Error(t("pullRequest.missingPr"));
       const res = await api.GET("/api/v1/repositories/{repo_id}/pull-requests/{pr_number}/diff", {
         params: { path: { repo_id: repoId, pr_number: prNumber } },
       });
@@ -158,7 +158,7 @@ export function PullPage() {
     queryKey: ["pull-request-reviewers", repoId, prNumber],
     enabled: !!repoId && prNumber !== null,
     queryFn: async () => {
-      if (!repoId || prNumber === null) throw new Error("缺少 PR 编号");
+      if (!repoId || prNumber === null) throw new Error(t("pullRequest.missingPr"));
       const res = await api.GET("/api/v1/repositories/{repo_id}/pull-requests/{pr_number}/reviewers", {
         params: { path: { repo_id: repoId, pr_number: prNumber } },
       });
@@ -171,7 +171,7 @@ export function PullPage() {
     queryKey: ["pull-request-issues", repoId, prNumber],
     enabled: !!repoId && prNumber !== null,
     queryFn: async () => {
-      if (!repoId || prNumber === null) throw new Error("缺少 PR 编号");
+      if (!repoId || prNumber === null) throw new Error(t("pullRequest.missingPr"));
       const res = await api.GET("/api/v1/repositories/{repo_id}/pull-requests/{pr_number}/issues", {
         params: { path: { repo_id: repoId, pr_number: prNumber } },
       });
@@ -285,7 +285,7 @@ export function PullPage() {
   // 评审提交：approve / request_changes（后端 status 字段，评论暂不附带）
   const reviewMutation = useApiMutation<unknown, "approved" | "changes_requested">(
     async (status) => {
-      if (!repoId || prNumber === null) throw new Error("缺少 PR 编号");
+      if (!repoId || prNumber === null) throw new Error(t("pullRequest.missingPr"));
       const res = await api.POST("/api/v1/repositories/{repo_id}/pull-requests/{pr_number}/reviews", {
         params: { path: { repo_id: repoId, pr_number: prNumber } },
         body: { status },
@@ -304,7 +304,7 @@ export function PullPage() {
 
   const mergeMutation = useApiMutation<unknown, void>(
     async () => {
-      if (!repoId || prNumber === null) throw new Error("缺少 PR 编号");
+      if (!repoId || prNumber === null) throw new Error(t("pullRequest.missingPr"));
       const res = await api.POST("/api/v1/repositories/{repo_id}/pull-requests/{pr_number}/merge", {
         params: { path: { repo_id: repoId, pr_number: prNumber } },
         // 合并方式走后端默认 merge；squash/rebase 的选择器待后续再接
@@ -324,7 +324,7 @@ export function PullPage() {
 
   const commentMutation = useApiMutation<unknown, void>(
     async () => {
-      if (!repoId || prNumber === null) throw new Error("缺少 PR 编号");
+      if (!repoId || prNumber === null) throw new Error(t("pullRequest.missingPr"));
       const res = await api.POST("/api/v1/repositories/{repo_id}/pull-requests/{pr_number}/comments", {
         params: { path: { repo_id: repoId, pr_number: prNumber } },
         body: { content: comment.trim() },
@@ -336,7 +336,7 @@ export function PullPage() {
       onSuccess: () => {
         invalidatePr();
         setComment("");
-        toast.success("评论已发布。");
+        toast.success(t("pullRequest.commentPublished"));
       },
       onError: (error) => toast.error(error.message),
     },
@@ -362,7 +362,7 @@ export function PullPage() {
     if (listQuery.isPending) return <PullEmpty title="正在加载 Pull Request…" />;
     if (items.length === 0) {
       return (
-        <PullEmpty title="该仓库还没有 Pull Request" hint="推送分支后即可创建第一个 Pull Request。">
+        <PullEmpty title={t("pullRequest.noPrTitle")} hint={t("pullRequest.noPrHint")}>
           <NewPullRequestButton repoId={repo.id} defaultBranch={repo.default_branch} />
         </PullEmpty>
       );
@@ -473,7 +473,7 @@ export function PullPage() {
             className="border-edge-2 text-muted hover:border-edge-3 hover:text-bone-2 inline-flex h-8 items-center gap-[7px] rounded-md border px-2.5 text-[11px] font-medium transition-colors"
           >
             <Eye className="size-[14px]" aria-hidden="true" />
-            关注仓库
+            {t("pullRequest.watchRepo")}
           </button>
         </div>
       </header>
@@ -555,18 +555,18 @@ export function PullPage() {
               value={comment}
               onChange={(event) => setComment(event.target.value)}
               rows={3}
-              placeholder="写下评论（支持 Markdown）…"
-              aria-label="评论内容"
+              placeholder={t("pullRequest.commentPlaceholder")}
+              aria-label={t("pullRequest.commentPlaceholder")}
               className="border-edge-2 bg-ink-950/60 text-bone placeholder:text-muted-2 focus:border-amber/40 min-h-[76px] w-full resize-none rounded-md border px-2.5 py-2 text-[11.5px] outline-none transition-colors"
             />
             <div className="mt-2 flex items-center justify-between gap-3">
-              <span className="text-faint text-[10px]">评论会进入时间线并通知作者。</span>
+              <span className="text-faint text-[10px]">{t("pullRequest.commentHint")}</span>
               <Button
                 size="sm"
                 onClick={() => commentMutation.mutate()}
                 disabled={!comment.trim() || commentMutation.isPending}
               >
-                {commentMutation.isPending ? "发布中…" : "发表评论"}
+                {commentMutation.isPending ? t("pullRequest.publishing") : t("pullRequest.publishComment")}
               </Button>
             </div>
           </div>

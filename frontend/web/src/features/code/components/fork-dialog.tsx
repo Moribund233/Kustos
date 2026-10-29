@@ -12,6 +12,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { useTranslation } from "react-i18next";
+
 import { api } from "@/lib/api/client";
 import { useApiMutation, useApiQuery } from "@/lib/api/hooks";
 import { formatRelative } from "@/lib/datetime/format";
@@ -55,6 +57,7 @@ export function ForkDialog({
   const queryClient = useQueryClient();
   const loadRepos = useRepoStore((state) => state.load);
   const select = useRepoStore((state) => state.select);
+  const { t } = useTranslation();
   const [name, setName] = useState(`${repoName}-fork`);
 
   const forksQuery = useApiQuery<ForkRow[]>({
@@ -64,7 +67,7 @@ export function ForkDialog({
       const res = await api.GET("/api/v1/repositories/{repo_id}/forks", {
         params: { path: { repo_id: repoId }, query: { page: 1, limit: 50 } },
       });
-      if (res.error) throw new Error("Fork 列表加载失败。");
+      if (res.error) throw new Error(t("code.forkLoadFailed"));
       return (res.data as ForkPage | undefined)?.items ?? [];
     },
   });
@@ -89,13 +92,13 @@ export function ForkDialog({
       });
       if (res.error) {
         const detail = (res.error as { detail?: string }).detail;
-        throw new Error(detail ?? "Fork 失败。");
+        throw new Error(detail ?? t("code.forkFailed"));
       }
       return res.data as ForkRow;
     },
     {
       onSuccess: async (fork) => {
-        toast.success(`已 Fork 为 ${fork.path}。`);
+        toast.success(t("code.forkCreated", { path: fork.path }));
         await loadRepos();
         select(fork.id);
         onOpenChange(false);
@@ -111,12 +114,12 @@ export function ForkDialog({
       });
       if (res.error) {
         const detail = (res.error as { detail?: string }).detail;
-        throw new Error(detail ?? "同步上游失败。");
+        throw new Error(detail ?? t("code.syncFailed"));
       }
     },
     {
       onSuccess: () => {
-        toast.success("已同步上游。");
+        toast.success(t("code.synced"));
         void queryClient.invalidateQueries({ queryKey: ["forks", repoId] });
       },
       onError: (error) => toast.error(error.message),
@@ -130,16 +133,16 @@ export function ForkDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[560px]">
         <DialogHeader>
-          <DialogTitle>Fork</DialogTitle>
+          <DialogTitle>{t("code.fork")}</DialogTitle>
           <DialogDescription>
-            <span className="font-mono">{repoName}</span> · Fork 会复制 Git 仓库与数据
+            <span className="font-mono">{repoName}</span> · {t("code.forkHint")}
           </DialogDescription>
         </DialogHeader>
 
         {source ? (
           <div className="border-edge-1 flex items-center gap-2 rounded-md border px-3 py-2">
             <span className="text-muted text-[11.5px]">
-              当前仓库 Fork 自 <span className="text-bone-2 font-mono">{source.path}</span>
+              {t("code.forkedFrom")} <span className="text-bone-2 font-mono">{source.path}</span>
             </span>
             <Button
               size="sm"
@@ -148,16 +151,16 @@ export function ForkDialog({
               onClick={() => syncMutation.mutate()}
               disabled={syncMutation.isPending}
             >
-              同步上游
+              {t("code.syncUpstream")}
             </Button>
           </div>
         ) : null}
 
         <div className="border-edge-1 max-h-[240px] min-h-[80px] overflow-auto rounded-md border">
           {forksQuery.isLoading ? (
-            <p className="text-muted-2 p-3 text-[11.5px]">加载中…</p>
+            <p className="text-muted-2 p-3 text-[11.5px]">{t("common.loading")}</p>
           ) : forks.length === 0 ? (
-            <p className="text-muted-2 p-3 text-[11.5px]">还没有 Fork。</p>
+            <p className="text-muted-2 p-3 text-[11.5px]">{t("code.noForks")}</p>
           ) : (
             <ul>
               {forks.map((fork) => (
@@ -179,8 +182,8 @@ export function ForkDialog({
           <Input
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="Fork 名称"
-            aria-label="Fork 名称"
+            placeholder={t("code.forkName")}
+            aria-label={t("code.forkName")}
             className="h-8 font-mono text-[11px]"
           />
           <Button
@@ -188,13 +191,13 @@ export function ForkDialog({
             onClick={() => forkMutation.mutate()}
             disabled={!name.trim() || forkMutation.isPending}
           >
-            {forkMutation.isPending ? "Fork 中…" : "创建 Fork"}
+            {forkMutation.isPending ? t("code.forking") : t("code.createFork")}
           </Button>
         </div>
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            关闭
+            {t("common.close")}
           </Button>
         </DialogFooter>
       </DialogContent>

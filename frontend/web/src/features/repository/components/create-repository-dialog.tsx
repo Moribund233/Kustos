@@ -13,6 +13,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { useTranslation } from "react-i18next";
+
 import { api } from "@/lib/api/client";
 import { useApiMutation } from "@/lib/api/hooks";
 import { useRepoStore, type RepoSummary } from "@/stores/repo-store";
@@ -30,6 +32,7 @@ export function CreateRepositoryDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const load = useRepoStore((state) => state.load);
   const select = useRepoStore((state) => state.select);
@@ -55,13 +58,13 @@ export function CreateRepositoryDialog({
       const res = await api.POST("/api/v1/repositories", { body: input as never });
       if (res.error) {
         const detail = (res.error as { detail?: string }).detail;
-        throw new Error(detail ?? "创建仓库失败。");
+        throw new Error(detail ?? t("repository.createFailed"));
       }
       return res.data as unknown as RepoSummary;
     },
     {
       onSuccess: async (repo) => {
-        toast.success(`仓库 ${repo.path} 已创建。`);
+        toast.success(t("repository.created", { path: repo.path }));
         await load();
         select(repo.id);
         onOpenChange(false);
@@ -81,18 +84,17 @@ export function CreateRepositoryDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[520px]">
         <DialogHeader>
-          <DialogTitle>新建仓库</DialogTitle>
+          <DialogTitle>{t("repository.newTitle")}</DialogTitle>
           <DialogDescription>
-            路径由后端生成（<span className="font-mono">用户名/仓库名</span>），创建后即可用 git
-            push 推送内容。
+            {t("repository.newHint")}
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3">
           <Input
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="仓库名"
-            aria-label="仓库名"
+            placeholder={t("repository.name")}
+            aria-label={t("repository.name")}
             onKeyDown={(event) => {
               if (event.key === "Enter") submit();
             }}
@@ -101,8 +103,8 @@ export function CreateRepositoryDialog({
             value={description}
             onChange={(event) => setDescription(event.target.value)}
             rows={3}
-            placeholder="一句话说明这个仓库做什么"
-            aria-label="仓库描述"
+            placeholder={t("repository.description")}
+            aria-label={t("repository.description")}
             className="border-edge-2 bg-ink-950/60 text-bone placeholder:text-muted-2 focus:border-amber/40 min-h-[70px] w-full resize-none rounded-md border px-2.5 py-2 text-[12px] transition-colors outline-none"
           />
           <div className="flex items-center gap-2">
@@ -110,19 +112,19 @@ export function CreateRepositoryDialog({
               可见性
             </span>
             <Chip active={isPublic} onClick={() => setIsPublic(true)}>
-              公开
+              {t("repository.public")}
             </Chip>
             <Chip active={!isPublic} onClick={() => setIsPublic(false)}>
-              私有
+              {t("repository.private")}
             </Chip>
           </div>
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            取消
+            {t("common.cancel")}
           </Button>
           <Button onClick={submit} disabled={!name.trim() || createMutation.isPending}>
-            {createMutation.isPending ? "创建中…" : "创建"}
+            {createMutation.isPending ? t("common.creating") : t("common.create")}
           </Button>
         </DialogFooter>
       </DialogContent>

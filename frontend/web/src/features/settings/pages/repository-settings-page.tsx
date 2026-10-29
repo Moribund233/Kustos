@@ -7,12 +7,17 @@ import { Chip } from "@/components/kit/kit";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BranchesSection } from "@/features/settings/components/branches-section";
+import { BuildsSection } from "@/features/settings/components/builds-section";
+import { DiscussionsSection } from "@/features/settings/components/discussions-section";
 import { DangerSection } from "@/features/settings/components/danger-section";
 import { IndexSection } from "@/features/settings/components/index-section";
 import { LabelsSection } from "@/features/settings/components/labels-section";
 import { MembersSection } from "@/features/settings/components/members-section";
+import { RepoStatsRow } from "@/features/settings/components/repo-stats";
 import { TagsSection } from "@/features/settings/components/tags-section";
 import { WebhooksSection } from "@/features/settings/components/webhooks-section";
+import { useTranslation } from "react-i18next";
+
 import { api } from "@/lib/api/client";
 import { useApiMutation } from "@/lib/api/hooks";
 import { useRepoStore } from "@/stores/repo-store";
@@ -26,6 +31,7 @@ import { useUiStore } from "@/stores/ui-store";
  * 侧栏与其它页面的仓库信息随之更新。
  */
 export function RepositorySettingsPage() {
+  const { t } = useTranslation();
   const setCrumbs = useUiStore((state) => state.setCrumbs);
   const repo = useRepoStore((state) => state.current);
   const loadRepos = useRepoStore((state) => state.load);
@@ -41,8 +47,8 @@ export function RepositorySettingsPage() {
     setName(repo.name);
     setDescription(repo.description ?? "");
     setIsPublic(repo.is_public);
-    setCrumbs([{ label: repo.name }, { label: "设置" }]);
-  }, [repo, setCrumbs]);
+    setCrumbs([{ label: repo.name }, { label: t("nav.settings") }]);
+  }, [repo, setCrumbs, t]);
 
   const saveMutation = useApiMutation<
     { id: string },
@@ -55,13 +61,13 @@ export function RepositorySettingsPage() {
       });
       if (res.error) {
         const detail = (res.error as { detail?: string }).detail;
-        throw new Error(detail ?? "保存失败。");
+        throw new Error(detail ?? t("settings.saveFailed"));
       }
       return res.data as { id: string };
     },
     {
       onSuccess: async () => {
-        toast.success("仓库设置已保存。");
+        toast.success(t("settings.saved"));
         await loadRepos();
         void queryClient.invalidateQueries({ queryKey: ["repositories"] });
       },
@@ -73,9 +79,9 @@ export function RepositorySettingsPage() {
     return (
       <div className="mx-auto w-full max-w-[1560px] px-[34px] pt-[30px]">
         <h1 className="font-display text-bone text-[clamp(1.7rem,2.6vw,2.3rem)] font-medium tracking-[-0.028em] leading-none">
-          仓库设置
+          {t("settings.title")}
         </h1>
-        <p className="text-muted-2 mt-4 text-[12px]">未选择仓库。请先在侧栏选择一个仓库。</p>
+        <p className="text-muted-2 mt-4 text-[12px]">{t("settings.noRepo")}</p>
       </div>
     );
   }
@@ -85,43 +91,43 @@ export function RepositorySettingsPage() {
       <header className="mb-6">
         <p className="text-faint text-[10.5px] font-semibold tracking-[0.16em] uppercase">{repo.path}</p>
         <h1 className="font-display text-bone mt-1.5 text-[clamp(1.7rem,2.6vw,2.3rem)] font-medium tracking-[-0.028em] leading-none">
-          仓库设置
+          {t("settings.title")}
         </h1>
         <p className="text-muted-2 mt-2 text-[11.5px]">
-          克隆地址与路径由 <span className="font-mono">{repo.path}</span> 决定，改名需在服务端确认无冲突。
+          {t("settings.pathHint", { path: repo.path })}
         </p>
       </header>
 
       <div className="border-edge-2 bg-ink-900/50 flex flex-col gap-4 rounded-[12px] border p-5">
         <label className="flex flex-col gap-1.5">
-          <span className="text-muted-2 text-[10px] font-semibold tracking-[0.13em] uppercase">名称</span>
+          <span className="text-muted-2 text-[10px] font-semibold tracking-[0.13em] uppercase">{t("settings.name")}</span>
           <Input
             value={name}
             onChange={(event) => setName(event.target.value)}
-            aria-label="仓库名称"
-            placeholder="仓库名称"
+            aria-label={t("settings.name")}
+            placeholder={t("settings.name")}
           />
         </label>
 
         <label className="flex flex-col gap-1.5">
-          <span className="text-muted-2 text-[10px] font-semibold tracking-[0.13em] uppercase">描述</span>
+          <span className="text-muted-2 text-[10px] font-semibold tracking-[0.13em] uppercase">{t("settings.description")}</span>
           <textarea
             value={description}
             onChange={(event) => setDescription(event.target.value)}
-            aria-label="仓库描述"
+            aria-label={t("settings.description")}
             rows={3}
-            placeholder="一句话说明这个仓库做什么"
+            placeholder={t("settings.description")}
             className="border-edge-2 bg-ink-950/60 text-bone placeholder:text-muted-2 focus:border-amber/40 min-h-[70px] w-full resize-none rounded-md border px-2.5 py-2 text-[12px] outline-none transition-colors"
           />
         </label>
 
         <div className="flex items-center gap-2">
-          <span className="text-muted-2 text-[10px] font-semibold tracking-[0.13em] uppercase">可见性</span>
+          <span className="text-muted-2 text-[10px] font-semibold tracking-[0.13em] uppercase">{t("settings.visibility")}</span>
           <Chip active={isPublic} onClick={() => setIsPublic(true)}>
-            公开
+            {t("repository.public")}
           </Chip>
           <Chip active={!isPublic} onClick={() => setIsPublic(false)}>
-            私有
+            {t("repository.private")}
           </Chip>
         </div>
 
@@ -133,7 +139,7 @@ export function RepositorySettingsPage() {
             }
             disabled={!name.trim() || saveMutation.isPending}
           >
-            {saveMutation.isPending ? "保存中…" : "保存"}
+            {saveMutation.isPending ? t("common.saving") : t("common.save")}
           </Button>
           <Button
             size="sm"
@@ -144,23 +150,26 @@ export function RepositorySettingsPage() {
               setIsPublic(repo.is_public);
             }}
           >
-            重置
+            {t("settings.reset")}
           </Button>
           <Link
             to="/code"
             className="text-muted-2 hover:text-amber-2 ml-auto text-[11px] transition-colors"
           >
-            返回代码页 →
+            {t("settings.backToCode")}
           </Link>
         </div>
       </div>
 
       <div className="mt-4 flex flex-col gap-4">
+        <RepoStatsRow repoId={repo.id} />
         <MembersSection repoId={repo.id} />
         <LabelsSection repoId={repo.id} />
         <TagsSection repoId={repo.id} />
         <BranchesSection repoId={repo.id} />
         <IndexSection repoId={repo.id} />
+        <BuildsSection repoId={repo.id} />
+        <DiscussionsSection repoId={repo.id} />
         <WebhooksSection repoId={repo.id} />
         <DangerSection repoId={repo.id} repoName={repo.name} />
       </div>
