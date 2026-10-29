@@ -1,11 +1,11 @@
-import { MoreHorizontal, LogOut, UserRound, KeyRound, Shield } from "lucide-react";
-import type { ReactNode } from "react";
+import { MoreHorizontal, LogOut, UserRound, Shield, Plus } from "lucide-react";
+import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, NavLink, useLocation, useNavigate } from "react-router";
-import { toast } from "sonner";
 
 import { ToneAvatar } from "@/components/kit/kit";
 import { BrandMark } from "@/components/brand/brand-mark";
+import { CreateRepositoryDialog } from "@/features/repository/components/create-repository-dialog";
 import { INSTANCE_SECTION, NAV_SECTIONS, type NavSection } from "@/components/layout/nav-sections";
 import { formatRelative } from "@/lib/datetime/format";
 import { cn } from "@/lib/utils";
@@ -77,11 +77,21 @@ function NavItemRow({ item }: { item: NavSection["items"][number] }) {
   );
 }
 
-function NavGroup({ label, children }: { label: string; children: ReactNode }) {
+function NavGroup({
+  label,
+  action,
+  children,
+}: {
+  label: string;
+  /** 分组标题右侧的操作按钮（如「新建仓库」）。 */
+  action?: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <nav aria-label={label} className="mt-[18px]">
-      <p className="text-faint px-2.5 pb-[7px] text-[10px] font-semibold tracking-[0.16em] uppercase">
+      <p className="text-faint flex items-center gap-1 px-2.5 pb-[7px] text-[10px] font-semibold tracking-[0.16em] uppercase">
         {label}
+        {action ? <span className="ml-auto">{action}</span> : null}
       </p>
       {children}
     </nav>
@@ -142,6 +152,7 @@ export function Sidebar() {
   const navigate = useNavigate();
 
   const isAdmin = user?.is_admin ?? false;
+  const [createOpen, setCreateOpen] = useState(false);
 
   return (
     <nav
@@ -195,7 +206,20 @@ export function Sidebar() {
 
         {/* 仓库列表（真实数据） */}
         <div className="mt-4 border-edge-1 border-t pt-[15px]">
-          <NavGroup label="Repositories">
+          <NavGroup
+            label="Repositories"
+            action={
+              <button
+                type="button"
+                aria-label="新建仓库"
+                title="新建仓库"
+                onClick={() => setCreateOpen(true)}
+                className="text-muted-2 hover:text-amber-2 -my-1 inline-flex size-4 items-center justify-center rounded transition-colors"
+              >
+                <Plus className="size-[13px]" aria-hidden="true" />
+              </button>
+            }
+          >
             {repos.length === 0 ? (
               <p className="text-faint px-2.5 py-1 text-[10.5px]">
                 {useRepoStore.getState().loading ? "加载中…" : "还没有仓库"}
@@ -255,13 +279,11 @@ export function Sidebar() {
             <DropdownMenuLabel className="text-[11px]">
               {user?.username} · @{user?.username}
             </DropdownMenuLabel>
-            <DropdownMenuItem onSelect={() => toast.info("账号设置页尚未落地（auth/ssh_key 控制器已就绪）。")}>
-              <UserRound className="text-muted-2 size-[14px]" aria-hidden="true" />
-              资料与偏好
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => toast.info("SSH 密钥管理页尚未落地（keys 控制器已就绪）。")}>
-              <KeyRound className="text-muted-2 size-[14px]" aria-hidden="true" />
-              SSH 与访问密钥
+            <DropdownMenuItem asChild>
+              <Link to="/account">
+                <UserRound className="text-muted-2 size-[14px]" aria-hidden="true" />
+                资料与偏好
+              </Link>
             </DropdownMenuItem>
             {isAdmin ? (
               <DropdownMenuItem asChild>
@@ -283,6 +305,8 @@ export function Sidebar() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      <CreateRepositoryDialog open={createOpen} onOpenChange={setCreateOpen} />
     </nav>
   );
 }

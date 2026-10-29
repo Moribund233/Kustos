@@ -1,4 +1,4 @@
-import { Bell, Bot, BookOpen, Command, KeyRound, LogOut, Plus, Search, Shield, UserRound, Zap } from "lucide-react";
+import { Bell, Bot, BookOpen, Command, LogOut, Plus, Search, Shield, UserRound, Zap } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { Lamp, ToneAvatar } from "@/components/kit/kit";
 import { LocaleSwitcher } from "@/components/layout/locale-switcher";
+import { CreateRepositoryDialog } from "@/features/repository/components/create-repository-dialog";
 import { api } from "@/lib/api/client";
 import { formatRelative } from "@/lib/datetime/format";
 import { cn } from "@/lib/utils";
@@ -78,6 +79,7 @@ export function Topbar() {
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
   const isAdmin = user?.is_admin ?? false;
+  const [createRepoOpen, setCreateRepoOpen] = useState(false);
 
   const { data: notifications } = useApiQuery<NotificationItem[]>({
     queryKey: ["notifications"],
@@ -242,15 +244,21 @@ export function Topbar() {
             <DropdownMenuLabel className="text-muted-2 text-[9px] font-semibold tracking-[0.13em] uppercase">
               创建
             </DropdownMenuLabel>
+            <DropdownMenuItem onSelect={() => setCreateRepoOpen(true)}>
+              <Plus className="text-muted-2 size-[14px]" aria-hidden="true" />
+              新建仓库
+            </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link to="/issues">
                 <Zap className="text-muted-2 size-[14px]" aria-hidden="true" />
                 新建 Issue
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => toast.info("先推送分支，再从 compare 视图发起 PR。")}>
-              <BookOpen className="text-muted-2 size-[14px]" aria-hidden="true" />
-              新建 Pull Request
+            <DropdownMenuItem asChild>
+              <Link to="/pull-requests">
+                <BookOpen className="text-muted-2 size-[14px]" aria-hidden="true" />
+                新建 Pull Request
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link to="/agent">
@@ -270,13 +278,11 @@ export function Topbar() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-[214px]">
             <DropdownMenuLabel className="text-[11px]">{user?.username}</DropdownMenuLabel>
-            <DropdownMenuItem onSelect={() => toast.info("账号设置页尚未落地（auth 控制器已就绪）。")}>
-              <UserRound className="text-muted-2 size-[14px]" aria-hidden="true" />
-              资料与偏好
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => toast.info("SSH 密钥管理页尚未落地（keys 控制器已就绪）。")}>
-              <KeyRound className="text-muted-2 size-[14px]" aria-hidden="true" />
-              SSH 与访问密钥
+            <DropdownMenuItem asChild>
+              <Link to="/account">
+                <UserRound className="text-muted-2 size-[14px]" aria-hidden="true" />
+                资料与偏好
+              </Link>
             </DropdownMenuItem>
             {isAdmin ? (
               <DropdownMenuItem asChild>
@@ -304,6 +310,8 @@ export function Topbar() {
 
         <LocaleSwitcher />
       </div>
+
+      <CreateRepositoryDialog open={createRepoOpen} onOpenChange={setCreateRepoOpen} />
     </header>
   );
 }

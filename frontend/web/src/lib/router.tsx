@@ -29,6 +29,9 @@ const RepositorySettingsPage = lazy(() =>
     default: m.RepositorySettingsPage,
   })),
 );
+const AccountPage = lazy(() =>
+  import("@/features/account/pages/account-page").then((m) => ({ default: m.AccountPage })),
+);
 const AgentPage = lazy(() =>
   import("@/features/agent/pages/agent-page").then((m) => ({ default: m.AgentPage })),
 );
@@ -101,6 +104,14 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={<PageFallback />}>
             <RepositorySettingsPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "account",
+        element: (
+          <Suspense fallback={<PageFallback />}>
+            <AccountPage />
           </Suspense>
         ),
       },
