@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Code · lin/atlas · Kustos</title>
+  <meta name="description" content="Browse bare Git repositories, symbols and file context in Kustos.">
+  <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/tokens.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/code.css">
+  <link rel="stylesheet" href="assets/css/responsive.css">
+</head>
+<body data-page="code" data-crumb="lin|atlas|app/services/lfs.py" data-title="Code · lin/atlas · Kustos">
+  <a class="skip" href="#main">Skip to content</a>
+  <div id="shell"></div>
+
+  <template id="page-template">
+    <section class="view code-view" aria-labelledby="repo-title">
+      <header class="repo-head">
+        <div class="repo-head-copy">
+          <p class="eyebrow">lin / atlas</p>
+          <div class="repo-title-row">
+            <h1 class="display-sm" id="repo-title">atlas</h1>
+            <span class="badge is-outline">Public</span>
+          </div>
+          <p class="lede">Policy and edge routing for the Atlas network.</p>
+          <p class="repo-submeta">
+            <span>default <span class="mono">main</span></span>
+            <span class="sep" aria-hidden="true">·</span>
+            <span><span class="mono">142</span> files</span>
+            <span class="sep" aria-hidden="true">·</span>
+            <span class="repo-submeta-health"><span class="lamp is-good" aria-hidden="true"></span>indexed 8m ago · 12,408 chunks</span>
+          </p>
+        </div>
+        <div class="repo-actions">
+          <button class="repo-stat" type="button" data-toast="Stars are stored per repository.">
+            <svg class="icon icon-sm" aria-hidden="true"><use href="#i-star"></use></svg>
+            <span class="mono">1.2k</span>
+          </button>
+          <button class="repo-stat" type="button" data-toast="Forks are stored per repository.">
+            <svg class="icon icon-sm" aria-hidden="true"><use href="#i-fork"></use></svg>
+            <span class="mono">184</span>
+          </button>
+          <button class="repo-stat" type="button" data-toast="Watch settings are per user.">
+            <svg class="icon icon-sm" aria-hidden="true"><use href="#i-eye"></use></svg>
+            <span class="mono">32</span>
+          </button>
+          <button class="btn btn-ghost btn-sm" type="button" data-copy="git@kustos.meridian.dev:lin/atlas.git" data-copy-label="Clone URL copied">
+            <svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg>
+            Clone
+          </button>
+        </div>
+      </header>
+
+      <nav class="repo-tabs tabs" aria-label="Repository">
+        <a class="tab is-active" href="code.html" aria-current="page"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-code"></use></svg>Code</a>
+        <a class="tab" href="pull.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-pr"></use></svg>Pull requests <span class="count">4</span></a>
+        <a class="tab" href="issues.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-issue"></use></svg>Issues <span class="count">12</span></a>
+        <button class="tab" type="button" data-toast="Releases are managed by the release controller.">Releases <span class="count">8</span></button>
+        <a class="tab" href="chat.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-chat"></use></svg>Chat</a>
+        <button class="tab" type="button" data-toast="Repository settings require repo:admin.">Settings</button>
+      </nav>
+
+      <div class="repo-toolbar">
+        <div class="branch-wrap">
+          <button class="branch-select" type="button" id="branch-select" aria-haspopup="menu" aria-expanded="false">
+            <svg class="icon icon-sm" aria-hidden="true"><use href="#i-branch"></use></svg>
+            <span id="branch-label">main</span>
+            <svg class="icon icon-xs" aria-hidden="true"><use href="#i-chevron-down"></use></svg>
+          </button>
+          <div class="menu branch-menu" id="branch-menu" role="menu" hidden>
+            <p class="menu-label">Branches</p>
+            <button class="menu-item is-active" type="button" role="menuitem" data-branch="main">main <span class="menu-hint">default</span></button>
+            <button class="menu-item" type="button" role="menuitem" data-branch="mara/lfs-token-scope">mara/lfs-token-scope</button>
+            <button class="menu-item" type="button" role="menuitem" data-branch="ilya/recall-scope">ilya/recall-scope</button>
+            <button class="menu-item" type="button" role="menuitem" data-branch="noor/presence-heartbeat">noor/presence-heartbeat</button>
+          </div>
+        </div>
+        <div class="path-crumbs mono" id="path-crumbs" aria-label="File path"></div>
+        <button class="btn btn-quiet btn-sm find-file" type="button" data-find-file>
+          <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
+          Find file
+        </button>
+        <button class="icon-btn" type="button" data-copy="app/services/lfs.py" data-copy-label="Path copied" aria-label="Copy file path">
+          <svg class="icon icon-sm" aria-hidden="true"><use href="#i-copy"></use></svg>
+        </button>
+      </div>
+
+      <div class="stage" id="code-stage">
+        <div class="stage-core">
+          <div class="code-layout">
+        <aside class="code-tree" aria-label="Files">
+          <div class="tree-search input-icon">
+            <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
+            <input class="input" id="tree-filter" type="text" placeholder="Filter files…" autocomplete="off" aria-label="Filter files">
+          </div>
+          <div class="tree" id="file-tree">
+            <button class="tree-row is-folder" type="button" data-folder>
+              <svg class="icon icon-xs tree-chevron" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+              <svg class="icon tree-icon" aria-hidden="true"><use href="#i-folder-open"></use></svg>
+              <span>app</span>
+            </button>
+            <div class="tree-children">
+              <button class="tree-row is-folder" type="button" data-folder>
+                <svg class="icon icon-xs tree-chevron" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+                <svg class="icon tree-icon" aria-hidden="true"><use href="#i-folder-open"></use></svg>
+                <span>api</span>
+              </button>
+              <div class="tree-children">
+                <button class="tree-row tree-file" type="button" data-file="app/api/lfs_routes.py">
+                  <svg class="icon tree-icon" aria-hidden="true"><use href="#i-file"></use></svg>
+                  <span>lfs_routes.py</span>
+                </button>
+              </div>
+              <button class="tree-row is-folder" type="button" data-folder>
+                <svg class="icon icon-xs tree-chevron" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+                <svg class="icon tree-icon" aria-hidden="true"><use href="#i-folder-open"></use></svg>
+                <span>core</span>
+              </button>
+              <div class="tree-children">
+                <button class="tree-row tree-file" type="button" data-file="app/core/policy.py">
+                  <svg class="icon tree-icon" aria-hidden="true"><use href="#i-file"></use></svg>
+                  <span>policy.py</span>
+                </button>
+                <button class="tree-row tree-file" type="button" data-file="app/core/tokens.py">
+                  <svg class="icon tree-icon" aria-hidden="true"><use href="#i-file"></use></svg>
+                  <span>tokens.py</span>
+                </button>
+              </div>
+              <button class="tree-row is-folder" type="button" data-folder>
+                <svg class="icon icon-xs tree-chevron" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+                <svg class="icon tree-icon" aria-hidden="true"><use href="#i-folder-open"></use></svg>
+                <span>services</span>
+              </button>
+              <div class="tree-children">
+                <button class="tree-row tree-file is-active" type="button" data-file="app/services/lfs.py">
+                  <svg class="icon tree-icon" aria-hidden="true"><use href="#i-file"></use></svg>
+                  <span>lfs.py</span>
+                </button>
+              </div>
+            </div>
+            <button class="tree-row is-folder" type="button" data-folder>
+              <svg class="icon icon-xs tree-chevron" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+              <svg class="icon tree-icon" aria-hidden="true"><use href="#i-folder-open"></use></svg>
+              <span>tests</span>
+            </button>
+            <div class="tree-children">
+              <button class="tree-row tree-file" type="button" data-file="tests/test_lfs_tokens.py">
+                <svg class="icon tree-icon" aria-hidden="true"><use href="#i-file"></use></svg>
+                <span>test_lfs_tokens.py</span>
+              </button>
+            </div>
+          </div>
+          <div class="tree-foot">
+            <span class="lamp is-good" aria-hidden="true"></span>
+            <span>Indexed 8 minutes ago</span>
+            <button class="link-button" type="button" data-toast="Reindex needs only read access — it rebuilds chunks for this repository.">Reindex</button>
+          </div>
+        </aside>
+
+        <div class="code-main">
+          <div class="code-head">
+            <div class="code-head-copy">
+              <span class="code-head-path mono" id="code-path">app/services/lfs.py</span>
+              <span class="code-head-meta" id="code-meta">142 lines · Python</span>
+            </div>
+            <div class="code-actions">
+              <button class="btn btn-quiet btn-sm" type="button" data-toast="The web editor is not wired into this prototype.">
+                <svg class="icon" aria-hidden="true"><use href="#i-edit"></use></svg>Edit
+              </button>
+              <button class="btn btn-quiet btn-sm" type="button" data-toast="History is available from the commit controller.">
+                <svg class="icon" aria-hidden="true"><use href="#i-history"></use></svg>History
+              </button>
+              <button class="btn btn-quiet btn-sm" type="button" data-toast="Blame is available from the repository browser.">
+                <svg class="icon" aria-hidden="true"><use href="#i-eye"></use></svg>Blame
+              </button>
+              <button class="btn btn-quiet btn-sm" type="button" data-code-raw>
+                <svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>Raw
+              </button>
+            </div>
+          </div>
+          <div class="code-scroll" id="code-scroll">
+            <div class="code-lines" id="code-lines"></div>
+          </div>
+          <div class="code-foot">
+            <span>UTF-8</span>
+            <span>LF</span>
+            <span>Python</span>
+            <span class="spacer"></span>
+            <span id="code-size">4.8 KB</span>
+          </div>
+        </div>
+          </div>
+        </div>
+
+        <div class="float-dock" role="toolbar" aria-label="File context">
+          <button class="dock-btn" type="button" data-panel-tab="symbols" data-panel-label="Symbols" data-panel-kicker="This file" aria-label="Shows symbols" aria-expanded="false">
+            <svg class="icon" aria-hidden="true"><use href="#i-book"></use></svg>
+          </button>
+          <button class="dock-btn" type="button" data-panel-tab="facts" data-panel-label="File insight" data-panel-kicker="This file" aria-label="File insight" aria-expanded="false">
+            <svg class="icon" aria-hidden="true"><use href="#i-pulse"></use></svg>
+          </button>
+          <button class="dock-btn" type="button" data-panel-tab="agent" data-panel-label="Kustos agent" data-panel-kicker="This file" aria-label="Ask Kustos about this file" aria-expanded="false">
+            <svg class="icon" aria-hidden="true"><use href="#i-agent"></use></svg>
+          </button>
+        </div>
+
+        <aside class="float-panel" aria-label="File context">
+          <header class="float-head">
+            <div class="float-head-copy">
+              <p class="eyebrow">This file</p>
+              <h2>Symbols</h2>
+            </div>
+            <button class="icon-btn" type="button" data-panel-close aria-label="Close context panel">
+              <svg class="icon icon-sm" aria-hidden="true"><use href="#i-x"></use></svg>
+            </button>
+          </header>
+          <div class="float-body">
+            <section class="float-pane is-active" data-pane="symbols">
+              <div class="rail-block">
+                <div class="rail-head">
+                  <h3>Outline</h3>
+                  <span class="rail-count" id="symbol-count">5</span>
+                </div>
+                <div class="symbol-tree" id="symbol-list"></div>
+              </div>
+              <section class="rail-block rail-watch">
+                <div class="avatar-stack" aria-hidden="true">
+                  <span class="avatar avatar-sm is-rose">MV</span>
+                  <span class="avatar avatar-sm is-sky">IS</span>
+                  <span class="avatar avatar-sm is-amber">LW</span>
+                </div>
+                <div class="rail-watch-copy">
+                  <strong><span class="lamp is-good" aria-hidden="true"></span>3 viewing this repository</strong>
+                  <span>Mara is on <span class="mono">mara/lfs-token-scope</span></span>
+                </div>
+              </section>
+            </section>
+
+            <section class="float-pane" data-pane="facts">
+              <div class="rail-block">
+                <div class="rail-head">
+                  <h3>Provenance</h3>
+                </div>
+                <dl class="kv insight-list" id="file-insight"></dl>
+              </div>
+              <div class="rail-block">
+                <div class="rail-head">
+                  <h3>Index</h3>
+                  <span class="rail-count">3</span>
+                </div>
+                <dl class="kv">
+                  <div class="kv-row"><dt class="kv-key">Chunks</dt><dd class="kv-val">12,408</dd></div>
+                  <div class="kv-row"><dt class="kv-key">Last indexed</dt><dd class="kv-val">8 minutes ago</dd></div>
+                  <div class="kv-row"><dt class="kv-key">Semantic recall</dt><dd class="kv-val sage">available</dd></div>
+                </dl>
+              </div>
+            </section>
+
+            <section class="float-pane" data-pane="agent">
+              <section class="rail-block rail-agent">
+                <div class="rail-agent-head">
+                  <span class="rail-agent-mark"><svg class="icon" aria-hidden="true"><use href="#i-agent"></use></svg></span>
+                  <div>
+                    <strong>Kustos agent</strong>
+                    <span>reads this repository</span>
+                  </div>
+                  <span class="lamp is-warn is-live" aria-hidden="true"></span>
+                </div>
+                <form class="rail-agent-form" data-file-agent-form>
+                  <textarea class="textarea" id="file-agent-prompt" rows="3" placeholder="Ask about this file…" aria-label="Ask Kustos about this file"></textarea>
+                  <button class="btn btn-primary btn-sm btn-block" type="submit">
+                    <svg class="icon" aria-hidden="true"><use href="#i-send"></use></svg>Ask Kustos
+                  </button>
+                </form>
+                <div class="agent-quick">
+                  <button type="button" data-prompt="Explain app/services/lfs.py, focusing on the transfer-token lifecycle.">Explain file</button>
+                  <button type="button" data-prompt="Find every usage of verify_transfer_token across lin/atlas.">Find usages</button>
+                  <button type="button" data-prompt="Review the LFS token changes in PR #142 and identify any scope gaps.">Review #142</button>
+                </div>
+                <p class="fine mt-12">Write tools pause for approval. This panel is read-only until you approve a run.</p>
+              </section>
+            </section>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </template>
+
+  <script src="assets/js/icons.js"></script>
+  <script src="assets/js/util.js"></script>
+  <script src="assets/js/shell.js"></script>
+  <script src="assets/js/code-data.js"></script>
+  <script src="assets/js/code.js"></script>
+</body>
+</html>

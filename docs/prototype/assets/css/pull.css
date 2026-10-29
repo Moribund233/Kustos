@@ -1,0 +1,869 @@
+/* Pull request review */
+
+.pr-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 28px;
+  margin-bottom: 22px;
+}
+
+.pr-head-main {
+  min-width: 0;
+}
+
+.pr-kicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pr-head .display-sm {
+  margin-top: 8px;
+  line-height: 1.06;
+}
+
+.pr-meta {
+  margin-top: 9px;
+  color: var(--muted-2);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.pr-meta a {
+  color: var(--muted);
+  text-decoration: underline;
+  text-decoration-color: var(--line-2);
+  text-underline-offset: 3px;
+}
+
+.pr-meta a:hover {
+  color: var(--amber-2);
+}
+
+.pr-meta .arrow {
+  color: var(--faint);
+}
+
+.add {
+  color: var(--sage);
+}
+
+.del {
+  color: var(--rose);
+}
+
+.pr-head-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 3px;
+}
+
+/* Conversation is the page; review/merge floats over it. */
+.pr-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  align-items: start;
+}
+
+.pr-main {
+  min-width: 0;
+}
+
+.pr-tabs {
+  margin-bottom: 18px;
+}
+
+/* Description ------------------------------------------------------- */
+
+.pr-description {
+  padding: 16px 17px 17px;
+  border: 1px solid var(--edge-2);
+  border-radius: var(--r-3);
+  background: var(--card-face-quiet);
+  box-shadow: var(--edge-top);
+}
+
+.pr-description-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--edge-1);
+}
+
+.pr-description-head strong {
+  display: block;
+  color: var(--bone);
+  font-size: var(--t-sm);
+  font-weight: 600;
+}
+
+.pr-description-head span {
+  display: block;
+  color: var(--muted-2);
+  font-size: var(--t-micro);
+}
+
+.pr-description-head .badge {
+  margin-left: auto;
+}
+
+.pr-body {
+  padding-top: 13px;
+}
+
+.pr-body p {
+  max-width: 78ch;
+  color: var(--bone-2);
+  font-size: var(--t-base);
+  line-height: 1.68;
+}
+
+.check-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 13px 0;
+}
+
+.check-list li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 0;
+  color: var(--muted);
+  font-size: var(--t-xs);
+}
+
+.check-list .icon {
+  color: var(--sage);
+}
+
+.pr-code-snippet {
+  padding: 10px 12px;
+  border: 1px solid var(--edge-1);
+  border-radius: var(--r-2);
+  background: #060b0e;
+  box-shadow: inset 0 1px 8px rgba(0, 0, 0, 0.32);
+}
+
+.snippet-label {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+}
+
+.pr-code-snippet code {
+  display: block;
+  overflow-x: auto;
+  color: var(--bone-2);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  line-height: 1.65;
+  white-space: pre;
+}
+
+/* Agent review ------------------------------------------------------ */
+
+.ai-review {
+  margin-top: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(242, 174, 91, 0.28);
+  border-radius: var(--r-3);
+  background:
+    radial-gradient(560px 180px at 0% 0%, rgba(242, 174, 91, 0.09), transparent 68%),
+    rgba(17, 28, 34, 0.62);
+}
+
+.ai-review-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(242, 174, 91, 0.14);
+}
+
+.ai-mark {
+  display: grid;
+  width: 29px;
+  height: 29px;
+  flex: none;
+  place-items: center;
+  border: 1px solid rgba(242, 174, 91, 0.3);
+  border-radius: 50%;
+  color: var(--amber);
+  background: var(--amber-wash);
+}
+
+.ai-mark .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.ai-review-head strong {
+  display: block;
+  color: var(--bone);
+  font-size: var(--t-sm);
+  font-weight: 600;
+}
+
+.ai-review-head span {
+  display: block;
+  color: var(--muted-2);
+  font-size: var(--t-micro);
+}
+
+.ai-review-head > .badge {
+  margin-left: auto;
+}
+
+.finding {
+  padding: 12px 15px;
+  border-bottom: 1px solid var(--edge-1);
+}
+
+.finding:last-of-type {
+  border-bottom: 0;
+}
+
+.finding.is-blocking {
+  background: rgba(217, 130, 130, 0.035);
+  box-shadow: inset 2px 0 0 var(--rose);
+}
+
+.finding-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.finding-head .text-link {
+  margin-left: auto;
+}
+
+.finding p {
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: var(--t-xs);
+  line-height: 1.6;
+}
+
+.ai-review-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+}
+
+.ai-review-foot .fine {
+  margin-left: auto;
+  font-size: var(--t-micro);
+}
+
+/* Timeline ---------------------------------------------------------- */
+
+.timeline {
+  margin-top: 22px;
+}
+
+.timeline-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 11px;
+  padding-bottom: 18px;
+}
+
+.timeline-item:not(:last-child)::before {
+  position: absolute;
+  top: 30px;
+  bottom: 0;
+  left: 14px;
+  width: 1px;
+  background: var(--edge-1);
+  content: "";
+}
+
+.timeline-avatar {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 2px solid var(--ink-950);
+  border-radius: 50%;
+  color: var(--ink-950);
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.timeline-copy {
+  min-width: 0;
+  padding-top: 4px;
+}
+
+.timeline-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.timeline-head strong {
+  color: var(--bone-2);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.timeline-head span {
+  color: var(--muted-2);
+  font-size: 9.5px;
+}
+
+.comment-body {
+  margin-top: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-2);
+  background: rgba(17, 28, 34, 0.5);
+}
+
+.comment-body p {
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+/* Diff -------------------------------------------------------------- */
+
+.diff-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 0 10px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted-2);
+  font-size: 10.5px;
+}
+
+.diff-file {
+  margin-top: 11px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--r-3);
+  background: var(--ink-900);
+}
+
+.diff-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 9px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(21, 35, 42, 0.65);
+}
+
+.diff-toggle {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 4px;
+  color: var(--muted-2);
+}
+
+.diff-toggle:hover {
+  color: var(--bone);
+  background: rgba(240, 231, 216, 0.06);
+}
+
+.diff-toggle .icon {
+  transform: rotate(90deg);
+  transition: transform var(--fast) var(--ease);
+}
+
+.diff-file:not(.is-open) .diff-toggle .icon {
+  transform: rotate(0);
+}
+
+.diff-head > .icon {
+  color: var(--muted-2);
+}
+
+.diff-path {
+  overflow: hidden;
+  color: var(--bone-2);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diff-path:hover {
+  color: var(--amber-2);
+}
+
+.diff-stat {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  white-space: nowrap;
+}
+
+.diff-head .badge {
+  flex: none;
+}
+
+.diff-body {
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.diff-hunk {
+  padding: 5px 12px;
+  border-bottom: 1px solid var(--line);
+  color: var(--sky);
+  background: rgba(131, 169, 196, 0.07);
+  font-size: 9.5px;
+}
+
+.diff-line {
+  display: grid;
+  min-width: max-content;
+  grid-template-columns: 40px 40px minmax(420px, 1fr);
+  border-bottom: 1px solid rgba(240, 231, 216, 0.035);
+}
+
+.diff-line:last-child {
+  border-bottom: 0;
+}
+
+.diff-line .old,
+.diff-line .new {
+  padding-right: 7px;
+  color: var(--faint);
+  font-size: 9px;
+  line-height: inherit;
+  text-align: right;
+  user-select: none;
+}
+
+.diff-line .old {
+  border-right: 1px solid var(--line);
+}
+
+.diff-line .new {
+  border-right: 1px solid var(--line);
+}
+
+.diff-code {
+  padding-left: 11px;
+  padding-right: 16px;
+  color: var(--bone-2);
+  white-space: pre;
+}
+
+.diff-line.add {
+  background: rgba(134, 183, 158, 0.08);
+}
+
+.diff-line.add .new {
+  color: var(--sage);
+}
+
+.diff-line.del {
+  background: rgba(217, 130, 130, 0.075);
+}
+
+.diff-line.del .old {
+  color: var(--rose);
+}
+
+.diff-line.add.is-flash,
+.diff-line.is-flash {
+  animation: diff-flash 1.6s var(--ease);
+}
+
+@keyframes diff-flash {
+  0%,
+  100% { background: rgba(134, 183, 158, 0.08); }
+  20%,
+  55% { background: rgba(242, 174, 91, 0.2); }
+}
+
+.diff-thread {
+  max-width: 650px;
+  margin: 9px 16px 12px 80px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-2);
+  border-left: 2px solid var(--amber);
+  border-radius: 0 var(--r-2) var(--r-2) 0;
+  background: rgba(21, 35, 42, 0.92);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.thread-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.thread-head strong {
+  color: var(--bone);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.thread-head time {
+  margin-left: auto;
+  color: var(--muted-2);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+.diff-thread p {
+  margin-top: 7px;
+  color: var(--muted);
+}
+
+.thread-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 7px;
+}
+
+.diff-thread.is-resolved {
+  opacity: 0.5;
+}
+
+.diff-thread.is-resolved .thread-actions {
+  display: none;
+}
+
+/* Checks and commits ------------------------------------------------ */
+
+.checks-list,
+.commit-list {
+  border: 1px solid var(--edge-2);
+  border-radius: var(--r-3);
+  overflow: hidden;
+  background: var(--card-face-quiet);
+}
+
+.check-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 15px;
+  border-bottom: 1px solid var(--edge-1);
+}
+
+.check-row:last-child {
+  border-bottom: 0;
+}
+
+.check-icon {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--sage);
+  background: var(--sage-wash);
+}
+
+.check-icon.is-warn {
+  color: var(--amber);
+  background: var(--amber-wash);
+}
+
+.check-row strong {
+  display: block;
+  color: var(--bone-2);
+  font-size: var(--t-sm);
+  font-weight: 600;
+}
+
+.check-row div > span {
+  display: block;
+  margin-top: 1px;
+  color: var(--muted-2);
+  font-size: var(--t-micro);
+}
+
+.check-row > .mono {
+  color: var(--muted-2);
+  font-size: var(--t-micro);
+}
+
+.commit-row {
+  display: grid;
+  grid-template-columns: 27px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  padding: 14px 15px;
+  border-bottom: 1px solid var(--edge-1);
+}
+
+.commit-row:last-child {
+  border-bottom: 0;
+}
+
+.commit-mark {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border: 1px solid var(--line-2);
+  border-radius: 50%;
+  color: var(--muted-2);
+  background: var(--ink-850);
+}
+
+.commit-row strong {
+  display: block;
+  color: var(--bone-2);
+  font-size: var(--t-sm);
+  font-weight: 500;
+}
+
+.commit-row div > span {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted-2);
+  font-size: var(--t-micro);
+}
+
+/* Review rail ------------------------------------------------------- */
+
+.reviewer {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--edge-1);
+}
+
+.reviewer:last-of-type {
+  border-bottom: 0;
+}
+
+.reviewer-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--bone-2);
+  font-size: var(--t-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reviewer > .badge,
+.reviewer > .fine {
+  margin-left: auto;
+  flex: none;
+}
+
+.reviewer.is-you {
+  margin: 4px -5px 0;
+  padding: 7px 5px;
+  border-radius: var(--r-1);
+  background: rgba(242, 174, 91, 0.045);
+}
+
+.review-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.review-actions .btn {
+  justify-content: flex-start;
+}
+
+.review-actions .request-changes {
+  border-color: rgba(217, 130, 130, 0.22);
+  color: var(--rose-2);
+  background: rgba(217, 130, 130, 0.05);
+}
+
+.review-actions .request-changes:hover {
+  border-color: rgba(217, 130, 130, 0.38);
+  background: rgba(217, 130, 130, 0.12);
+}
+
+.mini-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--edge-1);
+  color: var(--muted);
+  font-size: var(--t-micro);
+}
+
+.mini-check:last-child {
+  border-bottom: 0;
+}
+
+.mini-check-time {
+  margin-left: auto;
+  color: var(--muted-2);
+  font-size: 9.5px;
+}
+
+.merge-box {
+  padding: 13px;
+  border: 1px solid rgba(242, 174, 91, 0.28);
+  border-radius: var(--r-3);
+  background:
+    radial-gradient(280px 120px at 10% 0%, rgba(242, 174, 91, 0.08), transparent 70%),
+    rgba(21, 35, 42, 0.54);
+  transition: border-color var(--med) var(--ease), background var(--med) var(--ease);
+}
+
+.merge-box.is-ready {
+  border-color: rgba(134, 183, 158, 0.34);
+  background:
+    radial-gradient(280px 120px at 10% 0%, rgba(134, 183, 158, 0.09), transparent 70%),
+    rgba(21, 35, 42, 0.54);
+}
+
+.merge-box.is-merged {
+  border-color: rgba(134, 183, 158, 0.4);
+  background: rgba(134, 183, 158, 0.08);
+}
+
+.merge-state {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.merge-lamp {
+  margin-top: 4px;
+}
+
+.merge-state strong {
+  display: block;
+  color: var(--bone);
+  font-size: var(--t-sm);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.merge-state p {
+  margin-top: 3px;
+  color: var(--muted-2);
+  font-size: var(--t-micro);
+  line-height: 1.5;
+}
+
+.merge-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 10px 0;
+}
+
+.merge-checks span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted-2);
+  font-size: var(--t-micro);
+}
+
+.merge-checks .icon {
+  width: 11px;
+  height: 11px;
+  color: var(--amber);
+}
+
+.merge-box > .btn {
+  margin-top: 3px;
+}
+
+.merge-box > .fine {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  margin-top: 9px;
+  font-size: 9.5px;
+  line-height: 1.45;
+}
+
+.merge-box > .fine .icon {
+  margin-top: 1px;
+  color: var(--faint);
+}
+
+/* The invite action belongs to the reviewer list, not to the decision buttons. */
+.review-invite {
+  display: inline-block;
+  margin: 10px 0 2px;
+}
+
+/* Linked issues: one row per issue, title first, state second. */
+.linked-issue {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 0;
+  border-top: 1px solid var(--edge-1);
+}
+
+.linked-issue .icon {
+  margin-top: 2px;
+  flex: none;
+  color: var(--muted-2);
+}
+
+.linked-issue:hover .icon {
+  color: var(--amber-2);
+}
+
+.linked-issue-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.linked-issue-title {
+  color: var(--bone-2);
+  font-size: var(--t-xs);
+  line-height: 1.45;
+  transition: color var(--fast) var(--ease);
+}
+
+.linked-issue:hover .linked-issue-title {
+  color: var(--amber-2);
+}
+
+.linked-issue-copy .fine {
+  font-size: 9.5px;
+}
+
+/* Inside the floating panel the merge box is a block, not a nested card. */
+.float-pane .merge-box {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.float-pane .merge-box > .btn {
+  margin-top: 10px;
+}

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agent · Kustos</title>
+  <meta name="description" content="Kustos agent console: tool steps, streaming answers, approval gates and token budgets.">
+  <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/tokens.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/agent.css">
+  <link rel="stylesheet" href="assets/css/responsive.css">
+</head>
+<body data-page="agent" data-crumb="Agent|Run A-1042" data-title="Agent · Kustos">
+  <a class="skip" href="#main">Skip to content</a>
+  <div id="shell"></div>
+
+  <template id="page-template">
+    <section class="view agent-view" aria-labelledby="agent-title">
+      <div class="stage" id="agent-stage">
+        <div class="stage-core">
+          <div class="agent-layout">
+            <aside class="agent-runs" aria-label="Agent runs">
+              <div class="agent-runs-head">
+                <div>
+                  <p class="eyebrow">KUSTOS</p>
+                  <h1 class="display-sm" id="agent-title">Agent</h1>
+                </div>
+                <button class="btn btn-primary btn-sm" type="button" data-open-run>
+                  <svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>New run
+                </button>
+              </div>
+
+              <div class="run-filters" role="group" aria-label="Run status">
+                <div class="segmented">
+                  <button class="is-active" type="button" data-run-filter="active">Active <span class="count" id="active-count">2</span></button>
+                  <button type="button" data-run-filter="completed">Completed <span class="count" id="completed-count">4</span></button>
+                </div>
+              </div>
+
+              <div class="runs-list" id="runs-list"></div>
+
+              <div class="agent-runs-foot">
+                <span class="lamp is-warn is-live" aria-hidden="true"></span>
+                <span id="runs-foot-copy">2 active · 1 awaiting approval</span>
+              </div>
+            </aside>
+
+            <div class="agent-main" id="agent-main"></div>
+          </div>
+        </div>
+
+        <div class="float-dock" role="toolbar" aria-label="Run context">
+          <button class="dock-btn" type="button" data-panel-tab="context" data-panel-label="Run context" data-panel-kicker="Agent" aria-label="Run context" aria-expanded="false">
+            <svg class="icon" aria-hidden="true"><use href="#i-server"></use></svg>
+          </button>
+          <button class="dock-btn" type="button" data-panel-tab="safety" data-panel-label="Safety" data-panel-kicker="Agent" aria-label="Tools and guardrails" aria-expanded="false">
+            <svg class="icon" aria-hidden="true"><use href="#i-shield"></use></svg>
+          </button>
+          <button class="dock-btn" type="button" data-panel-tab="session" data-panel-label="Session" data-panel-kicker="Agent" aria-label="Session memory and actions" aria-expanded="false">
+            <svg class="icon" aria-hidden="true"><use href="#i-history"></use></svg>
+          </button>
+        </div>
+
+        <aside class="float-panel" aria-label="Run context">
+          <header class="float-head">
+            <div class="float-head-copy">
+              <p class="eyebrow">Agent</p>
+              <h2>Run context</h2>
+            </div>
+            <button class="icon-btn" type="button" data-panel-close aria-label="Close context panel">
+              <svg class="icon icon-sm" aria-hidden="true"><use href="#i-x"></use></svg>
+            </button>
+          </header>
+          <div class="float-body">
+            <section class="float-pane is-active" data-pane="context">
+              <div class="rail-block" id="ctx-run"></div>
+              <div class="rail-block" id="ctx-budget"></div>
+            </section>
+            <section class="float-pane" data-pane="safety">
+              <div class="rail-block" id="ctx-tools"></div>
+              <div class="rail-block" id="ctx-guardrails"></div>
+            </section>
+            <section class="float-pane" data-pane="session">
+              <div class="rail-block" id="ctx-memory"></div>
+              <div class="rail-block" id="ctx-actions"></div>
+            </section>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </template>
+
+  <script src="assets/js/icons.js"></script>
+  <script src="assets/js/util.js"></script>
+  <script src="assets/js/shell.js"></script>
+  <script src="assets/js/agent-data.js"></script>
+  <script src="assets/js/agent.js"></script>
+</body>
+</html>

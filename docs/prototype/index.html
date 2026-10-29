@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Watch · Kustos</title>
+  <meta name="description" content="Kustos — a self-hosted Git forge with a resident keeper. High-fidelity frontend prototype.">
+  <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/tokens.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/home.css">
+  <link rel="stylesheet" href="assets/css/responsive.css">
+</head>
+<body data-page="home" data-crumb="Watch|Overview" data-title="Watch · Kustos">
+  <a class="skip" href="#main">Skip to content</a>
+  <div id="shell"></div>
+
+  <template id="page-template">
+    <section class="view home" aria-labelledby="home-title">
+      <div class="stage is-document" id="home-stage">
+        <div class="stage-core">
+          <header class="page-head home-head">
+        <div>
+          <p class="eyebrow"><span data-date>Tuesday, 27 October</span> · <span class="mono" data-clock>21:48</span> <span class="faint">UTC+8</span></p>
+          <h1 class="display" id="home-title"><span data-greeting>Good evening</span>, Lin.</h1>
+          <p class="lede">Three reviews are waiting. Kustos closed two loops while you were away.</p>
+        </div>
+        <div class="page-head-side">
+          <a class="status-pill is-warn" href="pull.html"><span class="lamp is-warn is-live" aria-hidden="true"></span>atlas · 1 check failing</a>
+          <button class="btn btn-primary" type="button" data-open-run>
+            <svg class="icon" aria-hidden="true"><use href="#i-agent"></use></svg>
+            Start a run
+          </button>
+        </div>
+      </header>
+
+      <dl class="watch-strip" aria-label="Your queue at a glance">
+        <div class="watch-stat">
+          <dt class="watch-stat-label">In review</dt>
+          <dd class="watch-stat-value">4</dd>
+          <dd class="watch-stat-meta"><span class="lamp is-warn" aria-hidden="true"></span>1 waiting on you</dd>
+        </div>
+        <div class="watch-stat">
+          <dt class="watch-stat-label">Your pull requests</dt>
+          <dd class="watch-stat-value">3<span class="watch-stat-unit">open</span></dd>
+          <dd class="watch-stat-meta"><span class="lamp is-warn" aria-hidden="true"></span>1 changes requested</dd>
+        </div>
+        <div class="watch-stat">
+          <dt class="watch-stat-label">Assigned to you</dt>
+          <dd class="watch-stat-value">2<span class="watch-stat-unit">issues</span></dd>
+          <dd class="watch-stat-meta"><span class="lamp is-bad" aria-hidden="true"></span>1 high priority</dd>
+        </div>
+        <div class="watch-stat">
+          <dt class="watch-stat-label">Mentions</dt>
+          <dd class="watch-stat-value">5<span class="watch-stat-unit">unread</span></dd>
+          <dd class="watch-stat-meta"><span class="lamp is-info" aria-hidden="true"></span>across 2 rooms</dd>
+        </div>
+      </dl>
+
+          <div class="home-grid">
+        <div class="home-main">
+          <section aria-labelledby="needs-title">
+            <div class="section-head">
+              <h2 id="needs-title">Needs your eyes</h2>
+              <span class="section-count">3</span>
+              <a class="section-meta section-link" href="pull.html">All pull requests <span aria-hidden="true">↗</span></a>
+            </div>
+
+            <div class="queue">
+              <div class="queue-group">
+                <div class="group-head">
+                  <span class="group-key">Pull requests</span>
+                  <span class="group-count">2</span>
+                  <span class="group-note">1 blocked by Kustos review</span>
+                </div>
+                <div class="queue-list">
+                  <article class="review-row">
+                    <div class="review-mark"><span class="lamp is-warn is-live" aria-hidden="true"></span></div>
+                    <div class="review-copy">
+                      <div class="review-title">
+                        <a href="pull.html">Harden LFS transfer token scope</a>
+                        <span class="mono muted">#142</span>
+                      </div>
+                      <p class="review-meta">
+                        <span class="repo-path">lin/atlas</span>
+                        <span class="sep" aria-hidden="true">·</span>
+                        <span class="review-author">Mara Voss</span>
+                        <span class="sep" aria-hidden="true">·</span>
+                        <span class="mono review-ref">mara/lfs-token-scope</span>
+                        <span class="arrow" aria-hidden="true">→</span>
+                        <span class="mono review-ref">main</span>
+                      </p>
+                      <div class="review-checks">
+                        <span class="check-chip is-good"><svg class="icon icon-xs" aria-hidden="true"><use href="#i-check"></use></svg>unit</span>
+                        <span class="check-chip is-good"><svg class="icon icon-xs" aria-hidden="true"><use href="#i-check"></use></svg>security-scan</span>
+                        <span class="check-chip is-warn"><svg class="icon icon-xs" aria-hidden="true"><use href="#i-clock"></use></svg>e2e queued</span>
+                        <span class="check-chip is-agent"><svg class="icon icon-xs" aria-hidden="true"><use href="#i-agent"></use></svg>AI review: 1 blocking</span>
+                      </div>
+                    </div>
+                    <div class="review-side">
+                      <span class="review-age">2h</span>
+                      <a class="btn btn-ghost btn-sm" href="pull.html">Review</a>
+                    </div>
+                  </article>
+
+                  <article class="review-row">
+                    <div class="review-mark"><span class="lamp is-warn" aria-hidden="true"></span></div>
+                    <div class="review-copy">
+                      <div class="review-title">
+                        <a href="pull.html">Bound semantic recall to the default branch</a>
+                        <span class="mono muted">#139</span>
+                      </div>
+                      <p class="review-meta">
+                        <span class="repo-path">lin/atlas</span>
+                        <span class="sep" aria-hidden="true">·</span>
+                        <span class="review-author">Ilya Sokolov</span>
+                        <span class="sep" aria-hidden="true">·</span>
+                        <span class="mono review-ref">ilya/recall-scope</span>
+                        <span class="arrow" aria-hidden="true">→</span>
+                        <span class="mono review-ref">main</span>
+                      </p>
+                      <div class="review-checks">
+                        <span class="check-chip is-good"><svg class="icon icon-xs" aria-hidden="true"><use href="#i-check"></use></svg>unit</span>
+                        <span class="check-chip is-good"><svg class="icon icon-xs" aria-hidden="true"><use href="#i-check"></use></svg>index</span>
+                        <span class="check-chip is-agent"><svg class="icon icon-xs" aria-hidden="true"><use href="#i-agent"></use></svg>AI review ready</span>
+                      </div>
+                    </div>
+                    <div class="review-side">
+                      <span class="review-age">5h</span>
+                      <a class="btn btn-ghost btn-sm" href="pull.html">Review</a>
+                    </div>
+                  </article>
+                </div>
+              </div>
+
+              <div class="queue-group">
+                <div class="group-head">
+                  <span class="group-key">Issues</span>
+                  <span class="group-count">1</span>
+                  <span class="group-note">assigned to you</span>
+                </div>
+                <div class="queue-list">
+                  <article class="review-row">
+                    <div class="review-mark"><span class="lamp is-bad" aria-hidden="true"></span></div>
+                    <div class="review-copy">
+                      <div class="review-title">
+                        <a href="issues.html">Agent approval can be lost on worker restart</a>
+                        <span class="mono muted">#94</span>
+                      </div>
+                      <p class="review-meta">
+                        <span class="repo-path">lin/atlas</span>
+                        <span class="sep" aria-hidden="true">·</span>
+                        <span class="review-author">opened by Noor Haddad</span>
+                        <span class="sep" aria-hidden="true">·</span>
+                        <span class="badge is-warn">high</span>
+                      </p>
+                      <div class="review-checks">
+                        <span class="check-chip is-bad"><svg class="icon icon-xs" aria-hidden="true"><use href="#i-alert"></use></svg>needs triage</span>
+                        <span class="check-chip"><svg class="icon icon-xs" aria-hidden="true"><use href="#i-message"></use></svg>4 comments</span>
+                      </div>
+                    </div>
+                    <div class="review-side">
+                      <span class="review-age">18m</span>
+                      <a class="btn btn-ghost btn-sm" href="issues.html">Open</a>
+                    </div>
+                  </article>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="mt-40" aria-labelledby="repos-title">
+            <div class="section-head">
+              <h2 id="repos-title">Active repositories</h2>
+              <span class="section-meta">last 24 hours</span>
+            </div>
+            <div class="repo-list">
+              <div class="group-head repo-list-head">
+                <span class="group-key">lin</span>
+                <span class="group-count">3</span>
+                <span class="group-note">Northstar Labs · self-hosted</span>
+              </div>
+
+              <a class="repo-row" href="code.html">
+                <span class="repo-glyph is-amber" aria-hidden="true">a</span>
+                <span class="repo-row-copy">
+                  <span class="repo-row-name">atlas <span class="badge is-outline">Public</span></span>
+                  <span class="repo-row-meta">default <span class="mono">main</span> <span class="sep" aria-hidden="true">·</span> pushed 2m ago</span>
+                </span>
+                <span class="repo-metrics">
+                  <span class="repo-metric"><span class="repo-metric-value mono">4</span>PRs</span>
+                  <span class="repo-metric"><span class="repo-metric-value mono">12</span>issues</span>
+                  <span class="repo-metric"><span class="repo-metric-value mono">14</span>members</span>
+                </span>
+                <span class="repo-health" title="Search index in sync with main"><span class="lamp is-good" aria-hidden="true"></span>Indexed</span>
+              </a>
+
+              <button class="repo-row" type="button" data-toast="This prototype includes only lin/atlas.">
+                <span class="repo-glyph is-sage" aria-hidden="true">h</span>
+                <span class="repo-row-copy">
+                  <span class="repo-row-name">harbor <span class="badge is-outline">Private</span></span>
+                  <span class="repo-row-meta">default <span class="mono">main</span> <span class="sep" aria-hidden="true">·</span> pushed 1h ago</span>
+                </span>
+                <span class="repo-metrics">
+                  <span class="repo-metric"><span class="repo-metric-value mono">1</span>PR</span>
+                  <span class="repo-metric"><span class="repo-metric-value mono">3</span>issues</span>
+                </span>
+                <span class="repo-health" title="Search index in sync with main"><span class="lamp is-good" aria-hidden="true"></span>Indexed</span>
+              </button>
+
+              <button class="repo-row" type="button" data-toast="This prototype includes only lin/atlas.">
+                <span class="repo-glyph is-sky" aria-hidden="true">l</span>
+                <span class="repo-row-copy">
+                  <span class="repo-row-name">lantern <span class="badge is-outline">Private</span></span>
+                  <span class="repo-row-meta">default <span class="mono">main</span> <span class="sep" aria-hidden="true">·</span> pushed 1d ago</span>
+                </span>
+                <span class="repo-metrics">
+                  <span class="repo-metric"><span class="repo-metric-value mono">0</span>PRs</span>
+                  <span class="repo-metric"><span class="repo-metric-value mono">4</span>issues</span>
+                </span>
+                <span class="repo-health" title="Reindex running; reads fall back to Git tree scan"><span class="lamp is-info" aria-hidden="true"></span>Indexing</span>
+              </button>
+            </div>
+          </section>
+
+
+          <section class="home-ask mt-40" aria-labelledby="ask-title">
+            <div class="section-head">
+              <h2 id="ask-title">Ask Kustos</h2>
+              <span class="section-meta">read-only by default</span>
+            </div>
+            <form class="ask-bar" data-ask-form>
+              <span class="ask-icon" aria-hidden="true">
+                <svg class="icon" aria-hidden="true"><use href="#i-agent"></use></svg>
+              </span>
+              <input class="ask-input" id="ask-input" type="text" autocomplete="off" placeholder="Ask across lin/atlas — “where is the LFS transfer token minted?”" aria-label="Ask Kustos">
+              <kbd class="kbd ask-kbd">↵</kbd>
+              <button class="btn btn-primary btn-sm" type="submit">Run</button>
+            </form>
+            <div class="ask-suggestions">
+              <button class="chip" type="button" data-prompt="Review PR #142 and tell me if any LFS write path can be reached without a repo-scoped token.">Review PR #142 for token scope gaps</button>
+              <button class="chip" type="button" data-prompt="Why did atlas-e2e fail on main? Check the build logs and the last three commits.">Triage the e2e failure</button>
+              <button class="chip" type="button" data-prompt="Summarize the search index fallback issue #91 and suggest the smallest safe fix.">Summarize issue #91</button>
+            </div>
+          </section>
+        </div>
+          </div>
+        </div>
+
+        <div class="float-dock" role="toolbar" aria-label="Overview panels">
+          <button class="dock-btn" type="button" data-panel-tab="watch" data-panel-label="Night watch" data-panel-kicker="meridian" aria-label="Night watch feed" aria-expanded="false">
+            <svg class="icon" aria-hidden="true"><use href="#i-pulse"></use></svg>
+          </button>
+          <button class="dock-btn" type="button" data-panel-tab="presence" data-panel-label="On watch" data-panel-kicker="4 online" aria-label="Who is online" aria-expanded="false">
+            <svg class="icon" aria-hidden="true"><use href="#i-users"></use></svg>
+          </button>
+          <button class="dock-btn" type="button" data-panel-tab="account" data-panel-label="Account" data-panel-kicker="Lin Wei" aria-label="Account and access facts" aria-expanded="false">
+            <svg class="icon" aria-hidden="true"><use href="#i-user"></use></svg>
+          </button>
+        </div>
+
+        <aside class="float-panel" aria-label="Overview context">
+          <header class="float-head">
+            <div class="float-head-copy">
+              <p class="eyebrow">meridian</p>
+              <h2>Night watch</h2>
+            </div>
+            <button class="icon-btn" type="button" data-panel-close aria-label="Close overview panel">
+              <svg class="icon icon-sm" aria-hidden="true"><use href="#i-x"></use></svg>
+            </button>
+          </header>
+          <div class="float-body">
+            <section class="float-pane is-active" data-pane="watch">
+              <div class="rail-block">
+                <div class="live-doc-head">
+                  <h3>Live feed</h3>
+                  <span class="live-tag"><span class="lamp is-warn is-live" aria-hidden="true"></span>Live</span>
+                </div>
+                <div class="feed">
+                  <div class="feed-group">
+                    <p class="group-key feed-group-label">Last hour</p>
+                    <ol class="feed-list">
+                      <li class="feed-item">
+                        <span class="feed-mark is-warn" aria-hidden="true"><svg class="icon icon-sm"><use href="#i-agent"></use></svg></span>
+                        <div class="feed-copy">
+                          <p><a href="agent.html">A-1042 paused for approval</a> — “LFS download accepts upload-scoped tokens.”</p>
+                          <time>21:42</time>
+                        </div>
+                      </li>
+                      <li class="feed-item">
+                        <span class="feed-mark is-neutral" aria-hidden="true"><svg class="icon icon-sm"><use href="#i-git-commit"></use></svg></span>
+                        <div class="feed-copy">
+                          <p>Mara pushed 2 commits to <span class="mono">mara/lfs-token-scope</span>.</p>
+                          <time>21:36</time>
+                        </div>
+                      </li>
+                      <li class="feed-item">
+                        <span class="feed-mark is-good" aria-hidden="true"><svg class="icon icon-sm"><use href="#i-check"></use></svg></span>
+                        <div class="feed-copy">
+                          <p>Ilya approved <a href="pull.html">#136</a> — presence heartbeat cleanup.</p>
+                          <time>21:20</time>
+                        </div>
+                      </li>
+                    </ol>
+                  </div>
+
+                  <div class="feed-group">
+                    <p class="group-key feed-group-label">Earlier</p>
+                    <ol class="feed-list">
+                      <li class="feed-item">
+                        <span class="feed-mark is-bad" aria-hidden="true"><svg class="icon icon-sm"><use href="#i-alert"></use></svg></span>
+                        <div class="feed-copy">
+                          <p><span class="mono">atlas-e2e</span> failed on main. Retry queued.</p>
+                          <time>20:58</time>
+                        </div>
+                      </li>
+                      <li class="feed-item">
+                        <span class="feed-mark is-neutral" aria-hidden="true"><svg class="icon icon-sm"><use href="#i-issue"></use></svg></span>
+                        <div class="feed-copy">
+                          <p>Noor opened <a href="issues.html">#94</a> — agent approval reliability.</p>
+                          <time>20:41</time>
+                        </div>
+                      </li>
+                      <li class="feed-item">
+                        <span class="feed-mark is-good" aria-hidden="true"><svg class="icon icon-sm"><use href="#i-refresh"></use></svg></span>
+                        <div class="feed-copy">
+                          <p>Indexed <span class="mono">main</span> at <span class="mono">8f3c2a1</span> · 12,408 chunks.</p>
+                          <time>20:12</time>
+                        </div>
+                      </li>
+                    </ol>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="float-pane" data-pane="presence">
+              <div class="rail-block">
+                <h3>Online now</h3>
+                <div class="presence-summary">
+                  <div class="avatar-stack" aria-hidden="true">
+                    <span class="avatar avatar-sm is-rose">MV</span>
+                    <span class="avatar avatar-sm is-sky">IS</span>
+                    <span class="avatar avatar-sm is-rose">NH</span>
+                    <span class="avatar avatar-sm is-amber">LW</span>
+                    <span class="more">+2</span>
+                  </div>
+                  <span><span class="lamp is-good" aria-hidden="true"></span>2 editing now</span>
+                </div>
+                <ul class="presence-list">
+                  <li><span class="avatar avatar-sm is-rose">MV</span><span class="presence-name">Mara Voss</span><span class="presence-place">editing <span class="mono">lfs.py</span></span></li>
+                  <li><span class="avatar avatar-sm is-sky">IS</span><span class="presence-name">Ilya Sokolov</span><span class="presence-place">viewing <span class="mono">#142</span></span></li>
+                  <li><span class="avatar avatar-sm is-rose">NH</span><span class="presence-name">Noor Haddad</span><span class="presence-place">in <span class="mono">#atlas</span></span></li>
+                  <li><span class="avatar avatar-sm is-bot" aria-hidden="true"><svg class="icon"><use href="#i-agent"></use></svg></span><span class="presence-name">kustos-agent</span><span class="presence-place">waiting for approval</span></li>
+                </ul>
+              </div>
+            </section>
+
+            <section class="float-pane" data-pane="account">
+              <div class="rail-block">
+                <h3>Account</h3>
+                <dl class="fact-list">
+                  <div><dt>Plan</dt><dd>Self-hosted · MIT</dd></div>
+                  <div><dt>Repositories</dt><dd class="mono">3 accessible</dd></div>
+                  <div><dt>SSH keys</dt><dd class="mono">4 registered</dd></div>
+                  <div><dt>Git access</dt><dd>HTTP + SSH</dd></div>
+                </dl>
+                <p class="fine mt-12">Instance storage and agent quotas are admin metrics; they are not returned to this view.</p>
+              </div>
+            </section>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </template>
+
+  <script src="assets/js/icons.js"></script>
+  <script src="assets/js/util.js"></script>
+  <script src="assets/js/shell.js"></script>
+  <script src="assets/js/home.js"></script>
+</body>
+</html>

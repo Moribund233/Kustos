@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pull request #142 · lin/atlas · Kustos</title>
+  <meta name="description" content="Review a pull request with diff, checks, branch protection and an agent review.">
+  <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/tokens.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/pull.css">
+  <link rel="stylesheet" href="assets/css/responsive.css">
+</head>
+<body data-page="pull" data-crumb="lin|atlas|Pull requests|#142" data-title="Pull request #142 · Kustos">
+  <a class="skip" href="#main">Skip to content</a>
+  <div id="shell"></div>
+
+  <template id="page-template">
+    <section class="view pull-view" aria-labelledby="pr-title">
+      <div class="stage is-document" id="pr-stage" data-panel-default="review">
+      <div class="stage-core">
+      <header class="pr-head">
+        <div class="pr-head-main">
+          <div class="pr-kicker">
+            <span class="badge is-good" id="pr-state"><span class="lamp is-good" aria-hidden="true"></span>Open</span>
+            <span class="mono muted">#142</span>
+            <span class="badge is-outline">needs review</span>
+          </div>
+          <h1 class="display-sm" id="pr-title">Harden LFS transfer token scope</h1>
+          <p class="pr-meta">
+            <span class="mono">mara/lfs-token-scope</span> <span class="arrow" aria-hidden="true">→</span> <span class="mono">main</span>
+            · opened 2h ago by <a href="#" data-toast="Mara Voss — developer on lin/atlas.">Mara Voss</a>
+            · <span class="mono">3</span> commits · <span class="mono">4</span> files
+            · <span class="add">+148</span> <span class="del">−37</span>
+          </p>
+        </div>
+        <div class="pr-head-actions">
+          <button class="btn btn-ghost btn-sm" type="button" data-toast="Watch is stored per repository — POST /repositories/{id}/watch.">
+            <svg class="icon" aria-hidden="true"><use href="#i-eye"></use></svg>Watch repo
+          </button>
+          <button class="icon-btn is-bordered" type="button" aria-label="More pull request actions" data-toast="More actions belong to the pull request controller.">
+            <svg class="icon" aria-hidden="true"><use href="#i-more"></use></svg>
+          </button>
+        </div>
+      </header>
+
+          <div class="pr-layout">
+        <div class="pr-main">
+          <nav class="tabs pr-tabs" role="tablist" aria-label="Pull request">
+            <button class="tab is-active" type="button" role="tab" aria-selected="true" aria-controls="panel-conversation" id="tab-conversation" data-pr-tab="conversation">Conversation</button>
+            <button class="tab" type="button" role="tab" aria-selected="false" aria-controls="panel-files" id="tab-files" data-pr-tab="files">Files changed <span class="count">4</span></button>
+            <button class="tab" type="button" role="tab" aria-selected="false" aria-controls="panel-checks" id="tab-checks" data-pr-tab="checks">Checks <span class="count">3</span></button>
+            <button class="tab" type="button" role="tab" aria-selected="false" aria-controls="panel-commits" id="tab-commits" data-pr-tab="commits">Commits <span class="count">3</span></button>
+          </nav>
+
+          <div data-pr-panel="conversation" role="tabpanel" aria-labelledby="tab-conversation">
+            <article class="pr-description">
+              <div class="pr-description-head">
+                <span class="avatar is-rose" aria-hidden="true">MV</span>
+                <div>
+                  <strong>Mara Voss</strong>
+                  <span>opened this pull request 2h ago · 3 commits</span>
+                </div>
+                <span class="badge is-outline">author</span>
+              </div>
+              <div class="pr-body">
+                <p>LFS transfer tokens are currently bound to a repository, but the same token can be replayed against a different LFS action. This change binds the token to <span class="mono">read</span> or <span class="mono">write</span> and verifies the exact action at the transfer endpoint.</p>
+                <ul class="check-list">
+                  <li><svg class="icon icon-sm" aria-hidden="true"><use href="#i-check"></use></svg>Mint scope in <span class="mono">TransferTokenService.mint</span></li>
+                  <li><svg class="icon icon-sm" aria-hidden="true"><use href="#i-check"></use></svg>Verify exact action at download and upload</li>
+                  <li><svg class="icon icon-sm" aria-hidden="true"><use href="#i-check"></use></svg>Cover cross-action replay with a regression test</li>
+                  <li><svg class="icon icon-sm" aria-hidden="true"><use href="#i-check"></use></svg>Document the scope in the security notes</li>
+                </ul>
+                <div class="pr-code-snippet">
+                  <span class="snippet-label">app/services/lfs.py</span>
+                  <code><span class="tok-comment"># A token is valid only for the action it was minted for.</span>
+<span class="tok-kw">if</span> scope.action != action:
+    <span class="tok-kw">raise</span> <span class="tok-cls">ForbiddenError</span>(<span class="tok-str">"transfer token scope mismatch"</span>)</code>
+                </div>
+              </div>
+            </article>
+
+            <section class="ai-review" aria-labelledby="ai-review-title">
+              <div class="ai-review-head">
+                <span class="ai-mark" aria-hidden="true"><svg class="icon"><use href="#i-agent"></use></svg></span>
+                <div>
+                  <strong id="ai-review-title">Kustos review</strong>
+                  <span>12 minutes ago · 3 findings · 1 blocking</span>
+                </div>
+                <span class="badge is-warn">1 blocking</span>
+              </div>
+              <div class="finding is-blocking">
+                <div class="finding-head">
+                  <span class="badge is-bad">blocking</span>
+                  <span class="mono">app/services/lfs.py:54</span>
+                  <button class="text-link" type="button" data-view-line="54">View line <span aria-hidden="true">↗</span></button>
+                </div>
+                <p>The download path still accepts a token minted with <span class="mono">write</span> scope. Tighten the check to an exact action match, and assert the cross-action replay case in the test suite.</p>
+              </div>
+              <div class="finding">
+                <div class="finding-head">
+                  <span class="badge is-info">note</span>
+                  <span class="mono">app/api/lfs_routes.py:34</span>
+                </div>
+                <p><span class="mono">transfer_token_ttl_minutes</span> is read in two places. Confirm whether the 15-minute fallback is intentional before changing the default.</p>
+              </div>
+              <div class="finding">
+                <div class="finding-head">
+                  <span class="badge">nit</span>
+                  <span class="mono">tests/test_lfs_tokens.py:28</span>
+                </div>
+                <p>The test name says <span class="mono">rejects_write_token_on_download</span>, but the fixture also covers expiry. Split it or rename it.</p>
+              </div>
+              <div class="ai-review-foot">
+                <button class="btn btn-ghost btn-sm" type="button" data-open-run data-prompt="Review PR #142 in lin/atlas. Focus on LFS transfer-token scope and any write path that can be reached without a repo-scoped token.">
+                  <svg class="icon" aria-hidden="true"><use href="#i-agent"></use></svg>Ask Kustos
+                </button>
+                <span class="fine">Read-only review · no writes</span>
+              </div>
+            </section>
+
+            <ol class="timeline" id="pr-timeline">
+              <li class="timeline-item">
+                <span class="timeline-avatar avatar is-sky" aria-hidden="true">IS</span>
+                <div class="timeline-copy">
+                  <div class="timeline-head"><strong>Ilya Sokolov</strong><span>commented 1h ago</span><span class="badge is-outline">review</span></div>
+                  <div class="comment-body">
+                    <p>The exact-match check looks right. Please add the cross-action replay test before this lands — a write token replayed on download is exactly the case that bit us in staging.</p>
+                  </div>
+                </div>
+              </li>
+              <li class="timeline-item">
+                <span class="timeline-avatar avatar is-rose" aria-hidden="true">MV</span>
+                <div class="timeline-copy">
+                  <div class="timeline-head"><strong>Mara Voss</strong><span>pushed 2 commits 36m ago</span></div>
+                  <div class="comment-body">
+                    <p>Added in <span class="mono">8f3c2a1</span>. The test now mints a write token and asserts that the download path rejects it. I also added the security note.</p>
+                  </div>
+                </div>
+              </li>
+              <li class="timeline-item" id="timeline-approved" hidden>
+                <span class="timeline-avatar avatar is-amber" aria-hidden="true">LW</span>
+                <div class="timeline-copy">
+                  <div class="timeline-head"><strong>Lin Wei</strong><span>approved these changes just now</span></div>
+                </div>
+              </li>
+            </ol>
+          </div>
+
+          <div data-pr-panel="files" role="tabpanel" aria-labelledby="tab-files" hidden>
+            <div class="diff-summary">
+              <span><span class="mono">4</span> files changed</span>
+              <span class="add">+148</span>
+              <span class="del">−37</span>
+              <span class="spacer"></span>
+              <span class="fine">Viewed 1 of 4</span>
+            </div>
+
+            <article class="diff-file is-open" data-diff-file>
+              <header class="diff-head">
+                <button class="diff-toggle" type="button" data-diff-toggle aria-expanded="true" aria-label="Collapse app/services/lfs.py">
+                  <svg class="icon icon-xs" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+                </button>
+                <svg class="icon icon-sm" aria-hidden="true"><use href="#i-file"></use></svg>
+                <a class="diff-path mono" href="code.html">app/services/lfs.py</a>
+                <span class="diff-stat"><span class="add">+42</span> <span class="del">−18</span></span>
+                <span class="badge is-good">viewed</span>
+                <button class="icon-btn" type="button" aria-label="File actions" data-toast="File actions belong to the pull request controller."><svg class="icon icon-sm" aria-hidden="true"><use href="#i-more"></use></svg></button>
+              </header>
+              <div class="diff-body">
+                <div class="diff-hunk"><span class="mono">@@ -49,8 +49,8 @@ class TransferTokenService:</span></div>
+                <div class="diff-line ctx"><span class="old">49</span><span class="new">49</span><span class="diff-code">        <span class="tok-kw">if</span> <span class="tok-kw">not</span> hmac.compare_digest(scope.repository_id, repository_id):</span></div>
+                <div class="diff-line ctx"><span class="old">50</span><span class="new">50</span><span class="diff-code">            <span class="tok-kw">raise</span> <span class="tok-cls">ForbiddenError</span>(<span class="tok-str">"token is bound to another repository"</span>)</span></div>
+                <div class="diff-line ctx"><span class="old">51</span><span class="new">51</span><span class="diff-code">        <span class="tok-kw">if</span> scope.expires_at &lt; <span class="tok-fn">int</span>(time.time()):</span></div>
+                <div class="diff-line ctx"><span class="old">52</span><span class="new">52</span><span class="diff-code">            <span class="tok-kw">raise</span> <span class="tok-cls">ForbiddenError</span>(<span class="tok-str">"transfer token expired"</span>)</span></div>
+                <div class="diff-line del"><span class="old">53</span><span class="new"></span><span class="diff-code">        <span class="tok-comment"># A write token may also read; a read token may never write.</span></span></div>
+                <div class="diff-line del"><span class="old">54</span><span class="new"></span><span class="diff-code">        <span class="tok-kw">if</span> scope.action <span class="tok-kw">not in</span> {action, SCOPE_WRITE}:</span></div>
+                <div class="diff-line add"><span class="old"></span><span class="new">53</span><span class="diff-code">        <span class="tok-comment"># A token is valid only for the action it was minted for.</span></span></div>
+                <div class="diff-line add" data-diff-line="54"><span class="old"></span><span class="new">54</span><span class="diff-code">        <span class="tok-kw">if</span> scope.action != action:</span></div>
+                <div class="diff-line ctx"><span class="old">55</span><span class="new">55</span><span class="diff-code">            <span class="tok-kw">raise</span> <span class="tok-cls">ForbiddenError</span>(<span class="tok-str">"transfer token scope mismatch"</span>)</span></div>
+                <div class="diff-line ctx"><span class="old">56</span><span class="new">56</span><span class="diff-code">        <span class="tok-kw">return</span> scope</span></div>
+                <div class="diff-thread" id="diff-thread">
+                  <div class="thread-head">
+                    <span class="avatar avatar-sm is-bot" aria-hidden="true"><svg class="icon icon-xs"><use href="#i-agent"></use></svg></span>
+                    <strong>Kustos agent</strong>
+                    <span class="badge is-warn">review</span>
+                    <time>12m ago</time>
+                  </div>
+                  <p>Exact match now rejects the replay. Keep the test that mints a write token and verifies it against <span class="mono">read</span>; it is the guard for this line.</p>
+                  <div class="thread-actions">
+                    <button class="text-link" type="button" data-toast="Replies are threaded through file comments.">Reply</button>
+                    <button class="text-link" type="button" id="resolve-thread">Resolve</button>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article class="diff-file" data-diff-file>
+              <header class="diff-head">
+                <button class="diff-toggle" type="button" data-diff-toggle aria-expanded="false" aria-label="Expand app/api/lfs_routes.py">
+                  <svg class="icon icon-xs" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+                </button>
+                <svg class="icon icon-sm" aria-hidden="true"><use href="#i-file"></use></svg>
+                <a class="diff-path mono" href="code.html">app/api/lfs_routes.py</a>
+                <span class="diff-stat"><span class="add">+31</span> <span class="del">−8</span></span>
+                <span class="badge is-outline">not viewed</span>
+              </header>
+              <div class="diff-body" hidden>
+                <div class="diff-hunk"><span class="mono">@@ -29,7 +29,9 @@ async def batch(...):</span></div>
+                <div class="diff-line ctx"><span class="old">29</span><span class="new">29</span><span class="diff-code">    for item <span class="tok-kw">in</span> payload.objects:</span></div>
+                <div class="diff-line del"><span class="old">30</span><span class="new"></span><span class="diff-code">        token = service.mint(repository_id=repo_id, object_id=oid)</span></div>
+                <div class="diff-line add"><span class="old"></span><span class="new">30</span><span class="diff-code">        token = service.mint(repository_id=repo_id, object_id=oid, action=SCOPE_WRITE)</span></div>
+                <div class="diff-line ctx"><span class="old">31</span><span class="new">31</span><span class="diff-code">        objects.append({<span class="tok-str">"oid"</span>: oid, <span class="tok-str">"size"</span>: item.size})</span></div>
+              </div>
+            </article>
+
+            <article class="diff-file" data-diff-file>
+              <header class="diff-head">
+                <button class="diff-toggle" type="button" data-diff-toggle aria-expanded="false" aria-label="Expand tests/test_lfs_tokens.py">
+                  <svg class="icon icon-xs" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+                </button>
+                <svg class="icon icon-sm" aria-hidden="true"><use href="#i-file"></use></svg>
+                <a class="diff-path mono" href="code.html">tests/test_lfs_tokens.py</a>
+                <span class="diff-stat"><span class="add">+58</span> <span class="del">−11</span></span>
+                <span class="badge is-outline">not viewed</span>
+              </header>
+              <div class="diff-body" hidden>
+                <div class="diff-hunk"><span class="mono">@@ -18,6 +18,12 @@ def test_round_trip_read_scope(service):</span></div>
+                <div class="diff-line ctx"><span class="old">18</span><span class="new">18</span><span class="diff-code">    <span class="tok-kw">assert</span> scope.object_id == <span class="tok-str">"oid-1"</span></span></div>
+                <div class="diff-line add"><span class="old"></span><span class="new">19</span><span class="diff-code"></span></div>
+                <div class="diff-line add"><span class="old"></span><span class="new">20</span><span class="diff-code"><span class="tok-deco">@pytest.mark.parametrize</span>(<span class="tok-str">"action"</span>, [SCOPE_READ, SCOPE_WRITE])</span></div>
+                <div class="diff-line add"><span class="old"></span><span class="new">21</span><span class="diff-code"><span class="tok-kw">def</span> <span class="tok-fn">test_rejects_write_token_on_download</span>(service, action):</span></div>
+                <div class="diff-line add"><span class="old"></span><span class="new">22</span><span class="diff-code">    token = service.mint(repository_id=<span class="tok-str">"repo-1"</span>, object_id=<span class="tok-str">"oid-1"</span>, action=action)</span></div>
+                <div class="diff-line add"><span class="old"></span><span class="new">23</span><span class="diff-code">    <span class="tok-kw">with</span> pytest.raises(<span class="tok-cls">ForbiddenError</span>):</span></div>
+                <div class="diff-line add"><span class="old"></span><span class="new">24</span><span class="diff-code">        service.verify(token, repository_id=<span class="tok-str">"repo-1"</span>, action=SCOPE_READ)</span></div>
+              </div>
+            </article>
+
+            <article class="diff-file" data-diff-file>
+              <header class="diff-head">
+                <button class="diff-toggle" type="button" data-diff-toggle aria-expanded="false" aria-label="Expand docs/security.md">
+                  <svg class="icon icon-xs" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+                </button>
+                <svg class="icon icon-sm" aria-hidden="true"><use href="#i-file"></use></svg>
+                <a class="diff-path mono" href="code.html">docs/security.md</a>
+                <span class="diff-stat"><span class="add">+17</span> <span class="del">−0</span></span>
+                <span class="badge is-outline">not viewed</span>
+              </header>
+              <div class="diff-body" hidden>
+                <div class="diff-hunk"><span class="mono">@@ -84,0 +85,17 @@ ## LFS transfer tokens</span></div>
+                <div class="diff-line add"><span class="old"></span><span class="new">85</span><span class="diff-code">## LFS transfer tokens</span></div>
+                <div class="diff-line add"><span class="old"></span><span class="new">86</span><span class="diff-code"></span></div>
+                <div class="diff-line add"><span class="old"></span><span class="new">87</span><span class="diff-code">A transfer token is scoped to one repository, one object and one action.</span></div>
+                <div class="diff-line add"><span class="old"></span><span class="new">88</span><span class="diff-code">A token minted for `write` is not valid for `read`.</span></div>
+              </div>
+            </article>
+          </div>
+
+          <div data-pr-panel="checks" role="tabpanel" aria-labelledby="tab-checks" hidden>
+            <div class="checks-list">
+              <div class="check-row" data-check="unit">
+                <span class="check-icon is-good"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-check"></use></svg></span>
+                <div><strong>unit</strong><span>pytest · 412 tests</span></div>
+                <span class="mono">1m 42s</span>
+                <span class="badge is-good">passed</span>
+              </div>
+              <div class="check-row" data-check="security">
+                <span class="check-icon is-good"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-check"></use></svg></span>
+                <div><strong>security-scan</strong><span>bandit + dependency audit</span></div>
+                <span class="mono">38s</span>
+                <span class="badge is-good">passed</span>
+              </div>
+              <div class="check-row" data-check="e2e">
+                <span class="check-icon is-warn"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-clock"></use></svg></span>
+                <div><strong>e2e</strong><span>playwright · LFS transfer suite</span></div>
+                <span class="mono">queued</span>
+                <span class="badge is-warn" data-e2e-badge>running</span>
+              </div>
+            </div>
+            <p class="fine mt-16">Status checks come from the build callback. The merge verdict is computed server-side from the branch protection rule.</p>
+          </div>
+
+          <div data-pr-panel="commits" role="tabpanel" aria-labelledby="tab-commits" hidden>
+            <ol class="commit-list">
+              <li class="commit-row">
+                <span class="commit-mark" aria-hidden="true"><svg class="icon icon-sm"><use href="#i-git-commit"></use></svg></span>
+                <div><strong>Bind transfer token to LFS action</strong><span>Mara Voss · <span class="mono">8f3c2a1</span> · 36m ago</span></div>
+                <button class="btn btn-quiet btn-sm" type="button" data-toast="Commit diff belongs to the commit controller.">View diff</button>
+              </li>
+              <li class="commit-row">
+                <span class="commit-mark" aria-hidden="true"><svg class="icon icon-sm"><use href="#i-git-commit"></use></svg></span>
+                <div><strong>Add cross-action replay test</strong><span>Mara Voss · <span class="mono">3b9f2c1</span> · 1h ago</span></div>
+                <button class="btn btn-quiet btn-sm" type="button" data-toast="Commit diff belongs to the commit controller.">View diff</button>
+              </li>
+              <li class="commit-row">
+                <span class="commit-mark" aria-hidden="true"><svg class="icon icon-sm"><use href="#i-git-commit"></use></svg></span>
+                <div><strong>Document transfer-token scope</strong><span>Mara Voss · <span class="mono">c41d7e0</span> · 2h ago</span></div>
+                <button class="btn btn-quiet btn-sm" type="button" data-toast="Commit diff belongs to the commit controller.">View diff</button>
+              </li>
+            </ol>
+          </div>
+        </div>
+          </div>
+        </div>
+
+        <div class="float-dock" role="toolbar" aria-label="Review panel">
+          <button class="dock-btn" type="button" data-panel-tab="review" data-panel-label="Review" data-panel-kicker="#142" aria-label="Reviewers" aria-expanded="false">
+            <svg class="icon" aria-hidden="true"><use href="#i-users"></use></svg>
+          </button>
+          <button class="dock-btn" type="button" data-panel-tab="checks" data-panel-label="Checks" data-panel-kicker="#142" aria-label="Status checks" aria-expanded="false">
+            <svg class="icon" aria-hidden="true"><use href="#i-shield"></use></svg>
+          </button>
+          <button class="dock-btn" type="button" data-panel-tab="merge" data-panel-label="Merge" data-panel-kicker="#142" aria-label="Merge controls" aria-expanded="false">
+            <svg class="icon" aria-hidden="true"><use href="#i-merge"></use></svg>
+          </button>
+        </div>
+
+        <aside class="float-panel" aria-label="Review and merge">
+          <header class="float-head">
+            <div class="float-head-copy">
+              <p class="eyebrow">Pull request #142</p>
+              <h2>Review</h2>
+            </div>
+            <button class="icon-btn" type="button" data-panel-close aria-label="Close review panel">
+              <svg class="icon icon-sm" aria-hidden="true"><use href="#i-x"></use></svg>
+            </button>
+          </header>
+          <div class="float-body">
+            <section class="float-pane is-active" data-pane="review">
+              <div class="rail-block">
+                <div class="rail-head">
+                  <h3>Reviewers</h3>
+                  <span class="rail-count" id="reviewer-count">2</span>
+                </div>
+                <div class="reviewer">
+                  <span class="avatar avatar-sm is-rose" aria-hidden="true">MV</span>
+                  <span class="reviewer-name">Mara Voss</span>
+                  <span class="badge is-outline">author</span>
+                </div>
+                <div class="reviewer">
+                  <span class="avatar avatar-sm is-sky" aria-hidden="true">IS</span>
+                  <span class="reviewer-name">Ilya Sokolov</span>
+                  <span class="badge">requested</span>
+                </div>
+                <div class="reviewer is-you">
+                  <span class="avatar avatar-sm is-amber" aria-hidden="true">LW</span>
+                  <span class="reviewer-name">Lin Wei <span class="fine">(you)</span></span>
+                  <span class="badge is-warn" id="your-review">requested</span>
+                </div>
+                <button class="text-link review-invite" type="button" data-toast="POST /pull-requests/142/reviewers — 只能邀请仓库成员，重复邀请幂等">Request review</button>
+                <div class="review-actions">
+                  <button class="btn btn-ghost btn-sm btn-block" id="approve-btn" type="button">
+                    <svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg>Approve
+                  </button>
+                  <button class="btn btn-ghost btn-sm btn-block request-changes" id="request-btn" type="button">Request changes</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="float-pane" data-pane="checks">
+              <div class="rail-block">
+                <h3>Status checks</h3>
+                <div class="mini-check"><span class="lamp is-good" aria-hidden="true"></span><span>unit</span><span class="mini-check-time mono">1m 42s</span></div>
+                <div class="mini-check"><span class="lamp is-good" aria-hidden="true"></span><span>security-scan</span><span class="mini-check-time mono">38s</span></div>
+                <div class="mini-check" data-mini-e2e><span class="lamp is-warn is-live" aria-hidden="true"></span><span>e2e</span><span class="mini-check-time mono">queued</span></div>
+                <p class="context-note">Branch protection on this repo requires three checks. The server decides whether a missing record counts as pass or fail.</p>
+              </div>
+            </section>
+
+            <section class="float-pane" data-pane="merge">
+              <div class="rail-block">
+                <section class="merge-box" id="merge-box">
+                  <div class="merge-state">
+                    <span class="merge-lamp" id="merge-lamp" aria-hidden="true"><span class="lamp is-warn"></span></span>
+                    <div>
+                      <strong id="merge-title">Review required</strong>
+                      <p id="merge-desc">1 approval and 1 check remaining.</p>
+                    </div>
+                  </div>
+                  <div class="merge-checks">
+                    <span id="merge-review-state"><svg class="icon icon-xs" aria-hidden="true"><use href="#i-clock"></use></svg>Review required</span>
+                    <span id="merge-check-state"><svg class="icon icon-xs" aria-hidden="true"><use href="#i-clock"></use></svg>e2e queued</span>
+                  </div>
+                  <button class="btn btn-primary btn-block" id="merge-btn" type="button" disabled>
+                    <svg class="icon" aria-hidden="true"><use href="#i-merge"></use></svg>Squash and merge
+                  </button>
+                  <p class="fine"><svg class="icon icon-xs" aria-hidden="true"><use href="#i-shield"></use></svg>Branch protection on <span class="mono">main</span> requires 1 approval and 3 checks.</p>
+                  <p class="fine">Repo owners and global admins can override protection; the override is audited with a reason.</p>
+                </section>
+              </div>
+              <div class="rail-block">
+                <div class="rail-head">
+                  <h3>Linked issues</h3>
+                  <span class="rail-count" id="linked-issue-count">1</span>
+                </div>
+                <a href="issues.html" class="linked-issue">
+                  <svg class="icon icon-sm" aria-hidden="true"><use href="#i-issue"></use></svg>
+                  <span class="linked-issue-copy">
+                    <span class="linked-issue-title">LFS uploads &gt;5GB fail before the size guard</span>
+                    <span class="fine"><span class="mono">#76</span> · open · closes on merge</span>
+                  </span>
+                </a>
+                <button class="text-link mt-8" type="button" data-toast="POST /pull-requests/142/issues — 关联同仓库 Issue；合并时按 closes_on_merge 关闭">Link issue</button>
+              </div>
+              <div class="rail-block">
+                <h3>Merge strategy</h3>
+                <p class="fine">Default for this repository is <span class="mono">squash</span>. Merge commits and rebase are also available.</p>
+                <button class="text-link mt-8" type="button" data-toast="Merge strategy is set per repository by admins.">Change repository default</button>
+              </div>
+            </section>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+  </template>
+
+  <div class="overlay" id="merge-modal" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="merge-modal-title">
+      <div class="modal-head">
+        <div>
+          <p class="eyebrow">Pull request #142</p>
+          <h2 id="merge-modal-title">Merge into main</h2>
+          <p class="fine">All required reviews and checks will be recorded in PR activity.</p>
+        </div>
+        <button class="icon-btn" type="button" data-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <label class="radio-row">
+          <input type="radio" name="merge-method" value="squash" checked>
+          <span><strong>Squash and merge</strong><span>One commit on main. Keeps the branch history quiet.</span></span>
+        </label>
+        <label class="radio-row">
+          <input type="radio" name="merge-method" value="merge">
+          <span><strong>Create a merge commit</strong><span>Preserves all three commits and adds a merge commit.</span></span>
+        </label>
+        <label class="radio-row">
+          <input type="radio" name="merge-method" value="rebase">
+          <span><strong>Rebase and merge</strong><span>Replays the commits on main without a merge commit.</span></span>
+        </label>
+        <p class="fine">The branch <span class="mono">mara/lfs-token-scope</span> will be deleted after merge.</p>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-quiet" type="button" data-close>Cancel</button>
+        <button class="btn btn-primary" type="button" id="confirm-merge">
+          <svg class="icon" aria-hidden="true"><use href="#i-merge"></use></svg>Squash and merge
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/icons.js"></script>
+  <script src="assets/js/util.js"></script>
+  <script src="assets/js/shell.js"></script>
+  <script src="assets/js/pull.js"></script>
+</body>
+</html>

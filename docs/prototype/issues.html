@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Issues · lin/atlas · Kustos</title>
+  <meta name="description" content="Triage issues with labels, priority, comments and an agent triage summary.">
+  <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/tokens.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/issues.css">
+  <link rel="stylesheet" href="assets/css/responsive.css">
+</head>
+<body data-page="issues" data-crumb="lin|atlas|Issues" data-title="Issues · lin/atlas · Kustos">
+  <a class="skip" href="#main">Skip to content</a>
+  <div id="shell"></div>
+
+  <template id="page-template">
+    <section class="view issues-view" aria-labelledby="issues-title">
+      <header class="page-head compact">
+        <div>
+          <p class="eyebrow">lin / atlas</p>
+          <h1 class="display-sm" id="issues-title">Issues</h1>
+          <p class="issue-head-stats">
+            <span class="issue-head-stat"><strong id="open-count">9</strong> open</span>
+            <span class="sep" aria-hidden="true">·</span>
+            <span class="issue-head-stat"><strong id="closed-count">3</strong> closed</span>
+            <span class="sep" aria-hidden="true">·</span>
+            <span class="badge is-warn"><span id="assigned-count">1</span>&nbsp;assigned to you</span>
+          </p>
+        </div>
+        <div class="page-head-side">
+          <button class="btn btn-primary" type="button" id="new-issue-btn">
+            <svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>
+            New issue
+          </button>
+        </div>
+      </header>
+
+      <div class="stage" id="issue-stage">
+        <div class="stage-core">
+          <div class="issue-layout">
+        <aside class="issue-list" aria-label="Issue list">
+          <div class="issue-filters">
+            <div class="segmented" role="group" aria-label="Issue status">
+              <button class="is-active" type="button" data-status-filter="open">Open <span class="count" id="open-filter-count">9</span></button>
+              <button type="button" data-status-filter="closed">Closed <span class="count" id="closed-filter-count">3</span></button>
+            </div>
+
+            <div class="issue-filter-row">
+              <div class="input-icon issue-search">
+                <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
+                <input class="input" id="issue-search" type="text" placeholder="Filter issues…" autocomplete="off" aria-label="Filter issues">
+              </div>
+              <button class="icon-btn is-bordered" type="button" aria-label="Sort issues" data-toast="Sorting is fixed to recently updated in this prototype.">
+                <svg class="icon icon-sm" aria-hidden="true"><use href="#i-sliders"></use></svg>
+              </button>
+            </div>
+
+            <div class="chip-row" id="label-filters" aria-label="Filter by label">
+              <button class="chip is-active" type="button" data-label-filter="">All</button>
+              <button class="chip" type="button" data-label-filter="agent">agent</button>
+              <button class="chip" type="button" data-label-filter="search">search</button>
+              <button class="chip" type="button" data-label-filter="realtime">realtime</button>
+              <button class="chip" type="button" data-label-filter="lfs">lfs</button>
+            </div>
+          </div>
+
+          <div class="issue-rows" id="issue-rows"></div>
+          <div class="issue-list-foot" id="issue-list-foot"></div>
+        </aside>
+
+            <article class="issue-detail" id="issue-detail" aria-label="Issue detail"></article>
+          </div>
+        </div>
+
+        <div class="float-dock" role="toolbar" aria-label="Issue context">
+          <button class="dock-btn" type="button" data-panel-tab="details" data-panel-label="Details" data-panel-kicker="Issue" aria-label="Issue details" aria-expanded="false">
+            <svg class="icon" aria-hidden="true"><use href="#i-tag"></use></svg>
+          </button>
+          <button class="dock-btn" type="button" data-panel-tab="triage" data-panel-label="Kustos triage" data-panel-kicker="Issue" aria-label="Kustos triage" aria-expanded="false">
+            <svg class="icon" aria-hidden="true"><use href="#i-agent"></use></svg>
+          </button>
+        </div>
+
+        <aside class="float-panel" aria-label="Issue context">
+          <header class="float-head">
+            <div class="float-head-copy">
+              <p class="eyebrow" id="issue-panel-kicker">Issue</p>
+              <h2 id="issue-panel-title">Details</h2>
+            </div>
+            <button class="icon-btn" type="button" data-panel-close aria-label="Close issue panel">
+              <svg class="icon icon-sm" aria-hidden="true"><use href="#i-x"></use></svg>
+            </button>
+          </header>
+          <div class="float-body">
+            <section class="float-pane is-active" data-pane="details">
+              <div class="rail-block" id="issue-panel-meta"></div>
+            </section>
+            <section class="float-pane" data-pane="triage">
+              <div class="rail-block" id="issue-panel-triage"></div>
+            </section>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </template>
+
+  <div class="overlay" id="new-issue-modal" hidden>
+    <form class="modal is-wide" id="new-issue-form" role="dialog" aria-modal="true" aria-labelledby="new-issue-title">
+      <div class="modal-head">
+        <div>
+          <p class="eyebrow">lin / atlas</p>
+          <h2 id="new-issue-title">New issue</h2>
+          <p class="fine">Describe the problem and the smallest observable outcome.</p>
+        </div>
+        <button class="icon-btn" type="button" data-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label for="new-issue-name">Title</label>
+          <input class="input" id="new-issue-name" name="title" type="text" required placeholder="Short, specific, searchable">
+        </div>
+        <div class="field">
+          <label for="new-issue-body">Description</label>
+          <textarea class="textarea" id="new-issue-body" name="body" rows="5" placeholder="What happens? What did you expect? Include a repro if you have one."></textarea>
+        </div>
+        <div class="form-grid-2">
+          <div class="field">
+            <label for="new-issue-priority">Priority</label>
+            <select class="select" id="new-issue-priority" name="priority">
+              <option>High</option>
+              <option selected>Medium</option>
+              <option>Low</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="new-issue-assignee">Assignee</label>
+            <select class="select" id="new-issue-assignee" name="assignee">
+              <option selected>Lin Wei (you)</option>
+              <option>Mara Voss</option>
+              <option>Ilya Sokolov</option>
+              <option>Noor Haddad</option>
+              <option>Unassigned</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <span class="field-label">Labels</span>
+          <div class="check-grid">
+            <label class="check"><input type="checkbox" name="labels" value="bug">bug</label>
+            <label class="check"><input type="checkbox" name="labels" value="agent">agent</label>
+            <label class="check"><input type="checkbox" name="labels" value="search">search</label>
+            <label class="check"><input type="checkbox" name="labels" value="performance">performance</label>
+            <label class="check"><input type="checkbox" name="labels" value="lfs">lfs</label>
+            <label class="check"><input type="checkbox" name="labels" value="realtime">realtime</label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <span class="fine">Issue numbers are assigned per repository.</span>
+        <button class="btn btn-quiet" type="button" data-close>Cancel</button>
+        <button class="btn btn-primary" type="submit">Create issue</button>
+      </div>
+    </form>
+  </div>
+
+  <script src="assets/js/icons.js"></script>
+  <script src="assets/js/util.js"></script>
+  <script src="assets/js/shell.js"></script>
+  <script src="assets/js/issues-data.js"></script>
+  <script src="assets/js/issues.js"></script>
+</body>
+</html>

@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in · Kustos</title>
+  <meta name="description" content="Sign in to Kustos at Northstar Labs.">
+  <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/tokens.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/login.css">
+</head>
+<body class="login-body">
+  <main class="login">
+    <section class="login-brand" aria-labelledby="login-brand-title">
+      <img class="login-watermark" src="assets/brand/kustos-mark.svg" alt="" aria-hidden="true">
+
+      <div class="login-brand-top">
+        <a class="login-logo" href="index.html" aria-label="KUSTOS — self-hosted Git forge">
+          <img src="assets/brand/kustos-mark.svg" width="42" height="42" alt="">
+          <span>
+            <span class="login-logo-word">KUSTOS</span>
+            <span class="login-logo-sub">SELF-HOSTED GIT FORGE</span>
+          </span>
+        </a>
+        <span class="status-pill"><svg class="icon icon-xs" aria-hidden="true"><use href="#i-lock"></use></svg>Self-hosted</span>
+      </div>
+
+      <div class="login-brand-copy">
+        <p class="eyebrow">MERIDIAN · NORTHSTAR LABS</p>
+        <h1 class="login-display" id="login-brand-title">Keep the code<br>that matters.</h1>
+        <p class="login-lede">A quiet, self-hosted forge with a resident keeper. Repositories, review, realtime rooms and a careful agent — on your own metal.</p>
+        <ul class="login-features">
+          <li><svg class="icon" aria-hidden="true"><use href="#i-git-commit"></use></svg><span>Bare Git + native HTTP and SSH</span></li>
+          <li><svg class="icon" aria-hidden="true"><use href="#i-agent"></use></svg><span>Agent writes pause for explicit approval</span></li>
+          <li><svg class="icon" aria-hidden="true"><use href="#i-users"></use></svg><span>Live co-editing and room chat</span></li>
+        </ul>
+      </div>
+
+      <footer class="login-brand-foot">
+        <span class="login-status"><svg class="icon icon-xs" aria-hidden="true"><use href="#i-shield"></use></svg>Sign-in only</span>
+        <span class="mono">MIT · meridian.northstar.dev</span>
+      </footer>
+    </section>
+
+    <section class="login-panel" aria-labelledby="login-title">
+      <div class="login-form-wrap">
+        <p class="eyebrow">NORTHSTAR LABS</p>
+        <h2 class="display-sm" id="login-title">Welcome back.</h2>
+        <p class="fine login-sub">Sign in to Northstar Labs.</p>
+
+        <form class="login-form" id="login-form" novalidate>
+          <div class="field">
+            <label for="email">Email</label>
+            <input class="input" id="email" name="email" type="email" value="lin@northstar.dev" autocomplete="username" spellcheck="false" required>
+          </div>
+
+          <div class="field">
+            <div class="between login-label-row">
+              <label for="password">Password</label>
+              <button class="login-link" type="button" data-toast="No self-serve reset: an instance admin can issue a new password.">Forgot password?</button>
+            </div>
+            <div class="password-wrap">
+              <input class="input" id="password" name="password" type="password" value="nightwatch" autocomplete="current-password" required>
+              <button class="icon-btn password-toggle" id="password-toggle" type="button" aria-label="Show password" aria-pressed="false">
+                <svg class="icon icon-sm" aria-hidden="true"><use href="#i-eye"></use></svg>
+              </button>
+            </div>
+          </div>
+
+          <p class="login-error" id="login-error" role="alert" hidden>Enter your email and password to continue.</p>
+
+          <button class="btn btn-primary btn-lg btn-block" id="login-submit" type="submit">
+            <span>Continue</span>
+            <svg class="icon" aria-hidden="true"><use href="#i-arrow-up-right"></use></svg>
+          </button>
+        </form>
+
+        <div class="login-divider"><span>or continue with</span></div>
+
+        <div class="login-sso">
+          <button class="btn btn-ghost btn-block" type="button" data-toast="GitHub OAuth is configured by the instance admin (env, protected).">
+            <svg class="icon" aria-hidden="true"><use href="#i-globe"></use></svg>
+            GitHub
+          </button>
+          <button class="btn btn-ghost btn-block" type="button" data-toast="GitLab OAuth is configured by the instance admin (env, protected).">
+            <svg class="icon" aria-hidden="true"><use href="#i-globe"></use></svg>
+            GitLab
+          </button>
+        </div>
+
+        <p class="login-foot">New to Kustos? <button class="login-link" type="button" data-toast="Self-registration is open on this instance — POST /api/v1/users.">Create an account</button></p>
+        <p class="login-meta"><span class="mono">kustos 1.0.0</span> · self-hosted · <a href="index.html">Preview the app</a></p>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast-stack" id="toasts" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="assets/js/icons.js"></script>
+  <script src="assets/js/util.js"></script>
+  <script src="assets/js/login.js"></script>
+</body>
+</html>

@@ -1,0 +1,1398 @@
+/* Reset, typography, application shell */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--bone);
+  background:
+    radial-gradient(1100px 720px at 12% -14%, rgba(242, 174, 91, 0.075), transparent 62%),
+    radial-gradient(900px 620px at 94% -4%, rgba(131, 169, 196, 0.045), transparent 58%),
+    var(--ink-950);
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  line-height: 1.55;
+  letter-spacing: -0.005em;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body.is-locked {
+  overflow: hidden;
+}
+
+::selection {
+  color: var(--ink-950);
+  background: var(--amber-2);
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+img,
+svg {
+  display: block;
+}
+
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+dl,
+dd,
+dt,
+ol,
+ul,
+figure {
+  margin: 0;
+}
+
+ol,
+ul {
+  padding: 0;
+  list-style: none;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+pre {
+  margin: 0;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--ink-700) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 99px;
+  background-clip: content-box;
+  background-color: var(--ink-700);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--ink-650);
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ------------------------------------------------------------------ */
+/* Utilities                                                          */
+/* ------------------------------------------------------------------ */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip {
+  position: fixed;
+  top: 10px;
+  left: 12px;
+  z-index: 200;
+  padding: 8px 12px;
+  border-radius: var(--r-2);
+  color: var(--ink-950);
+  background: var(--amber);
+  font-weight: 600;
+  transform: translateY(-160%);
+  transition: transform var(--fast) var(--ease);
+}
+
+.skip:focus-visible {
+  transform: translateY(0);
+}
+
+.icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon-sm {
+  width: 15px;
+  height: 15px;
+}
+
+.icon-xs {
+  width: 13px;
+  height: 13px;
+}
+
+.icon-lg {
+  width: 22px;
+  height: 22px;
+}
+
+.icon-fill {
+  fill: currentColor;
+  stroke: none;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.92em;
+  letter-spacing: -0.02em;
+}
+
+.label {
+  color: var(--faint);
+  font-family: var(--font-ui);
+  font-size: var(--t-label);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.muted-2 {
+  color: var(--muted-2);
+}
+
+.faint {
+  color: var(--faint);
+}
+
+.bone-2 {
+  color: var(--bone-2);
+}
+
+.amber {
+  color: var(--amber);
+}
+
+.sage {
+  color: var(--sage);
+}
+
+.rose {
+  color: var(--rose);
+}
+
+.sky {
+  color: var(--sky);
+}
+
+.fine {
+  color: var(--muted-2);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.eyebrow {
+  color: var(--muted-2);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.display {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 3vw, 2.9rem);
+  font-weight: 500;
+  line-height: 1.02;
+  letter-spacing: -0.028em;
+}
+
+.display-sm {
+  font-family: var(--font-display);
+  font-size: clamp(1.55rem, 2.2vw, 2.15rem);
+  font-weight: 500;
+  line-height: 1.08;
+  letter-spacing: -0.022em;
+}
+
+.lede {
+  max-width: 64ch;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+}
+
+.between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.gap-4 { gap: 4px; }
+.gap-6 { gap: 6px; }
+.gap-8 { gap: 8px; }
+.gap-10 { gap: 10px; }
+.gap-12 { gap: 12px; }
+.gap-16 { gap: 16px; }
+.gap-20 { gap: 20px; }
+
+.mt-8 { margin-top: 8px; }
+.mt-12 { margin-top: 12px; }
+.mt-16 { margin-top: 16px; }
+.mt-20 { margin-top: 20px; }
+.mt-24 { margin-top: 24px; }
+.mt-32 { margin-top: 32px; }
+.mt-40 { margin-top: 40px; }
+
+.truncate {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* ------------------------------------------------------------------ */
+/* Hierarchy primitives                                               */
+/* ------------------------------------------------------------------ */
+
+/* A group is a labelled cluster: label row on top, items below.
+   Group labels are quieter than section heads — they describe a slice
+   inside one subject, not a new subject. */
+.group {
+  min-width: 0;
+}
+
+.group-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 0 7px;
+}
+
+.group-key {
+  color: var(--muted-2);
+  font-size: var(--t-label);
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.group-count {
+  padding: 0 6px;
+  border-radius: var(--r-pill);
+  color: var(--muted-2);
+  background: rgba(240, 231, 216, 0.06);
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  font-variant-numeric: tabular-nums;
+  line-height: 15px;
+}
+
+.group-note {
+  margin-left: auto;
+  color: var(--faint);
+  font-size: var(--t-micro);
+  white-space: nowrap;
+}
+
+.group-body {
+  min-width: 0;
+}
+
+/* Nested rows: a guide line carries the containment instead of a card
+   inside a card inside a card. */
+.nest {
+  margin-left: 3px;
+  padding-left: 13px;
+  border-left: 1px solid var(--edge-2);
+}
+
+/* Key / value stacks. Long values go on their own line instead of being
+   squeezed into a right-aligned column. */
+.kv {
+  display: flex;
+  flex-direction: column;
+}
+
+.kv-row {
+  display: grid;
+  grid-template-columns: minmax(74px, 0.62fr) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 0;
+  border-top: 1px solid var(--edge-1);
+}
+
+.kv-row:first-child {
+  border-top: 0;
+}
+
+.kv-key {
+  color: var(--muted-2);
+  font-size: var(--t-micro);
+}
+
+.kv-val {
+  min-width: 0;
+  color: var(--bone-2);
+  font-size: var(--t-xs);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.kv-val.is-mono {
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  letter-spacing: -0.01em;
+}
+
+/* Recessed well for code, args and terminal-ish blocks. */
+.well {
+  border: 1px solid var(--edge-1);
+  border-radius: var(--r-2);
+  background: rgba(5, 9, 11, 0.62);
+  box-shadow: inset 0 1px 6px rgba(0, 0, 0, 0.28);
+}
+
+.count-pill {
+  display: inline-flex;
+  min-width: 17px;
+  height: 17px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  border-radius: var(--r-pill);
+  color: var(--muted-2);
+  background: rgba(240, 231, 216, 0.06);
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.count-pill.is-amber {
+  color: var(--amber);
+  background: var(--amber-wash);
+}
+
+/* ------------------------------------------------------------------ */
+/* Atmosphere                                                         */
+/* ------------------------------------------------------------------ */
+
+.noise {
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  opacity: 0.032;
+  mix-blend-mode: soft-light;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.86' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ------------------------------------------------------------------ */
+/* Sidebar                                                            */
+/* ------------------------------------------------------------------ */
+
+.sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: var(--z-sidebar);
+  display: flex;
+  width: var(--sidebar-w);
+  flex-direction: column;
+  padding: 0 12px;
+  border-right: 1px solid var(--line);
+  background:
+    linear-gradient(180deg, rgba(17, 28, 34, 0.72), rgba(8, 13, 16, 0.94) 42%),
+    var(--ink-900);
+  transition: transform var(--med) var(--ease), width var(--med) var(--ease);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 21px 10px 15px;
+  flex: none;
+}
+
+.brand-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  border-radius: var(--r-2);
+}
+
+.brand-mark {
+  width: 31px;
+  height: 31px;
+  flex: none;
+}
+
+.brand-word {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.155em;
+  line-height: 1;
+}
+
+.brand-sub {
+  margin-top: 4px;
+  color: var(--faint);
+  font-family: var(--font-ui);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.19em;
+}
+
+.workspace-switch {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-2);
+  color: var(--bone-2);
+  background: rgba(21, 35, 42, 0.55);
+  text-align: left;
+  transition: border-color var(--fast) var(--ease), background var(--fast) var(--ease);
+}
+
+.workspace-switch:hover {
+  border-color: var(--line-2);
+  background: var(--ink-750);
+}
+
+/* The instance card is a label, not a switcher: there is no workspace entity
+   and therefore nothing to switch between. */
+.workspace-switch.is-static {
+  cursor: default;
+}
+
+.workspace-switch.is-static:hover {
+  border-color: var(--line);
+  background: rgba(21, 35, 42, 0.55);
+}
+
+.workspace-avatar {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  flex: none;
+  place-items: center;
+  border: 1px solid rgba(242, 174, 91, 0.36);
+  border-radius: 6px;
+  color: var(--amber-2);
+  background: var(--amber-wash);
+  font-family: var(--font-display);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.workspace-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.workspace-name {
+  display: block;
+  overflow: hidden;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-meta {
+  display: block;
+  color: var(--muted-2);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.workspace-switch .icon {
+  color: var(--faint);
+}
+
+.sidebar-nav {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 12px;
+}
+
+.nav-group {
+  margin-top: 18px;
+}
+
+.nav-group + .nav-group {
+  margin-top: 16px;
+  padding-top: 15px;
+  border-top: 1px solid var(--edge-1);
+}
+
+.nav-label {
+  padding: 0 10px 7px;
+  color: var(--faint);
+  font-size: var(--t-label);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 34px;
+  margin-bottom: 2px;
+  padding: 0 10px;
+  border-radius: var(--r-2);
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 500;
+  transition: color var(--fast) var(--ease), background var(--fast) var(--ease);
+}
+
+.nav-item:hover {
+  color: var(--bone);
+  background: rgba(27, 44, 52, 0.55);
+}
+
+.nav-item .icon {
+  color: var(--muted-2);
+  transition: color var(--fast) var(--ease);
+}
+
+.nav-item.is-active {
+  color: var(--bone);
+  background: linear-gradient(90deg, rgba(242, 174, 91, 0.14), rgba(242, 174, 91, 0.025));
+}
+
+.nav-item.is-active::before {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: -1px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--amber);
+  box-shadow: 0 0 12px rgba(242, 174, 91, 0.55);
+  content: "";
+}
+
+.nav-item.is-active .icon {
+  color: var(--amber);
+}
+
+.nav-badge {
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: var(--r-pill);
+  color: var(--muted-2);
+  background: rgba(240, 231, 216, 0.06);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.nav-badge.is-amber {
+  color: var(--amber);
+  background: var(--amber-wash);
+}
+
+.repo-item {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 10px;
+  border-radius: var(--r-2);
+  color: var(--muted);
+  font-size: 11.5px;
+  text-align: left;
+  transition: color var(--fast) var(--ease), background var(--fast) var(--ease);
+}
+
+.repo-item:hover {
+  color: var(--bone-2);
+  background: rgba(27, 44, 52, 0.45);
+}
+
+.repo-item.is-active {
+  color: var(--bone);
+  background: rgba(27, 44, 52, 0.4);
+}
+
+.repo-dot {
+  width: 5px;
+  height: 5px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--faint);
+}
+
+.repo-item.is-active .repo-dot {
+  background: var(--amber);
+  box-shadow: 0 0 8px rgba(242, 174, 91, 0.65);
+}
+
+.repo-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.repo-name {
+  overflow: hidden;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.repo-item.is-active .repo-name {
+  color: var(--bone);
+}
+
+.repo-meta {
+  overflow: hidden;
+  color: var(--faint);
+  font-size: var(--t-micro);
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.repo-count {
+  align-self: start;
+  margin-top: 2px;
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+}
+
+/* Current object nested under the active repo: repo → surface → object.
+   The two rows share one surface so the containment is unmistakable. */
+.repo-item.is-active:has(+ .repo-here) {
+  border-radius: var(--r-2) var(--r-2) 0 0;
+}
+
+.repo-here {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 6px;
+  padding: 6px 10px 8px 25px;
+  border-radius: 0 0 var(--r-2) var(--r-2);
+  background: rgba(27, 44, 52, 0.4);
+}
+
+.repo-here::before {
+  position: absolute;
+  top: 8px;
+  bottom: 9px;
+  left: 16px;
+  width: 1px;
+  background: rgba(242, 174, 91, 0.42);
+  content: "";
+}
+
+.repo-here-view {
+  color: var(--amber);
+  font-size: var(--t-micro);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+}
+
+.repo-here-detail {
+  overflow: hidden;
+  color: var(--muted-2);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: -0.01em;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.side-bottom {
+  position: relative;
+  flex: none;
+  padding: 10px 4px 13px;
+  border-top: 1px solid var(--line);
+}
+
+.side-bottom .side-user-menu {
+  top: auto;
+  right: auto;
+  bottom: calc(100% + 8px);
+  left: 0;
+  width: 214px;
+}
+
+.nav-group-instance {
+  margin-top: 18px;
+}
+
+/* Instance scope is separated from repository scope: one is the server the
+   reader is on, the other is what they are working in. */
+.nav-item-admin .icon {
+  color: var(--sky);
+}
+
+.nav-tag {
+  margin-left: auto;
+  padding: 0 6px;
+  border: 1px solid var(--edge-2);
+  border-radius: var(--r-pill);
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 15px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.nav-item-admin.is-active .nav-tag {
+  border-color: rgba(242, 174, 91, 0.3);
+  color: var(--amber-2);
+}
+
+.user-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 9px;
+  border-radius: var(--r-2);
+  text-align: left;
+}
+
+.user-row:hover {
+  background: rgba(27, 44, 52, 0.5);
+}
+
+.user-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.user-name {
+  display: block;
+  color: var(--bone-2);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.user-role {
+  display: block;
+  color: var(--muted-2);
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+/* ------------------------------------------------------------------ */
+/* Workspace and topbar                                               */
+/* ------------------------------------------------------------------ */
+
+.workspace {
+  position: relative;
+  z-index: 2;
+  min-height: 100vh;
+  margin-left: var(--sidebar-w);
+  transition: margin-left var(--med) var(--ease);
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-topbar);
+  display: flex;
+  height: var(--topbar-h);
+  align-items: center;
+  gap: 16px;
+  padding: 0 28px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(8, 13, 16, 0.78);
+  backdrop-filter: blur(16px) saturate(1.05);
+}
+
+.topbar::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(242, 174, 91, 0.12), transparent);
+  content: "";
+  pointer-events: none;
+}
+
+.sidebar-toggle {
+  display: none;
+}
+
+.crumbs {
+  display: flex;
+  min-width: 0;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 7px;
+  overflow: hidden;
+  color: var(--muted-2);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.crumbs > span,
+.crumbs > a {
+  flex: none;
+}
+
+.crumbs .current {
+  max-width: 220px;
+}
+
+.crumbs a {
+  border-radius: var(--r-1);
+  transition: color var(--fast) var(--ease);
+}
+
+.crumbs a:hover {
+  color: var(--bone);
+}
+
+.crumbs .sep {
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.crumbs .current {
+  overflow: hidden;
+  color: var(--bone-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-trigger {
+  display: flex;
+  width: 310px;
+  height: 32px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-2);
+  color: var(--muted-2);
+  background: rgba(17, 28, 34, 0.55);
+  font-size: 11.5px;
+  text-align: left;
+  transition: color var(--fast) var(--ease), border-color var(--fast) var(--ease), background var(--fast) var(--ease);
+}
+
+.search-trigger:hover {
+  border-color: var(--line-2);
+  color: var(--muted);
+  background: var(--ink-800);
+}
+
+.search-trigger .kbd {
+  margin-left: auto;
+}
+
+.topbar-actions {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.unread-dot {
+  position: absolute;
+  top: 5px;
+  right: 4px;
+  width: 5px;
+  height: 5px;
+  border: 1px solid var(--ink-950);
+  border-radius: 50%;
+  background: var(--amber);
+  box-shadow: 0 0 7px rgba(242, 174, 91, 0.7);
+}
+
+.agent-pill {
+  display: flex;
+  height: 30px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  border: 1px solid rgba(242, 174, 91, 0.24);
+  border-radius: var(--r-pill);
+  color: var(--amber-2);
+  background: rgba(242, 174, 91, 0.07);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background var(--fast) var(--ease), border-color var(--fast) var(--ease);
+}
+
+.agent-pill:hover {
+  border-color: rgba(242, 174, 91, 0.42);
+  background: rgba(242, 174, 91, 0.13);
+}
+
+.agent-pill .lamp {
+  background: var(--amber);
+  box-shadow: 0 0 9px rgba(242, 174, 91, 0.7);
+}
+
+.agent-pill strong {
+  color: var(--bone);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------------ */
+/* Main canvas                                                        */
+/* ------------------------------------------------------------------ */
+
+.main {
+  width: 100%;
+  max-width: var(--main-max);
+  margin: 0 auto;
+  padding: 30px var(--main-pad) 82px;
+}
+
+.view {
+  animation: view-in var(--slow) var(--ease-out) backwards;
+}
+
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 32px;
+  margin-bottom: 30px;
+}
+
+.page-head > div:first-child {
+  min-width: 0;
+}
+
+.page-head .eyebrow {
+  color: var(--faint);
+}
+
+.page-head .display,
+.page-head .display-sm {
+  margin-top: 8px;
+}
+
+.page-head .lede {
+  margin-top: 10px;
+}
+
+.page-head-side {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 4px;
+}
+
+.page-head.compact {
+  align-items: center;
+  margin-bottom: 22px;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 27px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--edge-2);
+}
+
+.section-head h2 {
+  color: var(--bone-2);
+  font-size: var(--t-label);
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.section-head .section-meta {
+  margin-left: auto;
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+}
+
+.section-count {
+  padding: 1px 6px;
+  border-radius: var(--r-pill);
+  color: var(--muted-2);
+  background: rgba(240, 231, 216, 0.06);
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  line-height: 15px;
+}
+
+/* Opacity only: a transform on .view would become the containing block for
+   the fixed-position floating layer and make the panel jump on entry. */
+@keyframes view-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Floating layers                                                    */
+/* ------------------------------------------------------------------ */
+
+/* A stage is a full-bleed canvas. The canvas is the page; secondary
+   surfaces (inspectors, facts, activity) float above it instead of
+   taking a column away from it. */
+
+.stage {
+  position: relative;
+  min-width: 0;
+}
+
+.stage-core {
+  min-width: 0;
+  /* The dock lives in this gutter, so it never sits on the canvas. */
+  padding-right: 52px;
+}
+
+/* The panel is an overlay: it never changes the canvas geometry. */
+
+/* When a panel is over the canvas, the right edge of the page recedes
+   under it instead of being sliced at a hard line. */
+.stage::after {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  background: linear-gradient(
+    90deg,
+    transparent calc(100% - 500px),
+    rgba(4, 8, 11, 0.2) calc(100% - 410px),
+    rgba(4, 8, 11, 0.52) 100%
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--med) var(--ease);
+  content: "";
+}
+
+.stage.is-paneled::after {
+  opacity: 1;
+}
+
+/* Dock — a slim vertical handle on the canvas edge. */
+.float-dock {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transform: translateY(-50%);
+}
+
+.dock-btn {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid var(--edge-2);
+  border-radius: var(--r-2);
+  color: var(--muted-2);
+  background: rgba(13, 22, 27, 0.82);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(10px);
+  transition: color var(--fast) var(--ease), border-color var(--fast) var(--ease), background var(--fast) var(--ease), transform var(--fast) var(--ease);
+}
+
+.dock-btn:hover {
+  color: var(--bone);
+  border-color: var(--line-3);
+  background: rgba(21, 35, 42, 0.95);
+  transform: translateX(-2px);
+}
+
+.dock-btn.is-active {
+  color: var(--amber);
+  border-color: rgba(242, 174, 91, 0.42);
+  background: rgba(242, 174, 91, 0.12);
+}
+
+.dock-btn .icon {
+  width: 15px;
+  height: 15px;
+}
+
+/* Panel — a raised surface over the canvas, not a sibling column. */
+.float-panel {
+  position: absolute;
+  top: 10px;
+  right: 54px;
+  z-index: 11;
+  display: flex;
+  width: 336px;
+  min-height: 168px;
+  max-height: calc(100% - 20px);
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--edge-2);
+  border-radius: var(--r-4);
+  background:
+    linear-gradient(180deg, rgba(23, 36, 44, 0.975), rgba(10, 18, 23, 0.99));
+  box-shadow:
+    0 40px 90px rgba(0, 0, 0, 0.58),
+    0 4px 16px rgba(0, 0, 0, 0.4),
+    -28px 0 48px -20px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(240, 231, 216, 0.06);
+  backdrop-filter: blur(22px) saturate(1.1);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(16px) scale(0.985);
+  transform-origin: right center;
+  transition: opacity var(--fast) var(--ease), transform var(--med) var(--ease-out);
+}
+
+.float-panel.is-open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
+
+.float-head {
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 12px 11px 15px;
+  border-bottom: 1px solid var(--edge-1);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent);
+}
+
+.float-head-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.float-head h2 {
+  margin-top: 3px;
+  color: var(--bone);
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+}
+
+.float-head .eyebrow {
+  color: var(--faint);
+  font-size: 9.5px;
+}
+
+.float-head .icon-btn {
+  margin-top: -2px;
+  color: var(--muted-2);
+}
+
+.float-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.float-pane {
+  display: none;
+}
+
+.float-pane.is-active {
+  display: block;
+  animation: pane-in var(--med) var(--ease-out) both;
+}
+
+@keyframes pane-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.text-link {
+  padding: 0;
+  color: var(--amber);
+  font-size: var(--t-micro);
+  text-align: left;
+  transition: color var(--fast) var(--ease);
+}
+
+.text-link:hover {
+  color: var(--amber-2);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Blocks inside a floating panel. */
+.rail-block {
+  padding: 14px 15px 15px;
+  border-bottom: 1px solid var(--edge-1);
+}
+
+.rail-block:last-child {
+  border-bottom: 0;
+}
+
+.rail-block h3 {
+  margin-bottom: 10px;
+  color: var(--muted-2);
+  font-size: var(--t-label);
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.rail-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.rail-head h3 {
+  margin-bottom: 0;
+}
+
+.rail-count {
+  margin-left: auto;
+  padding: 0 6px;
+  border-radius: var(--r-pill);
+  color: var(--faint);
+  background: rgba(240, 231, 216, 0.05);
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  line-height: 16px;
+}
+
+/* Document pages scroll; the floating layer stays put. */
+.stage.is-document .float-dock {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.stage.is-document .float-panel {
+  position: fixed;
+  /* Start below the page header so the primary actions stay reachable. */
+  top: calc(var(--topbar-h) + 130px);
+  bottom: auto;
+  max-height: calc(100vh - var(--topbar-h) - 148px);
+}

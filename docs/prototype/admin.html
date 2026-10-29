@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin · Kustos</title>
+  <meta name="description" content="Kustos admin console — instance runtime, access, configuration and audit. Admin-only surface, high-fidelity prototype.">
+  <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/tokens.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/admin.css">
+  <link rel="stylesheet" href="assets/css/responsive.css">
+</head>
+<body data-page="admin" data-crumb="Instance|Admin console" data-title="Admin · Kustos">
+  <a class="skip" href="#main">Skip to content</a>
+  <div id="shell"></div>
+
+  <template id="page-template">
+    <section class="view admin-view" aria-labelledby="admin-title">
+      <div class="stage" id="admin-stage">
+        <div class="stage-core" id="admin-core">
+          <header class="admin-head">
+            <div class="admin-head-copy">
+              <p class="eyebrow">Instance · Northstar Labs · <span class="mono">kustos 1.0.0</span></p>
+              <h1 class="display-sm" id="admin-title">Admin console</h1>
+              <p class="lede">Runtime, access and configuration for this instance — every action here is audit-logged.</p>
+            </div>
+            <div class="admin-head-side">
+              <span class="admin-scope"><svg class="icon icon-xs" aria-hidden="true"><use href="#i-shield"></use></svg>global admin</span>
+              <button class="btn btn-ghost btn-sm" type="button" data-grafana>
+                <svg class="icon" aria-hidden="true"><use href="#i-pulse"></use></svg>Open Grafana
+              </button>
+            </div>
+          </header>
+
+          <div class="admin-gate" role="note">
+            <span class="admin-gate-icon" aria-hidden="true">
+              <svg class="icon" aria-hidden="true"><use href="#i-lock"></use></svg>
+            </span>
+            <p>
+              <strong>Restricted surface.</strong> <code>/api/app/*</code> and <code>/grafana</code> are gated twice — gateway source allowlist,
+              then <code>User.is_admin</code>. Members get <code>403</code>; anonymous callers get <code>401</code>.
+            </p>
+            <button class="text-link" type="button" data-goto="access">Allowed sources</button>
+          </div>
+
+          <div class="admin-layout">
+            <nav class="admin-rail" aria-label="Admin sections">
+              <div class="admin-rail-group">
+                <p class="admin-rail-label">Observe</p>
+                <button class="admin-nav" type="button" aria-controls="admin-canvas" data-section="overview">
+                  <svg class="icon icon-sm" aria-hidden="true"><use href="#i-pulse"></use></svg>
+                  <span>Overview</span>
+                </button>
+                <button class="admin-nav" type="button" aria-controls="admin-canvas" data-section="runtime">
+                  <svg class="icon icon-sm" aria-hidden="true"><use href="#i-server"></use></svg>
+                  <span>Runtime</span>
+                  <span class="admin-nav-count is-warn" data-runtime-count>1</span>
+                </button>
+              </div>
+
+              <div class="admin-rail-group">
+                <p class="admin-rail-label">Govern</p>
+                <button class="admin-nav" type="button" aria-controls="admin-canvas" data-section="access">
+                  <svg class="icon icon-sm" aria-hidden="true"><use href="#i-users"></use></svg>
+                  <span>Access</span>
+                  <span class="admin-nav-count" data-user-count>14</span>
+                </button>
+                <button class="admin-nav" type="button" aria-controls="admin-canvas" data-section="configuration">
+                  <svg class="icon icon-sm" aria-hidden="true"><use href="#i-sliders"></use></svg>
+                  <span>Configuration</span>
+                </button>
+                <button class="admin-nav" type="button" aria-controls="admin-canvas" data-section="capabilities">
+                  <svg class="icon icon-sm" aria-hidden="true"><use href="#i-spark"></use></svg>
+                  <span>Capabilities</span>
+                </button>
+              </div>
+
+              <div class="admin-rail-group">
+                <p class="admin-rail-label">Evidence</p>
+                <button class="admin-nav" type="button" aria-controls="admin-canvas" data-section="audit">
+                  <svg class="icon icon-sm" aria-hidden="true"><use href="#i-history"></use></svg>
+                  <span>Audit log</span>
+                </button>
+                <button class="admin-nav" type="button" aria-controls="admin-canvas" data-section="logs">
+                  <svg class="icon icon-sm" aria-hidden="true"><use href="#i-terminal"></use></svg>
+                  <span>Logs</span>
+                  <span class="admin-nav-live" aria-hidden="true"><span class="lamp is-good is-live"></span></span>
+                </button>
+              </div>
+
+              <div class="admin-rail-foot">
+                <span class="lamp is-good" aria-hidden="true"></span>
+                <span><span class="mono" data-rail-version>1.0.0</span> · <span data-rail-uptime>6d 4h</span></span>
+              </div>
+            </nav>
+
+            <div class="admin-canvas" id="admin-canvas" tabindex="-1"></div>
+            <div class="canvas-fade" aria-hidden="true"></div>
+          </div>
+        </div>
+
+        <div class="float-dock" role="toolbar" aria-label="Admin context">
+          <button class="dock-btn" type="button" data-panel-tab="inspect" data-panel-label="Inspect" data-panel-kicker="Selection" aria-label="Inspect selection" aria-expanded="false">
+            <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
+          </button>
+          <button class="dock-btn" type="button" data-panel-tab="api" data-panel-label="Backed by" data-panel-kicker="API" aria-label="Backing API endpoints" aria-expanded="false">
+            <svg class="icon" aria-hidden="true"><use href="#i-code"></use></svg>
+          </button>
+          <button class="dock-btn" type="button" data-panel-tab="guard" data-panel-label="Guardrails" data-panel-kicker="Admin" aria-label="Admin guardrails" aria-expanded="false">
+            <svg class="icon" aria-hidden="true"><use href="#i-shield"></use></svg>
+          </button>
+        </div>
+
+        <aside class="float-panel" aria-label="Admin context">
+          <header class="float-head">
+            <div class="float-head-copy">
+              <p class="eyebrow">Selection</p>
+              <h2>Inspect</h2>
+            </div>
+            <button class="icon-btn" type="button" data-panel-close aria-label="Close admin panel">
+              <svg class="icon icon-sm" aria-hidden="true"><use href="#i-x"></use></svg>
+            </button>
+          </header>
+          <div class="float-body">
+            <section class="float-pane is-active" data-pane="inspect">
+              <div class="rail-block" id="admin-inspect"></div>
+            </section>
+            <section class="float-pane" data-pane="api">
+              <div class="rail-block" id="admin-api"></div>
+            </section>
+            <section class="float-pane" data-pane="guard">
+              <div class="rail-block">
+                <ul class="guard-list">
+                  <li><span class="guard-mark is-good" aria-hidden="true"></span><div><strong>Admin is global, repo roles are not</strong><span><code>User.is_admin</code> gates <code>/api/app/*</code>; <code>developer</code> is a membership role inside one repository. Neither implies the other.</span></div></li>
+                  <li><span class="guard-mark is-good" aria-hidden="true"></span><div><strong>Debug mode is not a back door</strong><span>Dangerous writes accept debug only from loopback; the audit trail always records the actor.</span></div></li>
+                  <li><span class="guard-mark is-warn" aria-hidden="true"></span><div><strong>Restart stops every worker</strong><span>Graceful shutdown, then a bounded 503 window. Running agent jobs resume from their checkpoint.</span></div></li>
+                  <li><span class="guard-mark is-warn" aria-hidden="true"></span><div><strong>Config writes are versioned</strong><span>Agent and search PUTs carry a row version; a stale editor gets <code>409</code> rather than overwriting a colleague.</span></div></li>
+                  <li><span class="guard-mark is-info" aria-hidden="true"></span><div><strong>Secrets never round-trip</strong><span>Responses expose <code>key_state</code> only. Writing a key is one-way; clearing it is an explicit flag.</span></div></li>
+                  <li><span class="guard-mark is-info" aria-hidden="true"></span><div><strong>Monitoring is optional</strong><span>Start/stop returns <code>409</code> when the stack was never deployed; the console then only shows the compose command.</span></div></li>
+                </ul>
+              </div>
+            </section>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <div class="overlay" id="admin-modal" hidden>
+      <form class="modal" id="admin-confirm" role="dialog" aria-modal="true" aria-labelledby="admin-modal-title">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow" id="admin-modal-kicker">Privileged action</p>
+            <h2 id="admin-modal-title">Restart the application</h2>
+            <p class="fine" id="admin-modal-desc">All workers restart. In-flight requests may see a short 503 window.</p>
+          </div>
+          <button class="icon-btn" type="button" data-close aria-label="Close">
+            <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>
+          </button>
+        </div>
+        <div class="modal-body" id="admin-modal-body"></div>
+        <div class="modal-foot">
+          <button class="btn btn-quiet" type="button" data-close>Cancel</button>
+          <button class="btn btn-danger" type="submit" id="admin-modal-go">Restart</button>
+        </div>
+      </form>
+    </div>
+  </template>
+
+  <script src="assets/js/icons.js"></script>
+  <script src="assets/js/util.js"></script>
+  <script src="assets/js/shell.js"></script>
+  <script src="assets/js/admin-data.js"></script>
+  <script src="assets/js/admin.js"></script>
+</body>
+</html>

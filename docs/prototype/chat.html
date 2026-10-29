@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>#atlas · Chat · Kustos</title>
+  <meta name="description" content="Realtime repository chat with presence, agent mentions and a shared live document.">
+  <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/tokens.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/chat.css">
+  <link rel="stylesheet" href="assets/css/responsive.css">
+</head>
+<body data-page="chat" data-crumb="lin|atlas|Chat|#atlas" data-title="#atlas · Chat · Kustos">
+  <a class="skip" href="#main">Skip to content</a>
+  <div id="shell"></div>
+
+  <template id="page-template">
+    <section class="view chat-view" aria-labelledby="chat-title">
+      <div class="stage" id="chat-stage">
+        <div class="stage-core">
+          <div class="chat-layout">
+        <aside class="chat-channels" aria-label="Channels">
+          <div class="channels-head">
+            <p class="eyebrow">NORTHSTAR</p>
+            <h1 class="display-sm" id="chat-title">Chat</h1>
+          </div>
+
+          <div class="channels-search input-icon">
+            <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
+            <input class="input" type="text" placeholder="Find a room…" aria-label="Find a room">
+          </div>
+
+          <div class="channels-scroll">
+            <section class="channel-section">
+              <p class="channel-label">Rooms by repository</p>
+
+              <div class="channel-repo is-active">
+                <p class="channel-repo-name"><span class="repo-flag" aria-hidden="true"></span>lin/atlas</p>
+                <div class="channel-items">
+                  <button class="channel-item is-active" type="button" aria-current="page">
+                    <span class="channel-hash">#</span><span class="channel-name">atlas</span><span class="channel-unread is-amber">3</span>
+                  </button>
+                  <button class="channel-item" type="button" data-toast="This prototype includes #atlas only.">
+                    <span class="channel-hash">#</span><span class="channel-name">incidents</span><span class="channel-unread">1</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="channel-repo">
+                <p class="channel-repo-name"><span class="repo-flag" aria-hidden="true"></span>lin/harbor</p>
+                <div class="channel-items">
+                  <button class="channel-item" type="button" data-toast="This prototype includes #atlas only.">
+                    <span class="channel-hash">#</span><span class="channel-name">harbor</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="channel-repo">
+                <p class="channel-repo-name"><span class="repo-flag" aria-hidden="true"></span>lin/lantern</p>
+                <div class="channel-items">
+                  <button class="channel-item" type="button" data-toast="This prototype includes #atlas only.">
+                    <span class="channel-hash">#</span><span class="channel-name">lantern</span>
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <section class="channel-section">
+              <p class="channel-label">Direct</p>
+              <div class="channel-items is-flat">
+                <button class="channel-item" type="button" data-toast="Direct messages are outside this prototype.">
+                  <span class="avatar avatar-sm is-rose">MV</span><span class="channel-name">Mara Voss</span><span class="channel-unread is-amber">2</span>
+                </button>
+                <button class="channel-item" type="button" data-toast="Direct messages are outside this prototype.">
+                  <span class="avatar avatar-sm is-sky">IS</span><span class="channel-name">Ilya Sokolov</span>
+                </button>
+                <button class="channel-item" type="button" data-toast="Direct messages are outside this prototype.">
+                  <span class="avatar avatar-sm is-rose">NH</span><span class="channel-name">Noor Haddad</span>
+                </button>
+                <button class="channel-item" type="button" data-toast="Direct messages are outside this prototype.">
+                  <span class="avatar avatar-sm is-bot" aria-hidden="true"><svg class="icon icon-xs"><use href="#i-agent"></use></svg></span><span class="channel-name">kustos-agent</span>
+                </button>
+              </div>
+            </section>
+          </div>
+
+          <div class="channels-foot">
+            <span class="lamp is-good is-live" aria-hidden="true"></span>
+            <span>WS connected · 12 ms</span>
+          </div>
+        </aside>
+
+        <div class="chat-main">
+          <header class="chat-head">
+            <div class="chat-head-copy">
+              <div class="chat-title-row"><span class="chat-hash">#</span><h2 class="display-sm">atlas</h2><span class="badge is-outline">room</span></div>
+              <p class="chat-topic">Edge routing and policy · 14 members · topic: RFC-12 cutover</p>
+            </div>
+            <div class="chat-head-actions">
+              <button class="icon-btn" type="button" aria-label="Search this room" data-toast="In-room search belongs to the chat controller."><svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg></button>
+              <button class="icon-btn" type="button" aria-label="Room members" data-toast="Room membership follows repository membership; repository admins manage it."><svg class="icon" aria-hidden="true"><use href="#i-users"></use></svg></button>
+              <button class="icon-btn" type="button" aria-label="Room settings" data-toast="Room settings follow repository permissions (collab:manage)."><svg class="icon" aria-hidden="true"><use href="#i-settings"></use></svg></button>
+            </div>
+          </header>
+
+          <div class="topic-banner">
+            <svg class="icon icon-sm" aria-hidden="true"><use href="#i-pin"></use></svg>
+            <span><strong>Topic</strong> RFC-12 edge policy cutover is Thursday 09:00 UTC.</span>
+            <button class="text-link" type="button" data-toast="The topic is a room field; repository admins can edit it.">Open RFC</button>
+          </div>
+
+          <div class="messages" id="messages" aria-live="polite">
+            <div class="day-divider"><span>Today · 27 October</span></div>
+
+            <article class="message">
+              <span class="avatar avatar-sm is-rose" aria-hidden="true">MV</span>
+              <div class="message-main">
+                <div class="message-head"><strong>Mara Voss</strong><time>21:18</time></div>
+                <div class="message-body">
+                  <p>I pushed the scope fix to <span class="mono">mara/lfs-token-scope</span>. The download path now requires an exact scope match. Can someone look at the e2e failure before I merge?</p>
+                </div>
+              </div>
+            </article>
+
+            <article class="message">
+              <span class="avatar avatar-sm is-sky" aria-hidden="true">IS</span>
+              <div class="message-main">
+                <div class="message-head"><strong>Ilya Sokolov</strong><time>21:20</time></div>
+                <div class="message-body">
+                  <p>e2e is red on <span class="mono">main</span> too — looks like the fixture, not your branch. I'm on it.</p>
+                </div>
+              </div>
+            </article>
+
+            <article class="message">
+              <span class="avatar avatar-sm is-rose" aria-hidden="true">NH</span>
+              <div class="message-main">
+                <div class="message-head"><strong>Noor Haddad</strong><time>21:24</time></div>
+                <div class="message-body">
+                  <p>The agent flagged the same thing in <a href="pull.html">#142</a>. Nice.</p>
+                </div>
+              </div>
+            </article>
+
+            <article class="message is-bot" id="bot-review">
+              <span class="avatar avatar-sm is-bot" aria-hidden="true"><svg class="icon icon-xs"><use href="#i-agent"></use></svg></span>
+              <div class="message-main">
+                <div class="message-head"><strong>kustos-agent</strong><span class="badge is-warn">bot</span><time>21:26</time></div>
+                <div class="message-body">
+                  <p>I reviewed <a href="pull.html">#142</a>. <strong>1 blocking finding:</strong> the download endpoint accepts a write-scoped token. I can open an issue with the repro; the run is waiting for your approval.</p>
+                  <div class="message-actions">
+                    <a class="btn btn-ghost btn-sm" href="agent.html">View run A-1042</a>
+                    <a class="btn btn-primary btn-sm" href="agent.html">Approve in run</a>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article class="message">
+              <span class="avatar avatar-sm is-rose" aria-hidden="true">MV</span>
+              <div class="message-main">
+                <div class="message-head"><strong>Mara Voss</strong><time>21:27</time></div>
+                <div class="message-body">
+                  <p>Go ahead.</p>
+                </div>
+              </div>
+            </article>
+
+            <article class="message is-me">
+              <span class="avatar avatar-sm is-amber" aria-hidden="true">LW</span>
+              <div class="message-main">
+                <div class="message-head"><strong>Lin Wei</strong><span class="badge is-outline">you</span><time>21:31</time></div>
+                <div class="message-body">
+                  <p>Approving now. Also, let's add a test for cross-action replay — a write token replayed on download is exactly the case that bit us in staging.</p>
+                </div>
+              </div>
+            </article>
+
+            <div class="typing" id="typing"><span class="avatar avatar-sm is-rose" aria-hidden="true">MV</span><span>Mara is typing</span><span class="typing-dots" aria-hidden="true"><i></i><i></i><i></i></span></div>
+          </div>
+
+          <form class="chat-composer" id="chat-form">
+            <div class="chat-compose">
+              <textarea id="chat-input" rows="1" placeholder="Message #atlas — @kustos-agent to bring the agent in" aria-label="Message #atlas"></textarea>
+              <div class="chat-compose-bar">
+                <button class="icon-btn" type="button" aria-label="Attach a file" data-toast="Attachments are stored by the attachment service."><svg class="icon icon-sm" aria-hidden="true"><use href="#i-paperclip"></use></svg></button>
+                <button class="icon-btn" type="button" aria-label="Mention someone" data-toast="Mentions notify room members according to their preferences."><svg class="icon icon-sm" aria-hidden="true"><use href="#i-at"></use></svg></button>
+                <button class="icon-btn" type="button" aria-label="Add a reaction" data-toast="Emoji reactions are stored per message."><svg class="icon icon-sm" aria-hidden="true"><use href="#i-smile"></use></svg></button>
+                <span class="fine">Enter sends · Shift + Enter for a new line</span>
+                <button class="btn btn-primary btn-sm" type="submit"><svg class="icon" aria-hidden="true"><use href="#i-send"></use></svg>Send</button>
+              </div>
+            </div>
+          </form>
+          </div>
+        </div>
+
+        <div class="float-dock" role="toolbar" aria-label="Room context">
+          <button class="dock-btn" type="button" data-panel-tab="people" data-panel-label="In the room" data-panel-kicker="#atlas" aria-label="People in this room" aria-expanded="false">
+            <svg class="icon" aria-hidden="true"><use href="#i-users"></use></svg>
+          </button>
+          <button class="dock-btn" type="button" data-panel-tab="doc" data-panel-label="Live document" data-panel-kicker="Collaborative" aria-label="Live document" aria-expanded="false">
+            <svg class="icon" aria-hidden="true"><use href="#i-file"></use></svg>
+          </button>
+          <button class="dock-btn" type="button" data-panel-tab="agent" data-panel-label="Kustos" data-panel-kicker="#atlas" aria-label="Agent status" aria-expanded="false">
+            <svg class="icon" aria-hidden="true"><use href="#i-agent"></use></svg>
+          </button>
+        </div>
+
+        <aside class="float-panel" aria-label="Room context">
+          <header class="float-head">
+            <div class="float-head-copy">
+              <p class="eyebrow">#atlas</p>
+              <h2>In the room</h2>
+            </div>
+            <button class="icon-btn" type="button" data-panel-close aria-label="Close room panel">
+              <svg class="icon icon-sm" aria-hidden="true"><use href="#i-x"></use></svg>
+            </button>
+          </header>
+          <div class="float-body">
+            <section class="float-pane is-active" data-pane="people">
+              <div class="rail-block">
+                <h3>Present</h3>
+                <div class="presence-member">
+                  <span class="avatar avatar-sm is-rose" aria-hidden="true">MV</span>
+                  <div><strong>Mara Voss</strong><span>editing <span class="mono">lfs.py</span></span></div>
+                  <span class="lamp is-good is-live" aria-hidden="true"></span>
+                </div>
+                <div class="presence-member">
+                  <span class="avatar avatar-sm is-sky" aria-hidden="true">IS</span>
+                  <div><strong>Ilya Sokolov</strong><span>viewing <span class="mono">#142</span></span></div>
+                  <span class="lamp is-good" aria-hidden="true"></span>
+                </div>
+                <div class="presence-member">
+                  <span class="avatar avatar-sm is-rose" aria-hidden="true">NH</span>
+                  <div><strong>Noor Haddad</strong><span>in this room</span></div>
+                  <span class="lamp is-good" aria-hidden="true"></span>
+                </div>
+                <div class="presence-member">
+                  <span class="avatar avatar-sm is-amber" aria-hidden="true">LW</span>
+                  <div><strong>Lin Wei</strong><span>you</span></div>
+                  <span class="lamp is-good" aria-hidden="true"></span>
+                </div>
+                <div class="presence-member">
+                  <span class="avatar avatar-sm is-bot" aria-hidden="true"><svg class="icon icon-xs"><use href="#i-agent"></use></svg></span>
+                  <div><strong>kustos-agent</strong><span>waiting for approval</span></div>
+                  <span class="lamp is-warn is-live" aria-hidden="true"></span>
+                </div>
+                <button class="text-link mt-8" type="button" data-toast="Room membership follows repository membership; repository admins manage it.">View all 14 members</button>
+              </div>
+            </section>
+
+            <section class="float-pane" data-pane="doc">
+              <div class="rail-block">
+                <div class="live-doc-head">
+                  <h3>Shared buffer</h3>
+                  <span class="badge is-warn" id="doc-state">unsaved</span>
+                </div>
+                <div class="live-doc-path mono">app/services/lfs.py</div>
+                <div class="mini-code" aria-label="Shared file excerpt">
+                  <div class="mini-line"><span class="mini-ln">49</span><code>        <span class="mini-kw">if</span> <span class="mini-kw">not</span> hmac.compare_digest(scope.repository_id, repository_id):</code></div>
+                  <div class="mini-line"><span class="mini-ln">50</span><code>            <span class="mini-kw">raise</span> ForbiddenError(<span class="mini-str">"token is bound to another repository"</span>)</code></div>
+                  <div class="mini-line"><span class="mini-ln">51</span><code>        <span class="mini-kw">if</span> scope.expires_at &lt; <span class="mini-fn">int</span>(time.time()):</code></div>
+                  <div class="mini-line"><span class="mini-ln">52</span><code>            <span class="mini-kw">raise</span> ForbiddenError(<span class="mini-str">"transfer token expired"</span>)</code></div>
+                  <div class="mini-line is-active"><span class="mini-ln">53</span><code>        <span class="mini-comment"># A token is valid only for the action it was minted for.</span><span class="collab-caret is-mara" title="Mara"></span></code></div>
+                  <div class="mini-line is-active"><span class="mini-ln">54</span><code>        <span class="mini-kw">if</span> scope.action != action:<span class="collab-caret is-mara" title="Mara"></span></code></div>
+                  <div class="mini-line"><span class="mini-ln">55</span><code>            <span class="mini-kw">raise</span> ForbiddenError(<span class="mini-str">"transfer token scope mismatch"</span>)<span class="collab-caret is-ilya" title="Ilya"></span></code></div>
+                  <div class="mini-line"><span class="mini-ln">56</span><code>        <span class="mini-kw">return</span> scope</code></div>
+                </div>
+                <div class="live-doc-foot">
+                  <div class="avatar-stack" aria-hidden="true"><span class="avatar avatar-sm is-rose">MV</span><span class="avatar avatar-sm is-sky">IS</span></div>
+                  <span>2 editing</span>
+                  <button class="follow-btn" id="follow-btn" type="button" aria-pressed="false">Follow Mara</button>
+                </div>
+                <div class="live-doc-actions">
+                  <button class="btn btn-primary btn-sm" id="save-doc" type="button"><svg class="icon" aria-hidden="true"><use href="#i-git-commit"></use></svg>Save to branch</button>
+                  <span class="fine">Session snapshot only. Saving writes a commit.</span>
+                </div>
+              </div>
+            </section>
+
+            <section class="float-pane" data-pane="agent">
+              <div class="rail-block">
+                <h3>Agent</h3>
+                <div class="agent-wait">
+                  <span class="lamp is-warn is-live" aria-hidden="true"></span>
+                  <div><strong>Waiting for your approval</strong><span>Your run A-1042 · create_issue</span></div>
+                  <a class="btn btn-ghost btn-sm" href="agent.html">Review</a>
+                </div>
+                <p class="context-note">Kustos only writes after an explicit approval in the run. Room mentions never grant write access.</p>
+              </div>
+            </section>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </template>
+
+  <script src="assets/js/icons.js"></script>
+  <script src="assets/js/util.js"></script>
+  <script src="assets/js/shell.js"></script>
+  <script src="assets/js/chat.js"></script>
+</body>
+</html>
