@@ -1,4 +1,4 @@
-import { AtSign, Paperclip, Pin, Search, Send, Settings, Smile, Users } from "lucide-react";
+import { AtSign, Paperclip, Pin, Search, Send, Settings, Smile, Users, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -154,13 +154,26 @@ export function ChatPage() {
     setSearchParams({ room: fallback.id }, { replace: true });
   }, [roomId, roomList, repoRoom, setSearchParams]);
 
+  // 房间内消息检索：q 走后端内容过滤，检索态下不做游标翻页
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [keyword, setKeyword] = useState("");
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSearch(keyword.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [keyword]);
+
   // 房间消息：取最近一页（倒序返回），渲染时转正序
   const { data: page, isLoading: loadingMessages } = useApiQuery<MessagesPage>({
-    queryKey: ["messages", roomId ?? ""],
+    queryKey: ["messages", roomId ?? "", search],
     enabled: Boolean(roomId),
     queryFn: async () => {
       const res = await api.GET("/api/v1/rooms/{room_id}/messages", {
-        params: { path: { room_id: roomId ?? "" }, query: { limit: MESSAGE_PAGE_SIZE } },
+        params: {
+          path: { room_id: roomId ?? "" },
+          query: { limit: MESSAGE_PAGE_SIZE, ...(search ? { q: search } : {}) },
+        },
       });
       return (res.data ?? { messages: [], has_more: false, next_before: null }) as MessagesPage;
     },
@@ -197,8 +210,9 @@ export function ChatPage() {
       if (event.type === "chat_message" || event.type === "chat_message_ack") {
         const incoming = event.message as RoomMessageDto | undefined;
         if (!incoming?.id || incoming.room_id !== roomId) return;
-        queryClient.setQueryData<MessagesPage>(["messages", incoming.room_id], (old) =>
-          mergeMessage(old, incoming),
+        // 只并入"未检索"的缓存：搜索结果是一次快照，不该被新消息改写
+        queryClient.setQueryData<MessagesPage>(["messages", incoming.room_id, ""], (old) =>
+          old ? mergeMessage(old, incoming) : old,
         );
         // 正在看的房间收到别人的消息：立即回执已读，避免徽标和列表打架
         if (event.type === "chat_message") markRoomRead(incoming.room_id);
@@ -216,6 +230,19 @@ export function ChatPage() {
   useEffect(() => {
     if (roomId) markRoomRead(roomId);
   }, [roomId, markRoomRead]);
+
+  // 换房间时退出检索态：搜索词属于上一个房间，带过去只会得出空结果
+  useEffect(() => {
+    setSearchOpen(false);
+    setKeyword("");
+    setSearch("");
+  }, [roomId]);
+
+  const toggleSearch = () => {
+    setSearchOpen((open) => !open);
+    setKeyword("");
+    setSearch("");
+  };
 
   useEffect(() => {
     setCrumbs(room ? [{ label: t("nav.chat") }, { label: `#${room.name}` }] : [{ label: t("nav.chat") }]);
@@ -259,7 +286,7 @@ export function ChatPage() {
       toast.info("没有更早的消息了。");
       return;
     }
-    queryClient.setQueryData<MessagesPage>(["messages", roomId], (old) =>
+    queryClient.setQueryData<MessagesPage>(["messages", roomId, ""], (old) =>
       old
         ? { messages: [...old.messages, ...older.messages], has_more: older.has_more, next_before: older.next_before }
         : older,
@@ -316,10 +343,44 @@ export function ChatPage() {
         <section className="bg-ink-950 flex min-w-0 flex-col overflow-hidden bg-[radial-gradient(700px_300px_at_50%_-10%,rgba(242,174,91,0.035),transparent_70%)]">
           {room ? (
             <>
-              <RoomHeader room={room} memberCount={sortedMembers.length} dm={isDm} onlineCount={channel.online.length} />
+              <RoomHeader
+                room={room}
+                memberCount={sortedMembers.length}
+                dm={isDm}
+                onlineCount={channel.online.length}
+                searchActive={searchOpen}
+                onToggleSearch={toggleSearch}
+              />
+              {searchOpen ? (
+                <div className="border-edge-2 bg-ink-950/60 mx-[18px] mt-2 flex flex-none items-center gap-2 rounded-md border px-2.5 py-1.5">
+                  <Search className="text-faint size-[13px] shrink-0" aria-hidden="true" />
+                  <input
+                    autoFocus
+                    type="text"
+                    value={keyword}
+                    onChange={(event) => setKeyword(event.target.value)}
+                    placeholder="在本房间搜索消息…"
+                    aria-label="搜索本房间消息"
+                    className="text-bone placeholder:text-muted-2 min-w-0 flex-1 bg-transparent text-[11.5px] outline-none"
+                  />
+                  {search ? (
+                    <span className="text-faint shrink-0 font-mono text-[9.5px]">
+                      {loadingMessages ? "搜索中…" : `${messages.length} 条`}
+                    </span>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={toggleSearch}
+                    aria-label="关闭搜索"
+                    className="text-muted-2 hover:text-bone shrink-0 transition-colors"
+                  >
+                    <X className="size-[13px]" aria-hidden="true" />
+                  </button>
+                </div>
+              ) : null}
               <TopicBanner topic={room.topic} />
               <div ref={listRef} aria-live="polite" className="min-h-0 flex-1 overflow-y-auto px-[18px] pt-2.5 pb-1">
-                {page?.has_more ? (
+                {page?.has_more && !search ? (
                   <div className="my-2 flex justify-center">
                     <button
                       type="button"
@@ -336,7 +397,9 @@ export function ChatPage() {
                   <span className="bg-edge-1 h-px flex-1" />
                 </div>
                 {!loadingMessages && messages.length === 0 ? (
-                  <p className="text-muted-2 py-6 text-center text-[11.5px]">本房间还没有消息。</p>
+                  <p className="text-muted-2 py-6 text-center text-[11.5px]">
+                    {search ? `没有匹配「${search}」的消息。` : "本房间还没有消息。"}
+                  </p>
                 ) : null}
                 {messages.map((message) => (
                   <MessageRow key={message.id} message={message} />
@@ -551,14 +614,17 @@ function RoomHeader({
   memberCount,
   dm,
   onlineCount,
+  searchActive,
+  onToggleSearch,
 }: {
   room: RoomDto;
   memberCount: number;
   dm: boolean;
   onlineCount: number;
+  searchActive: boolean;
+  onToggleSearch: () => void;
 }) {
   const actions = [
-    { icon: Search, label: "搜索本房间", toast: "房间内搜索暂未接入。" },
     { icon: Users, label: "房间成员", toast: "成员列表见右栏；管理入口暂未接入。" },
     { icon: Settings, label: "房间设置", toast: "房间设置暂未接入。" },
   ];
@@ -581,6 +647,18 @@ function RoomHeader({
         <p className="text-muted-2 mt-1 truncate text-[11px]">{summary}</p>
       </div>
       <div className="flex flex-none items-center gap-0.5">
+        <button
+          type="button"
+          aria-label="搜索本房间"
+          aria-pressed={searchActive}
+          onClick={onToggleSearch}
+          className={cn(
+            "grid size-[26px] place-items-center rounded-md transition-colors",
+            searchActive ? "bg-amber/15 text-amber" : "text-muted-2 hover:bg-bone/5 hover:text-bone",
+          )}
+        >
+          <Search className="size-[14px]" aria-hidden="true" />
+        </button>
         {actions.map((action) => (
           <button
             key={action.label}
