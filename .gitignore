@@ -178,3 +178,9 @@ backups/
 
 # scripts lib (override lib/ above)
 !scripts/lib/
+
+# 前端源码目录（`lib/` 是 Python 打包产物规则，前端同名目录是源码，必须反忽略）
+!frontend/web/src/lib/
+!frontend/web/src/lib/**
+!frontend/web/src/features/*/lib/
+!frontend/web/src/features/*/lib/**
