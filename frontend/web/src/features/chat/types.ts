@@ -33,6 +33,8 @@ export interface RoomMessageDto {
   reply_to: string | null;
   edited_at: string | null;
   created_at: string | null;
+  /** 表情聚合：按 emoji 汇总人数，active 表示自己是否已回应。 */
+  reactions?: { emoji: string; count: number; active: boolean }[];
 }
 
 /** GET /api/v1/rooms/{room_id}/messages 的分页响应（ChatService.get_messages）。 */
@@ -106,4 +108,6 @@ export interface ChatMessage {
   time: string;
   /** Markdown 原文；@kustos-agent 提及由页面高亮。 */
   body: string;
+  /** 表情回应聚合；空表示还没有人回应。 */
+  reactions?: { emoji: string; count: number; active: boolean }[];
 }

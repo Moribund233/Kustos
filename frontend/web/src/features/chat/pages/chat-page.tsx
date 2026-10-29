@@ -23,7 +23,7 @@ import {
   type RoomChannelEvent,
   type RoomChannelStatus,
 } from "@/features/chat/use-room-channel";
-import { api } from "@/lib/api/client";
+import { api, getAccessToken } from "@/lib/api/client";
 import { useApiMutation, useApiQuery } from "@/lib/api/hooks";
 import { Markdown } from "@/lib/markdown/markdown";
 import { cn } from "@/lib/utils";
@@ -207,7 +207,7 @@ export function ChatPage() {
   // 实时帧：消息写进同一份缓存，其余（presence / typing）由通道自身维护
   const handleRealtimeEvent = useCallback(
     (event: RoomChannelEvent) => {
-      if (event.type === "chat_message" || event.type === "chat_message_ack") {
+      if (event.type === "chat_message" || event.type === "chat_message_ack" || event.type === "chat_reaction" || event.type === "chat_reaction_ack") {
         const incoming = event.message as RoomMessageDto | undefined;
         if (!incoming?.id || incoming.room_id !== roomId) return;
         // 只并入"未检索"的缓存：搜索结果是一次快照，不该被新消息改写
@@ -264,6 +264,7 @@ export function ChatPage() {
       me: message.sender_id === user?.id,
       time: clockOf(message.created_at),
       body: message.content,
+      reactions: message.reactions ?? [],
     }));
   }, [page, botUsernames, user]);
 
@@ -402,7 +403,18 @@ export function ChatPage() {
                   </p>
                 ) : null}
                 {messages.map((message) => (
-                  <MessageRow key={message.id} message={message} />
+                  <MessageRow
+                    key={message.id}
+                    message={message}
+                    canReact={channel.status === "open"}
+                    onReact={(emoji) =>
+                      channel.sendReaction(
+                        message.id,
+                        emoji,
+                        !message.reactions?.some((item) => item.emoji === emoji && item.active),
+                      )
+                    }
+                  />
                 ))}
               </div>
               {channel.typing.length > 0 ? (
@@ -421,6 +433,29 @@ export function ChatPage() {
                   return false;
                 }}
                 onTyping={channel.notifyTyping}
+                onAttach={async (file) => {
+                  if (!roomId) return null;
+                  const token = getAccessToken();
+                  const form = new FormData();
+                  form.append("file", file);
+                  // multipart 走原生 fetch：openapi 客户端只处理 JSON 请求体
+                  const res = await fetch(`/api/v1/rooms/${roomId}/attachments`, {
+                    method: "POST",
+                    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+                    body: form,
+                  });
+                  if (!res.ok) {
+                    toast.error("附件上传失败。");
+                    return null;
+                  }
+                  const data = (await res.json()) as { name?: string; url?: string; content_type?: string };
+                  if (!data.url) return null;
+                  const label = data.name ?? file.name;
+                  toast.success("附件已上传，已插入输入框。");
+                  return data.content_type?.startsWith("image/")
+                    ? `![${label}](${data.url})`
+                    : `[${label}](${data.url})`;
+                }}
               />
             </>
           ) : (
@@ -713,7 +748,19 @@ function ChatBody({ content, className }: { content: string; className?: string 
 }
 
 /** 单条消息：头像 + 作者行 + 正文；bot / 自己的消息有专属消息体样式。 */
-function MessageRow({ message }: { message: ChatMessage }) {
+function MessageRow({
+  message,
+  onReact,
+  canReact,
+}: {
+  message: ChatMessage;
+  /** 回应当前表情；同一 emoji 再点一次即取消。 */
+  onReact?: (emoji: string) => void;
+  canReact?: boolean;
+}) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const reactions = message.reactions ?? [];
+
   return (
     <article className="grid grid-cols-[29px_minmax(0,1fr)] gap-2.5 py-[9px]">
       <ToneAvatar initials={message.initials} tone={message.tone} bot={message.bot} size="sm" className="mt-0.5" />
@@ -737,10 +784,63 @@ function MessageRow({ message }: { message: ChatMessage }) {
             message.me && "border-edge-1 bg-ink-750/35 mt-1 rounded-md border px-[10px] py-2 text-bone-2",
           )}
         />
+
+        {/* 表情回应：已有聚合在前，选择器按需展开 */}
+        <div className="mt-1 flex flex-wrap items-center gap-1">
+          {reactions.map((reaction) => (
+            <button
+              key={reaction.emoji}
+              type="button"
+              onClick={() => onReact?.(reaction.emoji)}
+              aria-pressed={reaction.active}
+              aria-label={`${reaction.emoji} ${reaction.count} 人`}
+              className={cn(
+                "inline-flex h-[19px] items-center gap-1 rounded-full border px-1.5 font-mono text-[10px] transition-colors",
+                reaction.active
+                  ? "border-amber/40 bg-amber/10 text-amber-2"
+                  : "border-edge-2 text-muted-2 hover:border-edge-3 hover:text-bone-2",
+              )}
+            >
+              <span aria-hidden="true">{reaction.emoji}</span>
+              <span>{reaction.count}</span>
+            </button>
+          ))}
+
+          {pickerOpen
+            ? QUICK_EMOJIS.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => {
+                    onReact?.(emoji);
+                    setPickerOpen(false);
+                  }}
+                  aria-label={`回应 ${emoji}`}
+                  className="border-edge-2 hover:border-amber/40 hover:bg-amber/10 inline-flex size-[19px] items-center justify-center rounded-full border text-[10px] transition-colors"
+                >
+                  {emoji}
+                </button>
+              ))
+            : null}
+
+          <button
+            type="button"
+            onClick={() => setPickerOpen((open) => !open)}
+            disabled={!canReact}
+            aria-label="添加表情回应"
+            aria-expanded={pickerOpen}
+            className="border-edge-2 text-faint hover:border-edge-3 hover:text-bone-2 inline-flex h-[19px] items-center rounded-full border px-1.5 text-[10px] transition-colors disabled:opacity-40"
+          >
+            <Smile className="size-[11px]" aria-hidden="true" />
+          </button>
+        </div>
       </div>
     </article>
   );
 }
+
+/** 快速回应的固定表情集；服务端只校验非空与长度。 */
+const QUICK_EMOJIS = ["👍", "❤️", "🎉", "👀", "😄"];
 
 /**
  * 消息输入框。
@@ -754,6 +854,7 @@ function Composer({
   connected,
   onSend,
   onTyping,
+  onAttach,
 }: {
   sendLabel: string;
   placeholder: string;
@@ -761,8 +862,12 @@ function Composer({
   /** 返回 true 表示已交给通道，输入框据此清空。 */
   onSend: (text: string) => boolean;
   onTyping: () => void;
+  /** 上传附件并返回要插入输入框的 Markdown 片段；失败返回 null。 */
+  onAttach?: (file: File) => Promise<string | null>;
 }) {
   const [draft, setDraft] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
   const submit = () => {
     const text = draft.trim();
@@ -770,10 +875,22 @@ function Composer({
     if (onSend(text)) setDraft("");
   };
 
+  const pickFile = async (file: File) => {
+    if (!onAttach || uploading) return;
+    setUploading(true);
+    try {
+      const snippet = await onAttach(file);
+      if (snippet) setDraft((prev) => (prev ? `${prev}\n${snippet}` : snippet));
+    } finally {
+      setUploading(false);
+      // 允许重复选择同一个文件
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
   const tools = [
-    { icon: Paperclip, label: "添加附件", toast: "附件上传暂未接入。" },
     { icon: AtSign, label: "提及某人", toast: "在输入框里直接写 @kustos-agent 即可唤起 Agent。" },
-    { icon: Smile, label: "添加表情", toast: "表情回应暂未接入。" },
+    { icon: Smile, label: "添加表情", toast: "表情回应在消息右侧的微笑按钮里。" },
   ];
   return (
     <form
@@ -803,6 +920,27 @@ function Composer({
           className="text-bone placeholder:text-muted-2 max-h-[140px] min-h-[42px] w-full resize-none bg-transparent px-[11px] pt-2.5 pb-0.5 text-[12.5px] leading-[1.58] outline-none disabled:opacity-60"
         />
         <div className="flex items-center gap-0.5 px-1.5 py-1">
+          <input
+            ref={fileRef}
+            type="file"
+            hidden
+            aria-hidden="true"
+            tabIndex={-1}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void pickFile(file);
+            }}
+          />
+          <button
+            type="button"
+            aria-label="添加附件"
+            title="添加附件"
+            disabled={!connected || uploading || !onAttach}
+            onClick={() => fileRef.current?.click()}
+            className="text-muted-2 hover:bg-bone/5 hover:text-bone grid size-[25px] place-items-center rounded-md transition-colors disabled:opacity-40"
+          >
+            {uploading ? <span className="text-[9px]">…</span> : <Paperclip className="size-[13px]" aria-hidden="true" />}
+          </button>
           {tools.map((tool) => (
             <button
               key={tool.label}

@@ -32,6 +32,8 @@ export interface RoomChannel {
   typing: string[];
   /** 发送消息；连接未就绪或内容为空时返回 false。 */
   sendMessage: (content: string) => boolean;
+  /** 给消息加/取消表情回应；连接未就绪时返回 false。 */
+  sendReaction: (messageId: string, emoji: string, add: boolean) => boolean;
   /** 上报「正在输入」；静默一段时间后自动补发停止帧。 */
   notifyTyping: () => void;
 }
@@ -196,8 +198,20 @@ export function useRoomChannel(
     [roomId],
   );
 
-  const notifyTyping = useCallback(() => {
-    const client = clientRef.current;
+  const sendReaction = useCallback(
+    (messageId: string, emoji: string, add: boolean): boolean => {
+      const client = clientRef.current;
+      if (!client || client.readyState !== WebSocket.OPEN || !roomId || !messageId || !emoji) {
+        return false;
+      }
+      // 服务端按 action 增删，回帧里带完整消息（含新的 reactions 聚合）
+      client.send({ type: "chat_reaction", room_id: roomId, message_id: messageId, emoji, add });
+      return true;
+    },
+    [roomId],
+  );
+
+  const notifyTyping = useCallback(() => {    const client = clientRef.current;
     if (!client || client.readyState !== WebSocket.OPEN || !roomId) return;
     client.send({ type: "chat_typing", room_id: roomId, is_typing: true });
     if (typingResetTimer.current !== null) window.clearTimeout(typingResetTimer.current);
@@ -207,5 +221,5 @@ export function useRoomChannel(
     }, TYPING_IDLE_MS);
   }, [roomId]);
 
-  return { status, online, typing, sendMessage, notifyTyping };
+  return { status, online, typing, sendMessage, sendReaction, notifyTyping };
 }
