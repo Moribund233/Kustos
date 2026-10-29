@@ -442,11 +442,29 @@ class ChatService:
         db: AsyncSession,
         message_id: uuid.UUID,
         user_id: uuid.UUID,
-        new_content: str
+        new_content: str,
+        room_id: Optional[uuid.UUID] = None,
     ) -> Dict[str, Any]:
-        result = await db.execute(
-            select(ChatMessage).filter(ChatMessage.id == message_id)
-        )
+        """编辑自己发送的消息.
+
+        Args:
+            db: 数据库会话
+            message_id: 消息 ID
+            user_id: 操作者 ID（必须是发送者）
+            new_content: 新内容
+            room_id: 限定消息必须属于该房间；用于按房间入口调用时防止跨房间命中
+
+        Returns:
+            更新后的消息
+
+        Raises:
+            NotFoundException: 消息不存在
+            ValidationException: 非本人消息或内容为空
+        """
+        conditions = [ChatMessage.id == message_id]
+        if room_id is not None:
+            conditions.append(ChatMessage.room_id == room_id)
+        result = await db.execute(select(ChatMessage).filter(*conditions))
         msg = result.scalar_one_or_none()
         if not msg:
             raise NotFoundException("消息不存在", error_code="message_not_found")
