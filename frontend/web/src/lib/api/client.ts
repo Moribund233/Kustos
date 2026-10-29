@@ -83,9 +83,31 @@ export function refreshSession(): Promise<boolean> {
   return refreshing;
 }
 
-function withBearer(init: RequestInit | undefined): RequestInit {
-  const headers = new Headers(init?.headers);
+/**
+ * 补齐请求头。
+ *
+ * 两件事都在 fetch 层做（openapi 客户端的 `use` 中间件在部分版本里不生效）：
+ * - `Accept-Language`：后端据此翻译错误消息，缺失时回落中文；
+ * - `Content-Type`：客户端会把 body 序列化成 JSON 文本，字符串 body 浏览器默认
+ *   按 text/plain 发，FastAPI 会把它当非对象解析并返回 422。
+ *   multipart 上传全部走原生 fetch，不经过这里。
+ *
+ * 注意 openapi 客户端调用的是 `fetch(request)`（单个 Request 对象），因此必须
+ * 继承 Request 自带的头，重建 Headers 会把原有的 Content-Type 一起丢掉。
+ */
+function withHeaders(input: RequestInfo | URL, init: RequestInit | undefined): RequestInit {
+  const request = input instanceof Request ? input : null;
+  const headers = new Headers(request?.headers);
+  new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
+
+  const method = (init?.method ?? request?.method ?? "GET").toUpperCase();
+  const hasBody = init?.body != null || Boolean(request?.body);
+
   if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+  headers.set("Accept-Language", currentAcceptLanguage());
+  if (method !== "GET" && method !== "HEAD" && hasBody && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
   return { ...init, headers };
 }
 
@@ -94,11 +116,11 @@ const authorizedFetch: typeof fetch = async (input, init) => {
   const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
   const isAuthEndpoint = url.includes("/api/v1/auth/");
 
-  const res = await fetch(input, withBearer(init));
+  const res = await fetch(input, withHeaders(input, init));
   if (res.status !== 401 || isAuthEndpoint) return res;
 
   if (await refreshSession()) {
-    return fetch(input, withBearer(init));
+    return fetch(input, withHeaders(input, init));
   }
   setAccessToken(null);
   setRefreshToken(null);
@@ -117,11 +139,4 @@ export const api = createClient<paths>({
  * 后端据此翻译错误消息（`detail`），不传时回落到默认中文，会出现英文界面配中文报错。
  * 这里在请求发出前才取值，因此切换语言后无需重建 client。
  */
-api.use({
-  onRequest({ request }) {
-    request.headers.set("Accept-Language", currentAcceptLanguage());
-    return request;
-  },
-});
-
 export type ApiPaths = paths;
