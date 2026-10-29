@@ -170,7 +170,11 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - default
+      default:
+        # 唯一别名：该网络里可能还有别的项目（如 perseus）也把服务命名为 collab，
+        # 网关按 `collab` 解析会随机命中对方实例，回调密钥不同 → 协作全部 403。
+        aliases:
+          - kustos-collab
     deploy:
       resources:
         limits:
