@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { MarkdownEditor } from "@/components/editor/markdown-editor";
 import { Chip, Lamp } from "@/components/kit/kit";
+import { RepoTabs } from "@/components/layout/repo-tabs";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -246,6 +247,8 @@ export function ReleasesPage() {
           </Button>
         </div>
       </header>
+
+      <RepoTabs />
 
       <div className="border-edge-2 bg-ink-900/50 overflow-hidden rounded-[12px] border">
         <div className="border-edge-2 flex items-center gap-2.5 border-b px-4 py-2.5">

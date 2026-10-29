@@ -5,8 +5,6 @@ import {
   Braces,
   ChevronDown,
   ChevronRight,
-  CircleDot,
-  Code,
   Copy,
   Download,
   Eye,
@@ -14,21 +12,18 @@ import {
   FolderOpen,
   GitBranch,
   GitFork,
-  GitPullRequest,
   History,
   Link2,
-  MessageSquare,
   Pencil,
   Search,
   Send,
-  Settings,
   Star,
   Tag,
   type LucideIcon,
 } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
 
 import { CodeView } from "@/components/editor/code-view";
@@ -49,6 +44,7 @@ import { FileBlameDialog } from "@/features/code/components/file-blame-dialog";
 import { FileEditDialog } from "@/features/code/components/file-edit-dialog";
 import { FileHistoryDialog } from "@/features/code/components/file-history-dialog";
 import { ForkDialog } from "@/features/code/components/fork-dialog";
+import { RepoTabs } from "@/components/layout/repo-tabs";
 import { SocialDialog } from "@/features/code/components/social-dialog";
 import { SymbolLookupDialog } from "@/features/code/components/symbol-lookup-dialog";
 import { api, getAccessToken } from "@/lib/api/client";
@@ -170,9 +166,6 @@ const PANEL_DOCK: DockTab[] = [
 
 const QUIET_BTN =
   "text-muted hover:text-bone-2 inline-flex h-[26px] items-center gap-1 rounded px-[7px] text-[10px] transition-colors hover:bg-ink-800/60";
-
-const TAB_BASE =
-  "relative inline-flex h-[38px] items-center gap-[7px] px-[11px] text-[12px] font-medium transition-colors";
 
 /**
  * 代码浏览页。
@@ -481,20 +474,7 @@ export function CodePage({ path, content, diff }: CodePageProps) {
 
   return (
     <>
-    <Stage
-      dock={PANEL_DOCK}
-      panel={(tab) => (
-        <CodePanel
-          tab={tab}
-          file={file}
-          lastCommit={lastCommit}
-          symbolsQuery={symbolsQuery}
-          onJumpToLine={setRevealLine}
-          onLookup={setLookupName}
-        />
-      )}
-      className="mx-auto w-full max-w-[1560px] px-[34px] pt-[30px] pb-20"
-    >
+    <div className="mx-auto w-full max-w-[1560px] px-[34px] pt-[30px] pb-20">
       {/* 仓库页头 */}
       <header className="border-edge-1 flex items-end justify-between gap-7 border-b pb-5">
         <div className="min-w-0">
@@ -534,32 +514,7 @@ export function CodePage({ path, content, diff }: CodePageProps) {
         </div>
       </header>
 
-      {/* 仓库标签页 */}
-      <nav className="border-edge-1 mt-0.5 flex items-center gap-0.5 border-b" aria-label="仓库">
-        <span aria-current="page" className={cn(TAB_BASE, "text-bone after:absolute after:right-2 after:bottom-[-1px] after:left-2 after:h-0.5 after:rounded-full after:bg-amber after:shadow-[0_0_10px_rgba(242,174,91,0.35)]")}>
-          <Code className="size-[13px] text-amber" aria-hidden="true" />
-          {t("nav.code")}
-        </span>
-        <Link to="/pull-requests" className={cn(TAB_BASE, "text-muted hover:bg-ink-800/35 hover:text-bone")}>
-          <GitPullRequest className="size-[13px]" aria-hidden="true" />
-          {t("nav.pullRequests")}
-        </Link>
-        <Link to="/issues" className={cn(TAB_BASE, "text-muted hover:bg-ink-800/35 hover:text-bone")}>
-          <CircleDot className="size-[13px]" aria-hidden="true" />
-          {t("nav.issues")}
-        </Link>
-        <Link to="/releases" className={cn(TAB_BASE, "text-muted hover:bg-ink-800/35 hover:text-bone")}>
-          Releases
-        </Link>
-        <Link to="/chat" className={cn(TAB_BASE, "text-muted hover:bg-ink-800/35 hover:text-bone")}>
-          <MessageSquare className="size-[13px]" aria-hidden="true" />
-          {t("nav.chat")}
-        </Link>
-        <Link to="/settings" className={cn(TAB_BASE, "text-muted hover:bg-ink-800/35 hover:text-bone")}>
-          <Settings className="size-[13px]" aria-hidden="true" />
-          设置
-        </Link>
-      </nav>
+      <RepoTabs />
 
       {/* 工具条：分支 / 路径 / 查找 */}
       <div className="border-edge-1 flex items-center gap-2.5 border-b py-[11px]">
@@ -648,6 +603,20 @@ export function CodePage({ path, content, diff }: CodePageProps) {
         </button>
       </div>
 
+      <Stage
+        dock={PANEL_DOCK}
+        panel={(tab) => (
+          <CodePanel
+            tab={tab}
+            file={file}
+            lastCommit={lastCommit}
+            symbolsQuery={symbolsQuery}
+            onJumpToLine={setRevealLine}
+            onLookup={setLookupName}
+          />
+        )}
+        className="mt-4"
+      >
       {/* 画布：文件树 + 代码视图 */}
       <div className="border-edge-2 bg-ink-900/70 mt-4 grid h-[calc(100vh-368px)] min-h-[560px] grid-cols-[232px_minmax(0,1fr)] overflow-hidden rounded-[10px] border">
         <aside className="border-edge-1 bg-[rgba(10,18,22,0.6)] flex min-h-0 flex-col overflow-auto border-r" aria-label={t("code.fileTree")}>
@@ -849,6 +818,7 @@ export function CodePage({ path, content, diff }: CodePageProps) {
         </div>
       </div>
     </Stage>
+    </div>
 
     <Dialog
       open={inviteOpen}

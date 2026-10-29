@@ -29,6 +29,12 @@ const RepositorySettingsPage = lazy(() =>
     default: m.RepositorySettingsPage,
   })),
 );
+const CommitsPage = lazy(() =>
+  import("@/features/commits/pages/commits-page").then((m) => ({ default: m.CommitsPage })),
+);
+const ActionsPage = lazy(() =>
+  import("@/features/actions/pages/actions-page").then((m) => ({ default: m.ActionsPage })),
+);
 const AccountPage = lazy(() =>
   import("@/features/account/pages/account-page").then((m) => ({ default: m.AccountPage })),
 );
@@ -80,6 +86,22 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={<PageFallback />}>
             <CodePage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "commits",
+        element: (
+          <Suspense fallback={<PageFallback />}>
+            <CommitsPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "actions",
+        element: (
+          <Suspense fallback={<PageFallback />}>
+            <ActionsPage />
           </Suspense>
         ),
       },

@@ -4,10 +4,10 @@ import { Link } from "react-router";
 import { toast } from "sonner";
 
 import { Chip } from "@/components/kit/kit";
+import { RepoTabs } from "@/components/layout/repo-tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BranchesSection } from "@/features/settings/components/branches-section";
-import { BuildsSection } from "@/features/settings/components/builds-section";
 import { DiscussionsSection } from "@/features/settings/components/discussions-section";
 import { DangerSection } from "@/features/settings/components/danger-section";
 import { IndexSection } from "@/features/settings/components/index-section";
@@ -98,6 +98,8 @@ export function RepositorySettingsPage() {
         </p>
       </header>
 
+      <RepoTabs />
+
       <div className="border-edge-2 bg-ink-900/50 flex flex-col gap-4 rounded-[12px] border p-5">
         <label className="flex flex-col gap-1.5">
           <span className="text-muted-2 text-[10px] font-semibold tracking-[0.13em] uppercase">{t("settings.name")}</span>
@@ -168,7 +170,6 @@ export function RepositorySettingsPage() {
         <TagsSection repoId={repo.id} />
         <BranchesSection repoId={repo.id} />
         <IndexSection repoId={repo.id} />
-        <BuildsSection repoId={repo.id} />
         <DiscussionsSection repoId={repo.id} />
         <WebhooksSection repoId={repo.id} />
         <DangerSection repoId={repo.id} repoName={repo.name} />
