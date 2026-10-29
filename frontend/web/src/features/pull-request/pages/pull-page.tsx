@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { Check, Clock3, Eye, GitMerge, Link2, ShieldCheck, Users } from "lucide-react";
 
 import { DiffViewer } from "@/components/editor/diff-viewer";
+import { Button } from "@/components/ui/button";
+import { NewPullRequestButton } from "@/features/pull-request/components/new-pull-request";
 import {
   Lamp,
   RailBlock,
@@ -102,6 +104,7 @@ export function PullPage() {
   const me = useAuthStore((state) => state.user);
   const [searchParams, setSearchParams] = useSearchParams();
   const [tab, setTab] = useState<PullTab>("conversation");
+  const [comment, setComment] = useState("");
 
   const repoId = repo?.id ?? null;
   const rawPr = searchParams.get("pr");
@@ -317,6 +320,26 @@ export function PullPage() {
     },
   );
 
+  const commentMutation = useApiMutation<unknown, void>(
+    async () => {
+      if (!repoId || prNumber === null) throw new Error("缺少 PR 编号");
+      const res = await api.POST("/api/v1/repositories/{repo_id}/pull-requests/{pr_number}/comments", {
+        params: { path: { repo_id: repoId, pr_number: prNumber } },
+        body: { content: comment.trim() },
+      });
+      assertOk(res);
+      return res.data;
+    },
+    {
+      onSuccess: () => {
+        invalidatePr();
+        setComment("");
+        toast.success("评论已发布。");
+      },
+      onError: (error) => toast.error(error.message),
+    },
+  );
+
   // 没带 ?pr= 时落到第一条并替换地址栏
   useEffect(() => {
     if (prNumber !== null || !listQuery.data) return;
@@ -336,7 +359,11 @@ export function PullPage() {
     const items = listQuery.data?.items ?? [];
     if (listQuery.isPending) return <PullEmpty title="正在加载 Pull Request…" />;
     if (items.length === 0) {
-      return <PullEmpty title="该仓库还没有 Pull Request" hint="推送分支后即可创建第一个 Pull Request。" />;
+      return (
+        <PullEmpty title="该仓库还没有 Pull Request" hint="推送分支后即可创建第一个 Pull Request。">
+          <NewPullRequestButton repoId={repo.id} defaultBranch={repo.default_branch} />
+        </PullEmpty>
+      );
     }
     return <PullEmpty title="正在打开 Pull Request…" />;
   }
@@ -520,6 +547,27 @@ export function PullPage() {
               ))
             )}
           </ol>
+
+          <div className="border-edge-1 mt-5 border-t pt-4">
+            <textarea
+              value={comment}
+              onChange={(event) => setComment(event.target.value)}
+              rows={3}
+              placeholder="写下评论（支持 Markdown）…"
+              aria-label="评论内容"
+              className="border-edge-2 bg-ink-950/60 text-bone placeholder:text-muted-2 focus:border-amber/40 min-h-[76px] w-full resize-none rounded-md border px-2.5 py-2 text-[11.5px] outline-none transition-colors"
+            />
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <span className="text-faint text-[10px]">评论会进入时间线并通知作者。</span>
+              <Button
+                size="sm"
+                onClick={() => commentMutation.mutate()}
+                disabled={!comment.trim() || commentMutation.isPending}
+              >
+                {commentMutation.isPending ? "发布中…" : "发表评论"}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -585,12 +633,21 @@ function TabButton({
 }
 
 /** 页面空态：无当前仓库 / 暂无 PR / 加载中 / 详情缺失。 */
-function PullEmpty({ title, hint }: { title: string; hint?: string }) {
+function PullEmpty({
+  title,
+  hint,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  children?: ReactNode;
+}) {
   return (
     <div className="mx-auto flex max-w-[520px] flex-col items-center gap-2 pt-[120px] text-center">
       <GitMerge className="text-faint size-[26px]" aria-hidden="true" />
       <h1 className="font-display text-bone text-[19px] font-medium tracking-tight">{title}</h1>
       {hint ? <p className="text-muted-2 text-[12px] leading-relaxed">{hint}</p> : null}
+      {children ? <div className="mt-2">{children}</div> : null}
     </div>
   );
 }
