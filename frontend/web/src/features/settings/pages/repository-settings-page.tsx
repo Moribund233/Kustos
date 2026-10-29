@@ -6,6 +6,12 @@ import { toast } from "sonner";
 import { Chip } from "@/components/kit/kit";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { BranchesSection } from "@/features/settings/components/branches-section";
+import { DangerSection } from "@/features/settings/components/danger-section";
+import { LabelsSection } from "@/features/settings/components/labels-section";
+import { MembersSection } from "@/features/settings/components/members-section";
+import { TagsSection } from "@/features/settings/components/tags-section";
+import { WebhooksSection } from "@/features/settings/components/webhooks-section";
 import { api } from "@/lib/api/client";
 import { useApiMutation } from "@/lib/api/hooks";
 import { useRepoStore } from "@/stores/repo-store";
@@ -146,6 +152,15 @@ export function RepositorySettingsPage() {
             返回代码页 →
           </Link>
         </div>
+      </div>
+
+      <div className="mt-4 flex flex-col gap-4">
+        <MembersSection repoId={repo.id} />
+        <LabelsSection repoId={repo.id} />
+        <TagsSection repoId={repo.id} />
+        <BranchesSection repoId={repo.id} />
+        <WebhooksSection repoId={repo.id} />
+        <DangerSection repoId={repo.id} repoName={repo.name} />
       </div>
     </div>
   );

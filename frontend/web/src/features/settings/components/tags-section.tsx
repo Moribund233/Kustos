@@ -1,0 +1,147 @@
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Trash2 } from "lucide-react";
+import { toast } from "sonner";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { api } from "@/lib/api/client";
+import { useApiMutation, useApiQuery } from "@/lib/api/hooks";
+
+/** GET /tags 的行。 */
+interface TagRow {
+  name: string;
+  message?: string | null;
+  commit_hash?: string | null;
+}
+
+/**
+ * Git 标签管理。
+ *
+ * 标签是按仓库存储的 git ref；创建时可写附注信息（为空则是轻量标签）。
+ * Release 会引用同名标签，删除标签前后端会做引用检查。
+ */
+export function TagsSection({ repoId }: { repoId: string }) {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState("");
+  const [message, setMessage] = useState("");
+
+  const tagsQuery = useApiQuery<TagRow[]>({
+    queryKey: ["tags", repoId],
+    enabled: !!repoId,
+    queryFn: async () => {
+      const res = await api.GET("/api/v1/repositories/{repo_id}/tags", {
+        params: { path: { repo_id: repoId } },
+      });
+      if (res.error) throw new Error("标签加载失败。");
+      return (Array.isArray(res.data) ? res.data : []) as TagRow[];
+    },
+  });
+
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["tags", repoId] });
+
+  const createMutation = useApiMutation<void, void>(
+    async () => {
+      const res = await api.POST("/api/v1/repositories/{repo_id}/tags", {
+        params: { path: { repo_id: repoId } },
+        body: { name: name.trim(), message: message.trim() || null } as never,
+      });
+      if (res.error) {
+        const detail = (res.error as { detail?: string }).detail;
+        throw new Error(detail ?? "创建标签失败。");
+      }
+    },
+    {
+      onSuccess: () => {
+        toast.success("标签已创建。");
+        setName("");
+        setMessage("");
+        void refresh();
+      },
+      onError: (error) => toast.error(error.message),
+    },
+  );
+
+  const deleteMutation = useApiMutation<void, string>(
+    async (tagName) => {
+      const res = await api.DELETE("/api/v1/repositories/{repo_id}/tags/{tag_name}", {
+        params: { path: { repo_id: repoId, tag_name: tagName } },
+      });
+      if (res.error) {
+        const detail = (res.error as { detail?: string }).detail;
+        throw new Error(detail ?? "删除标签失败。");
+      }
+    },
+    {
+      onSuccess: () => {
+        toast.success("标签已删除。");
+        void refresh();
+      },
+      onError: (error) => toast.error(error.message),
+    },
+  );
+
+  const tags = tagsQuery.data ?? [];
+
+  return (
+    <section className="border-edge-2 bg-ink-900/50 rounded-[12px] border p-5">
+      <h2 className="text-bone text-[13px] font-semibold">Git 标签</h2>
+      <p className="text-muted-2 mt-1 text-[11px]">标签指向某个提交；Release 会引用同名标签。</p>
+
+      <div className="mt-4 flex flex-col gap-2">
+        {tagsQuery.isLoading ? (
+          <p className="text-muted-2 text-[11.5px]">加载中…</p>
+        ) : tags.length === 0 ? (
+          <p className="text-muted-2 text-[11.5px]">还没有标签。</p>
+        ) : (
+          <ul className="border-edge-1 overflow-hidden rounded-md border">
+            {tags.map((tag) => (
+              <li
+                key={tag.name}
+                className="border-edge-1 flex items-center gap-2 border-b px-3 py-2 last:border-b-0"
+              >
+                <span className="text-bone-2 font-mono text-[11.5px]">{tag.name}</span>
+                <span className="text-faint min-w-0 flex-1 truncate text-[10.5px]">{tag.message ?? ""}</span>
+                <span className="text-faint font-mono text-[10px]">
+                  {tag.commit_hash ? tag.commit_hash.slice(0, 7) : "—"}
+                </span>
+                <button
+                  type="button"
+                  aria-label={`删除标签 ${tag.name}`}
+                  className="text-muted-2 hover:text-rose transition-colors"
+                  onClick={() => deleteMutation.mutate(tag.name)}
+                >
+                  <Trash2 className="size-[13px]" aria-hidden="true" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="flex items-center gap-2">
+          <Input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="v0.2.0"
+            aria-label="Git 标签名"
+            className="h-8 font-mono text-[11px]"
+          />
+          <Input
+            value={message}
+            onChange={(event) => setMessage(event.target.value)}
+            placeholder="附注（可选）"
+            aria-label="标签说明"
+            className="h-8 text-[11px]"
+          />
+          <Button
+            size="sm"
+            onClick={() => createMutation.mutate()}
+            disabled={!name.trim() || createMutation.isPending}
+          >
+            创建
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
+}
