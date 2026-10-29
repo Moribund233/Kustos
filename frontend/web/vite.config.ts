@@ -28,6 +28,14 @@ export default defineConfig({
         changeOrigin: true,
         ws: true,
       },
+      // 协作编辑走独立的 Hocuspocus 网关，不在 app 上；dev 里由 dev nginx
+      // （docker-compose.dev.yml 的 gateway，127.0.0.1:8080）转发到 collab 容器。
+      // 必须排在下方 /ws 之前，否则会被 app 的通用规则吃掉、握手直接失败。
+      "/ws/collab": {
+        target: process.env.VITE_DEV_COLLAB_ORIGIN ?? "http://127.0.0.1:8080",
+        changeOrigin: true,
+        ws: true,
+      },
       // 实时通道走 /ws 前缀（不经 /api/v1）；生产由网关整段反代到应用，
       // 开发期同样要转发，否则聊天与 presence 一点就连不上。
       "/ws": {

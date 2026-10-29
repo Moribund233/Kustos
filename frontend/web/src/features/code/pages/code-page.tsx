@@ -31,13 +31,21 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
 
 import { CodeView } from "@/components/editor/code-view";
+import { CollabEditor } from "@/components/editor/collab-editor";
 import { DiffViewer, type DiffPayload } from "@/components/editor/diff-viewer";
 import { Lamp, RailBlock, Stage, type DockTab } from "@/components/kit/kit";
 import { type CodeFile, type SymbolNode } from "@/features/code/types";
-import { api } from "@/lib/api/client";
+import { api, getAccessToken } from "@/lib/api/client";
+import {
+  createCollabSession,
+  saveCollabDocument,
+  type CollabSession,
+  type CollabStatus,
+} from "@/lib/collab/client";
 import { formatRelative } from "@/lib/datetime/format";
 import { useApiQuery } from "@/lib/api/hooks";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/stores/auth-store";
 import { useRepoStore } from "@/stores/repo-store";
 import { useUiStore } from "@/stores/ui-store";
 
@@ -103,6 +111,14 @@ interface CommitsResponse {
 /** 超过该大小不进 CodeView，提示「文件过大」（blob 接口始终返回全文，这里做浏览器侧兜底）。 */
 const MAX_VIEW_BYTES = 1024 * 1024;
 
+/** 协作连接状态文案；未连接时为 connecting。 */
+const COLLAB_STATUS_LABEL: Record<CollabStatus, string> = {
+  connecting: "正在连接协作网关",
+  connected: "协作中",
+  disconnected: "连接已断开",
+  error: "协作连接失败",
+};
+
 async function fetchTree(repoId: string, ref: string, path: string): Promise<TreeResponse> {
   const res = await api.GET("/api/v1/repositories/{repo_id}/tree", {
     params: { path: { repo_id: repoId }, query: { ref, path } },
@@ -162,6 +178,15 @@ export function CodePage({ path, content, diff }: CodePageProps) {
   const [branchOpen, setBranchOpen] = useState(false);
   const filterRef = useRef<HTMLInputElement | null>(null);
 
+  // 协作编辑会话：为空表示处于只读浏览，非空表示当前文件已接入 CRDT
+  const user = useAuthStore((state) => state.user);
+  const [collab, setCollab] = useState<CollabSession | null>(null);
+  const [collabStatus, setCollabStatus] = useState<CollabStatus | null>(null);
+  const [collabPeers, setCollabPeers] = useState(1);
+  const [collabCanWrite, setCollabCanWrite] = useState(false);
+  const collabRef = useRef<CollabSession | null>(null);
+  collabRef.current = collab;
+
   const repoId = repo?.id ?? "";
   const branch = branchOverride ?? repo?.default_branch ?? "";
   const selectedPath = path ?? searchParams.get("path") ?? "";
@@ -196,6 +221,72 @@ export function CodePage({ path, content, diff }: CodePageProps) {
       ...(selectedPath ? [{ label: selectedPath }] : []),
     ]);
   }, [setCrumbs, t, repo, selectedPath]);
+
+  // 切文件/分支/仓库即结束会话：Y.Doc 绑定的是单个文档，复用会把内容写错文件
+  useEffect(() => {
+    collabRef.current?.destroy();
+    setCollab(null);
+    setCollabStatus(null);
+    setCollabPeers(1);
+  }, [repoId, branch, selectedPath]);
+
+  /**
+   * 进入协作编辑。
+   *
+   * 网关按 docKey（`repo:branch:path`）向 app 校验读写权限，因此这里只需要令牌与
+   * 文档键；写权限只在本地决定编辑器是否可输入，最终由 `/collab/save` 裁决。
+   */
+  const openCollab = async () => {
+    if (!repo || !selectedPath) return;
+    const token = getAccessToken();
+    if (!token) {
+      toast.error("会话已失效，请重新登录。");
+      return;
+    }
+
+    try {
+      const res = await api.GET("/api/v1/repositories/{repo_id}/members", {
+        params: { path: { repo_id: repoId } },
+      });
+      const members = (Array.isArray(res.data) ? res.data : []) as {
+        user?: { id?: string } | null;
+        role?: string;
+      }[];
+      const me = members.find((member) => member.user?.id === user?.id);
+      // 只读成员与无成员身份（公开仓凭邀请进入）一律按只读打开
+      setCollabCanWrite(me?.role === "owner" || me?.role === "admin" || me?.role === "developer");
+    } catch {
+      setCollabCanWrite(false);
+    }
+
+    const session = createCollabSession({
+      documentName: `${repo.id}:${branch}:${selectedPath}`,
+      accessToken: token,
+      username: user?.username,
+      onStatus: setCollabStatus,
+    });
+
+    session.provider.awareness?.on("change", () => {
+      setCollabPeers(session.provider.awareness?.getStates().size ?? 1);
+    });
+
+    setCollab(session);
+  };
+
+  /** 退出协作并回到只读视图；顺带刷新 blob，显示别人刚保存的内容。 */
+  const closeCollab = () => {
+    collabRef.current?.destroy();
+    setCollab(null);
+    setCollabStatus(null);
+    void blobQuery.refetch();
+  };
+
+  /** 请求网关把当前 CRDT 内容落成一次提交。 */
+  const saveCollab = () => {
+    if (!collab) return;
+    void saveCollabDocument(collab.provider, `docs: 更新 ${selectedPath}`);
+    toast.success("已发出保存请求，落库后可刷新查看提交。");
+  };
 
   const branchesQuery = useApiQuery<BranchInfo[]>({
     queryKey: ["code", repoId, "branches"],
@@ -546,6 +637,15 @@ export function CodePage({ path, content, diff }: CodePageProps) {
               </button>
               <button
                 type="button"
+                className={cn(QUIET_BTN, collab && "text-amber")}
+                onClick={() => (collab ? closeCollab() : void openCollab())}
+                disabled={!selectedPath || Boolean(blob?.is_binary)}
+              >
+                <Pencil className="size-3" aria-hidden="true" />
+                {collab ? "退出协作" : "协作编辑"}
+              </button>
+              <button
+                type="button"
                 className={QUIET_BTN}
                 onClick={() => {
                   void navigator.clipboard?.writeText(file.content);
@@ -558,7 +658,48 @@ export function CodePage({ path, content, diff }: CodePageProps) {
             </div>
           </div>
 
-          {showDiff && file.diff ? (
+          {collab ? (
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div className="border-edge-1 bg-ink-950/60 flex flex-none items-center gap-2 border-b px-3 py-1.5">
+                <Lamp
+                  tone={
+                    collabStatus === "connected" ? "good" : collabStatus === "error" ? "bad" : "warn"
+                  }
+                  live={collabStatus !== "error"}
+                />
+                <span className="text-muted-2 font-mono text-[10px]">
+                  {COLLAB_STATUS_LABEL[collabStatus ?? "connecting"]}
+                </span>
+                <span className="text-faint font-mono text-[10px]">· {collabPeers} 人在线</span>
+                {!collabCanWrite ? (
+                  <span className="text-amber-2 font-mono text-[10px]">· 只读</span>
+                ) : null}
+                <div className="ml-auto flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={saveCollab}
+                    disabled={!collabCanWrite || collabStatus !== "connected"}
+                    className="border-edge-2 text-bone-2 hover:border-edge-3 inline-flex h-[24px] items-center rounded-md border px-2 font-mono text-[10px] transition-colors disabled:opacity-50"
+                  >
+                    保存到分支
+                  </button>
+                  <button
+                    type="button"
+                    onClick={closeCollab}
+                    className="text-muted-2 hover:text-bone inline-flex h-[24px] items-center px-1.5 font-mono text-[10px] transition-colors"
+                  >
+                    结束协作
+                  </button>
+                </div>
+              </div>
+              <CollabEditor
+                doc={collab.doc}
+                provider={collab.provider}
+                readOnly={!collabCanWrite}
+                className="min-h-0 flex-1"
+              />
+            </div>
+          ) : showDiff && file.diff ? (
             <div className="bg-ink-950 min-h-0 flex-1 overflow-auto p-3">
               <DiffViewer payload={file.diff} />
             </div>

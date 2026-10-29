@@ -66,8 +66,7 @@ test("代码页渲染编辑器", async ({ page }) => {
   await expect(page.locator(".cm-content")).toBeVisible();
 });
 
-test("品牌标记使用原型资产且真实加载", async ({ page }) => {
-  await gotoApp(page, "/");
+test("品牌标记使用原型资产且真实加载", async ({ page }) => {  await gotoApp(page, "/");
 
   // 侧栏与登录页都用 /brand/kustos-mark.svg，不是画出来的字母
   const mark = page.locator('img[src="/brand/kustos-mark.svg"]').first();
@@ -77,4 +76,14 @@ test("品牌标记使用原型资产且真实加载", async ({ page }) => {
     .toBeGreaterThan(0);
 
   await expect(page.locator('link[rel="icon"]')).toHaveAttribute("href", "/brand/favicon.svg");
+});
+
+test("代码页可进入协作编辑并显示连接状态", async ({ page }) => {
+  await gotoApp(page, "/code?path=README.md");
+
+  await page.getByRole("button", { name: "协作编辑" }).click();
+
+  // E2E 没有协作网关：状态要么在连接中，要么以失败收场，但界面不能一片空白
+  await expect(page.getByText(/协作连接失败|正在连接协作网关|连接已断开/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "结束协作" })).toBeVisible();
 });
