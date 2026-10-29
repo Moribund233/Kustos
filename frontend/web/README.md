@@ -89,6 +89,7 @@ pnpm api:generate     # 从后端 OpenAPI 重新生成类型
 | --------------------- | ----------------------------------------------------------------------------- |
 | `VITE_API_URL`        | API 基址；**留空 = 与页面同源**（生产经网关访问 `/api/v1`），构建时注入       |
 | `VITE_DEV_API_ORIGIN` | 仅开发期：vite 把 `/api` 与 `/ws` 转发到的后端地址（默认 `http://127.0.0.1:8001` 即 `docker-compose.yml` 的 API 直连端口；跑 `docker-compose.dev.yml` 时改为 `8002`） |
+| `VITE_DEV_COLLAB_ORIGIN` | 仅开发期：`/ws/collab` 的转发目标，指向 dev nginx（默认 `http://127.0.0.1:8080`） |
 
 ## 接口类型
 
@@ -126,7 +127,9 @@ const { data } = await api.GET("/api/v1/repositories/{repo_id}/pull-requests", {
 
 - 开发：`pnpm dev` 时 `/api` 与 `/ws` 都由 vite 代理到 `VITE_DEV_API_ORIGIN`
   （默认后端 dev compose 的 `127.0.0.1:8001`）；`/ws` 必须单独代理，实时通道不走 `/api` 前缀。
-- 生产：与网关同源，浏览器直接请求 `/api/v1/...`；WebSocket 走同源的 `/ws/` 升级路径。
+- 协作编辑走独立网关：`/ws/collab` 由 `VITE_DEV_COLLAB_ORIGIN` 指向 dev nginx
+  （默认 `127.0.0.1:8080`），再转发到 collab 容器；这条规则必须排在 `/ws` 之前。
+- 生产：与网关同源，浏览器直接请求 `/api/v1/...`；WebSocket 走同源的 `/ws/`，协作走 `/ws/collab`。
 
 ## 网关构建的硬约束
 
@@ -155,16 +158,19 @@ Agent、Chat、Admin 与登录页。页面里没有写死的演示数据，空�
 检索：Issue 关键词走 `POST /issues/filter` 的 `search`，房间内消息走
 `GET /rooms/{id}/messages?q=`——两者都是后端现成的能力，前端按条件切换数据源。
 
+协作编辑：代码页工具栏「协作编辑」按 `repo:branch:path` 连 Hocuspocus 网关，
+读写权限由网关回调 `/collab/auth` 裁决；「保存到分支」发 `collab-save` 让后端
+落成一次 Git 提交。写权限只在本地决定编辑器是否可输入，最终以保存结果为准。
+
 品牌：提灯标记、favicon 与 app icon 直接使用 `docs/prototype/assets/brand/` 的原始
 SVG（复制到 `public/brand/`），由 `components/brand/brand-mark.tsx` 统一取用，不重绘。
 
 已知缺口：
 
-- **协作编辑器还没有入口**：`components/editor/collab-editor.tsx` 与 `lib/collab/client.ts`
-  已能对接 Hocuspocus，但"打开文档 → 申请会话 → 保存落 Git"的产品流程未定，因此没有页面挂它。
 - **仓库设置页**：仓库有 `PUT /repositories/{id}`，界面未做。
 - **消息附件与表情回应**：附件需要文件选择与上传进度；表情后端已有 WS handler，前端未建交互。
 - **Release 附件上传与单条详情**：列表与创建已接，附件上传未做。
+- **协作邀请入口**：后端有 `/collab/invites`（外部人凭邀请令牌进入），前端未做邀请 UI。
 - **扁平路由**：仓库级页面仍是 `/code`、`/issues` 这类扁平路径，`/:owner/:repo/*`
   尚未落地，当前仓库由 `stores/repo-store.ts` 承担。
 
