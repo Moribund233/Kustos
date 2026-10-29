@@ -40,11 +40,13 @@ Kustos 的前端。仓库是 bare repo，前端只负责界面与交互，全部
 ```text
 frontend/web/
 ├── components.json          # shadcn CLI 配置（新增组件走 `pnpm dlx shadcn add`）
-├── e2e/                     # Playwright 用例
+├── e2e/                     # Playwright 用例（session.ts 桩住认证与读接口）
+├── public/brand/            # 品牌 SVG（源自 docs/prototype/assets/brand）
 ├── scripts/generate-api.mjs # 从后端 OpenAPI 生成类型
 ├── src/
 │   ├── api/schema.d.ts      # 自动生成，勿手改
 │   ├── components/
+│   │   ├── brand/           # BrandMark：统一取用品牌标记
 │   │   ├── layout/          # AppShell / Sidebar / Topbar
 │   │   └── ui/              # 基础组件（button/input/dialog/…）
 │   ├── features/            # 按后端领域切分，见 features/README.md
@@ -142,20 +144,27 @@ const { data } = await api.GET("/api/v1/repositories/{repo_id}/pull-requests", {
 
 ## 当前状态
 
-八个页面全部接上真实后端：Watch（工作台）、Code、Issues、Pull Request、Agent、Chat、
-Admin 与登录页。页面里没有写死的演示数据，空态一律如实说明缺什么。
+九个页面全部接上真实后端：Watch（工作台）、Code、Issues、Pull Request、Releases、
+Agent、Chat、Admin 与登录页。页面里没有写死的演示数据，空态一律如实说明缺什么。
 
 实时能力：聊天页走 `/ws/`（`Sec-WebSocket-Protocol` 带令牌），收发消息、输入指示、
 房间在线状态、断线重连都在 `features/chat/use-room-channel.ts` 里，REST 与实时帧写
 同一份 React Query 缓存（合并与去重见 `features/chat/lib/messages.ts`）。presence 由
 服务端按房间聚合，连接重建后自动重新订阅。
 
-已知缺口（都需要后端配合，前端不做伪实现）：
+检索：Issue 关键词走 `POST /issues/filter` 的 `search`，房间内消息走
+`GET /rooms/{id}/messages?q=`——两者都是后端现成的能力，前端按条件切换数据源。
+
+品牌：提灯标记、favicon 与 app icon 直接使用 `docs/prototype/assets/brand/` 的原始
+SVG（复制到 `public/brand/`），由 `components/brand/brand-mark.tsx` 统一取用，不重绘。
+
+已知缺口：
 
 - **协作编辑器还没有入口**：`components/editor/collab-editor.tsx` 与 `lib/collab/client.ts`
   已能对接 Hocuspocus，但"打开文档 → 申请会话 → 保存落 Git"的产品流程未定，因此没有页面挂它。
-- **Issue 搜索**：列表接口没有 `q` 参数，前端不提供只过滤当前页的伪搜索。
-- **Release 页、仓库设置页、房间内搜索、消息附件与表情**：后端有接口或需补充接口，前端未实现。
+- **仓库设置页**：仓库有 `PUT /repositories/{id}`，界面未做。
+- **消息附件与表情回应**：附件需要文件选择与上传进度；表情后端已有 WS handler，前端未建交互。
+- **Release 附件上传与单条详情**：列表与创建已接，附件上传未做。
 - **扁平路由**：仓库级页面仍是 `/code`、`/issues` 这类扁平路径，`/:owner/:repo/*`
   尚未落地，当前仓库由 `stores/repo-store.ts` 承担。
 
