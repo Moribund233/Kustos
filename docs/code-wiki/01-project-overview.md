@@ -61,7 +61,7 @@ Kustos 是一个**自托管、Git 原生、带实时协作与 AI 能力**的研�
 
 | 能力 | 主要实现 |
 | --- | --- |
-| 代码全文检索（块级索引 + pg_trgm） | `search_service.search_code` |
+| 代码全文检索（块级索引 + `ILIKE` 子串匹配） | `search_service.search_code` |
 | 符号定义 / 引用查找 | `search_service.find_definition/find_usages` |
 | 语义检索（embedding + RRF 混合排序） | `indexing/embeddings.py`、`_rrf_fuse` |
 | 索引重建 / 增量维护 / 状态查询 | `rebuild_index`、`update_files`、`search_controller` |
@@ -110,7 +110,7 @@ Kustos 是一个**自托管、Git 原生、带实时协作与 AI 能力**的研�
 | --- | --- | --- |
 | PostgreSQL | `pgvector/pgvector:pg16` | 唯一数据库，启用 `vector` 扩展 |
 | Redis | `redis:7-alpine` | `volatile-lru`，无 AOF |
-| 协作网关 | Node 20 + `@hocuspocus/server` + `ioredis` | Yjs CRDT |
+| 协作网关 | Node 22 + `@hocuspocus/server` + `ioredis` | Yjs CRDT |
 | Git HTTP | Debian + `fcgiwrap` + `git-http-backend` | Smart Protocol |
 | SSH | OpenSSH + 自定义 wrapper | Git over SSH |
 | 网关 | OpenResty | 静态前端 + API/WS/Git/协作/Grafana 反代 |
@@ -131,16 +131,21 @@ Kustos/
 │   │   ├── models/                # SQLAlchemy 模型 + 同步/异步引擎
 │   │   ├── services/              # 业务服务（含 agent/indexing/realtime/auth 子包）
 │   │   └── utils/                 # Git、日志、Redis、安全、响应、邮件、Webhook 等
-│   ├── alembic/                   # 数据库迁移（0001_initial 建 51 张表）
+│   ├── alembic/                   # 数据库迁移（0001_initial 51 张 + 0002 补 2 张）
 │   ├── collab-gateway/            # Hocuspocus/Yjs Node 网关
 │   ├── docker/                    # gateway/git-cgi/ssh/collab/监控/写代理配置
 │   ├── scripts/                   # 安装、运维、初始化、E2E、审计脚本
-│   ├── tests/                     # 183 个测试文件
+│   ├── tests/                     # 181 个测试文件
 │   ├── config.example.toml        # 配置播种模板（运行期不读）
 │   ├── docker-compose*.yml        # 基础设施/业务/开发/监控
 │   ├── Dockerfile                 # 多阶段构建（uv）
 │   └── pyproject.toml / uv.lock
-├── docs/code-wiki/                # 本文档集
+├── frontend/
+│   └── web/                       # Vite + React + TS 前端（gateway 镜像构建上下文）
+├── docs/
+│   ├── code-wiki/                 # 本文档集
+│   └── prototype/                 # 静态 Web 原型（设计稿）
+├── README.md
 ├── LICENSE                        # MIT
 └── .gitignore / .gitattributes
 ```
@@ -152,7 +157,7 @@ Kustos/
 | 项 | 说明 |
 | --- | --- |
 | 仅 PostgreSQL | `DatabaseSettings` 校验与 `parse_db_url` 均拒绝非 PostgreSQL；测试也要求真实 PG |
-| 前端不在快照 | `docker-compose.yml` 的 gateway 构建上下文 `./client/web` 缺失；网关镜像需外部前端产物 |
+| 前端在 `frontend/web` | 网关镜像构建上下文为 `frontend/web`（Node 22 + pnpm 11 容器内构建），未构建前端时 `gateway` 服务起不来 |
 | LFS S3 未实现 | `lfs.storage_backend=s3` 时 `lfs_controller` 返回 501；实际仅 local 存储 |
 | CI 状态检查为占位 | 平台暂无 CI 检查来源；`security.strict_status_checks=true` 时“零检查记录=未通过” |
 | `config.toml` 已弃用 | 运行期只读环境变量 + `app_config`；`config.example.toml` 仅播种/文档 |

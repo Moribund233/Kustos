@@ -77,7 +77,7 @@
 | 6 | `^~ /api/app/` | app | `access_by_lua_file admin_acl.lua` 来源白名单 |
 | 7 | `= /grafana` / `^~ /grafana/` | grafana | 子路径 SSO，同 ACL |
 | 8 | `^~ /api/v1/git-internal/` | — | 直接 404，封禁公网 |
-| 9 | `~ ^/(api|health|docs|openapi.json|redoc|ws)` | app | 通用 API/WS |
+| 9 | `~ ^/(api\|health\|docs\|openapi.json\|redoc\|ws)` | app | 通用 API/WS |
 | 10 | `/assets/` | 静态 | 30d 缓存 |
 | 11 | `/` | SPA | `try_files $uri $uri/ /index.html` |
 
@@ -87,7 +87,7 @@
 - `client_max_body_size`：LFS/Git 2g；其余默认 1m。
 - Admin ACL（`admin_acl.lua`）：`KUSTOS_ADMIN_ALLOWED_SOURCES` 支持 IP/IPv4 CIDR，**留空=拒绝一切**。
 
-> 现状提示：gateway 镜像构建上下文为 `./client/web`，本仓库快照不含前端源码；需先准备前端构建产物/前端仓库，否则 `gateway` 服务无法构建。
+> 现状提示：gateway 镜像构建上下文为 `../frontend/web`（相对 `backend/`），Dockerfile 位于 `backend/docker/gateway/Dockerfile`；镜像内用 Node 22 + pnpm 11 构建 `dist`，宿主机无需 Node/pnpm。
 
 ---
 

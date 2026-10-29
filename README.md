@@ -11,7 +11,7 @@ Kustos 不是对 GitHub API 的封装：仓库是 bare repo，代码浏览、搜
 | 仓库与代码 | 仓库 CRUD、归档、Fork/Star/Watch；文件树、blob、提交历史、diff、blame、提交图、符号；分支与分支保护；Web 端提交；Git Smart HTTP / SSH / LFS |
 | 协作流程 | Pull Request（草稿、行内评论、Review、三种合并方式、保护规则与 admin bypass）；Issue（标签、指派、批量操作）；Release 与附件；Webhook（HMAC 签名、重试、投递历史）；通知（站内 / 邮件 / WebSocket） |
 | 实时与社交 | 仓库频道、私聊、在线状态、跨 worker 广播；Yjs CRDT 协作文档（Hocuspocus 网关）；协作邀请与会话级权限覆盖 |
-| 搜索与 AI | 代码全文检索（块级索引 + `pg_trgm`）、符号定义/引用、embedding 混合排序；Agent 作业（工具循环、流式、审批）、触发器（push / CI 失败 / 定时） |
+| 搜索与 AI | 代码全文检索（块级索引 + `ILIKE` 子串匹配，暂未建 `pg_trgm` GIN 索引）、符号定义/引用、embedding 混合排序；Agent 作业（工具循环、流式、审批）、触发器（push / CI 失败 / 定时） |
 | 平台与运维 | JWT 轮换与吊销、OAuth、仓库权限矩阵；动态配置（库表 + 热生效 + 密文密钥）；审计与 Activity；Prometheus 指标、Grafana SSO；Admin 控制台 API |
 
 ## 技术栈
@@ -21,7 +21,7 @@ Kustos 不是对 GitHub API 的封装：仓库是 bare repo，代码浏览、搜
 | 应用 | Python 3.12、FastAPI、SQLAlchemy 2（async）、Alembic、pydantic |
 | 数据 | PostgreSQL 16 + pgvector（唯一数据库）、Redis 7（缓存 / pub-sub / Agent 队列） |
 | Git | pygit2（libgit2）、`git-http-backend`、OpenSSH + 自定义 wrapper、LFS |
-| 接入 | OpenResty 网关（静态资源 / API / WS / Git / 协作反代）、Hocuspocus（Node 20） |
+| 接入 | OpenResty 网关（静态资源 / API / WS / Git / 协作反代）、Hocuspocus（Node 22） |
 
 ## 目录结构
 

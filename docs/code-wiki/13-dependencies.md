@@ -161,7 +161,7 @@ flowchart TB
 | --- | --- |
 | `@hocuspocus/server` | Yjs CRDT 服务 |
 | `ioredis` | 跨副本 pub/sub + 快照 |
-| （前端）pnpm/Vite 等 | 不在本快照 |
+| （前端）Vite / React / pnpm 11 | `frontend/web`，网关镜像内构建 |
 
 ### 3.4 基础设施镜像
 
@@ -220,7 +220,7 @@ flowchart TB
 | Redis 可选但多处依赖 | 降级语义需保持 | 新功能必须定义无 Redis 行为 |
 | 配置轮询 | 5s 窗口内多进程可能短暂不一致 | 热路径读取容忍；重启键明确提示 |
 | Agent 外部 LLM | 网络/配额/模型差异 | 超时、预算、审批、配额多重保护 |
-| 前端不在仓库 | 网关构建依赖 `client/web` | 部署前准备前端产物/仓库 |
+| 前端构建链 | 网关镜像依赖 `frontend/web` 的 pnpm 构建 | 构建失败时网关无法起镜像；前端改动需重建 gateway |
 | SSH 脚本硬编码 DSN | 凭据泄漏风险 | 改为 env 注入；轮换凭据 |
 | `git-shell-wrapper` eval | 命令注入面 | 改为白名单解析，不使用 eval |
 

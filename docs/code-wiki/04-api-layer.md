@@ -89,10 +89,12 @@ Token 由 `token_service` 签发：
 | `invite:issue` | ✓ | ✓ | ✓ | ✓ |
 | `pr:merge` | ✓ | ✓ | ✓ | — |
 | `fork:read` / `file-comment:read` | ✓ | ✓ | ✓ | ✓ |
-| `issue:create` / `pr:create` / `comment:create` | 私仓按成员；公开仓登录即可 |
+| `issue:create` / `pr:create` / `comment:create` | ✓* | ✓* | ✓* | ✓* |
 | `agent:write` | ✓ | ✓ | ✓ | — |
 | `lfs:read` | ✓ | ✓ | ✓ | ✓ |
 | `lfs:write` | ✓ | ✓ | ✓ | — |
+
+> `✓*` = 参与型 Action（`PUBLIC_PARTICIPATE_ACTIONS`）：私仓要求活跃成员（四个角色都算），公开仓只要登录即可，无需成员身份。
 
 **裁决顺序**（`has_repo_action`）：
 

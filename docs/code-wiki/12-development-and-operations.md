@@ -14,7 +14,7 @@
 | Redis | 可选；缺失时多处降级 |
 | Docker | 生产/开发 Compose 方式需要 Docker + Compose V2 |
 | 系统库 | `libgit2`、`libpq`、`gcc/g++`、`pkg-config`（构建 pygit2/psycopg2）|
-| Node | 22（仅协作网关；Docker 内构建则无需宿主机）|
+| Node | 22（协作网关 `collab-gateway`；前端 `frontend/web` 构建；两者都在容器内完成，宿主机可不装）|
 
 ---
 
@@ -24,7 +24,7 @@
 
 ```bash
 cd backend
-# 仓库快照未包含 .env.dev；请按 compose 变量清单创建 .env
+# 仓库未提供 .env.dev；请按 compose 变量清单创建 .env
 # （或运行 python scripts/generate_env.py 生成密钥类变量）
 cp .env.dev .env          # 若文件存在
 # 编辑 .env：KUSTOS_SECURITY_SECRET_KEY、POSTGRES_PASSWORD、管理员账号
@@ -46,7 +46,7 @@ cd backend
 - app 挂载源码热重载，暴露 `127.0.0.1:8002:8000`；
 - `KUSTOS_INIT_DATABASE=true`，启动自动迁移 + 管理员引导；
 - git-cgi/collab/gateway 一并启动；
-- 前端需在 `client/web` 单独 `pnpm dev`（本快照不含前端）。
+- 前端在 `frontend/web`，开发时单独 `pnpm dev`（Vite 默认 `5173`，dev 网关回源到 `host.docker.internal:5173`）。
 
 ### 2.2 方式 B：裸进程 + 外部依赖
 
@@ -145,7 +145,7 @@ docker compose up -d
 
 ### 4.1 测试架构
 
-- 183 个测试文件、2117 个测试函数；
+- 181 个测试文件、2140 个测试函数（静态统计）；
 - `pytest-asyncio` 自动模式（`asyncio_mode=auto`）；
 - **统一 PostgreSQL**：每个会话建一次性临时库，结束 `DROP ... FORCE`；
 - 异步引擎测试期强制 `NullPool`，规避跨事件循环连接复用；

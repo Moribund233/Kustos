@@ -2,7 +2,7 @@
 
 > 面向开发者的代码级知识库：项目定位、架构、模块职责、关键类与函数、依赖关系、运行与运维方式。
 >
-> 文档基于仓库当前快照（`backend/` 为主体）静态分析生成，所有结论均可在对应源码中复核。
+> 文档基于仓库当前代码（`backend/` 为主体，含 `frontend/web`）静态分析生成，所有结论均可在对应源码中复核。
 
 ---
 
@@ -21,7 +21,7 @@
 | 协作编辑 | Node.js + Hocuspocus/Yjs 网关（`backend/collab-gateway`）|
 | 网关 | OpenResty/Nginx（同源反代、Git 鉴权子请求、Admin IP 白名单）|
 | 可观测性 | 自研请求统计 + Prometheus `/metrics` + Grafana + Sentry |
-| 前端 | 不在本仓库快照中（`client/web` 由网关镜像构建上下文引用）|
+| 前端 | `frontend/web`（Vite + React + TS），同时是 `gateway` 镜像的构建上下文 |
 | 许可证 | MIT |
 
 **代码规模（静态统计）**
@@ -30,10 +30,10 @@
 | --- | --- |
 | API 控制器 | 39 个 `*_controller.py` |
 | HTTP/WS 路由声明 | 约 250+ 个 |
-| 服务层文件 | 75 个（含子包 `agent/`、`indexing/`、`realtime/`、`auth/`）|
-| ORM 模型文件 | 36 个 |
-| 初始迁移建表 | 51 张 |
-| 测试文件 / 测试函数 | 183 个 / 2117 个 |
+| 服务层文件 | 77 个（不含 `__init__.py`，含子包 `agent/`、`indexing/`、`realtime/`、`auth/`）|
+| ORM 模型文件 | 38 个（不含 `base.py`/`async_db.py`/`uuid7.py` 等基础设施文件）|
+| 迁移建表 | 53 张（`0001_initial` 51 张 + `0002_pr_issue_review_links` 2 张）|
+| 测试文件 / 测试函数 | 181 个 / 2140 个 |
 
 ---
 
@@ -47,7 +47,7 @@
 | 02 | [整体架构](02-architecture.md) | 分层架构、请求链路、部署拓扑、核心数据流 |
 | 03 | [启动流程与配置系统](03-bootstrap-and-config.md) | `create_app`、`init_app`、配置优先级、数据库迁移、生命周期 |
 | 04 | [API 层](04-api-layer.md) | 路由注册、控制器清单、鉴权与权限矩阵、中间件、错误契约、WebSocket |
-| 05 | [数据模型](05-data-model.md) | 51 张表的分组目录、字段、约束、关系与迁移策略 |
+| 05 | [数据模型](05-data-model.md) | 53 张表的分组目录、字段、约束、关系与迁移策略 |
 | 06 | [服务层](06-service-layer.md) | 服务清单、职责、关键函数、依赖规则与事务边界 |
 | 07 | [Git 与仓库域](07-git-and-repository.md) | bare 仓库、分支/提交/标签、PR 合并、LFS、HTTP/SSH 接入与 hooks |
 | 08 | [协作与实时系统](08-collaboration-realtime.md) | Hocuspocus 网关、Yjs 保存、WebSocket、房间/私聊、在线状态 |
@@ -65,7 +65,7 @@
 flowchart LR
     U[浏览器 / git / ssh] --> GW[OpenResty 网关]
     GW -->|/api /ws| APP[FastAPI app]
-    GW -->|/{owner}/{repo}.git| CGI[git-http-backend]
+    GW -->|"/{owner}/{repo}.git"| CGI[git-http-backend]
     GW -->|/ws/collab| COLLAB[Hocuspocus 网关]
     APP --> PG[(PostgreSQL + pgvector)]
     APP --> RD[(Redis)]
@@ -92,7 +92,7 @@ flowchart LR
    - **物理路径**：`<storage.repo_root>/<owner>/<repo>.git`。
    - **docKey**：协作文档标识 `repository_id:branch:path`。
 3. **「降级」**：本项目大量组件在 Redis/DB/外部服务不可用时采用显式降级（进程内回退、Git tree 全扫、关键词检索等），文档会逐处标注。
-4. **快照说明**：`docker-compose.yml` 的 `gateway` 服务构建上下文为 `./client/web`，但本仓库快照未包含前端源码；镜像构建需另行提供前端产物或前端仓库。
+4. **构建上下文**：`docker-compose.yml` 的 `gateway` 服务构建上下文为 `../frontend/web`，镜像内用 Node 22 + pnpm 11 执行 `pnpm build`，宿主机无需 Node/pnpm。
 
 ---
 

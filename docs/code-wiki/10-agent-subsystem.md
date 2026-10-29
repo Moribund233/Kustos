@@ -9,14 +9,14 @@
 ```mermaid
 flowchart TB
     subgraph API
-        AC[agent_controller<br/>/repositories/{id}/agent/jobs]
+        AC["agent_controller<br/>/repositories/{id}/agent/jobs"]
         AAC[agent_admin_controller<br/>/api/app/agent/*]
         CHAT[chat_service]
     end
     subgraph 编排
         AS[AgentService<br/>CRUD/状态机/审批]
         QUOTA[quota<br/>四道闸门]
-        BRIDGE[chat_bridge<br/>@bot]
+        BRIDGE["chat_bridge<br/>@bot"]
         TRIG[AgentTriggerService]
     end
     subgraph 执行
@@ -347,7 +347,7 @@ arq app.services.agent.worker.WorkerSettings
 | `agent.max_summary_chars` | 2000 | 会话摘要（0=关闭） |
 | `agent.job_token_budget` | 0 | 作业预算 |
 | `agent.triggers_enabled` | false | 触发器总开关 |
-| `agent.worker_max_jobs/job_timeout` | 4 / 600 | arq |
+| `agent.worker_max_jobs` / `worker_job_timeout_seconds` | 4 / 600 | arq |
 | `agent.max_active_jobs_per_user/global` | 3 / 20 | 并发配额 |
 | `agent.daily_job_limit_per_user` | 200 | 每日作业 |
 | `agent.daily_token_budget_per_user` | 1,000,000 | 每日 token |

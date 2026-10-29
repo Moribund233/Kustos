@@ -19,7 +19,7 @@ flowchart TB
         MW[中间件链<br/>Concurrency / Audit / Observability / Sentry]
         API[API v1 控制器<br/>39 controllers]
         WS[WebSocket<br/>manager + handlers]
-        SVC[服务层<br/>75 service files]
+        SVC[服务层<br/>77 service files]
     end
 
     subgraph 领域与基础设施
@@ -149,7 +149,7 @@ flowchart LR
     GitClient[git CLI] -->|:8000| GW
     SSHClient[ssh] -->|:2222| SSHD[sshd]
     GW -->|/api /ws| APP[app<br/>uvicorn x4 :8000]
-    GW -->|/{owner}/{repo}.git| CGI[git-cgi<br/>fcgi :9000]
+    GW -->|"/{owner}/{repo}.git"| CGI[git-cgi<br/>fcgi :9000]
     GW -->|/ws/collab| CB[collab :4444]
     GW -->|/grafana| GRAF[grafana :3000]
     APP --> PG[(postgres :5432)]

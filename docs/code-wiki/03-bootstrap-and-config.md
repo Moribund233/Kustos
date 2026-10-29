@@ -8,7 +8,7 @@
 
 ```mermaid
 flowchart TB
-    A[uvicorn app.main:app] --> B[import app.main<br/>模块级 app = get_app()]
+    A[uvicorn app.main:app] --> B["import app.main<br/>模块级 app = get_app()"]
     B --> C[create_app]
     C --> D[init_app]
     D --> D1[0. 加载 .env（非 pytest）]
@@ -61,7 +61,7 @@ flowchart TB
 
 ### 1.3 数据库初始化
 
-- 迁移：Alembic `backend/alembic/versions/0001_initial.py`，建 **51 张表**并 `CREATE EXTENSION IF NOT EXISTS vector`。
+- 迁移：Alembic `backend/alembic/versions/0001_initial.py`（建 **51 张表**并 `CREATE EXTENSION IF NOT EXISTS vector`）→ `0002_pr_issue_review_links.py`（补 `pull_request_issue_links`、`pr_review_requests`），head 共 **53 张表**。
 - 独立入口：`python scripts/init_db.py`（`--check-only` 只读校验）。
 - 生产 compose：`init` profile 容器执行迁移，`app` 设置 `KUSTOS_INIT_DATABASE=false` 只做只读校验。
 - 管理员引导：`DatabaseInitializer.autobootstrap_admin()` 读取 `KUSTOS_ADMIN_USERNAME/PASSWORD/EMAIL`；已存在管理员则跳过。

@@ -1,6 +1,6 @@
 # 05 · 数据模型
 
-> 目标：给出 51 张表的领域分组、关键字段、约束与关系，作为代码阅读和二次开发的索引。
+> 目标：给出 53 张表的领域分组、关键字段、约束与关系，作为代码阅读和二次开发的索引。
 
 ---
 
@@ -176,7 +176,7 @@ erDiagram
 | `collab_session_overrides` | `CollabSessionOverride` | doc_key, user_id, scope(read/write/NULL), is_kicked, created_by | `(doc_key,user_id)` 唯一；scope CHECK | 会话级权限覆盖/踢人 |
 | `collab_invite_revocations` | `CollabInviteRevocation` | jti, doc_key, expires_at | jti 唯一 | 邀请链接撤销审计/回填 |
 
-> 共 51 张表：身份 6 + 仓库/Git 7 + PR/Issue/标签 12 + Release/Webhook/评论 5 + 实时 4 + 搜索 5 + Agent 5 + 通知/社交/审计 5 + 协作编辑 2 = 51。
+> 共 53 张表：身份 6 + 仓库/Git 7 + PR/Issue/标签 14 + Release/Webhook/评论 5 + 实时 4 + 搜索 5 + Agent 5 + 通知/社交/审计 5 + 协作编辑 2 = 53。其中 `pr_review_requests`、`pull_request_issue_links` 由 `0002_pr_issue_review_links` 补齐，其余 51 张在 `0001_initial`。
 
 ---
 
@@ -199,7 +199,7 @@ erDiagram
 
 ## 4. 迁移与演进
 
-- 初始迁移：`backend/alembic/versions/0001_initial.py`（51 张表 + 索引 + `vector` 扩展）。
+- 迁移链：`0001_initial.py`（51 张表 + 索引 + `vector` 扩展）→ `0002_pr_issue_review_links.py`（补 `pull_request_issue_links`、`pr_review_requests`），当前 head 共 53 张表。
 - 运行机制：`scripts/init_db.py` / `init_app` 调用 `alembic upgrade head`；生产 app 只做 `verify_database_ready()` 只读校验。
 - 迁移即 schema 的唯一真相：`tests/test_schema_drift.py` 断言 ORM metadata 与迁移 schema 一致；`test_index_debt.py` 检查索引缺口。
 - 索引代次：`repo_search_state.index_generation` / `repo_commit_index_state.index_generation` 用于“旧代索引残留”自愈，代次不符触发全量重建。
@@ -222,5 +222,5 @@ erDiagram
 
 - `backend/app/models/`（全部 ORM）
 - `backend/app/models/base.py`、`uuid7.py`、`async_db.py`
-- `backend/alembic/versions/0001_initial.py`
+- `backend/alembic/versions/0001_initial.py`、`0002_pr_issue_review_links.py`
 - `backend/tests/test_schema_drift.py`、`test_commit_schema.py`、`test_index_debt.py`
