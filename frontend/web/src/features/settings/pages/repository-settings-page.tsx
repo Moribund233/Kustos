@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BranchesSection } from "@/features/settings/components/branches-section";
 import { DangerSection } from "@/features/settings/components/danger-section";
+import { IndexSection } from "@/features/settings/components/index-section";
 import { LabelsSection } from "@/features/settings/components/labels-section";
 import { MembersSection } from "@/features/settings/components/members-section";
 import { TagsSection } from "@/features/settings/components/tags-section";
@@ -159,6 +160,7 @@ export function RepositorySettingsPage() {
         <LabelsSection repoId={repo.id} />
         <TagsSection repoId={repo.id} />
         <BranchesSection repoId={repo.id} />
+        <IndexSection repoId={repo.id} />
         <WebhooksSection repoId={repo.id} />
         <DangerSection repoId={repo.id} repoName={repo.name} />
       </div>
