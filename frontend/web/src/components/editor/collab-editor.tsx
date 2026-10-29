@@ -83,7 +83,10 @@ export function CollabEditor({
     ];
 
     const view = new EditorView({
-      state: EditorState.create({ doc: doc.getText("content").toString(), extensions }),
+      // 初始文档必须为空：内容由 yCollab 从共享文本同步进来。
+      // 若这里塞 `doc.getText()` 的快照，插件会把它当成"本地新增"再写回
+      // Y.Text，同步到达时反而把服务端内容覆盖成空。
+      state: EditorState.create({ doc: "", extensions }),
       parent: host,
     });
     viewRef.current = view;
