@@ -33,7 +33,16 @@ import { toast } from "sonner";
 import { CodeView } from "@/components/editor/code-view";
 import { CollabEditor } from "@/components/editor/collab-editor";
 import { DiffViewer, type DiffPayload } from "@/components/editor/diff-viewer";
-import { Lamp, RailBlock, Stage, type DockTab } from "@/components/kit/kit";
+import { Lamp, Chip, RailBlock, Stage, type DockTab } from "@/components/kit/kit";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { type CodeFile, type SymbolNode } from "@/features/code/types";
 import { api, getAccessToken } from "@/lib/api/client";
 import {
@@ -236,7 +245,7 @@ export function CodePage({ path, content, diff }: CodePageProps) {
    * 网关按 docKey（`repo:branch:path`）向 app 校验读写权限，因此这里只需要令牌与
    * 文档键；写权限只在本地决定编辑器是否可输入，最终由 `/collab/save` 裁决。
    */
-  const openCollab = async () => {
+  const openCollab = async (options?: { inviteToken?: string; scope?: string }) => {
     if (!repo || !selectedPath) return;
     const token = getAccessToken();
     if (!token) {
@@ -244,25 +253,37 @@ export function CodePage({ path, content, diff }: CodePageProps) {
       return;
     }
 
-    try {
-      const res = await api.GET("/api/v1/repositories/{repo_id}/members", {
-        params: { path: { repo_id: repoId } },
-      });
-      const members = (Array.isArray(res.data) ? res.data : []) as {
-        user?: { id?: string } | null;
-        role?: string;
-      }[];
-      const me = members.find((member) => member.user?.id === user?.id);
-      // 只读成员与无成员身份（公开仓凭邀请进入）一律按只读打开
-      setCollabCanWrite(me?.role === "owner" || me?.role === "admin" || me?.role === "developer");
-    } catch {
-      setCollabCanWrite(false);
+    if (options?.inviteToken) {
+      // 邀请链接进来说明对方可能没有仓库成员身份，写权限直接取邀请档位
+      setCollabCanWrite(options.scope === "write");
+    } else {
+      try {
+        const res = await api.GET("/api/v1/repositories/{repo_id}/members", {
+          params: { path: { repo_id: repoId } },
+        });
+        const members = (Array.isArray(res.data) ? res.data : []) as {
+          user?: { id?: string } | null;
+          role?: string;
+        }[];
+        const me = members.find((member) => member.user?.id === user?.id);
+        // 仓库 owner 不一定在成员表里（owner 记在 repository.owner_id），
+        // 所以除了成员角色，还要认「自己是 owner」与全局管理员
+        const writableByRole =
+          me?.role === "owner" || me?.role === "admin" || me?.role === "developer";
+        const writableByOwner = repo.owner_id === user?.id;
+        const isAdmin = user?.is_admin === true;
+        // 非成员（例如公开仓的陌生访客）默认只读，除非是管理员或 owner
+        setCollabCanWrite(writableByRole || writableByOwner || isAdmin);
+      } catch {
+        setCollabCanWrite(false);
+      }
     }
 
     const session = createCollabSession({
       documentName: `${repo.id}:${branch}:${selectedPath}`,
       accessToken: token,
       username: user?.username,
+      inviteToken: options?.inviteToken,
       onStatus: setCollabStatus,
     });
 
@@ -286,6 +307,53 @@ export function CodePage({ path, content, diff }: CodePageProps) {
     if (!collab) return;
     void saveCollabDocument(collab.provider, `docs: 更新 ${selectedPath}`);
     toast.success("已发出保存请求，落库后可刷新查看提交。");
+  };
+
+  // 邀请链接落地：带 ?invite= 打开时自动接入协作，不必再点一次
+  const openCollabRef = useRef(openCollab);
+  openCollabRef.current = openCollab;
+  const autoInviteRef = useRef<string | null>(null);
+  useEffect(() => {
+    const token = searchParams.get("invite");
+    if (!token || !repo || !selectedPath) return;
+    if (autoInviteRef.current === token || collabRef.current) return;
+    autoInviteRef.current = token;
+    void openCollabRef.current({
+      inviteToken: token,
+      scope: searchParams.get("invite_scope") ?? "read",
+    });
+  }, [searchParams, repo, selectedPath]);
+
+  // 邀请签发：后端返回 token，链接指回本页并带上文档路径
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteScope, setInviteScope] = useState<"read" | "write">("write");
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const [inviteLink, setInviteLink] = useState("");
+
+  const issueInvite = async () => {
+    if (!repo || !selectedPath) return;
+    setInviteBusy(true);
+    try {
+      const res = await api.POST("/api/v1/repositories/{repo_id}/collab/invites", {
+        params: { path: { repo_id: repoId } },
+        body: {
+          doc_key: `${repo.id}:${branch}:${selectedPath}`,
+          scope: inviteScope,
+          ttl_minutes: 60,
+        },
+      });
+      if (res.error) {
+        const detail = (res.error as { detail?: string }).detail;
+        throw new Error(detail ?? "签发邀请失败。");
+      }
+      const data = res.data as { token: string; scope: string };
+      const link = `${window.location.origin}/code?path=${encodeURIComponent(selectedPath)}&invite=${encodeURIComponent(data.token)}&invite_scope=${data.scope}`;
+      setInviteLink(link);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "签发邀请失败。");
+    } finally {
+      setInviteBusy(false);
+    }
   };
 
   const branchesQuery = useApiQuery<BranchInfo[]>({
@@ -398,6 +466,7 @@ export function CodePage({ path, content, diff }: CodePageProps) {
   };
 
   return (
+    <>
     <Stage
       dock={PANEL_DOCK}
       panel={(tab) => (
@@ -471,10 +540,10 @@ export function CodePage({ path, content, diff }: CodePageProps) {
           <MessageSquare className="size-[13px]" aria-hidden="true" />
           {t("nav.chat")}
         </Link>
-        <button type="button" onClick={() => toast.info("仓库设置需要 repo:admin 权限。")} className={cn(TAB_BASE, "text-muted hover:bg-ink-800/35 hover:text-bone")}>
+        <Link to="/settings" className={cn(TAB_BASE, "text-muted hover:bg-ink-800/35 hover:text-bone")}>
           <Settings className="size-[13px]" aria-hidden="true" />
           设置
-        </button>
+        </Link>
       </nav>
 
       {/* 工具条：分支 / 路径 / 查找 */}
@@ -677,6 +746,14 @@ export function CodePage({ path, content, diff }: CodePageProps) {
                 <div className="ml-auto flex items-center gap-1.5">
                   <button
                     type="button"
+                    onClick={() => setInviteOpen(true)}
+                    disabled={!collabCanWrite}
+                    className="text-muted-2 hover:text-bone inline-flex h-[24px] items-center px-1.5 font-mono text-[10px] transition-colors disabled:opacity-40"
+                  >
+                    邀请
+                  </button>
+                  <button
+                    type="button"
                     onClick={saveCollab}
                     disabled={!collabCanWrite || collabStatus !== "connected"}
                     className="border-edge-2 text-bone-2 hover:border-edge-3 inline-flex h-[24px] items-center rounded-md border px-2 font-mono text-[10px] transition-colors disabled:opacity-50"
@@ -742,6 +819,75 @@ export function CodePage({ path, content, diff }: CodePageProps) {
         </div>
       </div>
     </Stage>
+
+    <Dialog
+      open={inviteOpen}
+      onOpenChange={(open) => {
+        setInviteOpen(open);
+        if (!open) setInviteLink("");
+      }}
+    >
+      <DialogContent className="max-w-[520px]">
+        <DialogHeader>
+          <DialogTitle>邀请协作</DialogTitle>
+          <DialogDescription>
+            链接 60 分钟内有效，只对当前文件生效；对方用同一实例打开即可加入。
+          </DialogDescription>
+        </DialogHeader>
+
+        {inviteLink ? (
+          <div className="flex flex-col gap-2">
+            <input
+              readOnly
+              value={inviteLink}
+              aria-label="邀请链接"
+              onFocus={(event) => event.currentTarget.select()}
+              className="border-edge-2 bg-ink-950/60 text-bone-2 w-full rounded-md border px-2.5 py-2 font-mono text-[10.5px] outline-none"
+            />
+            <p className="text-faint text-[10px] leading-relaxed">
+              链接里带文档路径与只读/可编辑档位，过期后需要重新签发。
+            </p>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5">
+            <Chip active={inviteScope === "write"} onClick={() => setInviteScope("write")}>
+              可编辑
+            </Chip>
+            <Chip active={inviteScope === "read"} onClick={() => setInviteScope("read")}>
+              只读
+            </Chip>
+          </div>
+        )}
+
+        <DialogFooter>
+          {inviteLink ? (
+            <>
+              <Button variant="ghost" onClick={() => setInviteLink("")}>
+                重新签发
+              </Button>
+              <Button
+                onClick={() => {
+                  void navigator.clipboard?.writeText(inviteLink);
+                  toast.success("邀请链接已复制。");
+                }}
+              >
+                复制链接
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="ghost" onClick={() => setInviteOpen(false)}>
+                取消
+              </Button>
+              <Button onClick={() => void issueInvite()} disabled={inviteBusy}>
+                {inviteBusy ? "签发中…" : "生成链接"}
+              </Button>
+            </>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 
