@@ -33,18 +33,33 @@ import { IssueDetail } from "@/features/issue/pages/issue-detail";
 import { useApiMutation, useApiQuery } from "@/lib/api/hooks";
 import { useAuthStore } from "@/stores/auth-store";
 import { useRepoStore } from "@/stores/repo-store";
+import i18n from "@/lib/i18n";
 import { useUiStore } from "@/stores/ui-store";
 import { cn } from "@/lib/utils";
 
 /** 优先级分组：列表按带吸顶组头的优先级带排列，回答「先看哪个」；critical 并入高优先级带。 */
-const PRIORITY_GROUPS: { key: Issue["priority"]; label: string; match: (priority: Issue["priority"]) => boolean }[] = [
-  { key: "high", label: "高优先级", match: (priority) => priority === "high" || priority === "critical" },
-  { key: "medium", label: "中优先级", match: (priority) => priority === "medium" },
-  { key: "low", label: "低优先级", match: (priority) => priority === "low" },
+const PRIORITY_GROUPS: {
+  key: Issue["priority"];
+  labelKey: string;
+  match: (priority: Issue["priority"]) => boolean;
+}[] = [
+  { key: "high", labelKey: "issue.priorityHigh", match: (p) => p === "high" || p === "critical" },
+  { key: "medium", labelKey: "issue.priorityMedium", match: (p) => p === "medium" },
+  { key: "low", labelKey: "issue.priorityLow", match: (p) => p === "low" },
 ];
 
 // Kustos 分诊 pane 暂时隐藏：后端暂无对应数据，待 Agent 分诊接口落地后恢复
-const PANEL_DOCK: DockTab[] = [{ id: "details", icon: Tag, label: "字段", kicker: "Issue", ariaLabel: "Issue 字段" }];
+function panelDock(): DockTab[] {
+  return [
+    {
+      id: "details",
+      icon: Tag,
+      label: i18n.t("issue.fieldsDock"),
+      kicker: "Issue",
+      ariaLabel: i18n.t("issue.fieldsDockAria"),
+    },
+  ];
+}
 
 /** 分页小按钮：列表超过一页时翻页。 */
 const PAGE_BTN =
@@ -166,7 +181,7 @@ export function IssuesPage() {
     queryKey: ["issues", repoId, "detail", activeNumber],
     enabled: !!repoId && activeNumber !== null,
     queryFn: async () => {
-      if (activeNumber === null) throw new Error("未选择 Issue");
+      if (activeNumber === null) throw new Error(i18n.t("issue.noSelectionError"));
       return fetchIssueDetail(repoId, activeNumber);
     },
   });
@@ -175,7 +190,7 @@ export function IssuesPage() {
     queryKey: ["issue-comments", repoId, activeNumber],
     enabled: !!repoId && activeNumber !== null,
     queryFn: async () => {
-      if (activeNumber === null) throw new Error("未选择 Issue");
+      if (activeNumber === null) throw new Error(t("issue.noSelectionError"));
       return fetchIssueComments(repoId, activeNumber);
     },
   });
@@ -184,7 +199,11 @@ export function IssuesPage() {
     (issue) => (issue.status === "open" ? closeIssue(repoId, issue.id) : reopenIssue(repoId, issue.id)),
     {
       onSuccess: (updated) => {
-        toast.success(updated.status === "closed" ? `Issue #${updated.id} 已关闭。` : `Issue #${updated.id} 已重新打开。`);
+        toast.success(
+          updated.status === "closed"
+            ? t("issue.closedToast", { id: updated.id })
+            : t("issue.reopenedToast", { id: updated.id }),
+        );
         void queryClient.invalidateQueries({ queryKey: ["issues", repoId] });
       },
       onError: (error) => toast.error(error.message),
@@ -195,7 +214,7 @@ export function IssuesPage() {
     ({ issueNumber, content }) => postIssueComment(repoId, issueNumber, content),
     {
       onSuccess: (_data, variables) => {
-        toast.success("评论已提交。");
+        toast.success(t("issue.commentSubmitted"));
         void queryClient.invalidateQueries({ queryKey: ["issues", repoId, "detail", variables.issueNumber] });
         void queryClient.invalidateQueries({ queryKey: ["issue-comments", repoId, variables.issueNumber] });
       },
@@ -207,7 +226,7 @@ export function IssuesPage() {
     (input) => createIssue(repoId, input),
     {
       onSuccess: (issue) => {
-        toast.success(`Issue #${issue.id} 已创建。`);
+        toast.success(t("issue.createdToast", { id: issue.id }));
         void queryClient.invalidateQueries({ queryKey: ["issues", repoId] });
         setCreateOpen(false);
         setSearchParams({ issue: String(issue.id) }, { replace: true });
@@ -235,7 +254,7 @@ export function IssuesPage() {
     }
   >((input) => updateIssue(repoId, input.issueNumber, input), {
     onSuccess: (issue) => {
-      toast.success(`Issue #${issue.id} 已更新。`);
+      toast.success(t("issue.updatedToast", { id: issue.id }));
       void queryClient.invalidateQueries({ queryKey: ["issues", repoId] });
       void queryClient.invalidateQueries({ queryKey: ["issue-comments", repoId, issue.id] });
       setEditTarget(null);
@@ -250,7 +269,7 @@ export function IssuesPage() {
         <h1 className="font-display text-bone text-[clamp(1.7rem,2.6vw,2.3rem)] font-medium tracking-[-0.028em] leading-none">
           {t("issue.title")}
         </h1>
-        <p className="text-muted-2 mt-4 text-sm">未选择仓库。请先在侧栏选择一个仓库，再查看它的 Issue。</p>
+        <p className="text-muted-2 mt-4 text-sm">{t("issue.noRepoForIssues")}</p>
       </div>
     );
   }
@@ -270,15 +289,15 @@ export function IssuesPage() {
           </h1>
           <p className="text-muted-2 mt-2 flex flex-wrap items-center gap-[7px] text-xs">
             <span>
-              <strong className="text-bone-2 font-mono text-xs font-medium">{openCount}</strong> 打开
+              <strong className="text-bone-2 font-mono text-xs font-medium">{openCount}</strong> {t("issue.openCountLabel")}
             </span>
             <span className="text-faint">·</span>
             <span>
-              <strong className="text-bone-2 font-mono text-xs font-medium">{closedCount}</strong> 已关闭
+              <strong className="text-bone-2 font-mono text-xs font-medium">{closedCount}</strong> {t("issue.closed")}
             </span>
             <span className="text-faint">·</span>
             <span className="border-amber/30 bg-amber/10 text-amber-2 inline-flex h-[19px] items-center rounded-full border px-[7px] text-2xs font-medium">
-              {assignedCount} 个指派给你
+              {t("issue.assignedCount", { count: assignedCount })}
             </span>
           </p>
         </div>
@@ -291,13 +310,13 @@ export function IssuesPage() {
       </header>
 
       <Stage
-        dock={PANEL_DOCK}
+        dock={panelDock()}
         panel={() => <IssuePanel issue={detailQuery.data ?? active} />}
         className="mt-0"
       >
       {/* 画布：列表 + 详情 */}
       <div className="border-edge-2 bg-ink-900/55 grid h-[calc(100vh-272px)] min-h-[540px] grid-cols-[392px_minmax(0,1fr)] overflow-hidden rounded-[14px] border">
-        <aside aria-label="Issue 列表" className="border-edge-1 bg-ink-950/55 flex min-h-0 min-w-0 flex-col overflow-hidden border-r">
+        <aside aria-label={t("issue.listAria")} className="border-edge-1 bg-ink-950/55 flex min-h-0 min-w-0 flex-col overflow-hidden border-r">
           {/* 筛选区 */}
           <div className="border-edge-2 flex flex-none flex-col gap-[9px] border-b p-3">
             <div className="border-edge-2 bg-ink-950/60 inline-flex rounded-md border p-0.5">
@@ -327,22 +346,22 @@ export function IssuesPage() {
                   type="search"
                   value={keyword}
                   onChange={(event) => setKeyword(event.target.value)}
-                  placeholder="搜索标题与描述…"
-                  aria-label="搜索 Issue"
+                  placeholder={t("issue.searchPlaceholder")}
+                  aria-label={t("issue.searchAria")}
                   className="text-bone placeholder:text-muted-2 min-w-0 flex-1 bg-transparent text-xs focus-visible:outline-none"
                 />
               </div>
               <button
                 type="button"
-                aria-label="排序"
-                onClick={() => toast.info("Issue 列表固定按最近创建排序。")}
+                aria-label={t("issue.sortAria")}
+                onClick={() => toast.info(t("issue.sortFixedInfo"))}
                 className="border-edge-2 text-muted-2 hover:border-edge-3 hover:text-bone grid size-[31px] shrink-0 place-items-center rounded-md border transition-colors"
               >
                 <SlidersHorizontal className="size-[14px]" aria-hidden="true" />
               </button>
             </div>
 
-            <div className="flex flex-wrap gap-1" aria-label="按标签筛选">
+            <div className="flex flex-wrap gap-1" aria-label={t("issue.filterByLabelAria")}>
               <Chip active={!labelFilter} onClick={() => setLabelFilter("")}>
                 {t("common.all")}
               </Chip>
@@ -358,22 +377,22 @@ export function IssuesPage() {
           <div className="min-h-0 flex-1 overflow-y-auto">
             {listQuery.isError ? (
               <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
-                <p className="text-bone-2 text-sm font-medium">Issue 列表加载失败。</p>
+                <p className="text-bone-2 text-sm font-medium">{t("issue.listLoadFailed")}</p>
                 <p className="text-muted-2 text-xs">{listQuery.error?.message}</p>
                 <Button size="sm" variant="secondary" onClick={() => listQuery.refetch()}>
-                  重试
+                  {t("common.retry")}
                 </Button>
               </div>
             ) : listQuery.isLoading ? (
-              <p className="text-muted-2 px-4 py-7 text-center text-xs">加载中…</p>
+              <p className="text-muted-2 px-4 py-7 text-center text-xs">{t("common.loading")}</p>
             ) : items.length ? (
               PRIORITY_GROUPS.map((group) => {
                 const groupItems = items.filter((issue) => group.match(issue.priority));
                 if (!groupItems.length) return null;
                 return (
-                  <section key={group.key} aria-label={group.label} className="min-w-0">
+                  <section key={group.key} aria-label={t(group.labelKey)} className="min-w-0">
                     <div className="border-edge-1 bg-ink-950/94 sticky top-0 z-[3] flex items-center gap-[7px] border-b px-3 pt-2 pb-[7px] shadow-[0_1px_0_rgba(0,0,0,0.35)] backdrop-blur-[6px]">
-                      <span className="text-muted-2 text-2xs font-semibold tracking-[0.13em] uppercase">{group.label}</span>
+                      <span className="text-muted-2 text-2xs font-semibold tracking-[0.13em] uppercase">{t(group.labelKey)}</span>
                       <span className="rounded-full bg-bone/[0.06] px-1.5 font-mono text-2xs leading-[14px] text-muted-2">{groupItems.length}</span>
                       <span className="from-edge-1 h-px flex-1 bg-gradient-to-r to-transparent" aria-hidden="true" />
                     </div>
@@ -397,13 +416,13 @@ export function IssuesPage() {
           <div className="border-edge-2 text-faint flex flex-none items-center gap-1.5 border-t px-3 py-[9px] text-2xs">
             <Lamp tone={items.length ? "good" : "warn"} />
             <span>
-              显示 {items.length} / 共 {total} 条
+              {t("issue.showingCount", { shown: items.length, total })}
             </span>
             <span className="ml-auto flex items-center gap-1.5">
-              <span>最近创建</span>
+              <span>{t("issue.recentlyCreated")}</span>
               <button
                 type="button"
-                aria-label="上一页"
+                aria-label={t("issue.prevPageAria")}
                 disabled={!hasPrev || listQuery.isFetching}
                 onClick={() => setPage((current) => Math.max(1, current - 1))}
                 className={PAGE_BTN}
@@ -412,7 +431,7 @@ export function IssuesPage() {
               </button>
               <button
                 type="button"
-                aria-label="下一页"
+                aria-label={t("issue.nextPageAria")}
                 disabled={!hasNext || listQuery.isFetching}
                 onClick={() => setPage((current) => current + 1)}
                 className={PAGE_BTN}
@@ -468,6 +487,7 @@ export function IssuesPage() {
 
 /** 列表行：状态灯 + 标题 + 元信息 + 标签 + 指派人头像。 */
 function IssueRow({ issue, active, onClick }: { issue: Issue; active: boolean; onClick: () => void }) {
+  const { t } = useTranslation();
   const closed = issue.status === "closed";
   return (
     <button
@@ -501,7 +521,7 @@ function IssueRow({ issue, active, onClick }: { issue: Issue; active: boolean; o
           {issue.commentCount != null ? (
             <>
               <span className="text-faint">·</span>
-              <span>{issue.commentCount} 条评论</span>
+              <span>{t("issue.commentCount", { count: issue.commentCount })}</span>
             </>
           ) : null}
         </span>
@@ -523,11 +543,11 @@ function IssuePanel({ issue }: { issue: Issue | null }) {
   const { t } = useTranslation();
 
   if (!issue) {
-    return <p className="text-muted-2 px-[15px] py-3.5 text-xs">未选择 Issue。</p>;
+    return <p className="text-muted-2 px-[15px] py-3.5 text-xs">{t("issue.noSelection")}</p>;
   }
 
   return (
-    <RailBlock title="字段">
+    <RailBlock title={t("issue.fieldsTitle")}>
       <MetaGroup label={t("issue.assignee")}>
         {issue.assignee ? (
           <span className="text-bone-2 flex items-center gap-[7px] text-xs">
@@ -535,7 +555,7 @@ function IssuePanel({ issue }: { issue: Issue | null }) {
             {issue.assignee.name}
           </span>
         ) : (
-          <span className="text-muted-2 text-xs">未指派</span>
+          <span className="text-muted-2 text-xs">{t("issue.unassigned")}</span>
         )}
       </MetaGroup>
       <MetaGroup label={t("issue.labels")}>
@@ -550,7 +570,7 @@ function IssuePanel({ issue }: { issue: Issue | null }) {
           {issue.priority}
         </StatusPill>
       </MetaGroup>
-      <MetaGroup label="关联 Pull Request">
+      <MetaGroup label={t("issue.linkedPrs")}>
         {issue.linkedPrs?.length ? (
           <span className="flex flex-col gap-1">
             {issue.linkedPrs.map((pr) => (
@@ -562,7 +582,7 @@ function IssuePanel({ issue }: { issue: Issue | null }) {
                 #{pr.number} · {pr.title}
                 <span className="text-muted-2 mt-px block text-2xs">
                   {pr.status}
-                  {pr.closesOnMerge ? " · 合并即关闭" : ""}
+                  {pr.closesOnMerge ? t("issue.closesOnMerge") : ""}
                 </span>
               </Link>
             ))}
@@ -571,14 +591,14 @@ function IssuePanel({ issue }: { issue: Issue | null }) {
           <span className="text-muted-2 text-xs">{t("common.none")}</span>
         )}
       </MetaGroup>
-      <MetaGroup label="创建者">
+      <MetaGroup label={t("issue.creator")}>
         <span className="text-bone-2 flex items-center gap-[7px] text-xs">
           <PersonAvatar person={issue.author} />
           {issue.author.name}
         </span>
       </MetaGroup>
       {issue.closedBy ? (
-        <MetaGroup label="关闭者">
+        <MetaGroup label={t("issue.closer")}>
           <span className="text-muted-2 text-xs">{issue.closedBy}</span>
         </MetaGroup>
       ) : null}
@@ -610,6 +630,7 @@ function CreateIssueDialog({
   pending: boolean;
   onSubmit: (input: { title: string; description: string; labelIds: string[] }) => void;
 }) {
+  const { t } = useTranslation();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
@@ -636,21 +657,21 @@ function CreateIssueDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[520px]">
         <DialogHeader>
-          <DialogTitle>新建 Issue</DialogTitle>
-          <DialogDescription>标题必填；描述支持 Markdown，可多选标签。</DialogDescription>
+          <DialogTitle>{t("issue.newIssue")}</DialogTitle>
+          <DialogDescription>{t("issue.newHintI")}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3">
-          <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="标题" aria-label="标题" />
+          <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t("issue.titleLabel")} aria-label={t("issue.titleLabel")} />
           <div className="border-edge-2 bg-ink-950/45 overflow-hidden rounded-md border">
             <MarkdownEditor
               value={description}
               onChange={setDescription}
-              placeholder="描述（Markdown）…"
+              placeholder={t("issue.descPlaceholder")}
               className="text-bone px-2.5 py-2 text-xs"
             />
           </div>
           {labels.length ? (
-            <div className="flex flex-wrap gap-1" aria-label="选择标签">
+            <div className="flex flex-wrap gap-1" aria-label={t("issue.chooseLabelsAria")}>
               {labels.map((label) => (
                 <Chip key={label.id} active={selectedLabels.includes(label.id)} onClick={() => toggleLabel(label.id)}>
                   {label.name}
@@ -661,10 +682,10 @@ function CreateIssueDialog({
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            取消
+            {t("common.cancel")}
           </Button>
           <Button onClick={submit} disabled={!title.trim() || pending}>
-            {pending ? "创建中…" : "创建"}
+            {pending ? t("common.creating") : t("common.create")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -704,6 +725,7 @@ function EditIssueDialog({
     labelIds: string[];
   }) => void;
 }) {
+  const { t } = useTranslation();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<string>("medium");
@@ -743,22 +765,22 @@ function EditIssueDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[560px]">
         <DialogHeader>
-          <DialogTitle>编辑 Issue #{issue?.id ?? ""}</DialogTitle>
-          <DialogDescription>修改标题、描述、优先级、指派人与标签。</DialogDescription>
+          <DialogTitle>{t("issue.editTitle", { id: issue?.id ?? "" })}</DialogTitle>
+          <DialogDescription>{t("issue.editHint")}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3">
-          <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="标题" aria-label="标题" />
+          <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t("issue.titleLabel")} aria-label={t("issue.titleLabel")} />
           <div className="border-edge-2 bg-ink-950/45 overflow-hidden rounded-md border">
             <MarkdownEditor
               value={description}
               onChange={setDescription}
-              placeholder="描述（Markdown）…"
+              placeholder={t("issue.descPlaceholder")}
               className="text-bone px-2.5 py-2 text-xs"
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-1" aria-label="优先级">
-            <span className="text-faint mr-1 text-2xs font-semibold tracking-[0.12em] uppercase">优先级</span>
+          <div className="flex flex-wrap items-center gap-1" aria-label={t("issue.priorityAria")}>
+            <span className="text-faint mr-1 text-2xs font-semibold tracking-[0.12em] uppercase">{t("issue.priority")}</span>
             {EDIT_PRIORITIES.map((level) => (
               <Chip key={level} active={priority === level} onClick={() => setPriority(level)}>
                 {level}
@@ -767,14 +789,14 @@ function EditIssueDialog({
           </div>
 
           <label className="flex items-center gap-2">
-            <span className="text-faint text-2xs font-semibold tracking-[0.12em] uppercase">指派给</span>
+            <span className="text-faint text-2xs font-semibold tracking-[0.12em] uppercase">{t("issue.assignee")}</span>
             <select
               value={assigneeId}
               onChange={(event) => setAssigneeId(event.target.value)}
-              aria-label="指派给"
+              aria-label={t("issue.assigneeAria")}
               className="border-edge-2 bg-ink-900 text-bone-2 focus:border-amber/45 h-[30px] min-w-0 flex-1 rounded-md border px-2 text-xs focus-visible:outline-none"
             >
-              <option value="">未指派</option>
+              <option value="">{t("issue.unassigned")}</option>
               {candidates.map((member) => (
                 <option key={member.user?.id} value={member.user?.id}>
                   {member.user?.full_name || member.user?.username}
@@ -784,7 +806,7 @@ function EditIssueDialog({
           </label>
 
           {labels.length ? (
-            <div className="flex flex-wrap gap-1" aria-label="选择标签">
+            <div className="flex flex-wrap gap-1" aria-label={t("issue.chooseLabelsAria")}>
               {labels.map((label) => (
                 <Chip key={label.id} active={selectedLabels.includes(label.id)} onClick={() => toggleLabel(label.id)}>
                   {label.name}
@@ -795,10 +817,10 @@ function EditIssueDialog({
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            取消
+            {t("common.cancel")}
           </Button>
           <Button onClick={submit} disabled={!title.trim() || pending}>
-            {pending ? "保存中…" : "保存"}
+            {pending ? t("common.saving") : t("common.save")}
           </Button>
         </DialogFooter>
       </DialogContent>
