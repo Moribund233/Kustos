@@ -312,23 +312,3 @@ class TestCollabSave:
         assert args[1] == repo.id
         assert args[3] == ["src/app.py"], "索引更新应只覆盖本次保存的单个文件"
 
-    def test_save_protected_branch_forbidden(self, test_client, db, test_user, internal_env):
-        """受保护分支（require_code_review 禁直推）→ collab_save 403
-        branch_direct_write_forbidden（collab_save 接线）"""
-        repo = create_test_repo(db, name="save-protected-repo", owner_id=test_user.id)
-        from app.models.branch import Branch
-        from sqlalchemy import select
-
-        row = db.execute(select(Branch).filter(
-            Branch.repository_id == repo.id, Branch.name == "main"
-        )).scalar_one_or_none()
-        if row is None:
-            row = Branch(repository_id=repo.id, name="main")
-            db.add(row)
-        row.is_protected = True
-        row.require_code_review = True
-        db.commit()
-
-        resp = self._save(test_client, test_user, repo)
-        assert resp.status_code == 403
-        assert resp.json()["error"]["error_code"] == "branch_direct_write_forbidden"

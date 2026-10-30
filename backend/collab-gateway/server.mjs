@@ -5,10 +5,11 @@
  *   - CRDT 同步/感知(光标)/只读强制: @hocuspocus/server 内置
  *   - 鉴权: onAuthenticate → app POST /api/v1/collab/auth
  *   - 文档加载: onLoadDocument → app GET /api/v1/collab/doc
- *   - 协作保存: onStateless("collab-save") → app POST /api/v1/collab/save
+ *   - 协作保存: onStateless("collab-save") → app POST /api/v1/collab/save (落草稿分支)
  *
- * 保存语义: 仅显式保存落 Git;
- * onStoreDocument (debounce/断开自动触发) 一律 no-op, 防止高频自动 commit。
+ * 保存语义: 仅显式保存落 Git 草稿分支 (collab/draft-*), 工作分支由发布动作
+ * squash 产生提交; onStoreDocument (debounce/断开自动触发) 一律 no-op,
+ * 防止高频自动 commit。
  *
  * 文档约定: Y.Doc 中唯一共享文本类型为 getText("content"), 客户端
  * yCollab(ydoc.getText("content"), provider.awareness) 必须同名。
@@ -364,7 +365,7 @@ export function buildGateway({
     },
 
     async onStoreDocument({ documentName }) {
-      // Git 提交仅由 collab-save stateless 消息触发;
+      // Git 提交仅由 collab-save stateless 消息触发 (落草稿分支);
       // 此处的 debounced 落盘在启用 Redis 时写入会话快照 (非 Git commit)。
       log(`auto snapshot doc=${documentName} (git commit stays explicit)`);
     },
@@ -429,7 +430,7 @@ export function buildGateway({
 
       const { status, data } = await callApp("/api/v1/collab/save", {
         method: "POST",
-        body: { token: context.token, docKey: documentName, content, message: msg.message, invite_token: context.invite_token, draft: msg.draft === true },
+        body: { token: context.token, docKey: documentName, content, message: msg.message, invite_token: context.invite_token },
       });
 
       if (status === 403) {

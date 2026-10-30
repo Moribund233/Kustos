@@ -1295,6 +1295,182 @@ def delete_file_changes(
     return {"commit_id": str(commit_id), "branch": branch, "path": file_path}
 
 
+def _all_leaf_paths(repo: "pygit2.Repository", tree: "pygit2.Tree", prefix: str) -> List[str]:
+    """列出树下全部文件路径 (递归)"""
+    paths: List[str] = []
+    for entry in tree:
+        if entry.type == pygit2.GIT_OBJECT_TREE:
+            paths.extend(_all_leaf_paths(repo, repo[entry.id], prefix + entry.name + "/"))
+        else:
+            paths.append(prefix + entry.name)
+    return paths
+
+
+def _tree_changed_paths(
+    repo: "pygit2.Repository", base_tree: "pygit2.Tree", draft_tree: "pygit2.Tree"
+) -> List[str]:
+    """递归对比两棵树, 返回草稿侧内容不同的文件路径 (含新增/删除)"""
+    changed: List[str] = []
+    base_map = {entry.name: entry for entry in base_tree}
+    draft_map = {entry.name: entry for entry in draft_tree}
+    for name in sorted(set(base_map) | set(draft_map)):
+        base_entry, draft_entry = base_map.get(name), draft_map.get(name)
+        if (base_entry is None) != (draft_entry is None):
+            # 条目整体新增/删除: 收集其下全部文件 (或该文件本身)
+            node = draft_entry if draft_entry is not None else base_entry
+            if node.type == pygit2.GIT_OBJECT_TREE:
+                changed.extend(_all_leaf_paths(repo, repo[node.id], name + "/"))
+            else:
+                changed.append(name)
+        elif base_entry.type == pygit2.GIT_OBJECT_TREE and draft_entry.type == pygit2.GIT_OBJECT_TREE:
+            if base_entry.id != draft_entry.id:
+                changed.extend(_tree_changed_paths(repo, repo[base_entry.id], repo[draft_entry.id]))
+        elif base_entry.id != draft_entry.id:
+            # 文件内容变化, 或 文件<->子树 类型切换
+            changed.append(name)
+    return changed
+
+
+def _blob_id_at(repo: "pygit2.Repository", tree: "pygit2.Tree", path: str) -> Optional[Any]:
+    """取树中某文件路径的 blob OID; 路径不存在或中途撞上文件则返回 None"""
+    segments = path.split("/")
+    node = tree
+    for i, name in enumerate(segments):
+        try:
+            entry = node[name]
+        except KeyError:
+            return None
+        if i == len(segments) - 1:
+            return None if entry.type == pygit2.GIT_OBJECT_TREE else entry.id
+        if entry.type != pygit2.GIT_OBJECT_TREE:
+            return None
+        node = repo[entry.id]
+    return None
+
+
+def _set_path_blob(
+    repo: "pygit2.Repository", tree_id: "pygit2.Oid", segments, blob_id: Optional[Any]
+) -> "pygit2.Oid":
+    """按路径写入/删除 blob (None 表示删除), 返回新树 OID
+
+    中间目录在目标侧缺失时以空树起建, 删空的目录随父树一并移除 (git 不保留空目录)。
+    """
+    tree = repo[tree_id]
+    tb = repo.TreeBuilder(tree)
+    name = segments[0]
+    if len(segments) == 1:
+        if blob_id is None:
+            tb.remove(name)
+        else:
+            tb.insert(name, blob_id, pygit2.GIT_FILEMODE_BLOB)
+        return tb.write()
+
+    try:
+        entry = tree[name]
+        if entry.type != pygit2.GIT_OBJECT_TREE:
+            raise ValidationException(
+                detail=f"路径类型冲突: {name}",
+                error_code="collab_publish_conflict",
+            )
+        child_id = entry.id
+    except KeyError:
+        child_id = repo.TreeBuilder().write()
+    child_id = _set_path_blob(repo, child_id, segments[1:], blob_id)
+    if len(repo[child_id]) == 0:
+        tb.remove(name)
+    else:
+        tb.insert(name, child_id, pygit2.GIT_FILEMODE_TREE)
+    return tb.write()
+
+
+def publish_draft_changes(
+    repo_path: str,
+    branch: str,
+    draft_branch: str,
+    author_name: str,
+    author_email: str,
+    message: str,
+) -> Dict[str, Any]:
+    """
+    把草稿分支 squash 成目标分支上的一次发布提交 (裸仓库)
+
+    以两分支的 merge-base 为基准, 取草稿侧全部变更一次性应用到目标分支顶端并
+    提交——草稿分支上 N 个保存提交在正式历史上只呈现 1 个发布提交。发布成功后
+    草稿分支重置到发布提交, 下一编辑会话从已发布状态开始。
+
+    目标分支在分叉后被并行改过的路径与草稿冲突时整体拒绝发布, 两边都不留半截
+    状态; 目标分支上与草稿无关的并行提交原样保留。
+
+    Args:
+        repo_path: 仓库物理路径
+        branch: 目标工作分支 (必须已存在)
+        draft_branch: 草稿分支; 不存在视为无待发布变更
+        author_name / author_email: 发布提交的作者
+        message: 发布提交信息
+
+    Returns:
+        dict: {commit_id, branch, paths}; 无待发布变更时 commit_id 为 None、paths 为空
+
+    Raises:
+        NotFoundException: 目标分支不存在
+        ValidationException: 草稿与目标分支有冲突或无共同祖先
+    """
+    repo = pygit2.Repository(repo_path)
+
+    if not branch or ".." in branch or branch.startswith("/"):
+        raise ValidationException(
+            detail="Invalid branch name", error_code="invalid_branch_name"
+        )
+
+    if repo.branches.local.get(branch) is None:
+        raise NotFoundException(
+            detail=f"Branch not found: {branch}", error_code="branch_not_found"
+        )
+    branch_ref = repo.lookup_reference(f"refs/heads/{branch}")
+    branch_head = branch_ref.peel(pygit2.Commit)
+
+    if repo.branches.local.get(draft_branch) is None:
+        return {"commit_id": None, "branch": branch, "paths": []}
+    draft_ref = repo.lookup_reference(f"refs/heads/{draft_branch}")
+    draft_head = draft_ref.peel(pygit2.Commit)
+
+    base_id = repo.merge_base(branch_head.id, draft_head.id)
+    if base_id is None:
+        raise ValidationException(
+            detail="草稿分支与目标分支无共同祖先",
+            error_code="collab_publish_no_common_ancestor",
+        )
+    base_tree = repo[base_id].tree
+
+    changed = _tree_changed_paths(repo, base_tree, draft_head.tree)
+
+    # 冲突裁决: 草稿动过的路径, 目标分支自基准后也被动过 → 拒绝, 两边不动
+    conflicts = [
+        p for p in changed
+        if _blob_id_at(repo, branch_head.tree, p) != _blob_id_at(repo, base_tree, p)
+    ]
+    if conflicts:
+        raise ValidationException(
+            detail="目标分支在协作期间有并行修改, 请先解决冲突: " + ", ".join(sorted(conflicts)[:5]),
+            error_code="collab_publish_conflict",
+        )
+
+    if not changed:
+        return {"commit_id": None, "branch": branch, "paths": []}
+
+    tree_id = branch_head.tree_id
+    for p in sorted(changed):
+        tree_id = _set_path_blob(repo, tree_id, p.split("/"), _blob_id_at(repo, draft_head.tree, p))
+
+    author = create_signature(author_name, author_email)
+    commit_id = repo.create_commit(
+        f"refs/heads/{branch}", author, author, message, tree_id, [branch_head.id]
+    )
+    # 草稿重置到发布提交: 下一编辑会话从已发布状态开始, 不留陈旧差异
+    draft_ref.set_target(commit_id)
+    return {"commit_id": str(commit_id), "branch": branch, "paths": sorted(changed)}
+
+
 def move_file_changes(
     repo_path: str,
     branch: str,

@@ -33,6 +33,8 @@ _GOLDEN_UNGUARDED_MODULES = frozenset({
     "app.api.v1.lfs_controller",
     "app.api.v1.collab_invite_controller",
     "app.api.v1.collab_session_controller",
+    # 协作草稿发布：单端点，require_repo_permission(REPO_WRITE) 逐端点授权
+    "app.api.v1.collab_publish_controller",
 })
 
 #: 授权依赖标记：逐端点授权模式下，路由依赖里必须出现其一

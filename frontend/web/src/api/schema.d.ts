@@ -1361,8 +1361,10 @@ export interface paths {
         put?: never;
         /**
          * Collab Save
-         * @description 协作保存 (网关 onStateless 触发): 以提交者身份写入 Git commit
+         * @description 协作保存 (网关 onStateless 触发): 以提交者身份写入草稿分支
          *
+         *     保存一律落 `collab/draft-{branch}` 草稿分支, 不触碰用户工作分支——正式
+         *     历史只在显式发布 (`POST /{repo_id}/collab/publish`) 时产生提交。
          *     每次保存实时校验写权限, 返回 commit_id 供网关向会话广播。
          */
         post: operations["collab_save_api_v1_collab_save_post"];
@@ -2457,6 +2459,29 @@ export interface paths {
          *     被撤销的 token 立即失效: `/collab/auth` 与 `/collab/save` 将拒绝其换取权限。
          */
         post: operations["revoke_collab_invite_api_v1_repositories__repo_id__collab_invites_revoke_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/repositories/{repo_id}/collab/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish Collab Draft
+         * @description 发布协作草稿: 草稿分支 squash 成目标分支上的一次提交
+         *
+         *     Returns:
+         *         {commit_id, branch, paths}; 无待发布变更时 commit_id 为 None
+         */
+        post: operations["publish_collab_draft_api_v1_repositories__repo_id__collab_publish_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6180,11 +6205,6 @@ export interface components {
             message?: string | null;
             /** Invite Token */
             invite_token?: string | null;
-            /**
-             * Draft
-             * @default false
-             */
-            draft: boolean;
         };
         /**
          * ComponentInfo
@@ -7253,6 +7273,22 @@ export interface components {
              * @description PR 描述
              */
             description?: string | null;
+        };
+        /**
+         * PublishDraftRequest
+         * @description 草稿发布请求体
+         */
+        PublishDraftRequest: {
+            /**
+             * Branch
+             * @description 目标工作分支, 默认仓库默认分支
+             */
+            branch?: string | null;
+            /**
+             * Message
+             * @description 发布提交信息
+             */
+            message?: string | null;
         };
         /**
          * PushCallback
@@ -10634,6 +10670,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RevokeInviteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publish_collab_draft_api_v1_repositories__repo_id__collab_publish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishDraftRequest"];
             };
         };
         responses: {

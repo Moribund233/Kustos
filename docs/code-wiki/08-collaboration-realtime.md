@@ -80,16 +80,18 @@ sequenceDiagram
 - 从 Git 读取：`GET /collab/doc`；404 文件不存在、415 二进制不支持、413 超内容上限。
 - 内容上限默认 2,000,000 字符。
 
-### 2.4 保存
+### 2.4 保存与发布
 
-只有显式 `stateless {"type":"collab-save"}` 才落 Git：
+保存一律落**草稿分支** `collab/draft-{branch}`，工作分支只在显式发布时产生一次 squash 提交——避免"每保存一次一个提交"淹没正式历史：
 
 1. 网关校验 `context.can_write`、内容上限；
-2. `POST /collab/save {token, docKey, content, message, invite_token, draft}`；
+2. `POST /collab/save {token, docKey, content, message, invite_token}`；
 3. 应用**实时**校验写权限（不缓存）、邀请/覆盖、内容上限；
-4. 以提交者身份写 Git（`draft=true` 写草稿分支）；
+4. 以提交者身份写草稿分支（`draft_branch_name` 统一命名）；
 5. 更新搜索索引（`SearchService.update_files`）；
 6. 网关递增版本号，广播 `collab-saved {docKey, commit_id, version}`（不泄露 saved_by/message 等元数据）。
+
+发布：`POST /{repo_id}/collab/publish {branch?, message?}`（用户凭据，`repo:write` + 分支保护裁决）。以草稿分支与工作分支的 merge-base 为基准，把草稿侧全部变更 squash 成工作分支顶端的一次提交，随后草稿分支重置到发布提交。工作分支在分叉后被并行改过的路径与草稿冲突时整体拒绝（`collab_publish_conflict`），两边都不留半截状态；无待发布变更时返回 `commit_id=null`。
 
 `onStoreDocument` 的 debounce/断开自动触发**不提交 Git**，只写 Redis 会话快照，避免高频 commit。
 

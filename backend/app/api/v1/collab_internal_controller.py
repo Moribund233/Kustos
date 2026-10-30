@@ -4,7 +4,7 @@
 供 collab-gateway（Hocuspocus 哑管道容器）通过服务间调用回调 app：
 - POST /collab/auth   连接鉴权: 校验用户 token + docKey 仓库读写权限
 - GET  /collab/doc    文档加载: 从 Git 读取初始内容 (onLoadDocument)
-- POST /collab/save   协作保存: 以提交者身份写入 Git commit (onStateless 触发)
+- POST /collab/save   协作保存: 写入草稿分支 collab/draft-{branch} (onStateless 触发; 发布走 /{repo_id}/collab/publish)
 
 安全模型:
 - 网关在 onAuthenticate 阶段完成用户鉴权; 本控制器每次调用均要求
@@ -60,7 +60,6 @@ class CollabSaveRequest(BaseModel):
     content: str
     message: Optional[str] = None
     invite_token: Optional[str] = None
-    draft: bool = False
 
 
 def _require_internal_secret(request: Request) -> None:
@@ -170,8 +169,10 @@ async def collab_save(
     body: CollabSaveRequest, request: Request, db: AsyncSession = Depends(get_async_db)
 ):
     """
-    协作保存 (网关 onStateless 触发): 以提交者身份写入 Git commit
+    协作保存 (网关 onStateless 触发): 以提交者身份写入草稿分支
 
+    保存一律落 `collab/draft-{branch}` 草稿分支, 不触碰用户工作分支——正式
+    历史只在显式发布 (`POST /{repo_id}/collab/publish`) 时产生提交。
     每次保存实时校验写权限, 返回 commit_id 供网关向会话广播。
     """
     _require_internal_secret(request)
@@ -199,14 +200,13 @@ async def collab_save(
     if not can_write:
         raise AuthorizationException(detail="没有该仓库的写入权限", error_code="collab_repository_write_denied")
 
+    from app.services.collaboration.doc_key import draft_branch_name
     from app.services.repository.repository_browser_service import commit_file
     from app.utils.git_utils import get_repository_storage_path
 
-    # 自动落盘草稿分支: 会话空闲自动保存时, 不触碰用户工作分支,
-    # 落到 `collab/draft-{branch}` 草稿分支 (commit_file 分支不存在即创建)
-    target_branch = branch
-    if body.draft:
-        target_branch = f"collab/draft-{branch}"
+    # 保存一律落草稿分支: 不触碰用户工作分支, 正式提交由发布动作 squash 产生
+    # (草稿分支 collab/draft-* 为新分支, 无保护记录 → 自然放行)
+    target_branch = draft_branch_name(branch)
 
     repo_path = get_repository_storage_path(repo.path)
     commit_message = (body.message or "").strip() or f"Update {path}"

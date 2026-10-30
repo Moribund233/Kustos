@@ -43,3 +43,11 @@ def parse_doc_key(doc_key: str) -> Tuple[UUID, str, str]:
             error_code="collab_dockey_missing_parts",
         )
     return repository_id, branch, path
+
+
+def draft_branch_name(branch: str) -> str:
+    """协作草稿分支名: 每个工作分支对应一个草稿分支
+
+    协作保存一律落草稿分支, 工作分支只在显式发布时产生提交。
+    """
+    return f"collab/draft-{branch}"

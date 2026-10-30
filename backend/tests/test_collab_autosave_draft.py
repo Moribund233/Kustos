@@ -1,9 +1,10 @@
-"""自动落盘草稿分支：会话空闲 N 分钟自动 collab_save 到 `collab/draft-...`。
+"""协作保存一律落草稿分支：`collab/save` 写入 `collab/draft-{branch}`，不触碰工作分支。
 
 契约 (本测试只断言 API 契约):
-  - `POST /api/v1/collab/save` 带 `draft: true` 时, 将 docKey 的 branch 替换为
+  - `POST /api/v1/collab/save` 总是把 docKey 的 branch 替换为
     `collab/draft-{branch}` 写入 (存量 commit_file 分支不存在即创建);
-  - 响应返回 draft 分支名 (非触碰用户工作分支)。
+  - 工作分支只在显式发布 (`POST /{repo_id}/collab/publish`) 时才产生提交;
+  - 响应返回草稿分支名。
 """
 from unittest.mock import AsyncMock
 
@@ -39,12 +40,13 @@ def internal_env(monkeypatch):
     monkeypatch.setenv(INTERNAL_SECRET_ENV, SECRET)
 
 
-class TestCollabAutosaveDraft:
-    """自动落盘草稿分支 — 会话空闲自动保存到 collab/draft-*。"""
+class TestCollabDraftSave:
+    """协作保存一律进草稿分支 — 工作分支只经显式发布变更。"""
 
-    def test_autosave_to_draft_branch(
+    def test_save_lands_on_draft_branch(
         self, test_client, db, test_user, internal_env, monkeypatch
     ):
+        """协作保存总是写入 collab/draft-{branch}。"""
         """draft=True 时将 branch 替换为 collab/draft-{branch} 写入。"""
         repo = create_test_repo(db, name="draft-repo", owner_id=test_user.id)
         mock = AsyncMock(
@@ -63,7 +65,6 @@ class TestCollabAutosaveDraft:
                 "docKey": make_doc_key(str(repo.id), "main", "src/app.py"),
                 "content": "draft content",
                 "message": "autosave to draft",
-                "draft": True,
             },
             headers=_headers(),
         )

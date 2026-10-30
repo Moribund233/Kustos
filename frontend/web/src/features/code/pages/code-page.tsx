@@ -308,11 +308,40 @@ export function CodePage({ path, content, diff }: CodePageProps) {
     void blobQuery.refetch();
   };
 
-  /** 请求网关把当前 CRDT 内容落成一次提交。 */
+  /** 请求网关把当前 CRDT 内容存成一次草稿提交（落草稿分支，不碰工作分支）。 */
   const saveCollab = () => {
     if (!collab) return;
     void saveCollabDocument(collab.provider, `docs: 更新 ${selectedPath}`);
-    toast.success("已发出保存请求，落库后可刷新查看提交。");
+    toast.success("草稿已保存。确认无误后点「发布」，变更才会写入分支。");
+  };
+
+  const [publishBusy, setPublishBusy] = useState(false);
+
+  /** 把草稿分支的全部变更 squash 成工作分支上的一次提交。 */
+  const publishDraft = async () => {
+    if (!repo || publishBusy) return;
+    setPublishBusy(true);
+    try {
+      const res = await api.POST("/api/v1/repositories/{repo_id}/collab/publish", {
+        params: { path: { repo_id: repoId } },
+        body: { branch, message: `docs: 发布 ${selectedPath} 的协作草稿` },
+      });
+      if (res.error) {
+        const detail = (res.error as { detail?: string }).detail;
+        throw new Error(detail ?? "发布失败。");
+      }
+      const data = res.data as { commit_id: string | null; paths: string[] };
+      if (!data.commit_id) {
+        toast.info("没有待发布的草稿变更。");
+        return;
+      }
+      toast.success(`已发布 ${data.paths.length} 个文件的草稿变更。`);
+      void blobQuery.refetch();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "发布失败。");
+    } finally {
+      setPublishBusy(false);
+    }
   };
 
   // 邀请链接落地：带 ?invite= 打开时自动接入协作，不必再点一次
@@ -753,11 +782,19 @@ export function CodePage({ path, content, diff }: CodePageProps) {
                   </button>
                   <button
                     type="button"
+                    onClick={publishDraft}
+                    disabled={!collabCanWrite || collabStatus !== "connected" || publishBusy}
+                    className="border-edge-2 text-bone-2 hover:border-edge-3 inline-flex h-[24px] items-center rounded-md border px-2 font-mono text-2xs transition-colors disabled:opacity-50"
+                  >
+                    发布草稿
+                  </button>
+                  <button
+                    type="button"
                     onClick={saveCollab}
                     disabled={!collabCanWrite || collabStatus !== "connected"}
                     className="border-edge-2 text-bone-2 hover:border-edge-3 inline-flex h-[24px] items-center rounded-md border px-2 font-mono text-2xs transition-colors disabled:opacity-50"
                   >
-                    保存到分支
+                    保存草稿
                   </button>
                   <button
                     type="button"

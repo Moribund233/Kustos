@@ -1025,6 +1025,15 @@ ERROR_MESSAGES: dict[str, dict[str, str]] = {
         LOCALE_ZH: "找不到共同祖先，无法 rebase",
         LOCALE_EN: "Cannot find merge base for rebase",
     },
+    "collab_publish_no_common_ancestor": {
+        LOCALE_ZH: "草稿分支与目标分支无共同祖先",
+        LOCALE_EN: "Draft branch and target branch share no common ancestor",
+    },
+    "collab_publish_conflict": {
+        # detail 追加了冲突路径列表，属动态诊断后缀
+        LOCALE_ZH: "目标分支在协作期间有并行修改，请先解决冲突",
+        LOCALE_EN: "Target branch has parallel changes made during collaboration; resolve conflicts first",
+    },
     "rebase_parent_not_found": {
         LOCALE_ZH: "无法解析 rebase 的父提交",
         LOCALE_EN: "Cannot resolve parent commit for rebase",

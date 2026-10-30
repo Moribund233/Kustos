@@ -211,11 +211,11 @@ GET /repositories/{id}/search
 浏览器 Yjs ↔ collab-gateway (WS)
   onAuthenticate → POST /api/v1/collab/auth（内部密钥 + 用户 token + docKey）
   afterLoadDocument → GET /collab/doc（从 Git 播种）
-  stateless collab-save → POST /collab/save（实时权限校验 → Git commit → 更新索引）
+  stateless collab-save → POST /collab/save（实时权限校验 → 草稿分支 commit → 更新索引）
   → 广播 collab-saved(commit_id, version)
 ```
 
-**只有显式保存才落 Git**；`onStoreDocument` 的自动快照只写 Redis 会话快照，避免高频 commit。
+**显式保存只落草稿分支** `collab/draft-{branch}`；发布走 `POST /{repo_id}/collab/publish`，把草稿 squash 成工作分支上的一次提交。`onStoreDocument` 的自动快照只写 Redis 会话快照，避免高频 commit。
 
 ### 4.3 Agent 作业
 

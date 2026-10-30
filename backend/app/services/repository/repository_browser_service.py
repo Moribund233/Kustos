@@ -17,6 +17,7 @@ from datetime import datetime
 import pygit2
 
 from app.utils.git_utils import repo_exists
+from app.services.collaboration.doc_key import draft_branch_name
 from app.core.exception import (
     NotFoundException,
     ValidationException,
@@ -1299,6 +1300,39 @@ async def commit_file(
         message,
         committer_name=committer_name,
         committer_email=committer_email,
+    )
+
+
+async def publish_draft(
+    repo_path: str,
+    branch: str,
+    author_name: str,
+    author_email: str,
+    message: str,
+) -> Dict[str, Any]:
+    """
+    把协作草稿分支 squash 成目标分支上的一次发布提交
+
+    同步 pygit2 操作放线程池执行, 避免阻塞事件循环。草稿分支命名由
+    ``draft_branch_name`` 统一约定, 无草稿时返回 commit_id=None。
+
+    Returns:
+        dict: {commit_id, branch, paths}
+
+    Raises:
+        NotFoundException: 目标分支不存在
+        ValidationException: 草稿与目标分支冲突
+    """
+    from app.utils import git_utils
+
+    return await asyncio.to_thread(
+        git_utils.publish_draft_changes,
+        repo_path,
+        branch,
+        draft_branch_name(branch),
+        author_name,
+        author_email,
+        message,
     )
 
 

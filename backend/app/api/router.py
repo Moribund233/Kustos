@@ -93,6 +93,10 @@ def create_api_router() -> APIRouter:
     from app.api.v1.collab_invite_controller import router as collab_invite_router
     api_v1_router.include_router(collab_invite_router)
 
+    # 9d. 协作草稿发布路由（草稿分支 squash 落工作分支）
+    from app.api.v1.collab_publish_controller import router as collab_publish_router
+    api_v1_router.include_router(collab_publish_router)
+
     # 6c-quater. 协作会话级权限覆盖路由（改权限/踢人）
     from app.api.v1.collab_session_controller import router as collab_session_router
     api_v1_router.include_router(collab_session_router)

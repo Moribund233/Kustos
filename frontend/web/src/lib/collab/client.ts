@@ -115,10 +115,11 @@ export function createCollabSession(options: CollabSessionOptions): CollabSessio
 }
 
 /**
- * 请求网关显式保存，把当前文档内容落成 Git 提交。
+ * 请求网关显式保存，把当前文档内容存成一次草稿提交（落 `collab/draft-{branch}`）。
  *
  * 网关的 `onStateless` 只在收到 `collab-save` 时才落 Git，自动快照一律 no-op，
- * 因此保存必须由用户显式触发。
+ * 因此保存必须由用户显式触发。工作分支只在显式发布
+ * （`POST /{repo_id}/collab/publish`）时产生一次 squash 提交。
  *
  * @param provider 协作 Provider
  * @param message 提交说明
