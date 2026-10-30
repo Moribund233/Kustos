@@ -128,7 +128,7 @@ sequenceDiagram
 
 ### 3.1 连接模型
 
-`api/ws/manager.py`：
+`utils/ws_manager.py`：
 
 ```python
 class Connection:
@@ -285,7 +285,7 @@ flowchart LR
 - `backend/collab-gateway/server.mjs`、`sessionTtl.mjs`、`versionCounter.mjs`、`redisPersistence.mjs`
 - `backend/app/api/v1/collab_internal_controller.py`、`collab_invite_controller.py`、`collab_session_controller.py`
 - `backend/app/services/collab_invite_service.py`、`collab_session_service.py`
-- `backend/app/api/ws/manager.py`、`auth.py`、`router.py`、`handlers/`
+- `backend/app/utils/ws_manager.py`、`auth.py`、`router.py`、`handlers/`
 - `backend/app/utils/realtime_bus.py`
 - `backend/app/services/realtime/*`
 - `backend/app/services/agent/chat_bridge.py`

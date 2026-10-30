@@ -13,7 +13,7 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
-from app.middleware.request_stats import (
+from app.utils.request_stats import (
     get_request_stats,
     merge_hist,
     percentile_from_hist,

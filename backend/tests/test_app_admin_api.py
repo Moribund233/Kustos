@@ -216,7 +216,7 @@ class TestDebugActions:
                 ).mappings().first()["payload"]
         finally:
             engine.dispose()
-        from app.services.config_store import example_seed_data
+        from app.core.config_store import example_seed_data
 
         assert payload["title"] == example_seed_data()["app"]["title"], "未被模板值覆盖"
 
@@ -226,7 +226,7 @@ class TestDebugActions:
         """重置失败（如 DB 不可达）应返回明确的 500，而不是静默成功"""
         _debug_on(monkeypatch)
 
-        from app.services import config_store
+        from app.core import config_store
 
         def boom(*args, **kwargs):
             raise RuntimeError("Read-only file system")

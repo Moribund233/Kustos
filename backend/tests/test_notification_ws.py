@@ -2,9 +2,11 @@
 import pytest
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
-from app.api.ws.manager import Connection, ConnectionManager
+from app.utils.ws_manager import Connection, ConnectionManager
 from app.api.ws.handlers.notification import (
     handle_ping, handle_subscribe, handle_unsubscribe,
+)
+from app.services.realtime.notification_push import (
     notify_commit_new, notify_user, notify_repository_event,
 )
 
@@ -99,7 +101,7 @@ async def test_notify_commit_new():
     repo_id = uuid.uuid4()
     exclude_id = uuid.uuid4()
 
-    with patch("app.api.ws.handlers.notification.manager", manager_mock):
+    with patch("app.services.realtime.notification_push.manager", manager_mock):
         count = await notify_commit_new(
             repository_id=repo_id,
             commit_data={"sha": "abc123", "message": "test"},
@@ -121,7 +123,7 @@ async def test_notify_user():
     manager_mock.send_to_user = AsyncMock(return_value=1)
     user_id = uuid.uuid4()
 
-    with patch("app.api.ws.handlers.notification.manager", manager_mock):
+    with patch("app.services.realtime.notification_push.manager", manager_mock):
         count = await notify_user(
             user_id=user_id,
             notification_type="mention",
@@ -142,7 +144,7 @@ async def test_notify_repository_event_room_scoped():
     manager_mock.send_to_repository = AsyncMock(return_value=2)
     repo_id = uuid.uuid4()
 
-    with patch("app.api.ws.handlers.notification.manager", manager_mock):
+    with patch("app.services.realtime.notification_push.manager", manager_mock):
         count = await notify_repository_event(
             repository_id=repo_id,
             event_type="pr_review_submitted",

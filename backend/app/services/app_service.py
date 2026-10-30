@@ -244,7 +244,7 @@ class AppService:
             time.sleep(0.5)
 
             try:
-                from app.core.lifespan import trigger_graceful_shutdown
+                from app.lifespan import trigger_graceful_shutdown
                 
                 # 使用新的生命周期管理接口触发关闭
                 # 支持单进程和多进程模式

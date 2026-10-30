@@ -84,7 +84,7 @@ class AgentAdminService:
         sources: Dict[str, str] = {}
         version = 0
         try:
-            from app.services.config_store import section_sources, section_version
+            from app.core.config_store import section_sources, section_version
 
             sources = section_sources().get("agent", {}) or {}
             version = section_version("agent")
@@ -112,7 +112,7 @@ class AgentAdminService:
         解密失败显式标记 ``decrypt_failed``（不静默成「未配置」）。
         """
         from app.services.agent.providers import resolve_env_key
-        from app.services.config_store import get_secret
+        from app.core.config_store import get_secret
 
         cfg = get_config().agent
         if resolve_env_key(cfg.provider)[1]:
@@ -171,7 +171,7 @@ class AgentAdminService:
             ConfigVersionConflictError,
             ConfigWriteError,
         )
-        from app.services.config_store import section_sources, section_version
+        from app.core.config_store import section_sources, section_version
 
         if api_key and clear_api_key:
             raise HttpStatusException(
@@ -449,7 +449,7 @@ class AgentAdminService:
             value = (os.environ.get(name) or "").strip()
             if value:
                 return name, value
-        from app.services.config_store import get_secret
+        from app.core.config_store import get_secret
 
         try:
             db_key = get_secret("agent", "api_key")

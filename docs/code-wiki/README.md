@@ -104,9 +104,9 @@ flowchart LR
 | 初始化流程 | `backend/app/core/init.py` |
 | 配置模型与单例 | `backend/app/core/config.py`、`backend/app/core/config_schema.py` |
 | 路由总装配 | `backend/app/api/router.py`、`backend/app/api/prefixes.py` |
-| 权限唯一裁决点 | `backend/app/core/permissions.py` |
+| 权限唯一裁决点 | `backend/app/core/permissions.py`（策略）+ `backend/app/api/guards.py`（依赖工厂） |
 | 数据库会话 | `backend/app/models/async_db.py` |
-| 生命周期 | `backend/app/core/lifespan.py` |
+| 生命周期 | `backend/app/lifespan.py` |
 | Git 封装 | `backend/app/utils/git_utils.py` |
 | 代码浏览 | `backend/app/services/repository_browser_service.py` |
 | 搜索 | `backend/app/services/search_service.py` |

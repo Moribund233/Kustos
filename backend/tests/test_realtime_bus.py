@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.api.ws.manager import ConnectionManager
+from app.utils.ws_manager import ConnectionManager
 from app.utils import redis_client, realtime_bus
 from app.utils.realtime_bus import RealtimeBus, WORKER_ID
 

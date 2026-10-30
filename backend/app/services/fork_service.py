@@ -148,7 +148,7 @@ async def fork_repository(
 
         # 触发 WebHook
         try:
-            from app.utils.webhook_trigger import trigger_repository_event, build_sender_info
+            from app.services.webhook_trigger import trigger_repository_event, build_sender_info
             await trigger_repository_event(
                 db=db,
                 repository_id=source_repository_id,

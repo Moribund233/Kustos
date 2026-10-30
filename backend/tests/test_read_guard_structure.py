@@ -203,7 +203,8 @@ def test_write_guard_uses_optional_user():
     「缺仓 404」压成 401→404——与 require_repo_read 的 404→401 顺序不自洽，
     正确性只能靠外层读守卫兜底。
     """
-    from app.core.permissions import Action, require_repo_permission
+    from app.core.permissions import Action
+    from app.api.guards import require_repo_permission
 
     dep = require_repo_permission(Action.REPO_WRITE, "write files")
     param = _inspect.signature(dep).parameters["current_user"]

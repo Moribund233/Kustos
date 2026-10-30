@@ -25,8 +25,8 @@ from typing import Optional, Sequence
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.middleware.prometheus_metrics import get_prometheus_metrics
-from app.middleware.request_stats import get_request_stats
+from app.utils.prometheus_metrics import get_prometheus_metrics
+from app.utils.request_stats import get_request_stats
 from app.middleware.scope import should_record
 from app.utils.logging import get_logger
 

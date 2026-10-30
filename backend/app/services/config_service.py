@@ -160,7 +160,7 @@ class ConfigService:
 
         读取失败返回空 dict（meta 可选，不影响主数据）。
         """
-        from app.services.config_store import section_sources
+        from app.core.config_store import section_sources
 
         try:
             return section_sources()
@@ -183,7 +183,7 @@ class ConfigService:
         """
         self._check_permission(is_debug, is_admin)
 
-        from app.services.config_store import reset_to_seed
+        from app.core.config_store import reset_to_seed
 
         # 重置 = 把种子（config.example.toml 过滤后的键）覆盖回 app_config；
         # 引导层键由 config_store 拒绝写入，模板缺失/DB 写失败均返回错误列表
@@ -216,7 +216,7 @@ class ConfigService:
                 detail="该操作需要管理员权限", error_code="config_admin_required"
             )
 
-        from app.services.config_store import update_sections
+        from app.core.config_store import update_sections
 
         try:
             update_sections({"app": {"debug": bool(enabled)}})

@@ -9,7 +9,7 @@ from typing import Optional
 import logging
 
 import json as _json
-from app.api.ws.manager import manager, Connection
+from app.utils.ws_manager import manager, Connection
 from app.api.ws.auth import authenticate_websocket, WebSocketAuthError
 from app.api.ws.handlers import register_all_handlers
 from app.core.config import get_config_value
@@ -137,7 +137,7 @@ async def logs_websocket(
     finally:
         if connection:
             # 取消日志订阅
-            from app.api.ws.handlers.log_handler import get_websocket_log_handler
+            from app.utils.ws_log_handler import get_websocket_log_handler
             handler = get_websocket_log_handler()
             await handler.subscription_manager.unsubscribe(connection)
             await manager.disconnect(connection)

@@ -6,7 +6,7 @@ Tests for trigger_push_event in utils/webhook_trigger.py
 import pytest
 from unittest.mock import AsyncMock, patch
 
-from app.utils.webhook_trigger import trigger_push_event
+from app.services.webhook_trigger import trigger_push_event
 
 
 @pytest.mark.asyncio
@@ -23,7 +23,7 @@ async def test_ci_webhook_triggered_on_push(async_db, async_test_user, async_tes
         secret="ci-secret",
     )
 
-    with patch("app.utils.webhook_trigger.webhook_service.trigger_webhooks", new_callable=AsyncMock) as mock_trigger:
+    with patch("app.services.webhook_trigger.webhook_service.trigger_webhooks", new_callable=AsyncMock) as mock_trigger:
         await trigger_push_event(
             db=async_db,
             repository_id=async_test_repo.id,

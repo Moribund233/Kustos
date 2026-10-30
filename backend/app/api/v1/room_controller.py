@@ -12,7 +12,8 @@ from app.services.repository_service import get_repository_by_id
 from app.services.attachment_service import upload_attachment, get_attachment_file
 from app.core.exception import AuthorizationException, NotFoundException, ValidationException
 import uuid
-from app.core.permissions import Action, has_repo_action, require_repo_read
+from app.core.permissions import Action, has_repo_action
+from app.api.guards import require_repo_read
 
 
 router = APIRouter(

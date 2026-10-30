@@ -18,7 +18,7 @@ from typing import AsyncGenerator, Dict, Any, Optional
 from fastapi import FastAPI
 
 from app.models.async_db import get_async_engine
-from app.api.ws.manager import manager as websocket_manager
+from app.utils.ws_manager import manager as websocket_manager
 from app.utils import process_control
 from app.utils.realtime_bus import bus as realtime_bus
 from app.services.realtime.presence_service import presence as presence_store

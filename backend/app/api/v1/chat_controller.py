@@ -102,7 +102,7 @@ async def edit_room_message(
 
     # 广播失败不影响编辑结果：消息已落库，其他端下次拉取时自然一致
     try:
-        from app.api.ws.manager import ConnectionManager
+        from app.utils.ws_manager import ConnectionManager
 
         await ConnectionManager().send_to_room(
             room_id,

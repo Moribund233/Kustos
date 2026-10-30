@@ -2,7 +2,7 @@
 from typing import Dict, Any
 from uuid import UUID
 
-from app.api.ws.manager import Connection, ConnectionManager
+from app.utils.ws_manager import Connection, ConnectionManager
 from app.core.exception import ValidationException, NotFoundException
 
 

@@ -12,7 +12,8 @@ from app.api.prefixes import get_route_prefix
 from app.models.async_db import get_async_db
 from app.models.user import User
 from app.api.deps import get_current_user, get_current_admin_user
-from app.core.permissions import Action, ensure_repo_action, require_repo_read
+from app.core.permissions import Action, ensure_repo_action
+from app.api.guards import require_repo_read
 from app.core.exception import AuthorizationException, HttpStatusException
 
 from app.services.repository_service import (

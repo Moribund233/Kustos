@@ -9,7 +9,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import mapped_column
 
 from app.models.base import BaseModel
-from app.services.indexing.vector_type import VECTOR_DIM, PgVector
+from app.models.vector_type import VECTOR_DIM, PgVector
 
 
 class RepoSearchEmbedding(BaseModel):

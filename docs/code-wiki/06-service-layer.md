@@ -101,7 +101,7 @@
 | `search_admin_service` | 管理面索引状态/重建/embedding 凭据 | `get_status`、`rebuild_all`、`set_embedding_key` |
 | `indexing/chunker` | 源码切块 + 引用提取 | `analyze_file`、`Chunk`、`Ref`；tree-sitter → 正则 → 整文件三级降级 |
 | `indexing/embeddings` | Embedding provider | `get_embedding_provider`、`OpenAICompatEmbeddingProvider`、`is_configured` |
-| `indexing/vector_type` | pgvector 列类型 | `VECTOR_DIM=1536`、`PgVector` |
+| `models/vector_type` | pgvector 列类型 | `VECTOR_DIM=1536`、`PgVector` |
 
 ---
 
@@ -127,9 +127,11 @@
 
 ## 8. 平台运维
 
+> 配置表读写 `config_store` 现位于 `core/config_store.py`（与 `core.config` 同层），
+> 不在本表——它不是服务，而是配置持久化设施。
+
 | 服务 | 职责 | 关键函数 |
 | --- | --- | --- |
-| `config_store` | 配置表读写/播种/密钥密文 | `load_all_section_values`、`update_sections`、`seed_from_example`、`get_secret`、`max_version` |
 | `config_service` | 配置管理 API 逻辑 | `get_config`（脱敏）、`update_config`（节/键校验）、`reset_config`、`validate` |
 | `app_service` | 应用控制 | 关机/重启/日志读取/日志清理/状态；`get_app_service` |
 | `database_manager` | 数据库重置 | `DatabaseResetManager.reset_database`（关连接→删表→迁移→引导） |
@@ -144,8 +146,9 @@
 | `docker_write_service` | 窄写控制 | `set_running`（仅 start/stop/restart） |
 | `git_event_service` | Git hooks 业务 | 见 Git 组 |
 | `webhook_service` | WebHook 投递治理 | `_dispatch`、HMAC 签名、重试、`wait_for_pending_deliveries` |
-| `webhook_trigger`（utils） | 事件触发入口 | `trigger_push_event`、`trigger_tag_push_event` 等 |
+| `webhook_trigger` | 事件触发入口 | `trigger_push_event`、`trigger_tag_push_event` 等 |
 | `notification_service` | 通知创建/查询/已读 | `create_notification`（站内 + 邮件 + WS） |
+| `realtime/notification_push` | WS 出站推送 | `notify_user`、`notify_commit_new`、`notify_repository_event` |
 | `notification_preference_service` | 通知偏好 | `should_send_email` |
 | `dashboard_service` | 用户仪表盘 | 见协作文档 |
 | `search_admin_service` | 搜索管理 | 见搜索组 |
@@ -197,7 +200,7 @@ flowchart LR
 
 - 函数内延迟导入（如 `repository_service` 内导入 `agent_service`、`search_service`）；
 - `api/prefixes.py` 独立，控制器不 import `api/router.py`；
-- `config_store` 与 `core.config` 通过函数内导入互操作；
+- `config_store` 已下沉到 `core/config_store.py`（与 `core.config` 同层），不再需要函数内互操作；
 - `services/agent/__init__.py` 只导出注册表，不导入 runtime/service。
 
 ---

@@ -52,7 +52,7 @@ async def on_startup(ctx) -> None:
     # 注入并启动跨 worker 广播总线。worker 进程不持有任何用户 WS 连接，
     # 但 send_to_user 的 _publish 依赖总线把 agent_step 投递到 app worker 持有的
     # 连接；不启动则生产 compose 下推送链路完全断开（只剩轮询）。
-    from app.api.ws.manager import manager as websocket_manager
+    from app.utils.ws_manager import manager as websocket_manager
     from app.utils.realtime_bus import bus as realtime_bus
 
     try:

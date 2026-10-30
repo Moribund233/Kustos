@@ -17,7 +17,7 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 
-from app.services.indexing.vector_type import PgVector
+from app.models.vector_type import PgVector
 
 
 # revision identifiers, used by Alembic.

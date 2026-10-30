@@ -20,11 +20,11 @@ from starlette.testclient import TestClient
 
 import app.middleware.observability as observability_mod
 from app.middleware.observability import ObservabilityMiddleware
-from app.middleware.prometheus_metrics import (
+from app.utils.prometheus_metrics import (
     get_prometheus_metrics,
     reset_prometheus_metrics,
 )
-from app.middleware.request_stats import RequestStats
+from app.utils.request_stats import RequestStats
 from app.middleware.scope import DEFAULT_EXCLUDE_PATHS, should_record
 
 

@@ -16,7 +16,7 @@ from app.services import watch_service
 from app.core.exception import NotFoundException
 from app.core.permissions import Action, ensure_repo_action
 import uuid
-from app.core.permissions import require_repo_read
+from app.api.guards import require_repo_read
 
 router = APIRouter(
     prefix=get_route_prefix("repositories"), tags=["watches"],

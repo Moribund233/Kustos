@@ -473,7 +473,7 @@ class AppInitializer:
             # 数据库就绪后播种配置表（幂等：只补缺键，不覆盖已有值）。失败仅
             # 告警——此时配置退回 env + 默认值仍可用
             try:
-                from app.services.config_store import seed_from_example
+                from app.core.config_store import seed_from_example
 
                 self._logger.info(f"配置表播种: {seed_from_example()}")
             except Exception as e:
@@ -489,7 +489,7 @@ class AppInitializer:
     def reset_config(self) -> None:
         """重置配置为默认值（把模板种子覆盖写入 ``app_config``）"""
         self._logger.info("重置配置为模板默认值（app_config）")
-        from app.services.config_store import reset_to_seed
+        from app.core.config_store import reset_to_seed
 
         try:
             reset_to_seed()

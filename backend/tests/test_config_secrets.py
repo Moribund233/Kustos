@@ -7,7 +7,7 @@
 import pytest
 
 from app.core.exception import AuthorizationException
-from app.services.config_store import (
+from app.core.config_store import (
     get_secret,
     invalidate_secret_cache,
     update_sections,
@@ -39,7 +39,7 @@ def _raw_secret_row(section: str, name: str):
     """直查 ``config_secrets`` 原始行（绕过解密层，验证密文落库）"""
     from sqlalchemy import text
 
-    from app.services.config_store import _make_engine, _resolve_sync_url
+    from app.core.config_store import _make_engine, _resolve_sync_url
 
     engine = _make_engine(_resolve_sync_url())
     try:

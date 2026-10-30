@@ -16,7 +16,7 @@ from app.api.deps import get_current_user
 from app.core.exception import NotFoundException
 from app.services import fork_service
 import uuid
-from app.core.permissions import require_repo_read
+from app.api.guards import require_repo_read
 from app.core.constants import DEFAULT_PAGE, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
 
 # 创建路由实例

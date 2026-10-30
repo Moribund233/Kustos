@@ -8,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
 
 from app.api.prefixes import get_route_prefix
-from app.core.permissions import Action, require_repo_read, require_repo_permission
+from app.core.permissions import Action
+from app.api.guards import require_repo_read, require_repo_permission
 from app.models.async_db import get_async_db
 from app.models.user import User
 from app.api.deps import get_current_user

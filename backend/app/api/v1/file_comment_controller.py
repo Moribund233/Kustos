@@ -20,7 +20,7 @@ from app.services.file_comment_service import (
     delete_file_comment,
 )
 from app.core.exception import NotFoundException
-from app.core.permissions import require_repo_read
+from app.api.guards import require_repo_read
 
 router = APIRouter(
     prefix=get_route_prefix("repositories"), tags=["file-comments"],

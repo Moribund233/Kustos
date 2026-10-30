@@ -251,7 +251,7 @@ async def test_write_guard_missing_repo_404_even_anonymous(async_db):
     from uuid import uuid4
 
     from app.core.exception import NotFoundException
-    from app.core.permissions import require_repo_permission
+    from app.api.guards import require_repo_permission
 
     dep = require_repo_permission(Action.REPO_WRITE, "write files")
     with pytest.raises(NotFoundException) as exc:
@@ -265,7 +265,7 @@ async def test_write_guard_missing_repo_404_for_authenticated(async_db, actor_us
     from uuid import uuid4
 
     from app.core.exception import NotFoundException
-    from app.core.permissions import require_repo_permission
+    from app.api.guards import require_repo_permission
 
     dep = require_repo_permission(Action.REPO_WRITE, "write files")
     with pytest.raises(NotFoundException) as exc:
@@ -277,7 +277,7 @@ async def test_write_guard_missing_repo_404_for_authenticated(async_db, actor_us
 async def test_write_guard_existing_repo_anonymous_401(async_db, matrix_repo):
     """仓存在 + 匿名 → 401 auth_required（WWW-Authenticate: Bearer 由异常类携带）"""
     from app.core.exception import AuthenticationException
-    from app.core.permissions import require_repo_permission
+    from app.api.guards import require_repo_permission
 
     dep = require_repo_permission(Action.REPO_WRITE, "write files")
     with pytest.raises(AuthenticationException) as exc:
@@ -289,7 +289,7 @@ async def test_write_guard_existing_repo_anonymous_401(async_db, matrix_repo):
 async def test_write_guard_non_member_403_after_auth(async_db, matrix_repo, actor_user):
     """仓存在 + 已认证非成员 → 403（鉴权之后才进矩阵裁决）"""
     from app.core.exception import AuthorizationException
-    from app.core.permissions import require_repo_permission
+    from app.api.guards import require_repo_permission
 
     dep = require_repo_permission(Action.REPO_WRITE, "write files")
     with pytest.raises(AuthorizationException):
@@ -299,7 +299,7 @@ async def test_write_guard_non_member_403_after_auth(async_db, matrix_repo, acto
 @pytest.mark.asyncio
 async def test_write_guard_owner_allowed(async_db, matrix_repo, owner_user):
     """仓存在 + owner → 放行（返回 None）"""
-    from app.core.permissions import require_repo_permission
+    from app.api.guards import require_repo_permission
 
     dep = require_repo_permission(Action.REPO_WRITE, "write files")
     assert await dep(

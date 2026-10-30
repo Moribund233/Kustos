@@ -153,7 +153,7 @@ class TestSupervisorSignal:
 
 class TestGracefulShutdown:
     def test_signals_supervisor_not_new_loop(self, monkeypatch):
-        import app.core.lifespan as lifespan
+        import app.lifespan as lifespan
 
         signals = []
         monkeypatch.setattr(lifespan, "get_lifecycle_manager", lambda: _FakeManager())
@@ -167,7 +167,7 @@ class TestGracefulShutdown:
         assert signals == [signal_mod.SIGTERM]
 
     def test_falls_back_to_self_signal(self, monkeypatch):
-        import app.core.lifespan as lifespan
+        import app.lifespan as lifespan
 
         process_control.mark_serving()
         killed = []
@@ -182,7 +182,7 @@ class TestGracefulShutdown:
 
     def test_refuses_self_signal_when_not_serving(self, monkeypatch):
         """非服务进程（docker exec / 脚本）误调 → 不得 SIGTERM 调用者"""
-        import app.core.lifespan as lifespan
+        import app.lifespan as lifespan
 
         killed = []
         monkeypatch.setattr(lifespan, "get_lifecycle_manager", lambda: _FakeManager())
@@ -195,7 +195,7 @@ class TestGracefulShutdown:
         assert killed == []
 
     def test_skips_when_already_shutting_down(self, monkeypatch):
-        import app.core.lifespan as lifespan
+        import app.lifespan as lifespan
 
         monkeypatch.setattr(
             lifespan, "get_lifecycle_manager", lambda: _FakeManager(shutting_down=True)
@@ -215,7 +215,7 @@ class TestGracefulShutdown:
         import inspect
         import textwrap
 
-        import app.core.lifespan as lifespan
+        import app.lifespan as lifespan
 
         source = textwrap.dedent(inspect.getsource(lifespan.trigger_graceful_shutdown))
         called = set()

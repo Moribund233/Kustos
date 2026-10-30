@@ -7,7 +7,7 @@
 from typing import Dict, Any
 from datetime import datetime, timezone
 from uuid import UUID
-from app.api.ws.manager import Connection, ConnectionManager
+from app.utils.ws_manager import Connection, ConnectionManager
 import logging
 
 logger = logging.getLogger(__name__)

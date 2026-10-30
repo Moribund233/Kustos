@@ -30,7 +30,7 @@ def _get_websocket_log_handler():
     """延迟获取 WebSocket 日志处理器"""
     global _websocket_handler
     if _websocket_handler is None:
-        from app.api.ws.handlers.log_handler import get_websocket_log_handler
+        from app.utils.ws_log_handler import get_websocket_log_handler
         _websocket_handler = get_websocket_log_handler()
     return _websocket_handler
 

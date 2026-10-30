@@ -67,7 +67,7 @@ flowchart TB
 - 管理员引导：`DatabaseInitializer.autobootstrap_admin()` 读取 `KUSTOS_ADMIN_USERNAME/PASSWORD/EMAIL`；已存在管理员则跳过。
 - 重置：`scripts/reset_admin.py`；调试接口 `DatabaseResetManager`（删表 → 迁移 → 重建管理员）。
 
-### 1.4 生命周期（`core/lifespan.py`）
+### 1.4 生命周期（`lifespan.py`）
 
 **startup（按顺序）**
 
@@ -252,9 +252,9 @@ logs/
 - `backend/app/core/init.py`
 - `backend/app/core/config.py`
 - `backend/app/core/config_schema.py`
-- `backend/app/core/lifespan.py`
+- `backend/app/lifespan.py`
 - `backend/app/core/init.py`（`AppInitializer`）
-- `backend/app/services/config_store.py`
+- `backend/app/core/config_store.py`
 - `backend/app/services/config_service.py`
 - `backend/app/utils/init_database.py`、`db_migrate.py`
 - `backend/app/utils/logging.py`

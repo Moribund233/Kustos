@@ -477,7 +477,7 @@ async def get_status_endpoint(
     Returns:
         StatusResponse: 应用状态信息
     """
-    from app.middleware.request_stats import get_request_stats
+    from app.utils.request_stats import get_request_stats
 
     app_service = get_app_service()
     requests_info = await get_request_stats().get_stats()
@@ -494,7 +494,7 @@ async def get_platform_stats_endpoint(db: AsyncSession = Depends(get_async_db)):
     Returns:
         dict: 包含 repository_count, commit_count, user_count, uptime_seconds
     """
-    from app.middleware.request_stats import get_request_stats
+    from app.utils.request_stats import get_request_stats
     from app.services import stats_service
 
     stats = await stats_service.get_platform_stats(db)

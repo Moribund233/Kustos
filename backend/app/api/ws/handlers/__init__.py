@@ -6,7 +6,7 @@ WebSocket消息处理器模块
 import logging
 from app.api.ws.handlers import sync
 from app.api.ws.handlers import chat, log_handler, notification, progress, room
-from app.api.ws.manager import manager
+from app.utils.ws_manager import manager
 
 logger = logging.getLogger("websocket")
 

@@ -22,7 +22,7 @@ from app.core.config import get_config_value
 import asyncio
 import logging
 import uuid
-from app.core.permissions import require_repo_read
+from app.api.guards import require_repo_read
 
 logger = logging.getLogger(__name__)
 

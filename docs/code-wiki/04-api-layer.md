@@ -68,7 +68,8 @@ Token 由 `token_service` 签发：
 
 ### 2.2 仓库权限矩阵
 
-`backend/app/core/permissions.py` 是**唯一裁决点**。
+`backend/app/core/permissions.py` 是**唯一裁决点**（纯策略，不依赖 FastAPI）；
+把它组装成 `Depends` 可用对象的工厂在 `backend/app/api/guards.py`。
 
 **操作（Action）→ 允许角色**
 
@@ -260,7 +261,7 @@ Token 由 `token_service` 签发：
 
 ### 6.2 连接管理
 
-`api/ws/manager.py`：
+`utils/ws_manager.py`：
 
 - `Connection`：websocket、user_id/username、`repository_ids`、`rooms`、last_ping、metadata。
 - `ConnectionManager`（单例）：连接表 + 用户/仓库/房间三类索引；心跳超时清理；`send_to_user` / `send_to_room` / `broadcast`。
@@ -307,7 +308,7 @@ Token 由 `token_service` 签发：
 
 ## 8. 相关源码
 
-- `backend/app/api/router.py`、`api/prefixes.py`、`api/deps.py`
+- `backend/app/api/router.py`、`api/prefixes.py`、`api/deps.py`、`api/guards.py`
 - `backend/app/core/permissions.py`
 - `backend/app/core/exception.py`、`utils/exception_handler.py`、`core/i18n.py`
 - `backend/app/middleware/*`

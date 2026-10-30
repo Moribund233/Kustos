@@ -117,7 +117,7 @@ def get_embedding_provider(
     # except Exception 边界按设计降级为关键词检索并留 warning 日志。
     key = (api_key or os.environ.get(cfg.embedding_api_key_env, "") or "").strip()
     if not key:
-        from app.services.config_store import get_secret
+        from app.core.config_store import get_secret
 
         key = get_secret("search", "embedding_api_key") or ""
     if not key:

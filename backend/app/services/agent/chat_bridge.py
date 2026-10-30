@@ -122,7 +122,7 @@ async def _set_agent_typing(db: Any, room_id: uuid.UUID, is_typing: bool) -> Non
         ).scalar_one_or_none()
         if bot is None:
             return
-        from app.api.ws.manager import manager as websocket_manager
+        from app.utils.ws_manager import manager as websocket_manager
 
         await websocket_manager.send_to_room(
             room_id,

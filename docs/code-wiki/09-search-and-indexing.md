@@ -36,7 +36,7 @@ erDiagram
 | `repo_commit_files` | 每提交每文件 1 行 | 变更图：状态/增删行/改动区间 |
 | `repo_commit_index_state` | 仓库 1 行 | 变更图索引基线 + 代次 |
 
-索引维度常量：`services/indexing/vector_type.py:VECTOR_DIM = 1536`。`search.embedding_dim` 与之不一致时启动告警。
+索引维度常量：`models/vector_type.py:VECTOR_DIM = 1536`。`search.embedding_dim` 与之不一致时启动告警。
 
 ---
 

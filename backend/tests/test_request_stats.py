@@ -5,7 +5,7 @@ Redis 未配置/不可达时统计走进程内回退，本文件覆盖该路径�
 success/failed/avg/rpm 基于「完整分钟」滑动窗口，当前未走完的分钟不参与。
 """
 
-from app.middleware.request_stats import (
+from app.utils.request_stats import (
     RequestStats,
     _key as _rs_key,
     _redis_minute,
@@ -90,7 +90,7 @@ async def test_redis_path_parses_float_latency(monkeypatch):
         return FakeBackend()
 
     # _backend() 不再缓存一次性探测结果，改为按 get_redis 冷却重试
-    monkeypatch.setattr("app.middleware.request_stats.get_redis", _fake_get_redis)
+    monkeypatch.setattr("app.utils.request_stats.get_redis", _fake_get_redis)
 
     result = await stats.get_stats()
     assert result["total"] == 42
@@ -233,8 +233,8 @@ def _sum_counters(store, suffix: str) -> int:
 
 async def test_memory_fallback_backfilled_on_redis_recovery(monkeypatch):
     """降级期计入内存的请求，Redis 恢复后一次性回填共享后端（不丢、不重）"""
-    import app.middleware.request_stats as rs
-    from app.middleware.prometheus_metrics import (
+    import app.utils.request_stats as rs
+    from app.utils.prometheus_metrics import (
         _counter_key,
         get_prometheus_metrics,
         reset_prometheus_metrics,
@@ -290,7 +290,7 @@ async def test_memory_fallback_backfilled_on_redis_recovery(monkeypatch):
 
 async def test_reset_drops_pending_backfill(monkeypatch):
     """reset 后不得再把重置前的降级期数据回填回去"""
-    import app.middleware.request_stats as rs
+    import app.utils.request_stats as rs
 
     stats = RequestStats(window_minutes=5)
 

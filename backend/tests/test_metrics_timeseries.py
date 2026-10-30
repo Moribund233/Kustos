@@ -11,7 +11,7 @@ import pytest
 
 from types import SimpleNamespace
 
-from app.middleware.request_stats import (
+from app.utils.request_stats import (
     RequestStats,
     _bucket_label,
     _redis_minute,
@@ -59,7 +59,7 @@ async def test_get_history_memory_excludes_current_minute():
     stats = RequestStats(window_minutes=5)
     now = _redis_minute()
     # 直接注入已归档分钟桶（当前未走完分钟不进入历史）
-    from app.middleware.request_stats import _fresh_bucket
+    from app.utils.request_stats import _fresh_bucket
 
     old = _fresh_bucket(now - 1)
     old.update(count=4, ok=3, fail=1, lat_sum=40.0, s2xx=3, s4xx=1)
@@ -125,7 +125,7 @@ async def test_get_history_redis_parses_fields(monkeypatch):
         return _FakeBackend(mget_results, hgetall_results)
 
     # _backend() 改为按 get_redis 冷却重试（不再一次性探测缓存）
-    monkeypatch.setattr("app.middleware.request_stats.get_redis", _fake_get_redis)
+    monkeypatch.setattr("app.utils.request_stats.get_redis", _fake_get_redis)
 
     history = await stats.get_history(5)
     assert len(history) == 4

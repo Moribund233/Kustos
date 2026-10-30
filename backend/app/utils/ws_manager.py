@@ -20,6 +20,25 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def requested_subprotocols(websocket: WebSocket) -> List[str]:
+    """解析 ``Sec-WebSocket-Protocol``（逗号分隔，保持客户端给定顺序）。
+
+    防御式读取：握手头是可选的，测试桩/包装对象可能没有 ``headers`` 属性，
+    普通 dict 形式的 headers 也需要兼容大小写。
+
+    放在本模块而非 ``api.ws.auth``：连接管理器握手时要回显子协议，而
+    ``utils`` 位于 ``api`` 之下，反向导入会构成跨层依赖。
+    """
+    headers = getattr(websocket, "headers", None) or {}
+    raw = (
+        headers.get("sec-websocket-protocol")
+        or headers.get("Sec-WebSocket-Protocol")
+        or ""
+    )
+    return [part.strip() for part in raw.split(",") if part.strip()]
+
+
+
 class Connection:
     """
     WebSocket连接包装类
@@ -184,9 +203,6 @@ class ConnectionManager:
         # 客户端若用 ``Sec-WebSocket-Protocol`` 携带 token，握手**必须回显**
         # 其中之一（RFC 6455：响应里的子协议必须来自客户端提供的列表），
         # 否则浏览器会以 "server did not accept the offered subprotocol" 拒绝连接。
-        # 延迟导入避免包级循环（auth 不依赖 manager，但 __init__ 可能互相引用）。
-        from app.api.ws.auth import requested_subprotocols
-
         offered = requested_subprotocols(websocket)
         if offered:
             # 注意：Starlette 1.x 的签名是单数 subprotocol(str)，旧版才是列表

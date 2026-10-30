@@ -18,7 +18,7 @@ import os
 
 import pytest
 
-from app.middleware.prometheus_metrics import (
+from app.utils.prometheus_metrics import (
     DEFAULT_BUCKETS,
     PrometheusMetrics,
     _COUNTER_TTL_FLOOR,
@@ -166,7 +166,7 @@ class TestCounterPipelineOps:
     def test_counter_ttl_never_shrinks_below_floor(self, monkeypatch):
         """累计计数器 TTL 有 7 天硬下限——``history_minutes`` 下限 5 分钟时旧口径仅 360s，
         会使活跃但空闲 worker 的 per-pid 键先过期，跨 pid 求和假 reset（review #11）。"""
-        import app.middleware.prometheus_metrics as pm
+        import app.utils.prometheus_metrics as pm
 
         class _Metrics:
             def __init__(self, minutes):
@@ -282,7 +282,7 @@ class TestMetricsEndpoint:
         assert "kustos_http_requests_total" in body
 
     async def test_render_metrics_falls_back_to_memory_without_redis(self, monkeypatch):
-        import app.middleware.prometheus_metrics as pm
+        import app.utils.prometheus_metrics as pm
 
         async def _no_redis():
             return None
@@ -295,7 +295,7 @@ class TestMetricsEndpoint:
 
     async def test_render_metrics_uses_redis_when_available(self, monkeypatch):
         """Redis 可用 → 后端标记 redis，且渲染跨 pid 聚合结果"""
-        import app.middleware.prometheus_metrics as pm
+        import app.utils.prometheus_metrics as pm
 
         class _Client:
             def __init__(self):

@@ -351,7 +351,7 @@ def get_provider(
     # 否则逃逸后作业僵死到超时回收；HTTP 管理面在服务层转 config_secret_decrypt_failed。
     key = (api_key or "").strip() or resolve_env_key(cfg.provider)[1]
     if not key:
-        from app.services.config_store import get_secret
+        from app.core.config_store import get_secret
 
         key = get_secret("agent", "api_key") or ""
     if not key:

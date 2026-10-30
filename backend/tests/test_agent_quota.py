@@ -130,7 +130,7 @@ async def test_worker_startup_binds_and_starts_bus(monkeypatch):
 
     monkeypatch.setattr(bus, "start", _start)
 
-    from app.api.ws.manager import manager
+    from app.utils.ws_manager import manager
 
     await worker.on_startup(None)
     assert calls.get("bound") is manager

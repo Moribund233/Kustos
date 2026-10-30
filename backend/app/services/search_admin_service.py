@@ -60,7 +60,7 @@ class SearchAdminService:
         sources: Dict[str, str] = {}
         version = 0
         try:
-            from app.services.config_store import section_sources, section_version
+            from app.core.config_store import section_sources, section_version
 
             sources = section_sources().get("search", {}) or {}
             version = section_version("search")
@@ -89,7 +89,7 @@ class SearchAdminService:
             os.environ.get(cfg.embedding_api_key_env) or ""
         ).strip():
             return {"configured": True, "source": "env"}
-        from app.services.config_store import get_secret
+        from app.core.config_store import get_secret
 
         try:
             db_key = get_secret("search", "embedding_api_key")
@@ -135,7 +135,7 @@ class SearchAdminService:
             ConfigWriteError,
             SearchSettings,
         )
-        from app.services.config_store import section_sources, section_version
+        from app.core.config_store import section_sources, section_version
 
         if embedding_api_key and clear_embedding_api_key:
             raise HttpStatusException(

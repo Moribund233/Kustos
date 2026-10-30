@@ -23,7 +23,8 @@ from app.services.commit_service import (
     get_commits_by_author as service_get_commits_by_author
 )
 from app.services.branch_service import get_branch as service_get_branch
-from app.core.permissions import Action, require_repo_read, require_repo_permission
+from app.core.permissions import Action
+from app.api.guards import require_repo_read, require_repo_permission
 from app.core.constants import (
     DEFAULT_PAGE_SIZE_LARGE,
     MAX_PAGE_SIZE,

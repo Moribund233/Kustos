@@ -7,7 +7,7 @@ import asyncio
 import uuid
 from typing import Dict, Any, Optional
 from datetime import datetime
-from app.api.ws.manager import Connection, manager
+from app.utils.ws_manager import Connection, manager
 import logging
 
 logger = logging.getLogger(__name__)

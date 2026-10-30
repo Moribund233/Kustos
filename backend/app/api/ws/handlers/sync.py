@@ -6,7 +6,7 @@
 from typing import Dict, Any
 from datetime import datetime
 import uuid
-from app.api.ws.manager import Connection, manager
+from app.utils.ws_manager import Connection, manager
 import logging
 
 logger = logging.getLogger(__name__)

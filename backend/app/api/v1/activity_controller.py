@@ -6,7 +6,7 @@ from app.api.prefixes import get_route_prefix
 from app.models.async_db import get_async_db
 from app.services import activity_service
 import uuid
-from app.core.permissions import require_repo_read
+from app.api.guards import require_repo_read
 from app.core.constants import DEFAULT_PAGE, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
 
 router = APIRouter(

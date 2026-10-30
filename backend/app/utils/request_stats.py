@@ -223,7 +223,7 @@ class RequestStats:
 
         # Prometheus 累计计数器并入同一条 pipeline（单一记录点）
         if method is not None and status_code is not None:
-            from app.middleware.prometheus_metrics import add_counter_ops
+            from app.utils.prometheus_metrics import add_counter_ops
 
             add_counter_ops(pipe, method, status_code, response_time_ms / 1000.0)
 
@@ -260,7 +260,7 @@ class RequestStats:
 
         # 内存回退路径同步写进程内计数（metrics 与统计同源）
         if method is not None and status_code is not None:
-            from app.middleware.prometheus_metrics import get_prometheus_metrics
+            from app.utils.prometheus_metrics import get_prometheus_metrics
 
             get_prometheus_metrics().record(method, status_code, response_time_ms / 1000.0)
 
@@ -288,7 +288,7 @@ class RequestStats:
         进程内计数**不清空**——它们是 Redis 再次不可用时的回退视图；只清
         「未回填」游标，保证同一段数据不会被写两次。
         """
-        from app.middleware.prometheus_metrics import clear_memory_counters, drain_memory_counters
+        from app.utils.prometheus_metrics import clear_memory_counters, drain_memory_counters
 
         ttl = max(self.window_minutes * 120 + 60, _history_minutes() * 60 + 60)
         pipe = backend.pipeline()
@@ -448,7 +448,7 @@ class RequestStats:
             # 会把重置前的降级期数据又补写回去（同一段数据被计两次）。
             self._pending_minutes.clear()
             self._pending_total = 0
-            from app.middleware.prometheus_metrics import get_prometheus_metrics
+            from app.utils.prometheus_metrics import get_prometheus_metrics
 
             agg = get_prometheus_metrics()
             agg._counters.clear()

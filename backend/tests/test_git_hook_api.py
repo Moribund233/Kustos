@@ -254,7 +254,7 @@ def test_post_receive_reconciles_branches_commits_and_fires_webhook(
     db.commit()
 
     with patch(
-        "app.utils.webhook_trigger.webhook_service.trigger_webhooks",
+        "app.services.webhook_trigger.webhook_service.trigger_webhooks",
         new_callable=AsyncMock,
     ) as mock_trigger:
         resp = test_client.post(
@@ -299,7 +299,7 @@ def test_post_receive_commit_sync_is_idempotent(test_client, db, test_user):
     sha = _make_bare_with_commit(repository, branch="main")
 
     with patch(
-        "app.utils.webhook_trigger.webhook_service.trigger_webhooks",
+        "app.services.webhook_trigger.webhook_service.trigger_webhooks",
         new_callable=AsyncMock,
     ):
         first = test_client.post(
@@ -326,7 +326,7 @@ def test_post_receive_tag_push_fires_tag_webhook(test_client, db, test_user):
     bare.create_reference("refs/tags/v1.0.0", bare.revparse_single(sha).id)
 
     with patch(
-        "app.utils.webhook_trigger.webhook_service.trigger_webhooks",
+        "app.services.webhook_trigger.webhook_service.trigger_webhooks",
         new_callable=AsyncMock,
     ) as mock_trigger:
         resp = test_client.post(
@@ -369,7 +369,7 @@ def test_reconcile_adopts_ref_created_after_snapshot(test_client, db, test_user)
         return branches
 
     with patch(
-        "app.utils.webhook_trigger.webhook_service.trigger_webhooks",
+        "app.services.webhook_trigger.webhook_service.trigger_webhooks",
         new_callable=AsyncMock,
     ), patch(
         "app.services.git_event_service._list_local_branches",
@@ -422,7 +422,7 @@ def test_reconcile_defers_rows_written_after_snapshot(test_client, db, test_user
         )
 
     with patch(
-        "app.utils.webhook_trigger.webhook_service.trigger_webhooks",
+        "app.services.webhook_trigger.webhook_service.trigger_webhooks",
         new_callable=AsyncMock,
     ):
         resp = _post()
@@ -445,7 +445,7 @@ def test_reconcile_defers_rows_written_after_snapshot(test_client, db, test_user
     db.commit()
 
     with patch(
-        "app.utils.webhook_trigger.webhook_service.trigger_webhooks",
+        "app.services.webhook_trigger.webhook_service.trigger_webhooks",
         new_callable=AsyncMock,
     ):
         resp2 = _post()

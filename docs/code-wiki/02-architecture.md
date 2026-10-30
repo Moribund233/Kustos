@@ -233,7 +233,8 @@ worker.process_job
 
 ### 4.4 权限裁决
 
-所有仓库域操作收敛到 `core/permissions.py`：
+所有仓库域操作收敛到 `core/permissions.py`（纯策略，无 FastAPI 依赖），
+FastAPI 侧的依赖工厂在 `api/guards.py`：
 
 1. 全局 `User.is_admin` 旁路；
 2. 公开仓的“参与型”操作（建 issue/PR/评论）登录即放行；
@@ -250,7 +251,7 @@ worker.process_job
 | 关注点 | 唯一入口 | 说明 |
 | --- | --- | --- |
 | 配置 | `core/config.py` + `config_schema.py` | 19 个配置节；DB 热轮询 5s；密钥密文表 |
-| 权限 | `core/permissions.py` | Action 矩阵 + FastAPI 依赖工厂 |
+| 权限 | `core/permissions.py` + `api/guards.py` | Action 矩阵在 core（纯策略）；FastAPI 依赖工厂在 api |
 | 异常 | `core/exception.py` + `utils/exception_handler.py` | 状态码 + `error_code` + i18n |
 | 日志 | `utils/logging.py` | `logs/<date>/{app,error,audit}.log` + WS 实时 |
 | 审计 | `middleware/audit_logger.py` + `activities` | 请求审计与业务活动双轨 |

@@ -17,7 +17,8 @@ from app.services.build_service import BuildService
 from app.services.webhook_service import generate_signature
 from app.models.build_status import VALID_STATUSES
 import uuid
-from app.core.permissions import Action, ensure_repo_action, require_repo_permission, require_repo_read
+from app.core.permissions import Action, ensure_repo_action
+from app.api.guards import require_repo_permission, require_repo_read
 from app.core.constants import DEFAULT_PAGE_SIZE_LARGE, MAX_PAGE_SIZE
 
 router = APIRouter(

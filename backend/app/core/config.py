@@ -102,7 +102,7 @@ def _load_db_section_values() -> Optional[Dict[str, Dict[str, Any]]]:
     任何异常（读库失败不得打崩启动——此时只剩 env + 默认值可用）。
     """
     try:
-        from app.services.config_store import load_all_section_values
+        from app.core.config_store import load_all_section_values
 
         return load_all_section_values()
     except Exception as e:  # noqa: BLE001 — 降级优先于细节
@@ -113,7 +113,7 @@ def _load_db_section_values() -> Optional[Dict[str, Dict[str, Any]]]:
 def _current_db_version() -> Optional[int]:
     """当前配置表版本号（``max(version)``）；失败 → ``None``（跳过本轮变更检测）。"""
     try:
-        from app.services.config_store import max_version
+        from app.core.config_store import max_version
 
         return max_version()
     except Exception as e:  # noqa: BLE001 — 检测失败不改变既有配置
@@ -976,7 +976,7 @@ class ConfigManager:
             secrets: 可选——``{节: {字段: 明文 或 None(清除)}}``，与配置
                 **同一事务**密文落 ``config_secrets``（明文不入库）
         """
-        from app.services.config_store import update_sections
+        from app.core.config_store import update_sections
 
         update_sections(
             new_config,
@@ -1223,7 +1223,7 @@ def _validate_search_config(config: Config, result: ConfigValidationResult) -> N
     """
     search = config.search
     try:
-        from app.services.indexing.vector_type import VECTOR_DIM
+        from app.models.vector_type import VECTOR_DIM
 
         if search.embedding_enabled and search.embedding_dim != VECTOR_DIM:
             result.add_warning(

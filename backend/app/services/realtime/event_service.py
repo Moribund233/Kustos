@@ -3,7 +3,7 @@ import asyncio
 import uuid
 from typing import Optional, Dict, Any
 from datetime import datetime, timezone
-from app.api.ws.manager import ConnectionManager
+from app.utils.ws_manager import ConnectionManager
 from app.services.search_service import SearchService
 import logging
 

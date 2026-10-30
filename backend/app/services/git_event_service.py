@@ -567,7 +567,7 @@ async def handle_post_receive(
         await db.flush()
 
     # ---- 3. 触发 push / tag_push webhook（激活既有 trigger_* 死代码） ----
-    from app.utils.webhook_trigger import tag_push_event, trigger_push_event
+    from app.services.webhook_trigger import tag_push_event, trigger_push_event
 
     for ref_update in updates:
         ref = ref_update.get("ref") or ""

@@ -4,7 +4,7 @@ import json
 import pytest
 import uuid
 from unittest.mock import MagicMock, AsyncMock
-from app.api.ws.manager import Connection, ConnectionManager
+from app.utils.ws_manager import Connection, ConnectionManager
 
 
 

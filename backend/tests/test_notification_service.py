@@ -247,8 +247,8 @@ async def test_create_notification_sends_ws_push(async_db: AsyncSession, async_t
 @pytest.mark.asyncio
 async def test_notify_user_pushes_message_with_unread_count(async_test_user):
     """notify_user 经真实 ConnectionManager 将 user_notification 消息推送到用户连接"""
-    from app.api.ws.manager import manager
-    from app.api.ws.handlers.notification import notify_user
+    from app.utils.ws_manager import manager
+    from app.services.realtime.notification_push import notify_user
 
     sent: list[dict] = []
 
@@ -281,7 +281,7 @@ async def test_notify_user_pushes_message_with_unread_count(async_test_user):
 @pytest.mark.asyncio
 async def test_notify_user_without_connection_returns_zero(async_test_user):
     """无活跃连接时推送返回 0 且不抛错"""
-    from app.api.ws.handlers.notification import notify_user
+    from app.services.realtime.notification_push import notify_user
 
     count = await notify_user(
         async_test_user.id, "mention", {"id": "n-1"}, unread_count=1

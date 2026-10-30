@@ -14,7 +14,8 @@ from sqlalchemy import select
 from typing import Optional
 
 from app.api.prefixes import get_route_prefix
-from app.core.permissions import require_repo_read, require_repo_permission, Action
+from app.core.permissions import Action
+from app.api.guards import require_repo_read, require_repo_permission
 from app.models.async_db import get_async_db
 from app.models import Repository
 from app.models.user import User

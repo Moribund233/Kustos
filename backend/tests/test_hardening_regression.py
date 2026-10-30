@@ -26,7 +26,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.api.v1.app_controller as app_ctl
-from app.services.config_store import update_sections
+from app.core.config_store import update_sections
 from app.core.exception import ValidationException
 from app.services.config_service import get_config_service
 from app.services.retention_service import get_retention_service

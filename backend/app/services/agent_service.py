@@ -822,7 +822,7 @@ class AgentService:
             await db.commit()
             # 注意：模块导出名是 manager（ConnectionManager 为真单例）——
             # 历史代码误写 websocket_manager 被 except 静默吞掉，WS 流式实际从未生效
-            from app.api.ws.manager import manager as websocket_manager
+            from app.utils.ws_manager import manager as websocket_manager
 
             # 先撤「思考中」指示再发消息：动画消失与气泡出现无缝衔接
             await websocket_manager.send_to_room(
@@ -989,7 +989,7 @@ async def _stream_step(
     try:
         # 模块导出名是 manager（单例）；历史误写 websocket_manager 被 except
         # 静默吞掉导致推送从未生效——修正导入让流式推送真正工作
-        from app.api.ws.manager import manager as websocket_manager
+        from app.utils.ws_manager import manager as websocket_manager
 
         await websocket_manager.send_to_user(
             job.user_id,
@@ -1019,7 +1019,7 @@ async def _stream_room_step(
     房间事件照常携带，供频道内的工作气泡直接展示失败原因。
     """
     try:
-        from app.api.ws.manager import manager as websocket_manager
+        from app.utils.ws_manager import manager as websocket_manager
 
         await websocket_manager.send_to_room(
             room_id,
@@ -1043,7 +1043,7 @@ async def _stream_room_delta(
 ) -> None:
     """向来源房间广播模型输出增量（打字机；best-effort，节流由调用方攒批负责）"""
     try:
-        from app.api.ws.manager import manager as websocket_manager
+        from app.utils.ws_manager import manager as websocket_manager
 
         await websocket_manager.send_to_room(
             room_id,

@@ -16,27 +16,13 @@ from app.services.token_service import verify_token as jwt_verify_token, is_toke
 from app.services import token_state
 from app.models.async_db import get_async_db_context
 from app.models.user import User
+from app.utils.ws_manager import requested_subprotocols
 
 logger = logging.getLogger(__name__)
 
 #: 客户端在 ``Sec-WebSocket-Protocol`` 中声明的应用子协议名（token 放第二位）。
 #: **不含点**——取 token 时按「JWT 形状 = 两段点分」判定，避免与协议名混淆。
 SUBPROTOCOL = "kustos-bearer"
-
-
-def requested_subprotocols(websocket: WebSocket) -> List[str]:
-    """解析 ``Sec-WebSocket-Protocol``（逗号分隔，保持客户端给定顺序）。
-
-    防御式读取：握手头是可选的，测试桩/包装对象可能没有 ``headers`` 属性，
-    普通 dict 形式的 headers 也需要兼容大小写。
-    """
-    headers = getattr(websocket, "headers", None) or {}
-    raw = (
-        headers.get("sec-websocket-protocol")
-        or headers.get("Sec-WebSocket-Protocol")
-        or ""
-    )
-    return [part.strip() for part in raw.split(",") if part.strip()]
 
 
 def extract_token_from_header(websocket: WebSocket) -> Optional[str]:

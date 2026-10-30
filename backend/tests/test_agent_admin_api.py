@@ -548,7 +548,7 @@ class TestAgentConfigPut:
         本进程经 TTL 版本检测窗口（≤5s）在下次访问时收敛到新值。
         """
         from app.core.config import ConfigManager
-        from app.services.config_store import update_sections
+        from app.core.config_store import update_sections
 
         monkeypatch.delenv("KUSTOS_AGENT_MODEL", raising=False)
         manager = ConfigManager()

@@ -17,13 +17,14 @@ flowchart TB
         PREFIX[api/prefixes.py]
         CTRL[api/v1/*_controller.py]
         DEPS[api/deps.py]
+        GUARDS[api/guards.py]
         WS[api/ws/*]
     end
     subgraph 核心
         INIT[core/init.py]
         CONFIG[core/config.py]
         SCHEMA[core/config_schema.py]
-        LIFE[core/lifespan.py]
+        LIFE[lifespan.py]
         PERM[core/permissions.py]
         EXC[core/exception.py]
         I18N[core/i18n.py]
@@ -57,9 +58,11 @@ flowchart TB
     ROUTER --> CTRL
     ROUTER --> WS
     CTRL --> DEPS
+    CTRL --> GUARDS
     CTRL --> PERM
     CTRL --> SVC
     CTRL --> MODELS
+    GUARDS --> PERM
     WS --> SVC
     DEPS --> CONFIG
     DEPS --> MODELS
@@ -96,23 +99,41 @@ flowchart TB
 
 ## 2. 分层依赖规则
 
-| 规则 | 说明 | 违反示例（应避免） |
+层的次序（由上至下）：`api → services → middleware → core → models → utils`。
+`core` 与 `models` 允许互相引用（策略需读实体、实体默认值需读常量），二者合看为「下层」。
+
+下表与 `backend/tests/test_layer_boundary.py` 的 `LAYER_RULES` **一一对应**——
+文档与守护测试是同一份规则的两个副本，改一处必须同步另一处。
+
+| 层 | 允许依赖 | 违反示例（应避免） |
 | --- | --- | --- |
-| `core` 不依赖 `api/services` | core 只依赖标准库、第三方、`models/utils` 的延迟导入 | `core/permissions` import controller |
-| `models` 只依赖 `core/config` | 模型不依赖 services | 模型 import service |
-| `utils` 可依赖 `core/models` | 工具层不依赖 api | `utils/git_utils` import controller |
-| `services` 可依赖 `core/models/utils` | 服务之间可横向调用 | service import api |
-| `api` 依赖所有下层 | controller 只调用 service/依赖 | controller 写复杂 SQL/事务 |
-| `middleware` 只依赖 utils/core | 不依赖具体业务 | middleware 调用 service |
-| `services/agent` 依赖 services | 工具适配器复用业务服务 | agent 直接写 SQL（除步骤/作业状态） |
+| `api` | `api / services / middleware / core / models / utils` | controller 写复杂 SQL/事务 |
+| `services` | `services / middleware / core / models / utils` | service import api |
+| `middleware` | `middleware / core / models / utils` | middleware 调用 service |
+| `core` | `core / models / utils` | `core/permissions` import controller |
+| `models` | `models / core / utils` | 模型 import service |
+| `utils` | `utils / core / models` | `utils/git_utils` import controller |
+
+`app/` 根目录模块（`main.py`、`lifespan.py`）属装配层，可依赖任意层。
+
+**规则由测试强制**：`tests/test_layer_boundary.py` 用 AST 扫描全部模块，
+同时覆盖**模块级**与**函数体内**的 import——后者最容易被当作「合法的延迟导入」
+而溜过去。该测试还带一条**延迟导入棘轮**：函数体内的 import 总数不得超过基线，
+只收不放，防止债务悄悄反弹。
 
 ### 打破循环依赖的手法
 
-1. **函数内延迟导入**：`repository_service` → `agent_service`、`search_service`；`config.py` → `config_store`。
+1. **函数内延迟导入**：`repository_service` → `agent_service`、`search_service`。
 2. **独立前缀模块**：`api/prefixes.py` 无项目依赖，controller 不 import `api/router.py`。
 3. **子包 `__init__` 轻量**：`services/agent/__init__.py` 只导出注册表，不 import runtime/service。
 4. **Protocol/注册表解耦**：`JobQueue`、`ModelProvider`、`ToolSpec`、`EmbeddingProvider`。
 5. **事件/回调**：Git hooks 通过 HTTP 回调应用，而非共享代码。
+6. **下移共享设施**：跨层共用的模块下沉到其**共同依赖层**——
+   `ws_manager`/`ws_log_handler`/`prometheus_metrics` 落到 `utils`，
+   `config_store` 落到 `core`，`vector_type` 落到 `models`，
+   `notification_push` 落到 `services/realtime`；
+   FastAPI 依赖工厂反向**上移**到 `api/guards.py`（它引用 `api.deps`，
+   留在 `core` 会形成跨层环）。
 
 ---
 

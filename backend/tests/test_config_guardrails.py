@@ -147,7 +147,7 @@ class TestMetadataSingleSource:
         assert ConfigService.RESTART_REQUIRED_CONFIGS == restart_required_configs()
 
     def test_config_store_bootstrap_derives_from_section_meta(self):
-        from app.services import config_store
+        from app.core import config_store
 
         assert config_store.BOOTSTRAP_EXCLUDED_KEYS == bootstrap_excluded_keys()
 

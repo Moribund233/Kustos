@@ -158,8 +158,8 @@ cd docs/prototype && python -m http.server 8765   # http://127.0.0.1:8765/index.
 
 ## 开发约定
 
-- **分层**：`controller → service → model`。控制器只做参数与依赖编排，不写 SQL；服务层不解析 HTTP。
-- **权限唯一裁决点**：`app/core/permissions.py`。全局管理员（`User.is_admin`）与仓库角色（owner/admin/developer/readonly）是两套授权，互不推导。
+- **分层**：`controller → service → model`。控制器只做参数与依赖编排，不写 SQL；服务层不解析 HTTP。层间依赖白名单由 `backend/tests/test_layer_boundary.py` 用 AST 强制（含函数体内的延迟导入），并带一条只收不放的「延迟导入棘轮」。
+- **权限唯一裁决点**：`app/core/permissions.py`（纯策略）。全局管理员（`User.is_admin`）与仓库角色（owner/admin/developer/readonly）是两套授权，互不推导。组装成 FastAPI 依赖的工厂在 `app/api/guards.py`。
 - **迁移**：模型改动必须配 Alembic 版本（`alembic/versions/`），`tests/test_schema_drift.py` 会比对模型与实际 schema。
 - **注释**：模块与函数使用中文 docstring（用途 / `Args` / `Returns` / `Raises`）；行内注释解释“为什么”，不转述实现。错误码与标识符保持英文。
 - **提交**：Conventional Commits，一个逻辑变更一个提交，subject 说清改了什么，body 说明原因与影响。

@@ -2,11 +2,12 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.prefixes import get_route_prefix
-from app.core.permissions import Action, require_repo_action
+from app.core.permissions import Action
+from app.api.guards import require_repo_action
 from app.models.async_db import get_async_db
 from app.services import label_service
 import uuid
-from app.core.permissions import require_repo_read
+from app.api.guards import require_repo_read
 
 router = APIRouter(
     prefix=get_route_prefix("repositories"), tags=["repo-labels"],

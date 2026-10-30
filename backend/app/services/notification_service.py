@@ -9,7 +9,7 @@ from app.models.user import User
 from app.core.exception import NotFoundException
 from app.utils.email_utils import send_notification_email
 from app.services import notification_preference_service
-from app.api.ws.handlers.notification import notify_user
+from app.services.realtime.notification_push import notify_user
 
 logger = logging.getLogger(__name__)
 

@@ -1,12 +1,13 @@
 """
 通知消息处理器
 
-处理各类通知相关的WebSocket消息
+处理客户端发来的通知类 WebSocket 消息（心跳 / 订阅 / 退订 / 广播）。
+服务端主动推送的构造逻辑在 ``services.realtime.notification_push``——
+服务层不得反向依赖 ``api``，故出站推送下沉到服务层。
 """
 from typing import Dict, Any
 from datetime import datetime
-import uuid
-from app.api.ws.manager import Connection, manager
+from app.utils.ws_manager import Connection, manager
 import logging
 
 logger = logging.getLogger(__name__)
@@ -158,103 +159,3 @@ async def handle_broadcast(connection: Connection, message: Dict[str, Any]) -> N
     })
     
     logger.info(f"管理员 {connection.username} 发送广播，覆盖 {count} 个连接")
-
-
-# ==================== 服务端主动推送方法 ====================
-
-async def notify_commit_new(repository_id: uuid.UUID, commit_data: Dict[str, Any], exclude_user_id: uuid.UUID | None = None) -> int:
-    """
-    通知仓库有新提交
-    
-    Args:
-        repository_id: 仓库ID
-        commit_data: 提交信息
-        exclude_user_id: 排除的用户ID（提交者自己）
-        
-    Returns:
-        int: 通知到的连接数
-    """
-    message = {
-        "type": "notification",
-        "action": "commit_new",
-        "repository_id": repository_id,
-        "data": commit_data,
-        "timestamp": datetime.now().isoformat(),
-    }
-    
-    return await manager.send_to_repository(repository_id, message, exclude_user_id)
-
-
-async def notify_branch_update(repository_id: uuid.UUID, branch_data: Dict[str, Any]) -> int:
-    """
-    通知分支更新
-    
-    Args:
-        repository_id: 仓库ID
-        branch_data: 分支信息
-        
-    Returns:
-        int: 通知到的连接数
-    """
-    message = {
-        "type": "notification",
-        "action": "branch_update",
-        "repository_id": repository_id,
-        "data": branch_data,
-        "timestamp": datetime.now().isoformat(),
-    }
-    
-    return await manager.send_to_repository(repository_id, message)
-
-
-async def notify_repository_event(repository_id: uuid.UUID, event_type: str, event_data: Dict[str, Any]) -> int:
-    """
-    通用仓库事件通知
-    
-    Args:
-        repository_id: 仓库ID
-        event_type: 事件类型
-        event_data: 事件数据
-        
-    Returns:
-        int: 通知到的连接数
-    """
-    message = {
-        "type": "notification",
-        "action": event_type,
-        "repository_id": repository_id,
-        "data": event_data,
-        "timestamp": datetime.now().isoformat(),
-    }
-    
-    return await manager.send_to_repository(repository_id, message)
-
-
-async def notify_user(
-    user_id: uuid.UUID,
-    notification_type: str,
-    data: Dict[str, Any],
-    unread_count: int | None = None,
-) -> int:
-    """
-    向用户发送个人通知
-
-    Args:
-        user_id: 用户ID
-        notification_type: 通知类型
-        data: 通知数据
-        unread_count: 推送时刻的未读数（可选，随消息下发省去客户端回查）
-
-    Returns:
-        int: 通知到的连接数
-    """
-    message = {
-        "type": "user_notification",
-        "notification_type": notification_type,
-        "data": data,
-        "timestamp": datetime.now().isoformat(),
-    }
-    if unread_count is not None:
-        message["unread_count"] = unread_count
-
-    return await manager.send_to_user(user_id, message)

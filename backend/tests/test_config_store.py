@@ -9,7 +9,7 @@ from app.core.config import (
 )
 from app.core.exception import ValidationException
 from app.models.app_config import AppConfig
-from app.services.config_store import (
+from app.core.config_store import (
     BOOTSTRAP_EXCLUDED_KEYS,
     BOOTSTRAP_EXCLUDED_SECTIONS,
     example_seed_data,
@@ -68,7 +68,7 @@ class TestExampleSeedData:
                 assert key in section_cls.model_fields, f"[{section}].{key} 无对应字段"
 
     def test_missing_template_returns_empty(self, monkeypatch, tmp_path):
-        from app.services import config_store
+        from app.core import config_store
 
         monkeypatch.setattr(
             config_store, "_example_path", lambda: tmp_path / "nope.toml"
@@ -231,7 +231,7 @@ class TestWriteValidation:
     """写入校验：引导层键拒绝、坏值拒绝、死键剔除、未知节拒绝"""
 
     def test_bootstrap_key_rejected(self, isolated_db_url, tmp_path):
-        from app.services.config_store import update_sections
+        from app.core.config_store import update_sections
 
         url = _seed_db_file(isolated_db_url)
         with pytest.raises(ValueError):
@@ -257,7 +257,7 @@ class TestWriteValidation:
         assert exc.value.status_code == 400 or exc.value.status_code == 422
 
     def test_invalid_value_rejected_and_db_unchanged(self, isolated_db_url, tmp_path):
-        from app.services.config_store import update_sections
+        from app.core.config_store import update_sections
 
         url = _seed_db_file(isolated_db_url)
         engine = create_engine(url)
@@ -286,7 +286,7 @@ class TestWriteValidation:
         assert row["payload"]["port"] == 8000, "校验失败必须回滚，坏值不得入库"
 
     def test_unknown_section_rejected(self, isolated_db_url, tmp_path):
-        from app.services.config_store import update_sections
+        from app.core.config_store import update_sections
 
         url = _seed_db_file(isolated_db_url)
         with pytest.raises(ValueError):
@@ -294,7 +294,7 @@ class TestWriteValidation:
 
     def test_dead_keys_stripped_on_write(self, isolated_db_url, tmp_path):
         """写入时顺手剔除字段定义已删的死键（脏行自愈）"""
-        from app.services.config_store import update_sections
+        from app.core.config_store import update_sections
 
         url = _seed_db_file(isolated_db_url)
         engine = create_engine(url)

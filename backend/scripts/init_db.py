@@ -67,7 +67,7 @@ def main() -> int:
     if success:
         # 迁移完成后播种配置表（幂等：只补缺键，不覆盖后台已改的值）。
         # 放在迁移之后而非迁移内：迁移保持纯 schema，播种可在任意环境重跑。
-        from app.services.config_store import seed_from_example
+        from app.core.config_store import seed_from_example
 
         logger.info(f"配置表播种: {seed_from_example()}")
 

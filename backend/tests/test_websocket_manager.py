@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from unittest.mock import MagicMock, AsyncMock
 import pytest
 
-from app.api.ws.manager import Connection, ConnectionManager
+from app.utils.ws_manager import Connection, ConnectionManager
 
 
 def _make_uuid(n: int) -> uuid.UUID:

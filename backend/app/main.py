@@ -25,7 +25,7 @@ def create_app(config_path: str = "config.toml") -> FastAPI:
     """
     # 延迟导入所有可能触发 config/models 加载的模块
     # 确保 init_app() 先执行环境变量检查
-    from app.core.lifespan import app_lifespan
+    from app.lifespan import app_lifespan
     from app.core.config import get_config
     from app.core.init import init_app
     from app.utils.logging import get_logger
@@ -102,7 +102,7 @@ def create_app(config_path: str = "config.toml") -> FastAPI:
     )
 
     # /metrics 导出端点（读 Redis 跨 worker 聚合，见 middleware/prometheus_metrics）
-    from app.middleware.prometheus_metrics import metrics_response
+    from app.utils.prometheus_metrics import metrics_response
     app.add_route("/metrics", metrics_response, include_in_schema=False)
 
     # 注意：CORS 由 Nginx 反向代理统一处理

@@ -150,7 +150,7 @@ class _StubPresence:
 
 @pytest.fixture(autouse=True)
 def _reset_manager():
-    from app.api.ws.manager import ConnectionManager
+    from app.utils.ws_manager import ConnectionManager
     ConnectionManager.reset_instance()
     yield
     ConnectionManager.reset_instance()
@@ -168,7 +168,7 @@ async def _register(mgr, user_id=None, username=None):
 
 
 async def test_manager_subscribe_adds_presence_idempotent():
-    from app.api.ws.manager import ConnectionManager
+    from app.utils.ws_manager import ConnectionManager
 
     mgr = ConnectionManager()
     stub = _StubPresence()
@@ -183,7 +183,7 @@ async def test_manager_subscribe_adds_presence_idempotent():
 
 
 async def test_manager_unsubscribe_removes_presence():
-    from app.api.ws.manager import ConnectionManager
+    from app.utils.ws_manager import ConnectionManager
 
     mgr = ConnectionManager()
     stub = _StubPresence()
@@ -198,7 +198,7 @@ async def test_manager_unsubscribe_removes_presence():
 
 
 async def test_manager_disconnect_removes_presence():
-    from app.api.ws.manager import ConnectionManager
+    from app.utils.ws_manager import ConnectionManager
 
     mgr = ConnectionManager()
     stub = _StubPresence()
@@ -213,7 +213,7 @@ async def test_manager_disconnect_removes_presence():
 
 
 async def test_manager_online_users_delegates_to_presence():
-    from app.api.ws.manager import ConnectionManager
+    from app.utils.ws_manager import ConnectionManager
 
     mgr = ConnectionManager()
     stub = _StubPresence()
@@ -225,7 +225,7 @@ async def test_manager_online_users_delegates_to_presence():
 
 
 async def test_manager_online_users_local_fallback():
-    from app.api.ws.manager import ConnectionManager
+    from app.utils.ws_manager import ConnectionManager
 
     mgr = ConnectionManager()
     stub = _StubPresence()

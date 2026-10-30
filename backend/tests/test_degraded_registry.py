@@ -56,7 +56,7 @@ class TestDegradedRegistry:
 class TestRequestStatsRegistration:
     @pytest.mark.asyncio
     async def test_no_redis_marks_degraded(self, monkeypatch):
-        import app.middleware.request_stats as rs
+        import app.utils.request_stats as rs
 
         async def _none():
             return None
@@ -75,7 +75,7 @@ class TestRequestStatsRegistration:
     @pytest.mark.asyncio
     async def test_recovers_when_redis_returns(self, monkeypatch):
         """原实现「探测一次永久回退」→ 恢复自愈（改为按 get_redis 冷却重试）"""
-        import app.middleware.request_stats as rs
+        import app.utils.request_stats as rs
 
         calls = {"up": False}
         fake_client = object()

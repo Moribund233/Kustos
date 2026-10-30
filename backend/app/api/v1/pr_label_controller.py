@@ -9,7 +9,7 @@ from app.models.user import User
 from app.api.deps import get_current_user
 from app.services import pr_label_service
 import uuid
-from app.core.permissions import require_repo_read
+from app.api.guards import require_repo_read
 
 router = APIRouter(
     prefix=get_route_prefix("repositories"), tags=["pr-labels"],
