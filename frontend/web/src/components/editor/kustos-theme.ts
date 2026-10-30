@@ -6,23 +6,27 @@ import type { Extension } from "@codemirror/state";
 /**
  * CodeMirror 主题：夜巡提灯。
  *
- * 取色与 `src/styles/globals.css` 的 `@theme` 一致——墨蓝底、骨白字，
+ * 颜色一律引用 `styles/globals.css` 的 `@theme` 令牌，而非拷贝色值：
+ * 早先这里写的是十六进制字面量，globals.css 调整对比度时编辑器不会跟随，
+ * 于是同一处界面出现两种灰阶。走 var() 后编辑器与其余界面共用一条色带，
+ * 后续换主题也只需覆盖令牌，不必再改这个文件。
+ *
  * 琥珀只留给光标与当前行，语法色偏冷，避免与琥珀的行动语义打架。
  */
 export const kustosDarkTheme: Extension = EditorView.theme(
   {
     "&": {
-      color: "#d8cdbb",
-      backgroundColor: "#0a1115",
+      color: "var(--color-bone-2)",
+      backgroundColor: "var(--color-ink-900)",
       fontSize: "13px",
     },
     ".cm-content": {
-      caretColor: "#f2ae5b",
+      caretColor: "var(--color-amber)",
       fontFamily: "var(--font-mono)",
       padding: "10px 0",
     },
     ".cm-cursor, .cm-dropCursor": {
-      borderLeftColor: "#f2ae5b",
+      borderLeftColor: "var(--color-amber)",
       borderLeftWidth: "2px",
     },
     "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection": {
@@ -32,14 +36,14 @@ export const kustosDarkTheme: Extension = EditorView.theme(
       backgroundColor: "rgba(240, 231, 216, 0.035)",
     },
     ".cm-gutters": {
-      backgroundColor: "#0a1115",
-      color: "#536064",
+      backgroundColor: "var(--color-ink-900)",
+      color: "var(--color-faint)",
       border: "none",
       borderRight: "1px solid rgba(240, 231, 216, 0.07)",
     },
     ".cm-activeLineGutter": {
       backgroundColor: "rgba(240, 231, 216, 0.035)",
-      color: "#9aa5a7",
+      color: "var(--color-muted)",
     },
     ".cm-lineNumbers .cm-gutterElement": {
       padding: "0 12px 0 16px",
@@ -56,23 +60,23 @@ export const kustosDarkTheme: Extension = EditorView.theme(
     },
     ".cm-nonmatchingBracket": {
       backgroundColor: "rgba(217, 130, 130, 0.18)",
-      color: "#d98282",
+      color: "var(--color-rose)",
     },
     ".cm-selectionMatch": {
       backgroundColor: "rgba(131, 169, 196, 0.16)",
     },
     ".cm-tooltip": {
-      backgroundColor: "#111c22",
+      backgroundColor: "var(--color-ink-800)",
       border: "1px solid rgba(240, 231, 216, 0.12)",
-      color: "#d8cdbb",
+      color: "var(--color-bone-2)",
     },
     ".cm-tooltip-autocomplete ul li[aria-selected]": {
-      backgroundColor: "#15232a",
-      color: "#f0e7d8",
+      backgroundColor: "var(--color-ink-750)",
+      color: "var(--color-bone)",
     },
     ".cm-panels": {
-      backgroundColor: "#111c22",
-      color: "#d8cdbb",
+      backgroundColor: "var(--color-ink-800)",
+      color: "var(--color-bone-2)",
       borderTop: "1px solid rgba(240, 231, 216, 0.12)",
     },
     ".cm-searchMatch": {
@@ -83,7 +87,7 @@ export const kustosDarkTheme: Extension = EditorView.theme(
       backgroundColor: "rgba(242, 174, 91, 0.38)",
     },
     ".cm-placeholder": {
-      color: "#536064",
+      color: "var(--color-faint)",
       fontStyle: "italic",
     },
   },
@@ -97,33 +101,33 @@ export const kustosDarkTheme: Extension = EditorView.theme(
  * 注释压到最暗的一档——让代码结构先于颜色被读到。
  */
 export const kustosHighlightStyle = HighlightStyle.define([
-  { tag: tags.keyword, color: "#83a9c4" },
-  { tag: [tags.controlKeyword, tags.moduleKeyword], color: "#83a9c4" },
-  { tag: [tags.definitionKeyword, tags.modifier], color: "#83a9c4" },
-  { tag: [tags.function(tags.variableName), tags.function(tags.propertyName)], color: "#f0e7d8" },
-  { tag: [tags.typeName, tags.className, tags.namespace], color: "#aed6bf" },
-  { tag: [tags.propertyName, tags.attributeName], color: "#d8cdbb" },
-  { tag: [tags.variableName, tags.labelName], color: "#d8cdbb" },
-  { tag: [tags.string, tags.special(tags.string)], color: "#86b79e" },
-  { tag: [tags.number, tags.bool, tags.null], color: "#f2ae5b" },
-  { tag: [tags.constant(tags.variableName), tags.standard(tags.variableName)], color: "#f2ae5b" },
-  { tag: [tags.operator, tags.operatorKeyword], color: "#9aa5a7" },
-  { tag: [tags.punctuation, tags.separator, tags.bracket], color: "#758185" },
+  { tag: tags.keyword, color: "var(--color-sky)" },
+  { tag: [tags.controlKeyword, tags.moduleKeyword], color: "var(--color-sky)" },
+  { tag: [tags.definitionKeyword, tags.modifier], color: "var(--color-sky)" },
+  { tag: [tags.function(tags.variableName), tags.function(tags.propertyName)], color: "var(--color-bone)" },
+  { tag: [tags.typeName, tags.className, tags.namespace], color: "var(--color-sage-2)" },
+  { tag: [tags.propertyName, tags.attributeName], color: "var(--color-bone-2)" },
+  { tag: [tags.variableName, tags.labelName], color: "var(--color-bone-2)" },
+  { tag: [tags.string, tags.special(tags.string)], color: "var(--color-sage)" },
+  { tag: [tags.number, tags.bool, tags.null], color: "var(--color-amber)" },
+  { tag: [tags.constant(tags.variableName), tags.standard(tags.variableName)], color: "var(--color-amber)" },
+  { tag: [tags.operator, tags.operatorKeyword], color: "var(--color-muted)" },
+  { tag: [tags.punctuation, tags.separator, tags.bracket], color: "var(--color-muted-2)" },
   {
     tag: [tags.comment, tags.lineComment, tags.blockComment],
-    color: "#536064",
+    color: "var(--color-faint)",
     fontStyle: "italic",
   },
-  { tag: tags.heading, color: "#f0e7d8", fontWeight: "500" },
-  { tag: tags.link, color: "#83a9c4", textDecoration: "underline" },
-  { tag: tags.url, color: "#83a9c4" },
+  { tag: tags.heading, color: "var(--color-bone)", fontWeight: "500" },
+  { tag: tags.link, color: "var(--color-sky)", textDecoration: "underline" },
+  { tag: tags.url, color: "var(--color-sky)" },
   { tag: tags.emphasis, fontStyle: "italic" },
   { tag: tags.strong, fontWeight: "500" },
-  { tag: tags.invalid, color: "#d98282" },
-  { tag: tags.meta, color: "#758185" },
-  { tag: tags.tagName, color: "#d85a30" },
-  { tag: tags.atom, color: "#f2ae5b" },
-  { tag: tags.monospace, color: "#d8cdbb" },
+  { tag: tags.invalid, color: "var(--color-rose)" },
+  { tag: tags.meta, color: "var(--color-muted-2)" },
+  { tag: tags.tagName, color: "var(--color-ember)" },
+  { tag: tags.atom, color: "var(--color-amber)" },
+  { tag: tags.monospace, color: "var(--color-bone-2)" },
 ]);
 
 /** 主题 + 语法高亮的组合扩展。 */

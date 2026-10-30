@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import type { LucideIcon } from "lucide-react";
 import { X } from "lucide-react";
 
@@ -270,6 +271,7 @@ interface StageProps {
  * pane，面板覆盖在画布右缘，画布上叠一层向右渐深的遮罩。
  */
 export function Stage({ dock, panel, defaultPane, className, children }: StageProps) {
+  const { t } = useTranslation();
   const [pane, setPane] = useState<string | null>(defaultPane ?? null);
   const [title, setTitle] = useState<{ label: string; kicker?: string } | null>(null);
 
@@ -341,7 +343,7 @@ export function Stage({ dock, panel, defaultPane, className, children }: StagePr
             </div>
             <button
               type="button"
-              aria-label="关闭面板"
+              aria-label={t("nav.closePanel")}
               onClick={() => {
                 setPane(null);
                 setTitle(null);

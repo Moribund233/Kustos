@@ -81,7 +81,7 @@ export function Topbar() {
   const markAllRead = async () => {
     await api.POST("/api/v1/notifications/read-all", {});
     await queryClient.invalidateQueries({ queryKey: ["notifications"] });
-    toast.success("通知已全部标记为已读。");
+    toast.success(t("common.allMarkedRead"));
   };
 
   return (
@@ -128,7 +128,7 @@ export function Topbar() {
       {/* 全局搜索 */}
       <button
         type="button"
-        aria-label="搜索 Kustos"
+        aria-label={t("nav.searchKustos")}
         onClick={() => setPaletteOpen(true)}
         className="border-edge-1 bg-ink-800/55 hover:border-edge-2 hover:text-muted flex h-8 w-[310px] items-center gap-2 rounded-md border px-2.5 text-left text-xs text-muted-2 transition-colors hover:bg-ink-800"
       >
@@ -175,13 +175,13 @@ export function Topbar() {
                   className="text-muted-2 hover:text-bone ml-auto text-xs transition-colors"
                   onClick={() => void markAllRead()}
                 >
-                  全部已读
+                  {t("common.markAllRead")}
                 </button>
               ) : null}
             </div>
             <div className="max-h-[380px] overflow-y-auto">
               {(notifications ?? []).length === 0 ? (
-                <p className="text-muted-2 px-[13px] py-8 text-center text-xs">暂无通知</p>
+                <p className="text-muted-2 px-[13px] py-8 text-center text-xs">{t("common.noNotifications")}</p>
               ) : (
                 (notifications ?? []).map((notif) => {
                   const style = NOTIF_STYLE[notif.type] ?? { icon: Bell, tone: "text-sky bg-sky/10" };
@@ -233,33 +233,33 @@ export function Topbar() {
               className="bg-amber border-amber hover:bg-amber-2 hover:border-amber-2 inline-flex h-[27px] items-center gap-[7px] whitespace-nowrap rounded-md border px-2.5 text-xs font-semibold text-ink-950 transition-colors"
             >
               <Plus className="size-[13px]" aria-hidden="true" />
-              新建
+              {t("common.newAction")}
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-[214px]">
             <DropdownMenuLabel className="text-muted-2 text-2xs font-semibold tracking-[0.13em] uppercase">
-              创建
+              {t("common.create")}
             </DropdownMenuLabel>
             <DropdownMenuItem onSelect={() => setCreateRepoOpen(true)}>
               <Plus className="text-muted-2 size-[14px]" aria-hidden="true" />
-              新建仓库
+              {t("nav.newRepository")}
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link to="/issues">
                 <Zap className="text-muted-2 size-[14px]" aria-hidden="true" />
-                新建 Issue
+                {t("nav.newIssue")}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link to="/pull-requests">
                 <BookOpen className="text-muted-2 size-[14px]" aria-hidden="true" />
-                新建 Pull Request
+                {t("nav.newPullRequest")}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link to="/agent">
                 <Bot className="text-muted-2 size-[14px]" aria-hidden="true" />
-                发起 Agent 运行
+                {t("nav.newAgentRun")}
               </Link>
             </DropdownMenuItem>
           </DropdownMenuContent>

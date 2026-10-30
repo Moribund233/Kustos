@@ -57,8 +57,8 @@ export function IssueDetail({ issue, comments, error, onRetry, onToggleStatus, o
   if (!issue) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-1.5 px-4 py-10 text-center">
-        <p className="text-bone-2 text-base font-medium">未选择 Issue</p>
-        <p className="text-muted-2 text-xs">调整筛选条件，或从左侧选择一条 Issue。</p>
+        <p className="text-bone-2 text-base font-medium">{t("issue.noSelection")}</p>
+        <p className="text-muted-2 text-xs">{t("issue.noSelectionHint")}</p>
       </div>
     );
   }
@@ -66,11 +66,11 @@ export function IssueDetail({ issue, comments, error, onRetry, onToggleStatus, o
   if (error) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2 px-4 py-10 text-center">
-        <p className="text-bone-2 text-base font-medium">加载 Issue 详情失败。</p>
+        <p className="text-bone-2 text-base font-medium">{t("issue.detailLoadFailed")}</p>
         <p className="text-muted-2 text-xs">{error}</p>
         {onRetry ? (
           <Button size="sm" variant="secondary" onClick={onRetry}>
-            重试
+            {t("common.retry")}
           </Button>
         ) : null}
       </div>
@@ -115,11 +115,11 @@ export function IssueDetail({ issue, comments, error, onRetry, onToggleStatus, o
               {issue.title}
             </h2>
             <p className="text-muted-2 mt-2 flex flex-wrap items-center gap-1.5 text-2xs">
-              由 <span className="text-muted">{issue.author.name}</span> 创建于 {issue.opened}
+              {t("issue.createdBy", { author: issue.author.name, date: issue.opened })}
               <span className="text-faint">·</span>
-              {timeline.length} 条评论
+              {t("issue.commentCount", { count: timeline.length })}
               <span className="text-faint">·</span>
-              更新于 {issue.updated}
+              {t("issue.updatedAt", { date: issue.updated })}
             </p>
           </div>
           <div className="flex flex-none items-center gap-[5px]">
@@ -143,8 +143,8 @@ export function IssueDetail({ issue, comments, error, onRetry, onToggleStatus, o
         </div>
 
         {/* 活动：评论时间线 + 评论编辑器 */}
-        <section aria-label="活动" className="mt-[26px] border-edge-2 border-t pt-4">
-          <SectionHead title="动态" count={timeline.length} className="border-b-0 pb-1" />
+        <section aria-label={t("issue.activity")} className="mt-[26px] border-edge-2 border-t pt-4">
+          <SectionHead title={t("issue.timeline")} count={timeline.length} className="border-b-0 pb-1" />
           <div>
             {timeline.length ? (
               timeline.map((comment, index) => (
@@ -174,7 +174,7 @@ export function IssueDetail({ issue, comments, error, onRetry, onToggleStatus, o
                 </article>
               ))
             ) : (
-              <p className="text-muted-2 py-6 text-center text-xs">还没有评论，来开个头。</p>
+              <p className="text-muted-2 py-6 text-center text-xs">{t("issue.noComments")}</p>
             )}
           </div>
 
@@ -185,12 +185,12 @@ export function IssueDetail({ issue, comments, error, onRetry, onToggleStatus, o
               <MarkdownEditor
                 value={draft}
                 onChange={setDraft}
-                placeholder="添加评论…"
+                placeholder={t("issue.commentPlaceholder")}
                 className="text-bone px-2.5 py-2 text-xs"
               />
               <div className="border-edge-1 flex items-center gap-[7px] border-t px-2.5 py-1.5">
                 <span className="text-faint mr-auto text-2xs">
-                  {t("issue.markdownHint")} · 通知按你的偏好发送
+                  {t("issue.markdownHint")} · {t("issue.notifyHint")}
                 </span>
                 <Button size="sm" className="h-[26px] px-2.5 text-xs" onClick={submitComment}>
                   {t("issue.comment")}

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -36,6 +37,7 @@ function DiffFileBlock({
   onLineClick,
   commentedLines = [],
 }: DiffFileBlockProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(defaultOpen);
   const path = diffFilePath(file);
   const commented = new Set(commentedLines);
@@ -72,7 +74,7 @@ function DiffFileBlock({
               onLineClick={onLineClick}
             />
           ))}
-          {file.status === "D" && <p className="text-faint px-3 py-2">文件已删除</p>}
+          {file.status === "D" && <p className="text-faint px-3 py-2">{t("code.fileDeleted")}</p>}
         </div>
       )}
     </section>
@@ -147,8 +149,9 @@ function DiffHunkBlock({ hunk, file, commented, onLineClick }: DiffHunkBlockProp
  * 面板浮在画布上，这里只负责内容，不做布局。
  */
 export function DiffViewer({ payload, className, onLineClick, commentedLines }: DiffViewerProps) {
+  const { t } = useTranslation();
   if (!payload.files.length) {
-    return <p className="text-faint py-6 text-center text-base">没有差异</p>;
+    return <p className="text-faint py-6 text-center text-base">{t("code.noDiff")}</p>;
   }
 
   return (

@@ -242,7 +242,7 @@ function Sparkline({ points }: { points: MetricsPoint[] }) {
     .join(" ");
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="mt-2 h-[72px] w-full" role="img" aria-label="请求速率">
+    <svg viewBox={`0 0 ${width} ${height}`} className="mt-2 h-[72px] w-full" role="img" aria-label={t("admin.requestRate")}>
       <path d={path} fill="none" stroke="rgba(242,174,91,0.85)" strokeWidth="1.5" />
       <line x1="0" y1={height - 3} x2={width} y2={height - 3} stroke="rgba(240,231,216,0.12)" />
     </svg>

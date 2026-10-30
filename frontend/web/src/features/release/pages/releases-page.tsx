@@ -1,5 +1,6 @@
 import { Paperclip, Tag } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { toast } from "sonner";
@@ -19,6 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { api, getAccessToken } from "@/lib/api/client";
 import { useApiMutation, useApiQuery } from "@/lib/api/hooks";
+import i18n from "@/lib/i18n";
 import { relativeTime } from "@/features/issue/api";
 import { Markdown } from "@/lib/markdown/markdown";
 import { cn } from "@/lib/utils";
@@ -77,7 +79,7 @@ async function fetchReleases(repoId: string, page: number, includeDrafts: boolea
   });
   if (res.error) {
     const detail = (res.error as { detail?: string }).detail;
-    throw new Error(detail ?? "Release 列表加载失败。");
+    throw new Error(detail ?? i18n.t("release.loadFailed"));
   }
   const payload = res.data as Partial<ReleasePage> | null;
   return {
@@ -108,12 +110,13 @@ async function createRelease(
   });
   if (res.error) {
     const detail = (res.error as { detail?: string }).detail;
-    throw new Error(detail ?? "创建 Release 失败。");
+    throw new Error(detail ?? i18n.t("release.createFailed"));
   }
   return res.data as ReleaseDto;
 }
 
 export function ReleasesPage() {
+  const { t } = useTranslation();
   const setCrumbs = useUiStore((state) => state.setCrumbs);
   const repo = useRepoStore((state) => state.current);
   const queryClient = useQueryClient();
@@ -138,7 +141,7 @@ export function ReleasesPage() {
     { tagName: string; name: string; description: string; isDraft: boolean; isPrerelease: boolean }
   >((input) => createRelease(repoId, input), {
     onSuccess: (release) => {
-      toast.success(`Release ${release.tag_name} 已创建。`);
+      toast.success(t("release.created", { tag: release.tag_name }));
       void queryClient.invalidateQueries({ queryKey: ["releases", repoId] });
       setCreateOpen(false);
     },
@@ -170,10 +173,10 @@ export function ReleasesPage() {
       },
     );
     if (!res.ok) {
-      toast.error("附件上传失败。");
+      toast.error(t("release.uploadFailed"));
       return;
     }
-    toast.success("附件已上传。");
+    toast.success(t("release.uploaded"));
     void queryClient.invalidateQueries({ queryKey: ["releases", repoId] });
   };
 
@@ -185,7 +188,7 @@ export function ReleasesPage() {
       { headers: token ? { Authorization: `Bearer ${token}` } : undefined },
     );
     if (!res.ok) {
-      toast.error("附件下载失败。");
+      toast.error(t("release.downloadFailed"));
       return;
     }
     const blob = await res.blob();
@@ -203,7 +206,7 @@ export function ReleasesPage() {
         <h1 className="font-display text-bone text-[clamp(1.7rem,2.6vw,2.3rem)] font-medium tracking-[-0.028em] leading-none">
           Release
         </h1>
-        <p className="text-muted-2 mt-4 text-sm">未选择仓库。请先在侧栏选择一个仓库。</p>
+        <p className="text-muted-2 mt-4 text-sm">{t("common.noRepoSelected")}</p>
       </div>
     );
   }
@@ -224,7 +227,7 @@ export function ReleasesPage() {
               {total}
             </span>
           </div>
-          <nav className="mt-3 flex items-center gap-2 text-xs" aria-label="仓库页">
+          <nav className="mt-3 flex items-center gap-2 text-xs" aria-label={t("common.repoPageNav")}>
             <Link to="/code" className="text-muted-2 hover:text-amber-2 transition-colors">
               {repo.path}
             </Link>
@@ -240,10 +243,10 @@ export function ReleasesPage() {
               setPage(1);
             }}
           >
-            包含草稿
+            {t("release.includeDrafts")}
           </Chip>
           <Button size="sm" onClick={() => setCreateOpen(true)}>
-            新建 Release
+            {t("release.newRelease")}
           </Button>
         </div>
       </header>
@@ -254,22 +257,24 @@ export function ReleasesPage() {
         <div className="border-edge-2 flex items-center gap-2.5 border-b px-4 py-2.5">
           <Lamp tone={releases.length ? "good" : "neutral"} />
           <span className="text-muted-2 font-mono text-2xs">
-            {listQuery.isLoading ? "加载中…" : `显示 ${releases.length} / 共 ${total} 条`}
+            {listQuery.isLoading
+              ? t("common.loading")
+              : t("release.showing", { shown: releases.length, total })}
           </span>
           <span className="from-edge-1 ml-auto h-px flex-1 bg-gradient-to-r to-transparent" aria-hidden="true" />
         </div>
 
         {listQuery.isError ? (
           <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
-            <p className="text-bone-2 text-sm font-medium">Release 列表加载失败。</p>
+            <p className="text-bone-2 text-sm font-medium">{t("release.loadFailed")}</p>
             <p className="text-muted-2 text-xs">{listQuery.error?.message}</p>
             <Button size="sm" variant="secondary" onClick={() => void listQuery.refetch()}>
-              重试
+              {t("common.retry")}
             </Button>
           </div>
         ) : releases.length === 0 && !listQuery.isLoading ? (
           <p className="text-muted-2 px-4 py-12 text-center text-xs">
-            还没有发布版本。新建一个 Release 会同时打上 Git 标签。
+            {t("release.empty")}
           </p>
         ) : (
           <ul>
@@ -283,12 +288,12 @@ export function ReleasesPage() {
                   <span className="text-bone-2 text-base font-medium">{release.name}</span>
                   {release.is_draft ? (
                     <span className="border-edge-2 text-muted-2 inline-flex h-[17px] items-center rounded-full border px-1.5 text-2xs">
-                      草稿
+                      {t("release.draft")}
                     </span>
                   ) : null}
                   {release.is_prerelease ? (
                     <span className="border-amber/30 bg-amber/10 text-amber-2 inline-flex h-[17px] items-center rounded-full border px-1.5 text-2xs">
-                      预发布
+                      {t("release.prerelease")}
                     </span>
                   ) : null}
                   <span className="text-faint ml-auto font-mono text-2xs">
@@ -321,7 +326,7 @@ export function ReleasesPage() {
                     onClick={() => pickAssetFile(release)}
                     className="text-faint hover:text-amber-2 inline-flex h-[20px] items-center gap-1 px-1 font-mono text-2xs transition-colors"
                   >
-                    + 上传附件
+                    + {t("release.uploadAttachment")}
                   </button>
                 </div>
               </li>
@@ -336,7 +341,7 @@ export function ReleasesPage() {
             onClick={() => setPage((value) => Math.max(1, value - 1))}
             className="hover:text-bone disabled:opacity-40"
           >
-            上一页
+            {t("release.prev")}
           </button>
           <span>
             {listQuery.data?.page ?? page} / {Math.max(listQuery.data?.pages ?? 1, 1)}
@@ -347,7 +352,7 @@ export function ReleasesPage() {
             onClick={() => setPage((value) => value + 1)}
             className="hover:text-bone disabled:opacity-40"
           >
-            下一页
+            {t("release.next")}
           </button>
         </div>
       </div>
@@ -401,6 +406,7 @@ function CreateReleaseDialog({
     isPrerelease: boolean;
   }) => void;
 }) {
+  const { t } = useTranslation();
   const [tagName, setTagName] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -416,45 +422,45 @@ function CreateReleaseDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[560px]">
         <DialogHeader>
-          <DialogTitle>新建 Release</DialogTitle>
-          <DialogDescription>标签名必填；后端会同时创建同名 Git 标签。</DialogDescription>
+          <DialogTitle>{t("release.newRelease")}</DialogTitle>
+          <DialogDescription>{t("release.newHint")}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3">
           <Input
             value={tagName}
             onChange={(event) => setTagName(event.target.value)}
             placeholder="v0.1.0"
-            aria-label="标签名"
+            aria-label={t("release.tagName")}
           />
           <Input
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="标题"
-            aria-label="标题"
+            placeholder={t("release.releaseTitle")}
+            aria-label={t("release.releaseTitle")}
           />
           <div className="border-edge-2 bg-ink-950/45 overflow-hidden rounded-md border">
             <MarkdownEditor
               value={description}
               onChange={setDescription}
-              placeholder="发布说明（Markdown）…"
+              placeholder={t("release.notesPlaceholder")}
               className="text-bone px-2.5 py-2 text-xs"
             />
           </div>
           <div className="flex items-center gap-1.5">
             <Chip active={isDraft} onClick={() => setIsDraft((value) => !value)}>
-              草稿
+              {t("release.draft")}
             </Chip>
             <Chip active={isPrerelease} onClick={() => setIsPrerelease((value) => !value)}>
-              预发布
+              {t("release.prerelease")}
             </Chip>
           </div>
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            取消
+            {t("common.cancel")}
           </Button>
           <Button onClick={submit} disabled={!tagName.trim() || !name.trim() || pending}>
-            {pending ? "创建中…" : "创建"}
+            {pending ? t("common.creating") : t("common.create")}
           </Button>
         </DialogFooter>
       </DialogContent>

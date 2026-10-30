@@ -18,6 +18,7 @@ import {
 import { api } from "@/lib/api/client";
 import { formatRelative } from "@/lib/datetime/format";
 import { useApiQuery } from "@/lib/api/hooks";
+import i18n from "@/lib/i18n";
 import { useAuthStore } from "@/stores/auth-store";
 import { useRepoStore } from "@/stores/repo-store";
 import { useUiStore } from "@/stores/ui-store";
@@ -25,10 +26,10 @@ import { useUiStore } from "@/stores/ui-store";
 /** 问候语按时段切换。 */
 function greeting(): string {
   const hour = new Date().getHours();
-  if (hour < 6) return "夜深了";
-  if (hour < 12) return "早上好";
-  if (hour < 18) return "下午好";
-  return "晚上好";
+  if (hour < 6) return i18n.t("overview.greetLateNight");
+  if (hour < 12) return i18n.t("overview.greetMorning");
+  if (hour < 18) return i18n.t("overview.greetAfternoon");
+  return i18n.t("overview.greetEvening");
 }
 
 /** 日期眉题：10月29日 · 21:48 UTC+8。 */
@@ -121,31 +122,31 @@ function buildWatchStats(dash: DashboardData): WatchStat[] {
   const activeDays = Object.keys(dash.contributions_by_day).length;
   return [
     {
-      label: "打开的 PR",
+      label: i18n.t("overview.openPrs"),
       value: String(dash.open_prs),
-      unit: "open",
-      meta: `你创建的 ${myOpenPrs} 条未关闭`,
+      unit: i18n.t("overview.repoUnit"),
+      meta: i18n.t("overview.openPrsMeta", { count: myOpenPrs }),
       lamp: dash.open_prs > 0 ? "warn" : "good",
     },
     {
-      label: "打开的 Issue",
+      label: i18n.t("overview.openIssues"),
       value: String(dash.open_issues),
-      unit: "issues",
-      meta: `与你相关 ${myOpenIssues} 条未关闭`,
+      unit: i18n.t("overview.repoUnit"),
+      meta: i18n.t("overview.openIssuesMeta", { count: myOpenIssues }),
       lamp: dash.open_issues > 0 ? "bad" : "good",
     },
     {
-      label: "可访问仓库",
+      label: i18n.t("overview.accessibleRepos"),
       value: String(dash.repo_count),
-      unit: "个",
-      meta: "自托管实例",
+      unit: i18n.t("overview.repoUnit"),
+      meta: i18n.t("overview.selfHostedInstance"),
       lamp: "info",
     },
     {
-      label: "近 30 天活动",
+      label: i18n.t("overview.activity30d"),
       value: String(contributions),
-      unit: "次",
-      meta: `分布在 ${activeDays} 天`,
+      unit: i18n.t("overview.timesUnit"),
+      meta: i18n.t("overview.activityMeta", { days: activeDays }),
       lamp: "info",
     },
   ];
@@ -191,7 +192,7 @@ function toPrRows(dash: DashboardData, repoPathOf: (id: string) => string): Queu
     ref: { from: pr.source_branch, to: pr.target_branch },
     badge: pr.is_draft ? { label: "draft", tone: "info" } : undefined,
     age: formatRelative(pr.created_at),
-    action: "查看",
+    action: i18n.t("overview.view"),
   }));
 }
 
@@ -204,21 +205,41 @@ function toIssueRows(dash: DashboardData, repoPathOf: (id: string) => string): Q
     href: "/issues",
     number: `#${issue.issue_number}`,
     repo: repoPathOf(issue.repository_id),
-    author: `${issue.author?.username ?? "—"} 创建`,
+    author: i18n.t("overview.createdByShort", { author: issue.author?.username ?? "—" }),
     badge: issue.priority ? { label: issue.priority, tone: issue.priority === "high" ? "warn" : "info" } : undefined,
     age: formatRelative(issue.created_at),
-    action: "打开",
+    action: i18n.t("overview.openAction"),
   }));
 }
 
 /** 仓库字形的轮换色调。 */
 const GLYPH_TONES: AvatarTone[] = ["amber", "sage", "sky", "rose", "slate"];
 
-const PANEL_DOCK: DockTab[] = [
-  { id: "watch", icon: Bot, label: "夜巡动态", kicker: "meridian", ariaLabel: "夜巡动态流" },
-  { id: "presence", icon: Users, label: "在线成员", kicker: "4 人在线", ariaLabel: "谁在线上" },
-  { id: "account", icon: UserRound, label: "账号", kicker: "账号", ariaLabel: "账号信息" },
-];
+function panelDock(): DockTab[] {
+  return [
+    {
+      id: "watch",
+      icon: Bot,
+      label: i18n.t("overview.watchFeed"),
+      kicker: "meridian",
+      ariaLabel: i18n.t("overview.watchFeedAria"),
+    },
+    {
+      id: "presence",
+      icon: Users,
+      label: i18n.t("overview.presence"),
+      kicker: i18n.t("overview.onlineCount", { count: 4 }),
+      ariaLabel: i18n.t("overview.presenceAria"),
+    },
+    {
+      id: "account",
+      icon: UserRound,
+      label: i18n.t("overview.accountTab"),
+      kicker: i18n.t("overview.accountTab"),
+      ariaLabel: i18n.t("overview.accountAria"),
+    },
+  ];
+}
 
 /**
  * 值守工作台。
@@ -245,16 +266,18 @@ export function OverviewPage() {
     queryFn: async () => {
       const res = await api.GET("/api/v1/users/me/dashboard");
       // schema 只建模了 200，错误体未知；无数据一律按失败处理，由 useApiQuery 重试
-      if (!res.data) throw new Error("dashboard 请求失败");
+      if (!res.data) throw new Error(i18n.t("overview.dashboardFailed"));
       return res.data as DashboardData;
     },
   });
 
   // 账号面板显示真实用户名，而不是演示里的「Lin Wei」
-  const dock = PANEL_DOCK.map((tab) => (tab.id === "account" ? { ...tab, kicker: user?.username ?? "账号" } : tab));
+  const dock = panelDock().map((tab) =>
+    tab.id === "account" ? { ...tab, kicker: user?.username ?? t("overview.accountTab") } : tab,
+  );
 
   /** repository_id → 仓库 path（如 lin/atlas），列表里查不到时回落。 */
-  const repoPathOf = (id: string) => repos.find((repo) => repo.id === id)?.path ?? "未知仓库";
+  const repoPathOf = (id: string) => repos.find((repo) => repo.id === id)?.path ?? i18n.t("overview.unknownRepo");
 
   const prRows = dash ? toPrRows(dash, repoPathOf) : [];
   const issueRows = dash ? toIssueRows(dash, repoPathOf) : [];
@@ -277,16 +300,16 @@ export function OverviewPage() {
           </h1>
           <p className="text-muted mt-2.5 max-w-[64ch] text-md leading-relaxed">
             {dash
-              ? `打开 ${dash.open_prs} 个 PR、${dash.open_issues} 个 Issue 在等你处理。`
+              ? t("overview.greetingQueue", { prs: dash.open_prs, issues: dash.open_issues })
               : isPending
-                ? "正在汇总你的队列…"
-                : "队列数据加载失败，可在下方重试。"}
+                ? t("overview.summarizing")
+                : t("overview.queueFailed")}
           </p>
         </div>
         <div className="flex flex-none items-center gap-2.5 pb-1">
           <Link to="/pull-requests">
             <StatusPill tone={dash && dash.open_prs > 0 ? "warn" : "good"} lamp live>
-              {dash ? `${dash.open_prs} 个 PR 打开` : "PR 队列"}
+              {dash ? t("overview.prsOpen", { count: dash.open_prs }) : t("overview.prQueue")}
             </StatusPill>
           </Link>
           <button
@@ -295,28 +318,28 @@ export function OverviewPage() {
             className="bg-amber border-amber hover:bg-amber-2 hover:border-amber-2 inline-flex h-8 items-center gap-[7px] rounded-md border px-3 text-sm font-semibold text-ink-950 transition-colors"
           >
             <Bot className="size-[15px]" aria-hidden="true" />
-            发起运行
+            {t("overview.startRun")}
           </button>
         </div>
       </header>
 
       {isPending ? (
-        <p className="text-muted-2 border-edge-2 border-y py-10 text-center text-sm">正在加载值守数据…</p>
+        <p className="text-muted-2 border-edge-2 border-y py-10 text-center text-sm">{t("overview.loadingWatch")}</p>
       ) : error ? (
         <div role="alert" className="border-edge-2 border-y flex flex-col items-center gap-3 py-10">
-          <p className="text-muted text-sm">值守数据加载失败：{error.message}</p>
+          <p className="text-muted text-sm">{t("overview.watchFailed", { error: error.message })}</p>
           <button
             type="button"
             onClick={() => void refetch()}
             className="border-edge-2 bg-ink-750/55 hover:border-edge-3 hover:bg-ink-750 text-bone-2 inline-flex h-[27px] items-center rounded-md border px-2.5 text-xs font-medium transition-colors"
           >
-            重试
+            {t("common.retry")}
           </button>
         </div>
       ) : dash ? (
         <>
           {/* 队列速览 */}
-          <dl aria-label="你的队列速览" className="border-edge-2 border-y mb-11 grid grid-cols-4">
+          <dl aria-label={t("overview.yourQueue")} className="border-edge-2 border-y mb-11 grid grid-cols-4">
             {buildWatchStats(dash).map((stat, index, stats) => (
               <div
                 key={stat.label}
@@ -340,30 +363,30 @@ export function OverviewPage() {
           </dl>
 
           {/* 待办队列 */}
-          <section aria-label="等你过目">
+          <section aria-label={t("overview.awaitingReviewAria")}>
             <SectionHead
-              title="等你过目"
+              title={t("overview.awaitingReviewAria")}
               count={queueCount}
               meta={
                 <Link to="/pull-requests" className="text-muted-2 hover:text-amber transition-colors">
-                  全部 Pull Request ↗
+                  {t("overview.allPullRequests")}
                 </Link>
               }
             />
 
             {queueCount === 0 ? (
-              <p className="text-muted-2 py-7 text-center text-sm">暂无待你过目的 PR 或 Issue。</p>
+              <p className="text-muted-2 py-7 text-center text-sm">{t("overview.noTodo")}</p>
             ) : (
               <div className="flex flex-col gap-2 pt-1">
                 {prRows.length ? (
-                  <QueueGroup title="Pull requests" count={prRows.length} note={`${openPrCount} 条未关闭`}>
+                  <QueueGroup title="Pull requests" count={prRows.length} note={t("overview.notClosed", { count: openPrCount })}>
                     {prRows.map((row) => (
                       <ReviewRow key={row.id} row={row} />
                     ))}
                   </QueueGroup>
                 ) : null}
                 {issueRows.length ? (
-                  <QueueGroup title="Issues" count={issueRows.length} note={`${assignedCount} 条指派给你`}>
+                  <QueueGroup title="Issues" count={issueRows.length} note={t("overview.assignedToYou", { count: assignedCount })}>
                     {issueRows.map((row) => (
                       <ReviewRow key={row.id} row={row} />
                     ))}
@@ -374,16 +397,16 @@ export function OverviewPage() {
           </section>
 
           {/* 活跃仓库 */}
-          <section aria-label="活跃仓库" className="mt-10">
-            <SectionHead title="活跃仓库" meta="按最近更新" />
+          <section aria-label={t("overview.activeRepos")} className="mt-10">
+            <SectionHead title={t("overview.activeRepos")} meta={t("overview.byRecentUpdate")} />
             <div className="pt-0.5">
               <div className="border-edge-1 flex items-center gap-2 border-b py-3.5 pb-2">
-                <span className="text-muted text-2xs font-semibold tracking-[0.13em] uppercase">{user?.username ?? "全部"}</span>
+                <span className="text-muted text-2xs font-semibold tracking-[0.13em] uppercase">{user?.username ?? t("overview.all")}</span>
                 <span className="rounded-full bg-bone/[0.06] px-1.5 font-mono text-2xs leading-[15px] text-muted-2">{repos.length}</span>
-                <span className="text-faint ml-auto text-2xs">自托管实例 · 全部可访问仓库</span>
+                <span className="text-faint ml-auto text-2xs">{t("overview.allAccessibleRepos")}</span>
               </div>
               {repos.length === 0 ? (
-                <p className="text-muted-2 py-7 text-center text-sm">暂无仓库。</p>
+                <p className="text-muted-2 py-7 text-center text-sm">{t("overview.noRepos")}</p>
               ) : (
                 repos.map((repo, index) => (
                   <button
@@ -404,7 +427,7 @@ export function OverviewPage() {
                         </span>
                       </span>
                       <span className="text-muted-2 text-2xs leading-snug">
-                        默认分支 <span className="font-mono">{repo.default_branch}</span>
+                        {t("overview.defaultBranch")} <span className="font-mono">{repo.default_branch}</span>
                       </span>
                     </span>
                     <span className="grid grid-cols-3">
@@ -421,7 +444,7 @@ export function OverviewPage() {
                     </span>
                     <span className="text-muted-2 inline-flex items-center justify-end gap-1.5 text-2xs whitespace-nowrap">
                       <Lamp tone="info" />
-                      更新 {formatRelative(repo.updated_at)}
+                      {t("overview.updatedAtShort", { time: formatRelative(repo.updated_at) })}
                     </span>
                   </button>
                 ))
@@ -432,8 +455,8 @@ export function OverviewPage() {
       ) : null}
 
       {/* 问 Kustos：作业创建在 Agent 控制台（POST /agent/jobs 已就绪），这里直达入口 */}
-      <section aria-label="问 Kustos" className="mt-10">
-        <SectionHead title="问 Kustos" meta="默认只读 · 写操作逐次审批" />
+      <section aria-label={t("overview.askKustos")} className="mt-10">
+        <SectionHead title={t("overview.askKustos")} meta={t("overview.askKustosMeta")} />
         <form
           className="border-edge-2 bg-ink-850/50 mt-3.5 flex items-center gap-2.5 rounded-[10px] border px-3 py-2.5 shadow-[inset_0_1px_0_rgba(240,231,216,0.045)] transition-colors focus-within:border-amber/45 focus-within:shadow-[0_0_0_3px_rgba(242,174,91,0.06)]"
           onSubmit={(event) => {
@@ -451,15 +474,15 @@ export function OverviewPage() {
           <input
             type="text"
             autoComplete="off"
-            aria-label="问 Kustos"
-            placeholder="在 Agent 控制台发起运行 —「LFS 传输令牌是在哪里签发的？」"
+            aria-label={t("overview.askKustos")}
+            placeholder={t("overview.askPlaceholder")}
             className="text-bone min-w-0 flex-1 border-0 bg-transparent text-sm focus-visible:outline-none placeholder:text-muted-2"
           />
           <button
             type="submit"
             className="bg-amber border-amber hover:bg-amber-2 hover:border-amber-2 inline-flex h-[27px] items-center gap-[7px] whitespace-nowrap rounded-md border px-2.5 text-xs font-semibold text-ink-950 transition-colors"
           >
-            运行
+            {t("overview.run")}
           </button>
         </form>
       </section>
@@ -543,28 +566,28 @@ const ACTIVITY_STYLE: Record<string, { icon: typeof Bot; tone: "neutral" | "warn
   agent_tool: { icon: Bot, tone: "neutral" },
 };
 
-/** 活动动作 → 中文动词（后端各 service 写入 Activity.action 的取值）。 */
-const ACTIVITY_VERB: Record<string, string> = {
-  created: "创建了",
-  opened: "打开了",
-  closed: "关闭了",
-  merged: "合并了",
-  approved: "批准了",
-  rejected: "拒绝了",
-  cancelled: "取消了",
-  review_requested: "请求评审",
-  review_request_removed: "移除了评审请求",
-  linked_issue: "关联了 Issue",
-  unlinked_issue: "取消关联了 Issue",
-  merge_override: "强制合并了",
+/** 活动动作 → 文案键（后端各 service 写入 Activity.action 的取值）。 */
+const ACTIVITY_VERB_KEY: Record<string, string> = {
+  created: "overview.verbCreated",
+  opened: "overview.verbOpened",
+  closed: "overview.verbClosed",
+  merged: "overview.verbMerged",
+  approved: "overview.verbApproved",
+  rejected: "overview.verbRejected",
+  cancelled: "overview.verbCancelled",
+  review_requested: "overview.verbReviewRequested",
+  review_request_removed: "overview.verbReviewRequestRemoved",
+  linked_issue: "overview.verbLinkedIssue",
+  unlinked_issue: "overview.verbUnlinkedIssue",
+  merge_override: "overview.verbMergeOverride",
 };
 
-/** 实体类型的兜底文案。 */
-const ENTITY_LABEL: Record<string, string> = {
-  pull_request: "PR",
-  issue: "Issue",
-  agent_job: "Agent 任务",
-  agent_tool: "Agent 工具",
+/** 实体类型的兜底文案键。 */
+const ENTITY_LABEL_KEY: Record<string, string> = {
+  pull_request: "overview.entityPr",
+  issue: "overview.entityIssue",
+  agent_job: "overview.entityAgentJob",
+  agent_tool: "overview.entityAgentTool",
 };
 
 /** 收尾动作（合并/批准 → good，关闭/拒绝/取消 → bad），其余沿用实体默认色调。 */
@@ -577,14 +600,15 @@ const TONE_BY_ACTION: Record<string, "good" | "bad"> = {
 };
 
 function OverviewPanel({ tab, dash, user, repoCount, onRetry }: { tab: DockTab; dash: DashboardData | null; user: ReturnType<typeof useAuthStore.getState>["user"]; repoCount: number; onRetry: () => void }) {
+  const { t } = useTranslation();
   if (tab.id === "presence") {
     // presence 在服务端按房间聚合，没有全局在线名单端点：这里不做假名单
     return (
-      <RailBlock title="现在在线">
+      <RailBlock title={t("overview.presenceTitle")}>
         <p className="text-muted-2 py-6 text-center text-xs leading-relaxed">
-          在线状态按房间聚合。
+          {t("overview.presenceHint1")}
           <br />
-          进入仓库频道即可看到谁在线。
+          {t("overview.presenceHint2")}
         </p>
       </RailBlock>
     );
@@ -592,17 +616,17 @@ function OverviewPanel({ tab, dash, user, repoCount, onRetry }: { tab: DockTab; 
 
   if (tab.id === "account") {
     return (
-      <RailBlock title="账号">
+      <RailBlock title={t("overview.accountTitle")}>
         <FactList
           items={[
-            { key: "用户名", value: <span className="font-mono">{user?.username ?? "—"}</span> },
-            { key: "邮箱", value: user?.email ?? "未设置" },
-            { key: "角色", value: user?.is_admin ? "管理员" : "成员" },
-            { key: "仓库", value: <span className="font-mono">{repoCount} 个可访问</span> },
+            { key: t("overview.fieldUsername"), value: <span className="font-mono">{user?.username ?? "—"}</span> },
+            { key: t("overview.fieldEmail"), value: user?.email ?? t("overview.notSet") },
+            { key: t("overview.fieldRole"), value: user?.is_admin ? t("overview.roleAdmin") : t("overview.roleMember") },
+            { key: t("overview.fieldRepos"), value: <span className="font-mono">{t("overview.accessibleCount", { count: repoCount })}</span> },
           ]}
         />
         <p className="text-muted-2 mt-3 text-xs leading-[1.45]">
-          实例存储与 Agent 配额属于管理员指标，不下发到此视图。
+          {t("overview.quotaHint")}
         </p>
       </RailBlock>
     );
@@ -613,7 +637,7 @@ function OverviewPanel({ tab, dash, user, repoCount, onRetry }: { tab: DockTab; 
   return (
     <RailBlock>
       <div className="mb-2.5 flex items-center">
-        <h3 className="text-muted-2 text-2xs font-semibold tracking-[0.15em] uppercase">实时动态</h3>
+        <h3 className="text-muted-2 text-2xs font-semibold tracking-[0.15em] uppercase">{t("overview.liveFeed")}</h3>
         <span className="text-amber ml-auto inline-flex items-center gap-1.5 text-2xs font-semibold tracking-[0.14em] uppercase">
           <Lamp tone="warn" live />
           Live
@@ -621,19 +645,21 @@ function OverviewPanel({ tab, dash, user, repoCount, onRetry }: { tab: DockTab; 
       </div>
       {!dash ? (
         <p className="text-muted-2 py-3.5 text-xs">
-          动态加载中或失败。
+          {t("overview.feedLoadFailed")}
           <button type="button" onClick={onRetry} className="text-amber hover:text-amber-2 ml-1.5 transition-colors">
-            重试
+            {t("common.retry")}
           </button>
         </p>
       ) : activities.length === 0 ? (
-        <p className="text-muted-2 py-3.5 text-xs">暂无动态。</p>
+        <p className="text-muted-2 py-3.5 text-xs">{t("overview.noActivity")}</p>
       ) : (
         <div className="pt-0.5">
-          <p className="text-faint block py-[15px] pb-1 text-2xs font-semibold tracking-[0.13em] uppercase">最近动态</p>
+          <p className="text-faint block py-[15px] pb-1 text-2xs font-semibold tracking-[0.13em] uppercase">{t("overview.recentActivity")}</p>
           {activities.map((activity) => {
             const style = ACTIVITY_STYLE[activity.entity_type] ?? { icon: GitCommitHorizontal, tone: "neutral" as const };
             const tone = TONE_BY_ACTION[activity.action] ?? style.tone;
+            const verbKey = ACTIVITY_VERB_KEY[activity.action];
+            const entityKey = ENTITY_LABEL_KEY[activity.entity_type];
             return (
               <div key={activity.id} className="relative grid grid-cols-[26px_minmax(0,1fr)] gap-[11px] pb-[15px] last:pb-0">
                 <span
@@ -652,11 +678,11 @@ function OverviewPanel({ tab, dash, user, repoCount, onRetry }: { tab: DockTab; 
                 </span>
                 <div className="min-w-0">
                   <p className="text-muted text-xs leading-[1.5]">
-                    <span className="text-bone-2">{activity.actor_username ?? "系统"}</span>{" "}
-                    {ACTIVITY_VERB[activity.action] ?? activity.action}
+                    <span className="text-bone-2">{activity.actor_username ?? t("overview.systemActor")}</span>{" "}
+                    {verbKey ? t(verbKey) : activity.action}
                     {activity.details
                       ? ` ${activity.details}`
-                      : ` ${ENTITY_LABEL[activity.entity_type] ?? activity.entity_type}`}
+                      : ` ${entityKey ? t(entityKey) : activity.entity_type}`}
                   </p>
                   <time className="text-faint mt-[3px] block font-mono text-2xs">{formatRelative(activity.created_at)}</time>
                 </div>

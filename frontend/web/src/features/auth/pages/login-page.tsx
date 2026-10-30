@@ -24,9 +24,9 @@ const INPUT_CLS =
 
 /** 品牌侧的三条卖点（原型 login-features）。 */
 const FEATURES = [
-  { icon: GitCommitHorizontal, label: "裸 Git + 原生 HTTP / SSH 协议" },
-  { icon: Bot, label: "Agent 写操作必须显式批准" },
-  { icon: Users, label: "实时协同编辑与房间聊天" },
+  { icon: GitCommitHorizontal, labelKey: "login.featureGit" },
+  { icon: Bot, labelKey: "login.featureAgent" },
+  { icon: Users, labelKey: "login.featureRealtime" },
 ] as const;
 
 /**
@@ -49,7 +49,7 @@ export function LoginPage() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!username.trim() || !password) {
-      setError("请输入用户名和密码。");
+      setError(t("login.missingCredentials"));
       return;
     }
     setError(null);
@@ -117,19 +117,18 @@ export function LoginPage() {
             id="login-brand-title"
             className="font-display text-bone mt-4 text-[clamp(2.7rem,5.4vw,5.1rem)] font-medium tracking-[-0.045em] leading-[0.96]"
           >
-            守护真正
+            {t("login.heroLine1")}
             <br />
-            重要的代码。
+            {t("login.heroLine2")}
           </h1>
           <p className="text-muted mt-6 max-w-[42ch] text-md leading-[1.62]">
-            一座安静的自托管 Git 锻炉，配一位常驻守护者。仓库、评审、实时房间与一个谨慎的 Agent
-            ——全部跑在你自己的机器上。
+            {t("login.heroDesc")}
           </p>
           <ul className="border-edge-1 mt-[38px] hidden max-w-[390px] flex-col border-t lg:flex">
             {FEATURES.map((feature) => (
-              <li key={feature.label} className="border-edge-1 flex items-center gap-2.5 border-b py-2.5 text-xs text-bone-2 last:border-b-0">
+              <li key={feature.labelKey} className="border-edge-1 flex items-center gap-2.5 border-b py-2.5 text-xs text-bone-2 last:border-b-0">
                 <feature.icon className="text-amber size-3.5 shrink-0" aria-hidden="true" />
-                <span>{feature.label}</span>
+                <span>{t(feature.labelKey)}</span>
               </li>
             ))}
           </ul>
@@ -139,7 +138,7 @@ export function LoginPage() {
         <footer className="text-faint relative z-[1] flex items-center gap-[18px] text-2xs">
           <span className="text-muted-2 inline-flex items-center gap-[7px]">
             <ShieldCheck className="size-3" aria-hidden="true" />
-            仅登录入口
+            {t("login.signInOnly")}
           </span>
           <span className="font-mono ml-auto hidden sm:inline">MIT · meridian.northstar.dev</span>
         </footer>
@@ -150,14 +149,14 @@ export function LoginPage() {
         <div className="w-full max-w-[382px]">
           <p className="text-faint text-xs font-semibold tracking-[0.16em] uppercase">NORTHSTAR LABS</p>
           <h2 id="login-title" className="font-display text-bone mt-2.5 text-4xl font-medium tracking-[-0.03em] leading-none">
-            欢迎回来。
+            {t("login.welcomeBack")}
           </h2>
-          <p className="text-muted mt-2 text-xs">登录以继续。</p>
+          <p className="text-muted mt-2 text-xs">{t("login.signInToContinue")}</p>
 
           <form className="mt-[30px] flex flex-col gap-[15px]" onSubmit={handleSubmit} noValidate>
             <div>
               <label htmlFor="username" className="text-bone-2 mb-1.5 block text-xs font-medium">
-                用户名
+                {t("login.username")}
               </label>
               <input
                 id="username"
@@ -179,10 +178,10 @@ export function LoginPage() {
                 </label>
                 <button
                   type="button"
-                  onClick={() => toast.info("本实例不提供自助重置：请联系实例管理员签发新密码。")}
+                  onClick={() => toast.info(t("login.resetInfo"))}
                   className="text-muted hover:text-amber-2 rounded-sm text-xs transition-colors hover:underline decoration-amber/45 underline-offset-[3px]"
                 >
-                  忘记密码？
+                  {t("login.forgotPassword")}
                 </button>
               </div>
               <div className="relative">
@@ -198,7 +197,7 @@ export function LoginPage() {
                 />
                 <button
                   type="button"
-                  aria-label={showPassword ? "隐藏密码" : "显示密码"}
+                  aria-label={showPassword ? t("login.hidePassword") : t("login.showPassword")}
                   aria-pressed={showPassword}
                   onClick={() => setShowPassword((visible) => !visible)}
                   className={cn(
@@ -240,7 +239,7 @@ export function LoginPage() {
               <button
                 key={provider}
                 type="button"
-                onClick={() => toast.info(`${provider} OAuth 由实例管理员配置（环境变量，受保护）。`)}
+                onClick={() => toast.info(t("login.oauthInfo", { provider }))}
                 className="border-edge-2 bg-ink-750/55 hover:border-edge-3 hover:bg-ink-750 text-muted hover:text-bone inline-flex h-[34px] w-full items-center justify-center gap-2 rounded-md border text-sm font-medium transition-colors"
               >
                 <Globe className="size-[15px]" aria-hidden="true" />
@@ -250,20 +249,20 @@ export function LoginPage() {
           </div>
 
           <p className="text-muted-2 mt-[26px] text-center text-xs">
-            第一次使用 Kustos？{" "}
+            {t("login.firstTime")}{" "}
             <button
               type="button"
-              onClick={() => toast.info("本实例开放自助注册 —— POST /api/v1/users。")}
+              onClick={() => toast.info(t("login.registerInfo"))}
               className="text-bone-2 hover:text-amber-2 rounded-sm transition-colors hover:underline decoration-amber/45 underline-offset-[3px]"
             >
-              创建账号
+              {t("login.createAccount")}
             </button>
           </p>
 
           <p className="text-faint mt-[30px] text-center text-2xs">
             <span className="font-mono">kustos 1.0.0</span> · self-hosted ·{" "}
             <Link to="/" className="text-muted-2 hover:text-amber-2 underline decoration-edge-2 underline-offset-[3px] transition-colors">
-              返回应用预览
+              {t("login.backToPreview")}
             </Link>
           </p>
         </div>

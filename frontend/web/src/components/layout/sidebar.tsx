@@ -115,6 +115,7 @@ function RepoRow({
   isActive: boolean;
   onSelect: (id: string) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <button
       type="button"
@@ -134,7 +135,7 @@ function RepoRow({
       <span className="min-w-0 flex flex-col gap-px">
         <span className="truncate text-sm font-medium leading-tight">{repo.name}</span>
         <span className="text-faint truncate text-2xs leading-snug">
-          {formatRelative(repo.updated_at)}推送
+          {t("nav.pushed", { time: formatRelative(repo.updated_at) })}
         </span>
       </span>
       <span aria-hidden="true" className="text-faint mt-0.5 self-start font-mono text-2xs">
@@ -238,7 +239,7 @@ export function Sidebar() {
         </span>
         <span className="min-w-0 flex-1">
           <span className="text-bone-2 block truncate text-sm font-semibold leading-tight">
-            Kustos 实例
+            {t("nav.instanceName")}
           </span>
           <span className="text-muted-2 block truncate font-mono text-2xs leading-snug">
             {window.location.host}
@@ -261,12 +262,12 @@ export function Sidebar() {
         {/* 仓库列表（真实数据） */}
         <div className="mt-4 border-edge-1 border-t pt-[15px]">
           <NavGroup
-            label="Repositories"
+            label={t("nav.repositories")}
             action={
               <button
                 type="button"
-                aria-label="新建仓库"
-                title="新建仓库"
+                aria-label={t("nav.newRepository")}
+                title={t("nav.newRepository")}
                 onClick={() => setCreateOpen(true)}
                 className="text-muted-2 hover:text-amber-2 -my-1 inline-flex size-4 items-center justify-center rounded transition-colors"
               >
@@ -276,7 +277,7 @@ export function Sidebar() {
           >
             {repos.length === 0 ? (
               <p className="text-faint px-2.5 py-1 text-xs">
-                {useRepoStore.getState().loading ? "加载中…" : "还没有仓库"}
+                {useRepoStore.getState().loading ? t("common.loading") : t("nav.noRepositories")}
               </p>
             ) : (
               repos.map((repo) => {
@@ -323,7 +324,7 @@ export function Sidebar() {
                   {user?.full_name || user?.username || "—"}
                 </span>
                 <span className="text-muted-2 block text-2xs leading-tight">
-                  {isAdmin ? "全局管理员" : "成员"}
+                  {isAdmin ? t("nav.globalAdmin") : t("nav.member")}
                 </span>
               </span>
               <MoreHorizontal className="text-muted-2 size-[15px]" aria-hidden="true" />
@@ -336,14 +337,14 @@ export function Sidebar() {
             <DropdownMenuItem asChild>
               <Link to="/account">
                 <UserRound className="text-muted-2 size-[14px]" aria-hidden="true" />
-                资料与偏好
+                {t("nav.profilePrefs")}
               </Link>
             </DropdownMenuItem>
             {isAdmin ? (
               <DropdownMenuItem asChild>
                 <Link to="/admin">
                   <Shield className="text-muted-2 size-[14px]" aria-hidden="true" />
-                  管理控制台
+                  {t("nav.adminConsole")}
                 </Link>
               </DropdownMenuItem>
             ) : null}
@@ -376,7 +377,7 @@ export function Sidebar() {
               }}
             >
               <LogOut className="text-muted-2 size-[14px]" aria-hidden="true" />
-              退出登录
+              {t("nav.signOut")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
