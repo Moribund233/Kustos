@@ -10,15 +10,14 @@ from app.core.init import init_app
 # 以确保 init_app() 先执行环境变量检查
 
 
-def create_app(config_path: str = "config.toml") -> FastAPI:
+def create_app() -> FastAPI:
     """
     创建FastAPI应用实例
 
     注意：CORS 由 Nginx 反向代理统一处理，不在应用层配置。
     无论是开发环境还是生产环境，都通过 Nginx 处理跨域。
 
-    Args:
-        config_path: 配置文件路径
+    配置来源固定为「env > app_config > 默认值」，没有配置文件路径参数。
 
     Returns:
         FastAPI: FastAPI应用实例
@@ -38,7 +37,7 @@ def create_app(config_path: str = "config.toml") -> FastAPI:
     logger = get_logger("app")
 
     # 获取配置
-    config = get_config(config_path)
+    config = get_config()
 
     # Sentry 错误监控初始化（未配置 DSN 时零开销跳过）
     from app.core.sentry import init_sentry
@@ -136,42 +135,33 @@ class AppCache:
     使用模块级缓存而非手动单例模式，降低复杂度。
     """
     _app: Optional[FastAPI] = None
-    _config_path: Optional[str] = None
 
     @classmethod
-    def get_app(cls, config_path: str = "config.toml") -> FastAPI:
+    def get_app(cls) -> FastAPI:
         """
         获取FastAPI应用实例（缓存）
-
-        Args:
-            config_path: 配置文件路径
 
         Returns:
             FastAPI: FastAPI应用实例
         """
-        if cls._app is None or cls._config_path != config_path:
-            cls._app = create_app(config_path)
-            cls._config_path = config_path
+        if cls._app is None:
+            cls._app = create_app()
         return cls._app
 
     @classmethod
     def reset(cls):
         """重置缓存（用于测试）"""
         cls._app = None
-        cls._config_path = None
 
 
-def get_app(config_path: str = "config.toml") -> FastAPI:
+def get_app() -> FastAPI:
     """
     获取FastAPI应用实例（缓存）
-
-    Args:
-        config_path: 配置文件路径
 
     Returns:
         FastAPI: FastAPI应用实例
     """
-    return AppCache.get_app(config_path)
+    return AppCache.get_app()
 
 
 # 模块级 app 实例（供 uvicorn app.main:app 使用）

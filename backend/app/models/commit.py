@@ -1,10 +1,10 @@
 from sqlalchemy import String, Integer, Text, DateTime, ForeignKey, UniqueConstraint, Uuid as SAUuid
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship, mapped_column
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
-class Commit(BaseModel):
+class Commit(TimestampMixin):
     """
     提交数据模型
     

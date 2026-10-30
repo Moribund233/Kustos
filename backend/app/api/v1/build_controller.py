@@ -225,9 +225,9 @@ async def get_build_logs(
     """
     获取构建日志
 
-    - 兼容: 不带 after_seq 时返回整串 `logs`（旧行为），并附增量契约字段；
-    - 增量: 带 `after_seq` 时按 build_log_entries 子表只回 `seq>after_seq` 的
-      entries（逐条 seq/stream/line/logged_at），next_seq 为增量光标。
+    - 整串: `logs` 是签名回调维护的权威整串快照；
+    - 增量: `entries` 来自 build_log_entries 子表，逐条 seq/stream/line/logged_at；
+      带 `after_seq` 时只回 `seq>after_seq` 的条目，`next_seq` 为增量光标。
 
     Args:
         repo_id: 仓库ID
@@ -237,7 +237,7 @@ async def get_build_logs(
         current_user: 当前认证用户
 
     Returns:
-        dict: {"logs": 整串兼容, "entries": [逐条], "next_seq": 增量光标}
+        dict: {"logs": 整串快照, "entries": [逐条], "next_seq": 增量光标}
     """
     await _get_repo(repo_id, db)
     build = await BuildService.get_build(db=db, build_id=build_id)
@@ -248,7 +248,7 @@ async def get_build_logs(
     entries, next_seq = await BuildService.get_build_log_entries_after_seq(
         db=db, build_id=build_id, after_seq=after_seq
     )
-    # 兼容整串: 既有 build.logs 仍是权威整串快照（签名回调可能整串更新）
+    # 整串快照: build.logs 是权威整串（签名回调可能整串更新）
     return {
         "logs": build.logs or "",
         "entries": entries,

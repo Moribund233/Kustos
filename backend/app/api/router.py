@@ -8,12 +8,7 @@ API 路由配置与注册模块
 前缀常量与 get_route_prefix 已拆分至 api/prefixes.py（打破循环导入：
 v1 路由只依赖无副作用的 prefixes，不再反向 import 本模块）。
 """
-from app.api.prefixes import (  # noqa: F401  # re-export 兼容旧导入
-    API_V1_PREFIX,
-    ROUTES,
-    get_api_version,
-    get_route_prefix,
-)
+from app.api.prefixes import API_V1_PREFIX
 from fastapi import APIRouter
 
 
@@ -223,5 +218,5 @@ def create_api_router() -> APIRouter:
     return api_v1_router
 
 
-# 向后兼容：保留 api_v1_router 导出
+#: 装配好的 v1 路由（``app.main`` 直接挂载）
 api_v1_router = create_api_router()

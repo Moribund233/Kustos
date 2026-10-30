@@ -7,10 +7,10 @@
 from sqlalchemy import Integer, String, ForeignKey, Uuid as SAUuid
 from sqlalchemy.orm import mapped_column
 
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
-class RepoSearchState(BaseModel):
+class RepoSearchState(TimestampMixin):
     """仓库搜索索引状态：记录已索引的提交，用于增量维护与陈旧检测"""
     __tablename__ = "repo_search_state"
 

@@ -142,9 +142,9 @@ class DatabaseResetManager:
         # 重新初始化引擎
         init_engine()
 
-        # 创建表（DatabaseInitializer.create_tables 内部走 alembic 迁移）
+        # 重建表结构（走 Alembic 迁移，含历史库 stamp 认领）
         initializer = DatabaseInitializer()
-        success = initializer.create_tables()
+        success = initializer.run_migrations()["success"]
 
         if not success:
             raise RuntimeError("创建表失败")

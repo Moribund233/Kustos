@@ -10,10 +10,10 @@
 from sqlalchemy import JSON, Integer, String, ForeignKey, UniqueConstraint, Uuid as SAUuid
 from sqlalchemy.orm import mapped_column
 
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
-class AppConfig(BaseModel):
+class AppConfig(TimestampMixin):
     """单行一节的运行态配置"""
     __tablename__ = "app_config"
 

@@ -1,9 +1,9 @@
 from sqlalchemy import Integer, String, DateTime, ForeignKey, UniqueConstraint, Uuid as SAUuid
 from sqlalchemy.orm import relationship, mapped_column
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
-class UserOAuthAccount(BaseModel):
+class UserOAuthAccount(TimestampMixin):
     """OAuth 账号绑定模型 - 存储用户关联的第三方 OAuth 账号"""
 
     __tablename__ = "user_oauth_accounts"

@@ -115,7 +115,7 @@ class TestSentrySettings:
         monkeypatch.delenv("KUSTOS_SENTRY_TRACES_SAMPLE_RATE", raising=False)
         reset_module_config_manager()
         try:
-            manager = ConfigManager("config.toml")
+            manager = ConfigManager()
             assert manager.config.sentry.dsn == "https://db@sentry.example/2"
             assert manager.config.sentry.traces_sample_rate == 0.5
         finally:

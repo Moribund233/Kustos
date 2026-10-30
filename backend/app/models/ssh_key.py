@@ -6,10 +6,10 @@ SSH Key 模型
 
 from sqlalchemy import String, Integer, ForeignKey, Text, Uuid as SAUuid
 from sqlalchemy.orm import relationship, mapped_column
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
-class SSHKey(BaseModel):
+class SSHKey(TimestampMixin):
     """
     SSH 公钥模型
 

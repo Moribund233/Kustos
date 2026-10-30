@@ -12,10 +12,10 @@ Redis 位图单层（TTL = token 剩余寿命）。本表保留为：
 from sqlalchemy import DateTime, ForeignKey, Index, String, Uuid as SAUuid
 from sqlalchemy.orm import mapped_column
 
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
-class RevokedToken(BaseModel):
+class RevokedToken(TimestampMixin):
     """被撤销的 JWT（按 jti 唯一）。"""
 
     __tablename__ = "revoked_tokens"

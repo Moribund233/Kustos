@@ -7,10 +7,10 @@ PR 作者指定某人来看，但对方还没提交结论。两者分开存，�
 from sqlalchemy import ForeignKey, UniqueConstraint, Uuid as SAUuid
 from sqlalchemy.orm import relationship, mapped_column
 
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
-class PRReviewRequest(BaseModel):
+class PRReviewRequest(TimestampMixin):
     """PR 评审请求（pending reviewer）"""
 
     __tablename__ = "pr_review_requests"

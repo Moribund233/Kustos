@@ -1,10 +1,10 @@
 """Pull Request 活动日志模型"""
 from sqlalchemy import Integer, String, Text, ForeignKey, Uuid as SAUuid
 from sqlalchemy.orm import relationship, mapped_column
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
-class PRActivity(BaseModel):
+class PRActivity(TimestampMixin):
     """PR 活动日志，记录 review/merge/close/push/commented 等事件"""
     __tablename__ = "pr_activities"
 

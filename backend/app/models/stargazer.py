@@ -1,10 +1,10 @@
 """仓库收藏数据模型"""
 from sqlalchemy import Integer, ForeignKey, UniqueConstraint, Uuid as SAUuid
 from sqlalchemy.orm import relationship, mapped_column
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
-class Stargazer(BaseModel):
+class Stargazer(TimestampMixin):
     __tablename__ = "stargazers"
 
     repository_id = mapped_column(SAUuid(as_uuid=True), ForeignKey("repositories.id"), nullable=False)

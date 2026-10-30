@@ -63,18 +63,6 @@ class DatabaseInitializer:
         from app.utils.db_migrate import run_migrations
         return run_migrations(db_url or self.db_url)
 
-    def create_tables(self) -> bool:
-        """
-        创建数据库表结构（兼容入口）。
-
-        等价于执行 Alembic 迁移（含历史库 stamp 认领），
-        返回是否成功。
-
-        Returns:
-            bool: 创建是否成功
-        """
-        return self.run_migrations()["success"]
-
     def is_schema_ready(self, db_url: Optional[str] = None) -> tuple:
         """
         只读就绪校验：schema 是否已迁移到位（不执行 DDL）。

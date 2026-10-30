@@ -1,12 +1,12 @@
 from sqlalchemy import String, Integer, DateTime, Text, Uuid as SAUuid
 from sqlalchemy.orm import mapped_column
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
 VALID_STATUSES = {"pending", "running", "success", "failure", "error", "cancelled"}
 
 
-class BuildStatus(BaseModel):
+class BuildStatus(TimestampMixin):
     __tablename__ = "build_status"
 
     repo_id = mapped_column(SAUuid(as_uuid=True), nullable=False, index=True)

@@ -8,37 +8,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
-from security_audit import extract_cors_origins, check_cors, check_csrf, check_ssrf
-
-
-def test_extract_cors_empty():
-    assert extract_cors_origins("") == []
-    assert extract_cors_origins("[server]\nhost = '0.0.0.0'\n") == []
-
-
-def test_extract_cors_wildcard():
-    text = '[cors]\nallow_origins = ["*"]\n'
-    assert extract_cors_origins(text) == ["*"]
-
-
-def test_extract_cors_whitelist():
-    text = """
-[cors]
-allow_origins = ["http://localhost:5173", "https://git.example.com"]
-allow_methods = ["GET", "POST"]
-"""
-    assert extract_cors_origins(text) == ["http://localhost:5173", "https://git.example.com"]
-
-
-def test_extract_cors_ignores_other_sections():
-    text = """
-[cors]
-allow_origins = ["*"]
-
-[app]
-debug = false
-"""
-    assert extract_cors_origins(text) == ["*"]
+from security_audit import check_cors, check_csrf, check_ssrf
 
 
 def test_check_cors_dev_wildcard_is_warn():

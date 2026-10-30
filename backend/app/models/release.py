@@ -6,10 +6,10 @@ Release 数据模型
 from sqlalchemy import Integer, String, Text, ForeignKey, Boolean, UniqueConstraint, Uuid as SAUuid
 from sqlalchemy.orm import relationship, mapped_column
 
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
-class Release(BaseModel):
+class Release(TimestampMixin):
     """
     Release 数据模型
     
@@ -55,7 +55,7 @@ class Release(BaseModel):
         return f"<Release({self.tag_name}: {self.name})>"
 
 
-class ReleaseAsset(BaseModel):
+class ReleaseAsset(TimestampMixin):
     """
     Release 附件模型
     

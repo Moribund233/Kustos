@@ -1,9 +1,9 @@
 from sqlalchemy import Integer, String, Boolean, DateTime, ForeignKey, UniqueConstraint, Uuid as SAUuid
 from sqlalchemy.orm import relationship, mapped_column
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
-class RealtimeRoom(BaseModel):
+class RealtimeRoom(TimestampMixin):
     __tablename__ = "realtime_rooms"
 
     repository_id = mapped_column(SAUuid(as_uuid=True), ForeignKey("repositories.id"), nullable=True, unique=True, index=True)
@@ -18,7 +18,7 @@ class RealtimeRoom(BaseModel):
         return f"<RealtimeRoom(id={self.id}, repo_id={self.repository_id}, name='{self.name}', type={self.room_type})>"
 
 
-class RoomMember(BaseModel):
+class RoomMember(TimestampMixin):
     __tablename__ = "room_members"
 
     room_id = mapped_column(SAUuid(as_uuid=True), ForeignKey("realtime_rooms.id"), nullable=False, index=True)
@@ -39,7 +39,7 @@ class RoomMember(BaseModel):
         return f"<RoomMember(room_id={self.room_id}, user_id={self.user_id}, role='{self.role}')>"
 
 
-class DirectMessage(BaseModel):
+class DirectMessage(TimestampMixin):
     """
     私聊会话模型
     一个 DM 会话对应一个 room_type="dm" 的 RealtimeRoom。

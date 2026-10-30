@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, Table, UniqueConstraint, Uuid as SAUuid
 from sqlalchemy.orm import relationship, mapped_column
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 from app.models import Base
 
 
@@ -13,7 +13,7 @@ issue_label_association = Table(
 )
 
 
-class Issue(BaseModel):
+class Issue(TimestampMixin):
     """
     Issue 数据模型
     
@@ -69,7 +69,7 @@ class Issue(BaseModel):
     )
 
 
-class Label(BaseModel):
+class Label(TimestampMixin):
     """
     标签模型
     
@@ -93,7 +93,7 @@ class Label(BaseModel):
     repository = relationship("Repository", backref="labels")
 
 
-class IssueComment(BaseModel):
+class IssueComment(TimestampMixin):
     """
     Issue 评论模型
     """

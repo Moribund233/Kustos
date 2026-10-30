@@ -47,16 +47,11 @@ class InitConfResponse(BaseModel):
     """重置配置响应模型"""
     success: bool
     message: str
-    #: TOML 层移除后不再产生配置文件——恒为 null（保留字段兼容旧前端）
-    config_path: Optional[str] = None
-    backup_path: Optional[str] = None
 
 
 class DebugStatusResponse(BaseModel):
     """调试状态响应模型"""
     debug_mode: bool
-    config_path: str
-    config_exists: bool
     #: 源链健康态：db = env > app_config > 默认；degraded = 库配置层不可读（env > 默认）
     config_source: str = Field(..., description="配置源链健康态：db / degraded")
     database_url: str
@@ -126,7 +121,6 @@ async def debug_status(
         DebugStatusResponse: 调试状态信息
     """
     config = get_config()
-    config_path = "config.toml"
 
     # 收集环境变量信息（排除敏感信息）
     env_info = {}
@@ -149,8 +143,6 @@ async def debug_status(
 
     return DebugStatusResponse(
         debug_mode=config.app.debug,
-        config_path=config_path,
-        config_exists=os.path.exists(config_path),
         config_source=ConfigManager().config_source,
         database_url=config.database._mask_url(config.database.url),
         database_type=config.database.db_type,
@@ -161,7 +153,6 @@ async def debug_status(
 
 @router.post("/initdb", response_model=InitDbResponse)
 async def init_database(
-    force: bool = False,
     _: None = Depends(require_debug_mode),
     current_user: User = Depends(require_admin)
 ):
@@ -169,9 +160,6 @@ async def init_database(
     重置数据库
 
     删除所有表并重新建立，启动时自动引导管理员用户。
-
-    Args:
-        force: 是否强制重置（跳过确认提示，始终为 true）
 
     Returns:
         InitDbResponse: 操作结果
@@ -200,8 +188,6 @@ async def init_database(
 
 @router.post("/initconf", response_model=InitConfResponse)
 async def init_config(
-    force: bool = False,
-    backup: bool = True,
     _: None = Depends(require_debug_mode),
     current_user: User = Depends(require_admin)
 ):
@@ -209,11 +195,10 @@ async def init_config(
     重置配置（恢复模板默认值）
 
     把 ``config.example.toml`` 过滤后的种子值**覆盖**写入 ``app_config``，
-    随后各进程经配置版本检测收敛。TOML 层移除后不再产生/备份配置文件
-    （``backup``/``force`` 仅为兼容保留，无副作用）。
+    随后各进程经配置版本检测收敛。TOML 层已移除，不再产生/备份配置文件。
 
     Returns:
-        InitConfResponse: 操作结果（``config_path`` 为 null——不再写文件）
+        InitConfResponse: 操作结果
 
     Raises:
         HTTPException: 非调试模式或权限不足
@@ -242,6 +227,4 @@ async def init_config(
     return InitConfResponse(
         success=True,
         message="配置已重置为模板默认值（数据库）",
-        config_path=None,
-        backup_path=None,
     )

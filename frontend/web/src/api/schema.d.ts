@@ -4779,11 +4779,84 @@ export interface paths {
         /** Get Room Members */
         get: operations["get_room_members_api_v1_rooms__room_id__members_get"];
         put?: never;
-        post?: never;
+        /**
+         * Add Room Member
+         * @description 把用户加入房间
+         *
+         *     重复加入是幂等的（已存在直接返回现有成员）；指定 `role` 时同步角色。
+         *
+         *     Args:
+         *         room_id: 房间 ID
+         *         data: 成员用户 ID 与角色
+         *         db: 数据库会话
+         *         current_user: 当前认证用户
+         *
+         *     Returns:
+         *         dict: 成员信息
+         *
+         *     Raises:
+         *         NotFoundException: 房间或用户不存在
+         *         AuthorizationException: 无房间管理权限
+         */
+        post: operations["add_room_member_api_v1_rooms__room_id__members_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rooms/{room_id}/members/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Room Member
+         * @description 移除房间成员
+         *
+         *     本人的退出请求不需要管理权限；移除他人需要房间管理员或全局管理员。
+         *
+         *     Args:
+         *         room_id: 房间 ID
+         *         user_id: 目标成员用户 ID
+         *         db: 数据库会话
+         *         current_user: 当前认证用户
+         *
+         *     Returns:
+         *         dict: 是否移除成功
+         *
+         *     Raises:
+         *         NotFoundException: 房间不存在或目标不是成员
+         *         AuthorizationException: 无房间管理权限
+         */
+        delete: operations["remove_room_member_api_v1_rooms__room_id__members__user_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Room Member
+         * @description 调整成员角色或静音状态
+         *
+         *     Args:
+         *         room_id: 房间 ID
+         *         user_id: 目标成员用户 ID
+         *         data: 角色与静音状态，至少给一个
+         *         db: 数据库会话
+         *         current_user: 当前认证用户
+         *
+         *     Returns:
+         *         dict: 成员当前状态
+         *
+         *     Raises:
+         *         NotFoundException: 房间或成员不存在
+         *         ValidationException: 未提供任何可更新字段
+         *         AuthorizationException: 无房间管理权限
+         */
+        patch: operations["update_room_member_api_v1_rooms__room_id__members__user_id__patch"];
         trace?: never;
     };
     "/api/v1/rooms/{room_id}/members/me": {
@@ -4974,7 +5047,28 @@ export interface paths {
         delete: operations["delete_message_api_v1_rooms__room_id__messages__msg_id__delete"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Edit Room Message
+         * @description 编辑自己发送的消息
+         *
+         *     编辑后向房间广播 `chat_message_updated`，其余在线端据此就地替换文本，
+         *     不必重新拉取整页历史。
+         *
+         *     Args:
+         *         room_id: 房间 ID（消息必须属于该房间）
+         *         msg_id: 消息 ID
+         *         data: 新内容
+         *         db: 数据库会话
+         *         current_user: 当前认证用户
+         *
+         *     Returns:
+         *         dict: 更新后的消息
+         *
+         *     Raises:
+         *         NotFoundException: 房间或消息不存在
+         *         ValidationException: 非本人消息或内容为空
+         */
+        patch: operations["edit_room_message_api_v1_rooms__room_id__messages__msg_id__patch"];
         trace?: never;
     };
     "/api/v1/rooms/{room_id}/messages/{msg_id}/reactions": {
@@ -5355,9 +5449,9 @@ export interface paths {
          * Get Build Logs
          * @description 获取构建日志
          *
-         *     - 兼容: 不带 after_seq 时返回整串 `logs`（旧行为），并附增量契约字段；
-         *     - 增量: 带 `after_seq` 时按 build_log_entries 子表只回 `seq>after_seq` 的
-         *       entries（逐条 seq/stream/line/logged_at），next_seq 为增量光标。
+         *     - 整串: `logs` 是签名回调维护的权威整串快照；
+         *     - 增量: `entries` 来自 build_log_entries 子表，逐条 seq/stream/line/logged_at；
+         *       带 `after_seq` 时只回 `seq>after_seq` 的条目，`next_seq` 为增量光标。
          *
          *     Args:
          *         repo_id: 仓库ID
@@ -5367,7 +5461,7 @@ export interface paths {
          *         current_user: 当前认证用户
          *
          *     Returns:
-         *         dict: {"logs": 整串兼容, "entries": [逐条], "next_seq": 增量光标}
+         *         dict: {"logs": 整串快照, "entries": [逐条], "next_seq": 增量光标}
          */
         get: operations["get_build_logs_api_v1_repositories__repo_id__builds__build_id__logs_get"];
         put?: never;
@@ -5714,9 +5808,6 @@ export interface paths {
          *
          *     删除所有表并重新建立，启动时自动引导管理员用户。
          *
-         *     Args:
-         *         force: 是否强制重置（跳过确认提示，始终为 true）
-         *
          *     Returns:
          *         InitDbResponse: 操作结果
          *
@@ -5744,11 +5835,10 @@ export interface paths {
          * @description 重置配置（恢复模板默认值）
          *
          *     把 ``config.example.toml`` 过滤后的种子值**覆盖**写入 ``app_config``，
-         *     随后各进程经配置版本检测收敛。TOML 层移除后不再产生/备份配置文件
-         *     （``backup``/``force`` 仅为兼容保留，无副作用）。
+         *     随后各进程经配置版本检测收敛。TOML 层已移除，不再产生/备份配置文件。
          *
          *     Returns:
-         *         InitConfResponse: 操作结果（``config_path`` 为 null——不再写文件）
+         *         InitConfResponse: 操作结果
          *
          *     Raises:
          *         HTTPException: 非调试模式或权限不足
@@ -6356,10 +6446,6 @@ export interface components {
         DebugStatusResponse: {
             /** Debug Mode */
             debug_mode: boolean;
-            /** Config Path */
-            config_path: string;
-            /** Config Exists */
-            config_exists: boolean;
             /**
              * Config Source
              * @description 配置源链健康态：db / degraded
@@ -6592,10 +6678,6 @@ export interface components {
             success: boolean;
             /** Message */
             message: string;
-            /** Config Path */
-            config_path?: string | null;
-            /** Backup Path */
-            backup_path?: string | null;
         };
         /**
          * InitDbResponse
@@ -6874,6 +6956,17 @@ export interface components {
              * @description 可选的刷新令牌，一并撤销
              */
             refresh_token?: string | null;
+        };
+        /**
+         * MessageEditRequest
+         * @description 编辑消息请求体
+         */
+        MessageEditRequest: {
+            /**
+             * Content
+             * @description 新的消息内容
+             */
+            content: string;
         };
         /**
          * MetricsPoint
@@ -7224,12 +7317,38 @@ export interface components {
             token: string;
         };
         /**
+         * RoomMemberAddRequest
+         * @description 添加房间成员请求体
+         */
+        RoomMemberAddRequest: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /**
+             * Role
+             * @default member
+             */
+            role: string;
+        };
+        /**
          * RoomMemberMuteRequest
          * @description 设置本人对某一会话的静音状态
          */
         RoomMemberMuteRequest: {
             /** Muted */
             muted: boolean;
+        };
+        /**
+         * RoomMemberUpdateRequest
+         * @description 更新房间成员请求体；`role` 与 `muted` 至少给一个
+         */
+        RoomMemberUpdateRequest: {
+            /** Role */
+            role?: string | null;
+            /** Muted */
+            muted?: boolean | null;
         };
         /**
          * SSHKeyResponse
@@ -14357,6 +14476,109 @@ export interface operations {
             };
         };
     };
+    add_room_member_api_v1_rooms__room_id__members_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                room_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoomMemberAddRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_room_member_api_v1_rooms__room_id__members__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                room_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_room_member_api_v1_rooms__room_id__members__user_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                room_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoomMemberUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     set_room_member_muted_api_v1_rooms__room_id__members_me_post: {
         parameters: {
             query?: never;
@@ -14674,6 +14896,42 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_room_message_api_v1_rooms__room_id__messages__msg_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                room_id: string;
+                msg_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MessageEditRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -15795,9 +16053,7 @@ export interface operations {
     };
     init_database_api_v1_debug_initdb_post: {
         parameters: {
-            query?: {
-                force?: boolean;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -15813,23 +16069,11 @@ export interface operations {
                     "application/json": components["schemas"]["InitDbResponse"];
                 };
             };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
         };
     };
     init_config_api_v1_debug_initconf_post: {
         parameters: {
-            query?: {
-                force?: boolean;
-                backup?: boolean;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -15843,15 +16087,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InitConfResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

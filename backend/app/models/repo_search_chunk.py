@@ -7,10 +7,10 @@
 from sqlalchemy import Index, Integer, String, Text, ForeignKey, UniqueConstraint, Uuid as SAUuid
 from sqlalchemy.orm import mapped_column
 
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
-class RepoSearchChunk(BaseModel):
+class RepoSearchChunk(TimestampMixin):
     """仓库内单个代码块的搜索索引条目（每块一行）"""
     __tablename__ = "repo_search_chunks"
 

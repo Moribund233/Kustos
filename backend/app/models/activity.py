@@ -1,10 +1,10 @@
 """通用审计日志模型"""
 from sqlalchemy import Integer, String, Text, ForeignKey, Uuid as SAUuid
 from sqlalchemy.orm import relationship, mapped_column
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
-class Activity(BaseModel):
+class Activity(TimestampMixin):
     """
     通用审计日志
 

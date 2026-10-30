@@ -2,10 +2,10 @@ from sqlalchemy import Integer, String, Text, DateTime, ForeignKey, Index, Uuid 
 from sqlalchemy.orm import relationship, mapped_column
 from sqlalchemy import JSON
 
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
-class ChatMessage(BaseModel):
+class ChatMessage(TimestampMixin):
     __tablename__ = "chat_messages"
 
     room_id = mapped_column(SAUuid(as_uuid=True), ForeignKey("realtime_rooms.id", ondelete="CASCADE"), nullable=False, index=True)

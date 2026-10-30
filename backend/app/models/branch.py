@@ -1,9 +1,9 @@
 from sqlalchemy import String, Boolean, Integer, ForeignKey, Uuid as SAUuid
 from sqlalchemy.orm import relationship, mapped_column
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
-class Branch(BaseModel):
+class Branch(TimestampMixin):
     """
     分支数据模型
     

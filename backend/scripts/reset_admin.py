@@ -48,7 +48,7 @@ def main() -> int:
     from app.core.config import ConfigManager
     from app.utils.init_database import DatabaseInitializer
 
-    ConfigManager("config.toml")
+    ConfigManager()
     initializer = DatabaseInitializer()
 
     if initializer.reset_admin_password(password):

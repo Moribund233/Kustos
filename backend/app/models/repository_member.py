@@ -1,9 +1,9 @@
 from sqlalchemy import Integer, String, Boolean, ForeignKey, Uuid as SAUuid
 from sqlalchemy.orm import relationship, mapped_column
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
-class RepositoryMember(BaseModel):
+class RepositoryMember(TimestampMixin):
     """
     仓库成员数据模型
     

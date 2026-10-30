@@ -35,6 +35,8 @@ from typing import Any, Dict, Optional, List, Callable
 from dataclasses import dataclass, field
 from enum import Enum, auto
 
+from app.core.constants import LEGACY_CONFIG_TOML
+
 # 注意：.env 加载被延迟到 AppInitializer.initialize() 内执行，
 # 避免模块导入期的隐式环境注入污染测试进程与 CLI 工具
 
@@ -218,8 +220,7 @@ class EnvVarChecker:
 class AppInitializer:
     """应用初始化器，负责服务端完整的初始化流程"""
 
-    def __init__(self, config_path: str = "config.toml"):
-        self.config_path = config_path
+    def __init__(self):
         self.config_manager: Any = None
         self._logger: Any = None
         self._checker = EnvVarChecker()
@@ -257,7 +258,7 @@ class AppInitializer:
             from app.core.config import ConfigManager
             from app.utils.logging import init_logging, get_logger
 
-            self.config_manager = ConfigManager(self.config_path)
+            self.config_manager = ConfigManager()
             self._logger = get_logger("init")
             return True
         except ValueError as e:
@@ -278,9 +279,9 @@ class AppInitializer:
         ``config.toml`` 已弃用——不再要求存在、也不再读取；若容器/仓库里仍残留
         该文件，仅提示一次以免运维误以为改它会生效。
         """
-        if os.path.exists(self.config_path):
+        if os.path.exists(LEGACY_CONFIG_TOML):
             self._logger.info(
-                f"检测到 {self.config_path}：该文件已弃用，配置来源为环境变量 + app_config"
+                f"检测到 {LEGACY_CONFIG_TOML}：该文件已弃用，配置来源为环境变量 + app_config"
             )
 
         try:

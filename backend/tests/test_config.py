@@ -62,7 +62,7 @@ class TestConfigManager:
         # 需屏蔽容器/测试环境注入的 KUSTOS_* 变量（如 KUSTOS_STORAGE_REPO_ROOT）
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("KUSTOS_STORAGE_REPO_ROOT", None)
-            manager = ConfigManager("/nonexistent/config.toml")
+            manager = ConfigManager()
             config = manager.config
 
         # 验证默认值
@@ -86,7 +86,7 @@ class TestConfigManager:
 
         try:
             with pytest.raises(ValueError) as exc_info:
-                ConfigManager("/nonexistent/config.toml")
+                ConfigManager()
 
             error_msg = str(exc_info.value).lower()
             assert "不支持的协议" in str(exc_info.value) or "unsupported" in error_msg or "mysql" in error_msg
@@ -115,7 +115,7 @@ class TestConfigManager:
             os.environ["DATABASE_URL"] = url
 
             try:
-                manager = ConfigManager("/nonexistent/config.toml")
+                manager = ConfigManager()
                 config = manager.config
                 assert config.database.url == url, f"URL 应该被接受: {url}"
             finally:
@@ -128,7 +128,7 @@ class TestConfigManager:
 
             try:
                 with pytest.raises(Exception):
-                    ConfigManager("/nonexistent/config.toml").config
+                    ConfigManager().config
             finally:
                 if "DATABASE_URL" in os.environ:
                     del os.environ["DATABASE_URL"]
@@ -145,7 +145,7 @@ class TestConfigManager:
         os.environ["KUSTOS_STRESS_TEST"] = "true"
 
         try:
-            manager = ConfigManager("/nonexistent/config.toml")
+            manager = ConfigManager()
             config = manager.config
 
             assert config.database.is_stress_test == True, "压力测试模式应该被启用"
@@ -176,8 +176,8 @@ class TestConfigManager:
         1. 多次创建 ConfigManager 返回同一实例
         2. 配置修改对所有引用可见
         """
-        manager1 = ConfigManager("/nonexistent/config.toml")
-        manager2 = ConfigManager("/nonexistent/config.toml")
+        manager1 = ConfigManager()
+        manager2 = ConfigManager()
 
         assert manager1 is manager2, "ConfigManager 应该是单例"
 
@@ -268,7 +268,7 @@ class TestConfigValidation:
             from app.core.config import ConfigManager
             # 会因 Pydantic 验证而直接抛出 ValueError
             with pytest.raises(ValueError) as exc_info:
-                ConfigManager("/nonexistent/config.toml")
+                ConfigManager()
 
             assert "不支持的" in str(exc_info.value) or "mysql" in str(exc_info.value).lower(), \
                 f"错误信息应包含协议不支持提示: {exc_info.value}"
@@ -522,7 +522,7 @@ class TestEnvSourceIsolation:
         os.environ["SERVER"] = "also-broken"
         reset_module_config_manager()
 
-        config = ConfigManager("/nonexistent/config.toml").config
+        config = ConfigManager().config
         assert config.agent.enabled is False, "裸 AGENT 不应再影响 agent 节"
         assert isinstance(config.app, AppSettings)
         assert isinstance(config.server, ServerSettings)
@@ -532,7 +532,7 @@ class TestEnvSourceIsolation:
         os.environ["KUSTOS_AGENT_ENABLED"] = "true"
         reset_module_config_manager()
         try:
-            config = ConfigManager("/nonexistent/config.toml").config
+            config = ConfigManager().config
             assert config.agent.enabled is True
         finally:
             os.environ.pop("KUSTOS_AGENT_ENABLED", None)

@@ -7,8 +7,8 @@
 - stream 分流（stdout/stderr），logged_at 记录该行写入时刻（timestamptz）；
 - external CI runner 通过签名回调 `log_entries` 追加写入，不再整串覆盖。
 
-兼容性：BuildStatus.logs 仍保留为拼好的整串快照（旧 GET /builds/{id}/logs
-不回退），本表为增量拉取的权威来源。
+双表示：``BuildStatus.logs`` 是整串快照（签名回调可能整串更新），
+``build_log_entries`` 是增量拉取的权威来源。GET /builds/{id}/logs 同时返回两者。
 """
 from sqlalchemy import (
     String,
@@ -23,10 +23,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship, mapped_column
 from sqlalchemy.sql import func
 
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
-class BuildLogEntry(BaseModel):
+class BuildLogEntry(TimestampMixin):
     """Build 内按 seq 递增的单条日志行。"""
 
     __tablename__ = "build_log_entries"

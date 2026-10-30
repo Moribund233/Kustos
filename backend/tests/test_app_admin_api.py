@@ -18,6 +18,9 @@ from starlette.websockets import WebSocketDisconnect
 import app.api.v1.app_controller as app_ctl
 import app.api.v1.debug_controller as dbg_ctl
 
+#: 与 ``app/api/ws/auth.py::SUBPROTOCOL`` 保持一致（token 走握手头，不走 URL query）
+WS_SUBPROTOCOL = "kustos-bearer"
+
 
 def _debug_off(monkeypatch):
     """让 check_app_permission 判定为非 debug，确保门控负路径可复现"""
@@ -204,8 +207,7 @@ class TestDebugActions:
         assert r.status_code == 200
         body = r.json()
         assert body["success"] is True
-        assert body["config_path"] is None, "TOML 层移除后不再产生配置文件"
-        assert body["backup_path"] is None
+        assert "config_path" not in body, "TOML 层已移除，响应不再带配置文件路径"
 
         engine = create_engine(url)
         try:
@@ -325,12 +327,16 @@ class TestLogsWebSocketAdmin:
     def test_non_admin_rejected(self, test_client, auth_headers):
         token = self._token(auth_headers)
         with pytest.raises(WebSocketDisconnect):
-            with test_client.websocket_connect(f"/ws/logs?token={token}"):
+            with test_client.websocket_connect(
+                "/ws/logs", subprotocols=[WS_SUBPROTOCOL, token]
+            ):
                 pass
 
     def test_admin_can_subscribe(self, test_client, admin_headers):
         token = self._token(admin_headers)
-        with test_client.websocket_connect(f"/ws/logs?token={token}") as ws:
+        with test_client.websocket_connect(
+            "/ws/logs", subprotocols=[WS_SUBPROTOCOL, token]
+        ) as ws:
             connected = ws.receive_json()
             assert connected["type"] == "connected"
             assert connected["authenticated"] is True
@@ -354,7 +360,9 @@ class TestLogsWebSocketAdmin:
 
     def test_general_ws_admin_can_subscribe(self, test_client, admin_headers):
         token = self._token(admin_headers)
-        with test_client.websocket_connect(f"/ws/?token={token}") as ws:
+        with test_client.websocket_connect(
+            "/ws/", subprotocols=[WS_SUBPROTOCOL, token]
+        ) as ws:
             connected = ws.receive_json()
             assert connected["type"] == "connected"
             assert connected["authenticated"] is True

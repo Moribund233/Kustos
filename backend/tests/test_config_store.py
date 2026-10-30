@@ -36,12 +36,6 @@ def _seed_db_file(url: str) -> str:
     return url
 
 
-def _write_toml(tmp_path, content: str) -> str:
-    p = tmp_path / "config.toml"
-    p.write_text(content, encoding="utf-8")
-    return str(p)
-
-
 class TestExampleSeedData:
     """种子来源：模板 → 引导层剔除 + 未知键过滤"""
 
@@ -131,12 +125,6 @@ class TestSeedIdempotent:
 class TestDbSourcePriority:
     """源链矩阵：env > app_config(DB) > 字段默认值（TOML 层已移除）"""
 
-    TOML = """
-[app]
-title = "TOML Title"
-version = "1.0.0"
-"""
-
     def _db_with_app_title(self, db_url, title: str) -> str:
         url = _seed_db_file(db_url)
         engine = create_engine(url)
@@ -154,20 +142,18 @@ version = "1.0.0"
     def test_db_beats_defaults_for_uncovered_keys(self, isolated_db_url, tmp_path, monkeypatch):
         monkeypatch.setenv("DATABASE_URL", self._db_with_app_title(isolated_db_url, "DB Title"))
         monkeypatch.delenv("KUSTOS_APP_TITLE", raising=False)
-        config_path = _write_toml(tmp_path, self.TOML)
 
-        config = ConfigManager(config_path).config
+        config = ConfigManager().config
 
         assert config.app.title == "DB Title", "DB 层应生效"
-        # TOML 层已移除：DB 未提供的键落到字段默认值，而非 config.toml
+        # TOML 层已移除：DB 未提供的键落到字段默认值（无配置文件参与）
         assert config.app.version == "0.1.0", "DB 未提供的键应落到字段默认值"
 
     def test_env_beats_db(self, isolated_db_url, tmp_path, monkeypatch):
         monkeypatch.setenv("DATABASE_URL", self._db_with_app_title(isolated_db_url, "DB Title"))
         monkeypatch.setenv("KUSTOS_APP_TITLE", "Env Title")
-        config_path = _write_toml(tmp_path, self.TOML)
 
-        config = ConfigManager(config_path).config
+        config = ConfigManager().config
 
         assert config.app.title == "Env Title", "env 是部署硬约束，必须最高优先"
 
@@ -175,9 +161,8 @@ version = "1.0.0"
         # 库/表不存在 → load 返回 None → 该节跳过 DB 层 → 字段默认值
         monkeypatch.setenv("DATABASE_URL", unreachable_db_url)
         monkeypatch.delenv("KUSTOS_APP_TITLE", raising=False)
-        config_path = _write_toml(tmp_path, self.TOML)
 
-        config = ConfigManager(config_path).config
+        config = ConfigManager().config
 
         assert config.app.title == "Kustos API", "DB 不可用时必须退回默认值"
 
@@ -203,7 +188,7 @@ class TestNoHalfAppliedUpdate:
         monkeypatch.delenv("DATABASE_URL", raising=False)
         monkeypatch.delenv("KUSTOS_DATABASE_URL", raising=False)
         reset_module_config_manager()
-        return ConfigManager("config.toml")
+        return ConfigManager()
 
     def test_config_manager_write_failure_keeps_memory(self, monkeypatch):
         manager = self._fresh_manager(monkeypatch)
@@ -362,7 +347,7 @@ class TestReloadAndVersionCheck:
         monkeypatch.setenv("DATABASE_URL", url)
         monkeypatch.delenv("KUSTOS_APP_TITLE", raising=False)
         reset_module_config_manager()
-        manager = ConfigManager("config.toml")
+        manager = ConfigManager()
         assert manager.config.app.title == "First"
 
         self._bump_title(url, "Second")
@@ -376,7 +361,7 @@ class TestReloadAndVersionCheck:
         monkeypatch.setenv("DATABASE_URL", url)
         monkeypatch.delenv("KUSTOS_APP_TITLE", raising=False)
         reset_module_config_manager()
-        manager = ConfigManager("config.toml")
+        manager = ConfigManager()
         assert manager.config.app.title == "First"
 
         self._bump_title(url, "Second")
@@ -394,12 +379,12 @@ class TestConfigSourceAndGunicornConf:
         monkeypatch.setenv("DATABASE_URL", url)
         monkeypatch.delenv("KUSTOS_APP_TITLE", raising=False)
         reset_module_config_manager()
-        assert ConfigManager("config.toml").config_source == "db"
+        assert ConfigManager().config_source == "db"
 
     def test_config_source_degraded_when_db_unreadable(self, unreachable_db_url, monkeypatch):
         monkeypatch.setenv("DATABASE_URL", unreachable_db_url)
         reset_module_config_manager()
-        assert ConfigManager("config.toml").config_source == "degraded"
+        assert ConfigManager().config_source == "degraded"
 
     def test_gunicorn_conf_loads_without_db_or_file(self, monkeypatch):
         """gunicorn master 只按 env + 默认加载：DB 指向不可达地址也不连接"""

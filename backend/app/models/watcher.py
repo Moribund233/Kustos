@@ -1,10 +1,10 @@
 """仓库关注数据模型"""
 from sqlalchemy import ForeignKey, UniqueConstraint, Uuid as SAUuid
 from sqlalchemy.orm import relationship, mapped_column
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
-class Watcher(BaseModel):
+class Watcher(TimestampMixin):
     __tablename__ = "watchers"
 
     repository_id = mapped_column(SAUuid(as_uuid=True), ForeignKey("repositories.id"), nullable=False)

@@ -9,7 +9,7 @@ from typing import List, Optional
 from sqlalchemy import Integer, String, Boolean, DateTime, ForeignKey, Text, Uuid as SAUuid
 from sqlalchemy.orm import relationship, mapped_column
 
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
 # 支持的 WebHook 事件类型
@@ -44,7 +44,7 @@ WEBHOOK_EVENTS = [
 ]
 
 
-class WebHook(BaseModel):
+class WebHook(TimestampMixin):
     """
     WebHook 数据模型
     
@@ -132,7 +132,7 @@ class WebHook(BaseModel):
         return False
 
 
-class WebHookDelivery(BaseModel):
+class WebHookDelivery(TimestampMixin):
     """
     WebHook 投递记录
     

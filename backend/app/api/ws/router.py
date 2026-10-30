@@ -162,13 +162,13 @@ async def websocket_endpoint(
     消息协议:
     客户端 -> 服务端:
     {
-        "type": "ping|subscribe|unsubscribe|sync_request|...",
+        "type": "ping|subscribe|unsubscribe|progress_update|...",
         ...
     }
     
     服务端 -> 客户端:
     {
-        "type": "pong|notification|sync_status|progress|error|...",
+        "type": "pong|notification|progress|error|...",
         ...
     }
     """

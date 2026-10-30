@@ -48,7 +48,7 @@ def main() -> int:
         websocket_output=False,
     )
     logger = get_named_logger("init")
-    ConfigManager("config.toml")
+    ConfigManager()
 
     if args.check_only:
         from app.utils.init_database import verify_database_ready

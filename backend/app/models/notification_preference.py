@@ -1,9 +1,9 @@
 from sqlalchemy import Integer, Boolean, ForeignKey, Uuid as SAUuid
 from sqlalchemy.orm import mapped_column
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
-class NotificationPreference(BaseModel):
+class NotificationPreference(TimestampMixin):
     __tablename__ = "notification_preferences"
 
     user_id = mapped_column(SAUuid(as_uuid=True), ForeignKey("users.id"), unique=True, nullable=False, index=True)

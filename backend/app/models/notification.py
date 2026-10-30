@@ -1,9 +1,9 @@
 from sqlalchemy import Integer, String, Text, Boolean, DateTime, ForeignKey, Index, Uuid as SAUuid
 from sqlalchemy.orm import relationship, mapped_column
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
-class Notification(BaseModel):
+class Notification(TimestampMixin):
     """通知模型 - 存储用户站内通知"""
 
     __tablename__ = "notifications"

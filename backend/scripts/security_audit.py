@@ -13,7 +13,6 @@ Kustos 安全审计脚本
 退出码: 0=通过（或仅警告），1=发现高危项，2=内部错误
 """
 import argparse
-import re
 import sys
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -24,28 +23,6 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # =============================================================================
 # 可测试的纯函数
 # =============================================================================
-
-def extract_cors_origins(config_toml: str) -> List[str]:
-    """
-    从 config.toml 文本中提取 [cors] 段的 allow_origins 列表
-
-    Args:
-        config_toml: config.toml 文本内容
-
-    Returns:
-        list: allow_origins 列表
-    """
-    # 定位 [cors] 段
-    match = re.search(r"\[cors\](.*?)(\n\[|\Z)", config_toml, re.S)
-    if not match:
-        return []
-    section = match.group(1)
-    origins_match = re.search(r"allow_origins\s*=\s*\[(.*?)\]", section, re.S)
-    if not origins_match:
-        return []
-    items = re.findall(r'"([^"]*)"', origins_match.group(1))
-    return [i for i in items if i.strip()]
-
 
 def check_cors(allow_origins: List[str], production: bool = False) -> Dict[str, str]:
     """
@@ -151,11 +128,12 @@ def run_audit(production: bool) -> Tuple[str, List[Dict[str, object]]]:
     """
     findings: List[Dict[str, object]] = []
 
-    # 1. CORS
-    config_path = REPO_ROOT / "config.toml"
+    # 1. CORS（配置源固定为 env > app_config > 默认值，已无 config.toml 层）
     try:
-        cors_origins = extract_cors_origins(config_path.read_text(encoding="utf-8"))
-    except OSError:
+        from app.core.config import get_config
+
+        cors_origins = list(get_config().cors.allow_origins)
+    except Exception:  # noqa: BLE001 — 审计脚本不因配置不可用而中断
         cors_origins = []
     findings.append(
         {
@@ -177,7 +155,7 @@ def run_audit(production: bool) -> Tuple[str, List[Dict[str, object]]]:
     )
 
     # 3. SSRF
-    webhook_path = REPO_ROOT / "services" / "webhook_service.py"
+    webhook_path = REPO_ROOT / "app" / "services" / "webhook_service.py"
     uses_guard = "validate_outbound_url" in webhook_path.read_text(encoding="utf-8")
     findings.append(
         {

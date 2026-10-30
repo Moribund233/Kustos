@@ -80,13 +80,3 @@ def get_route_prefix(module_name: str) -> str:
         '/api/v1/auth'
     """
     return ROUTES.get(module_name, API_V1_PREFIX)
-
-
-def get_api_version() -> str:
-    """
-    获取当前 API 版本
-
-    Returns:
-        str: 当前 API 版本号，如 "v1"
-    """
-    return API_V1_PREFIX.split("/")[-1]

@@ -10,6 +10,11 @@ from pathlib import Path
 #: 不要再用 `Path(__file__).parents[N]` 硬编码层级深度。
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
+#: 已被移除的 TOML 配置层文件名。**不再读取、不再生成**——配置来源固定为
+#: 「env > app_config > 默认值」。此处仅用于检测残留文件并给出一次性告警，
+#: 避免运维误以为改这个文件能生效。
+LEGACY_CONFIG_TOML = "config.toml"
+
 # 仓库成员角色优先级定义
 # 数值越高，权限越大
 ROLE_PRIORITY = {

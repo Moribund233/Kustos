@@ -6,10 +6,10 @@
 from sqlalchemy import Index, Integer, String, ForeignKey, UniqueConstraint, Uuid as SAUuid
 from sqlalchemy.orm import mapped_column
 
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
-class RepoSearchRef(BaseModel):
+class RepoSearchRef(TimestampMixin):
     """仓库内单个标识符引用（每 (文件, 名字, 行) 一行）"""
     __tablename__ = "repo_search_refs"
 

@@ -8,10 +8,10 @@
 from sqlalchemy import ForeignKey, Index, Integer, String, Text, Uuid as SAUuid
 from sqlalchemy.orm import mapped_column
 
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
-class RepoCommitFile(BaseModel):
+class RepoCommitFile(TimestampMixin):
     """单提交 × 单文件的改动记录"""
     __tablename__ = "repo_commit_files"
 
@@ -33,7 +33,7 @@ class RepoCommitFile(BaseModel):
     )
 
 
-class RepoCommitIndexState(BaseModel):
+class RepoCommitIndexState(TimestampMixin):
     """仓库变更图索引状态：记录已索引提交与数据代次（自愈依据）"""
     __tablename__ = "repo_commit_index_state"
 

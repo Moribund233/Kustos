@@ -5,10 +5,10 @@
 """
 from sqlalchemy import Integer, String, Text, Boolean, ForeignKey, Index, CheckConstraint, Uuid as SAUuid
 from sqlalchemy.orm import relationship, backref, mapped_column
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
-class FileComment(BaseModel):
+class FileComment(TimestampMixin):
     __tablename__ = "file_comments"
 
     repository_id = mapped_column(SAUuid(as_uuid=True), ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False, index=True)

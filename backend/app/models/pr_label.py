@@ -1,7 +1,7 @@
 """Pull Request 标签数据模型"""
 from sqlalchemy import Column, Integer, String, ForeignKey, Table, UniqueConstraint, Uuid as SAUuid
 from sqlalchemy.orm import relationship, mapped_column
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 from app.models import Base
 
 pr_label_association = Table(
@@ -12,7 +12,7 @@ pr_label_association = Table(
 )
 
 
-class PRLabel(BaseModel):
+class PRLabel(TimestampMixin):
     """PR 标签定义模型"""
     __tablename__ = "pr_label_definitions"
 

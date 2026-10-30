@@ -12,10 +12,10 @@
 from sqlalchemy import ForeignKey, String, Text, UniqueConstraint, Uuid as SAUuid
 from sqlalchemy.orm import mapped_column
 
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
-class ConfigSecret(BaseModel):
+class ConfigSecret(TimestampMixin):
     """单个配置密钥的密文行"""
 
     __tablename__ = "config_secrets"

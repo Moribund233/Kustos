@@ -1,9 +1,9 @@
 from sqlalchemy import String, Boolean
 from sqlalchemy.orm import relationship,mapped_column
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
-class User(BaseModel):
+class User(TimestampMixin):
     """
     用户数据模型
 

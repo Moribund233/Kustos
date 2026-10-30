@@ -8,11 +8,11 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import mapped_column
 
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 from app.models.vector_type import VECTOR_DIM, PgVector
 
 
-class RepoSearchEmbedding(BaseModel):
+class RepoSearchEmbedding(TimestampMixin):
     """仓库内单个代码块的 embedding"""
     __tablename__ = "repo_search_embeddings"
 

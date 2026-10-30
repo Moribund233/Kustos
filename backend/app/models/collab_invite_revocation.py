@@ -7,10 +7,10 @@
 from sqlalchemy import DateTime, ForeignKey, Index, String, Uuid as SAUuid
 from sqlalchemy.orm import mapped_column
 
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
-class CollabInviteRevocation(BaseModel):
+class CollabInviteRevocation(TimestampMixin):
     """被撤销的协作邀请 token（按 jti 唯一）。"""
 
     __tablename__ = "collab_invite_revocations"

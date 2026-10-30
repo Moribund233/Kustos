@@ -841,7 +841,6 @@ class ConfigManager:
     """配置管理器 - 单例模式"""
     _instance: Optional['ConfigManager'] = None
     _config: Optional[Config] = None
-    _config_path: str = "config.toml"  # 已不参与读取（保留参数兼容既有调用方）
 
     #: 配置变更检测间隔（秒）：多进程（uvicorn workers / agent-worker）靠轮询
     #: ``max(version)`` 收敛——后台保存后最迟该间隔内全进程生效，无需新增总线。
@@ -850,10 +849,9 @@ class ConfigManager:
     _db_version: Optional[int] = None
     _db_check_at: float = 0.0
 
-    def __new__(cls, config_path: str = "config.toml"):
+    def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
-            cls._instance._config_path = config_path
             cls._instance._load_config()
         return cls._instance
 
@@ -935,11 +933,6 @@ class ConfigManager:
         return self._config
 
     @property
-    def config_path(self) -> str:
-        """配置文件路径"""
-        return self._config_path
-
-    @property
     def config_source(self) -> str:
         """配置源链健康态：``db`` = env > app_config > 默认 正常生效；
         ``degraded`` = 数据库配置层不可读（失败/未配 URL），已降级 env > 默认。"""
@@ -1009,16 +1002,15 @@ class ConfigManager:
                 )
 
 
-def get_config(config_path: str = "config.toml") -> Config:
+def get_config() -> Config:
     """获取配置对象的便捷函数
 
-    Args:
-        config_path: 配置文件路径，仅首次调用时生效（单例缓存）
+    配置来源固定为「env > app_config > 默认值」，不存在配置文件路径参数。
 
     Returns:
         Config: 全局配置对象
     """
-    return ConfigManager(config_path).config
+    return ConfigManager().config
 
 
 def get_config_value(section: str, key: str, default: Any) -> Any:
@@ -1248,7 +1240,7 @@ def _validate_logging_config(config: Config, result: ConfigValidationResult) -> 
                 result.add_warning(f"审计日志目录不可创建: {log_dir} ({e})")
 
 
-def validate_config(config: Optional[Config] = None, config_path: str = "config.toml") -> ConfigValidationResult:
+def validate_config(config: Optional[Config] = None) -> ConfigValidationResult:
     """
     执行完整的配置完整性校验
 
@@ -1261,7 +1253,6 @@ def validate_config(config: Optional[Config] = None, config_path: str = "config.
 
     Args:
         config: 配置对象，为 None 时自动加载
-        config_path: 已废弃（TOML 层移除后不再校验文件存在性），保留签名兼容
 
     Returns:
         ConfigValidationResult: 校验结果，包含 errors 和 warnings
@@ -1271,7 +1262,7 @@ def validate_config(config: Optional[Config] = None, config_path: str = "config.
     # 加载配置（来源：env + app_config + 默认值；不再要求配置文件存在）
     if config is None:
         try:
-            config = get_config(config_path)
+            config = get_config()
         except Exception as e:
             result.add_error(f"配置加载失败: {e}")
             return result

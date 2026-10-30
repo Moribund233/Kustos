@@ -9,7 +9,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import mapped_column
 
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 #: 事件类型（新增类型须同时登记此处与派发侧）
 EVENT_PUSH = "push"
@@ -19,7 +19,7 @@ EVENT_SCHEDULE = "schedule"
 VALID_EVENT_TYPES = (EVENT_PUSH, EVENT_BUILD_FAILED, EVENT_SCHEDULE)
 
 
-class AgentTrigger(BaseModel):
+class AgentTrigger(TimestampMixin):
     """单条触发规则（仓库 × 事件类型）"""
     __tablename__ = "agent_triggers"
 
@@ -42,7 +42,7 @@ class AgentTrigger(BaseModel):
     )
 
 
-class AgentTriggerRun(BaseModel):
+class AgentTriggerRun(TimestampMixin):
     """触发器执行记录：``(trigger_id, dedup_key)`` 唯一，兼作去重与审计。"""
     __tablename__ = "agent_trigger_runs"
 

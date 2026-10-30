@@ -1,7 +1,7 @@
 """仓库标签数据模型"""
 from sqlalchemy import Column, Integer, String, ForeignKey, Table, UniqueConstraint, Uuid as SAUuid
 from sqlalchemy.orm import relationship, mapped_column
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 from app.models import Base
 
 repo_label_association = Table(
@@ -12,7 +12,7 @@ repo_label_association = Table(
 )
 
 
-class RepoLabel(BaseModel):
+class RepoLabel(TimestampMixin):
     __tablename__ = "repo_label_definitions"
 
     repository_id = mapped_column(SAUuid(as_uuid=True), ForeignKey("repositories.id"), nullable=False)

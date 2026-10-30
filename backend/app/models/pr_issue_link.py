@@ -9,10 +9,10 @@
 from sqlalchemy import Boolean, ForeignKey, UniqueConstraint, Uuid as SAUuid
 from sqlalchemy.orm import relationship, mapped_column
 
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
-class PullRequestIssueLink(BaseModel):
+class PullRequestIssueLink(TimestampMixin):
     """PR ↔ Issue 关联边"""
 
     __tablename__ = "pull_request_issue_links"

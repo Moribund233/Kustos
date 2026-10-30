@@ -2,8 +2,8 @@
 
 原实现把 access token 放 URL query（``/ws?token=<jwt>``）——Nginx 的
 ``access_log`` 记录完整 URI，等于把密钥写进日志。改为
-``Sec-WebSocket-Protocol: kustos-bearer, <jwt>``（握手头不进访问日志），
-并保留 query 作为兼容通道（服务端告警）。
+``Sec-WebSocket-Protocol: kustos-bearer, <jwt>``（握手头不进访问日志）。
+query 通道已**移除**——它会把密钥写进 Nginx 访问日志。
 
 两个容易踩的点由本文件固化：
 1. **服务端必须回显子协议**（RFC 6455：响应的子协议必须来自客户端提供的列表），
@@ -73,18 +73,19 @@ class TestTokenViaSubprotocol:
                 pass
 
 
-class TestQueryFallback:
-    """兼容路径：URL query 仍可用（服务端告警），避免旧客户端瞬间全断"""
+class TestQueryTokenRejected:
+    """query 通道已移除：URL 里的 token 不再被认（否则会泄进访问日志）"""
 
-    def test_legacy_query_token_still_works(self, test_client, admin_headers):
+    def test_query_token_no_longer_authenticates(self, test_client, admin_headers):
         token = _token(admin_headers)
-        with test_client.websocket_connect(f"/ws/logs?token={token}") as ws:
-            connected = ws.receive_json()
-            assert connected["type"] == "connected"
-            assert connected["authenticated"] is True
+        with pytest.raises(WebSocketDisconnect):
+            with test_client.websocket_connect(f"/ws/logs?token={token}"):
+                pass
 
-    def test_legacy_access_token_param_still_works(self, test_client, admin_headers):
+    def test_access_token_param_no_longer_authenticates(self, test_client, admin_headers):
+        """通用 /ws/ 允许匿名连接——query 里的 token 应被忽略（未认证）"""
         token = _token(admin_headers)
         with test_client.websocket_connect(f"/ws/?access_token={token}") as ws:
             connected = ws.receive_json()
-            assert connected["authenticated"] is True
+            assert connected["type"] == "connected"
+            assert not connected.get("authenticated")

@@ -1,9 +1,9 @@
 from sqlalchemy import Boolean, Integer, String, Text, ForeignKey, UniqueConstraint, Uuid as SAUuid
 from sqlalchemy.orm import relationship, backref, mapped_column
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
-class PullRequest(BaseModel):
+class PullRequest(TimestampMixin):
     """
     Pull Request 数据模型
     
@@ -72,7 +72,7 @@ class PullRequest(BaseModel):
     )
 
 
-class PRComment(BaseModel):
+class PRComment(TimestampMixin):
     """
     PR 评论模型
     
@@ -108,7 +108,7 @@ class PRComment(BaseModel):
     replies = relationship("PRComment", backref=backref("parent", remote_side="PRComment.id"))
 
 
-class PRReview(BaseModel):
+class PRReview(TimestampMixin):
     """
     PR 审查记录模型
     

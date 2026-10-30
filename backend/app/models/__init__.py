@@ -154,7 +154,7 @@ def get_db_config():
 
 
 # 导入所有模型（必须在 Base 定义之后）
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 from app.models.user import User
 from app.models.repository import Repository
 from app.models.repository_member import RepositoryMember
@@ -195,7 +195,7 @@ from app.models.app_config import AppConfig
 from app.models.config_secret import ConfigSecret
 
 __all__ = [
-    "Base", "SessionLocal", "BaseModel",
+    "Base", "SessionLocal", "TimestampMixin",
     "init_engine", "get_engine", "get_db_config",
     "User", "Repository", "RepositoryMember", "Branch", "Commit",
     "PullRequest", "PRComment", "PRReview", "PullRequestIssueLink", "PRReviewRequest",

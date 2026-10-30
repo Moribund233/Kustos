@@ -40,42 +40,13 @@ def extract_token_from_header(websocket: WebSocket) -> Optional[str]:
     return None
 
 
-async def extract_token_from_query(websocket: WebSocket) -> Optional[str]:
-    """
-    从WebSocket连接的query参数中提取token（**已废弃**）
-
-    保留仅为兼容历史客户端：query 形态会把 token 写进访问日志，
-    新客户端一律走 ``Sec-WebSocket-Protocol``。
-
-    Args:
-        websocket: FastAPI WebSocket对象
-
-    Returns:
-        Optional[str]: token字符串，未找到返回None
-    """
-    token = websocket.query_params.get("token")
-    if token:
-        return token
-
-    # 也尝试从access_token参数获取
-    token = websocket.query_params.get("access_token")
-    return token
-
-
 async def extract_token(websocket: WebSocket) -> Optional[str]:
-    """提取 access token：**握手头优先**，query 兼容保留并告警"""
-    token = extract_token_from_header(websocket)
-    if token:
-        return token
+    """提取 access token：**只认握手头** ``Sec-WebSocket-Protocol``。
 
-    legacy = await extract_token_from_query(websocket)
-    if legacy:
-        logger.warning(
-            "WebSocket 经 URL query 传 token（会原样落进访问日志）已废弃："
-            "客户端应改用 Sec-WebSocket-Protocol: %s, <jwt>",
-            SUBPROTOCOL,
-        )
-    return legacy
+    历史上曾支持 ``/ws?token=<jwt>`` 形态，已移除——query 会被 Nginx
+    ``access_log`` 原样记录，等于把密钥写进日志。客户端一律走握手头。
+    """
+    return extract_token_from_header(websocket)
 
 
 class WebSocketAuthError(Exception):

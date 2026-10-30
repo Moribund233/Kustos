@@ -17,10 +17,10 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import mapped_column
 
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
-class CollabSessionOverride(BaseModel):
+class CollabSessionOverride(TimestampMixin):
     """单文档内某成员的会话级权限覆盖 / 踢出标记。"""
 
     __tablename__ = "collab_session_overrides"

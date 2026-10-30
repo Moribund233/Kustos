@@ -19,10 +19,10 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import mapped_column
 
-from app.models.base import BaseModel
+from app.models.base import TimestampMixin
 
 
-class AgentSession(BaseModel):
+class AgentSession(TimestampMixin):
     """Agent 会话（同一会话下的多次作业共享上下文）"""
     __tablename__ = "agent_sessions"
 
@@ -39,7 +39,7 @@ class AgentSession(BaseModel):
     summary_updated_at = mapped_column(DateTime(timezone=True), nullable=True)
 
 
-class AgentJob(BaseModel):
+class AgentJob(TimestampMixin):
     """Agent 作业（一次 prompt → 工具调用 → 回答 的执行单元）"""
     __tablename__ = "agent_jobs"
 
@@ -83,7 +83,7 @@ class AgentJob(BaseModel):
     runtime_state = mapped_column(Text, nullable=True)
 
 
-class AgentStep(BaseModel):
+class AgentStep(TimestampMixin):
     """作业内单步（有序，作为 checkpoint 与流式事件）"""
     __tablename__ = "agent_steps"
 
