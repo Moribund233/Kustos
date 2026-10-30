@@ -64,7 +64,7 @@ async def test_embedding_insert_failure_keeps_keyword_index(
     async_db, async_test_repo, search_service, monkeypatch
 ):
     """embedding 写入异常（如维度不匹配）只回滚该段，关键词索引照常可用"""
-    import app.services.search.search_service as ss
+    import app.services.search.service as ss
 
     real_insert = ss.insert
 

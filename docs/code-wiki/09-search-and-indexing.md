@@ -237,7 +237,7 @@ flowchart TD
 
 ## 10. 相关源码
 
-- `backend/app/services/search/search_service.py`
+- `backend/app/services/search/`：`service.py`（服务主体）、`git_scan.py`（Git 扫描）、`config.py`（限流）、`dto.py`（返回结构）、`locks.py`（重建锁）、`search_service.py`（门面再导出）
 - `backend/app/services/search/search_admin_service.py`
 - `backend/app/services/indexing/chunker.py`、`embeddings.py`、`vector_type.py`
 - `backend/app/services/repository/commit_index_service.py`

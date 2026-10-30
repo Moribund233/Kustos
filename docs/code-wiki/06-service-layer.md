@@ -120,7 +120,12 @@
 
 | 服务 | 职责 | 关键函数 |
 | --- | --- | --- |
-| `search_service` | 搜索主入口、索引维护、符号/引用 | `SearchService.search_code`、`rebuild_index`、`update_files`、`cleanup_index`、`find_definition`、`find_usages`、`_ensure_index`、`_rrf_fuse` |
+| `search/search_service` | 搜索域门面（再导出） | `SearchService`、DTO、限流常量 |
+| `search/service` | 索引构建、增量更新、符号/引用查找、语义检索 | `SearchService.search_code`、`rebuild_index`、`update_files`、`cleanup_index`、`find_definition`、`find_usages`、`_ensure_index` |
+| `search/git_scan` | Git tree/blob 遍历、RRF 融合、按 ref 现场扫描 | `_rrf_fuse`、`_scan_definitions_at_ref`、`_scan_usages_at_ref` |
+| `search/config` | 搜索限流与护栏参数 | `search_results_cap`、`_index_limits`、`_max_file_bytes` |
+| `search/dto` | 搜索返回结构 | `SearchResult`、`SearchResponse`、`SymbolHit`、`SymbolLookup` |
+| `search/locks` | per-repo 重建锁 | `_acquire_rebuild_lock`、`_release_rebuild_lock` |
 | `search_admin_service` | 管理面索引状态/重建/embedding 凭据 | `get_status`、`rebuild_all`、`set_embedding_key` |
 | `indexing/chunker` | 源码切块 + 引用提取 | `analyze_file`、`Chunk`、`Ref`；tree-sitter → 正则 → 整文件三级降级 |
 | `indexing/embeddings` | Embedding provider | `get_embedding_provider`、`OpenAICompatEmbeddingProvider`、`is_configured` |
