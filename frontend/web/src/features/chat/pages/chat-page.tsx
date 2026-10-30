@@ -761,27 +761,17 @@ function TopicBanner({ topic }: { topic: string | null }) {
   );
 }
 
-const MENTION_PATTERN = /(@kustos-agent)/gi;
-
 /** 消息正文：Markdown 渲染，@kustos-agent 提及以琥珀胶囊高亮。 */
 function ChatBody({ content, className }: { content: string; className?: string }) {
-  // 提及前后各成一段 Markdown；段落改 inline 以便与胶囊同行排布
-  const parts = content.split(MENTION_PATTERN).filter((part) => part.length > 0);
+  /* 提及的着色交给 rehype 插件（lib/markdown/rehype-mention.ts）。
+     早先这里按提及字面量切分源文、逐段渲染 Markdown，只要提及落在
+     代码块、加粗或列表项内部，语法就会被切断。 */
   return (
-    <div className={cn("text-muted text-sm leading-[1.62]", className)}>
-      {parts.map((part, index) =>
-        part.toLowerCase() === "@kustos-agent" ? (
-          <span
-            key={index}
-            className="border-amber/25 bg-amber/10 text-amber-2 rounded-[3px] border px-1 py-px font-mono text-[0.9em]"
-          >
-            {part}
-          </span>
-        ) : (
-          <Markdown key={index} content={part} className="inline [&>p]:inline [&>p]:m-0" />
-        ),
-      )}
-    </div>
+    <Markdown
+      content={content}
+      mentions
+      className={cn("text-muted text-sm leading-[1.62]", className)}
+    />
   );
 }
 

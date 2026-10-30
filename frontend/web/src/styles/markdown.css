@@ -86,6 +86,19 @@
     color: var(--color-muted-2);
   }
 
+  /* 提及胶囊。由 lib/markdown/rehype-mention.ts 在 text 节点上套 span，
+     不再是聊天页手工拼接的标签——所以样式也从 Tailwind 类移到这里。
+     取值与原先的 border-amber/25 + bg-amber/10 + text-amber-2 一致。 */
+  .kustos-mention {
+    padding: 1px 0.25rem;
+    border: 1px solid color-mix(in oklab, var(--color-amber) 25%, transparent);
+    border-radius: 3px;
+    background: color-mix(in oklab, var(--color-amber) 10%, transparent);
+    color: var(--color-amber-2);
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+  }
+
   /* 行内代码。:not(pre) 排除代码块——块级代码由下面的 pre 规则接管，
      否则会套上两层底色和边框。 */
   .kustos-markdown :not(pre) > code {
