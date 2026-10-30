@@ -23,6 +23,8 @@ import {
 } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+
+import i18n from "@/lib/i18n";
 import { useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
 
@@ -125,17 +127,17 @@ const MAX_VIEW_BYTES = 1024 * 1024;
 
 /** 协作连接状态文案；未连接时为 connecting。 */
 const COLLAB_STATUS_LABEL: Record<CollabStatus, string> = {
-  connecting: "正在连接协作网关",
-  connected: "协作中",
-  disconnected: "连接已断开",
-  error: "协作连接失败",
+  connecting: "code.collabConnecting",
+  connected: "code.collabConnected",
+  disconnected: "code.collabDisconnected",
+  error: "code.collabError",
 };
 
 async function fetchTree(repoId: string, ref: string, path: string): Promise<TreeResponse> {
   const res = await api.GET("/api/v1/repositories/{repo_id}/tree", {
     params: { path: { repo_id: repoId }, query: { ref, path } },
   });
-  if (!res.data) throw new Error(res.error ? JSON.stringify(res.error) : "文件树加载失败");
+  if (!res.data) throw new Error(res.error ? JSON.stringify(res.error) : i18n.t("code.treeLoadFailed"));
   return res.data as TreeResponse;
 }
 
@@ -158,11 +160,32 @@ function formatBytes(bytes: number): string {
   return `${value.toFixed(1)} ${units[index]}`;
 }
 
-const PANEL_DOCK: DockTab[] = [
-  { id: "symbols", icon: BookOpen, label: "符号", kicker: "本文件", ariaLabel: "本文件的符号大纲" },
-  { id: "facts", icon: Activity, label: "文件事实", kicker: "本文件", ariaLabel: "文件事实与索引" },
-  { id: "agent", icon: Bot, label: "Kustos Agent", kicker: "本文件", ariaLabel: "就这个文件提问" },
-];
+function panelDock(): DockTab[] {
+  const kicker = i18n.t("code.kickerThisFile");
+  return [
+    {
+      id: "symbols",
+      icon: BookOpen,
+      label: i18n.t("code.dockSymbols"),
+      kicker,
+      ariaLabel: i18n.t("code.dockSymbolsAria"),
+    },
+    {
+      id: "facts",
+      icon: Activity,
+      label: i18n.t("code.dockFacts"),
+      kicker,
+      ariaLabel: i18n.t("code.dockFactsAria"),
+    },
+    {
+      id: "agent",
+      icon: Bot,
+      label: i18n.t("code.dockAgent"),
+      kicker,
+      ariaLabel: i18n.t("code.dockAgentAria"),
+    },
+  ];
+}
 
 const QUIET_BTN =
   "text-muted hover:text-bone-2 inline-flex h-[26px] items-center gap-1 rounded px-[7px] text-2xs transition-colors hover:bg-ink-800/60";
@@ -255,7 +278,7 @@ export function CodePage({ path, content, diff }: CodePageProps) {
     if (!repo || !selectedPath) return;
     const token = getAccessToken();
     if (!token) {
-      toast.error("会话已失效，请重新登录。");
+      toast.error(t("code.sessionExpired"));
       return;
     }
 
@@ -311,8 +334,8 @@ export function CodePage({ path, content, diff }: CodePageProps) {
   /** 请求网关把当前 CRDT 内容存成一次草稿提交（落草稿分支，不碰工作分支）。 */
   const saveCollab = () => {
     if (!collab) return;
-    void saveCollabDocument(collab.provider, `docs: 更新 ${selectedPath}`);
-    toast.success("草稿已保存。确认无误后点「发布」，变更才会写入分支。");
+    void saveCollabDocument(collab.provider, t("code.draftCommitMessage", { path: selectedPath }));
+    toast.success(t("code.draftSaved"));
   };
 
   const [publishBusy, setPublishBusy] = useState(false);
@@ -324,21 +347,21 @@ export function CodePage({ path, content, diff }: CodePageProps) {
     try {
       const res = await api.POST("/api/v1/repositories/{repo_id}/collab/publish", {
         params: { path: { repo_id: repoId } },
-        body: { branch, message: `docs: 发布 ${selectedPath} 的协作草稿` },
+        body: { branch, message: t("code.publishCommitMessage", { path: selectedPath }) },
       });
       if (res.error) {
         const detail = (res.error as { detail?: string }).detail;
-        throw new Error(detail ?? "发布失败。");
+        throw new Error(detail ?? t("code.publishFailed"));
       }
       const data = res.data as { commit_id: string | null; paths: string[] };
       if (!data.commit_id) {
-        toast.info("没有待发布的草稿变更。");
+        toast.info(t("code.noDraftChanges"));
         return;
       }
-      toast.success(`已发布 ${data.paths.length} 个文件的草稿变更。`);
+      toast.success(t("code.publishedFiles", { count: data.paths.length }));
       void blobQuery.refetch();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "发布失败。");
+      toast.error(error instanceof Error ? error.message : t("code.publishFailed"));
     } finally {
       setPublishBusy(false);
     }
@@ -379,13 +402,13 @@ export function CodePage({ path, content, diff }: CodePageProps) {
       });
       if (res.error) {
         const detail = (res.error as { detail?: string }).detail;
-        throw new Error(detail ?? "签发邀请失败。");
+        throw new Error(detail ?? t("code.inviteIssueFailed"));
       }
       const data = res.data as { token: string; scope: string };
       const link = `${window.location.origin}/code?path=${encodeURIComponent(selectedPath)}&invite=${encodeURIComponent(data.token)}&invite_scope=${data.scope}`;
       setInviteLink(link);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "签发邀请失败。");
+      toast.error(error instanceof Error ? error.message : t("code.inviteIssueFailed"));
     } finally {
       setInviteBusy(false);
     }
@@ -398,7 +421,7 @@ export function CodePage({ path, content, diff }: CodePageProps) {
       const res = await api.GET("/api/v1/repositories/{repo_id}/branches", {
         params: { path: { repo_id: repoId } },
       });
-      if (!res.data) throw new Error(res.error ? JSON.stringify(res.error) : "分支列表加载失败");
+      if (!res.data) throw new Error(res.error ? JSON.stringify(res.error) : i18n.t("code.branchLoadFailed"));
       return res.data as BranchInfo[];
     },
   });
@@ -416,7 +439,7 @@ export function CodePage({ path, content, diff }: CodePageProps) {
       const res = await api.GET("/api/v1/repositories/{repo_id}/blob", {
         params: { path: { repo_id: repoId }, query: { path: selectedPath, ref: branch } },
       });
-      if (!res.data) throw new Error(res.error ? JSON.stringify(res.error) : "文件内容加载失败");
+      if (!res.data) throw new Error(res.error ? JSON.stringify(res.error) : i18n.t("code.blobLoadFailed"));
       return res.data as BlobInfo;
     },
   });
@@ -428,7 +451,7 @@ export function CodePage({ path, content, diff }: CodePageProps) {
       const res = await api.GET("/api/v1/repositories/{repo_id}/symbols", {
         params: { path: { repo_id: repoId }, query: { path: selectedPath, ref: branch } },
       });
-      if (!res.data) throw new Error(res.error ? JSON.stringify(res.error) : "符号加载失败");
+      if (!res.data) throw new Error(res.error ? JSON.stringify(res.error) : i18n.t("code.symbolsLoadFailed"));
       return res.data as SymbolsResponse;
     },
   });
@@ -472,7 +495,7 @@ export function CodePage({ path, content, diff }: CodePageProps) {
     return (
       <div className="mx-auto w-full max-w-[1560px] px-[34px] pt-[30px] pb-20">
         <div className="border-edge-2 flex flex-col items-center gap-2 rounded-[10px] border py-24">
-          <p className="text-bone-2 text-base font-medium">还没有仓库</p>
+          <p className="text-bone-2 text-base font-medium">{t("code.noRepoYet")}</p>
           <p className="text-muted-2 max-w-[42ch] text-center text-xs leading-relaxed">
             {t("code.emptyHint")}
           </p>
@@ -521,7 +544,7 @@ export function CodePage({ path, content, diff }: CodePageProps) {
           {repo.description ? <p className="text-muted mt-[9px] text-base">{repo.description}</p> : null}
           <p className="text-muted-2 mt-[7px] flex flex-wrap items-center gap-1.5 text-xs">
             <span>
-              默认分支 <span className="font-mono">{repo.default_branch}</span>
+              {t("code.defaultBranchLabel")} <span className="font-mono">{repo.default_branch}</span>
             </span>
           </p>
         </div>
@@ -533,7 +556,7 @@ export function CodePage({ path, content, diff }: CodePageProps) {
             type="button"
             onClick={() => {
               void navigator.clipboard?.writeText(cloneUrl);
-              toast.info("Clone 地址已复制。");
+              toast.info(t("code.cloneCopied"));
             }}
             className="border-edge-2 bg-ink-750/55 hover:border-edge-3 hover:bg-ink-750 text-bone-2 ml-1 inline-flex h-[27px] items-center gap-[7px] rounded-md border px-2.5 text-xs font-medium transition-colors"
           >
@@ -565,17 +588,17 @@ export function CodePage({ path, content, diff }: CodePageProps) {
               <div role="menu" className="border-edge-2 bg-ink-850 absolute top-[calc(100%+7px)] left-0 z-50 w-[238px] rounded-[10px] border p-[5px] shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
                 <p className="text-muted-2 px-2 pt-1.5 pb-1 text-2xs font-semibold tracking-[0.13em] uppercase">{t("code.branches")}</p>
                 {branchesQuery.isPending ? (
-                  <p className="text-muted-2 px-2 py-1.5 text-xs">加载中…</p>
+                  <p className="text-muted-2 px-2 py-1.5 text-xs">{t("common.loading")}</p>
                 ) : branchesQuery.error ? (
                   <button
                     type="button"
                     onClick={() => void branchesQuery.refetch()}
                     className="text-muted-2 hover:text-amber-2 w-full rounded-[5px] px-[9px] py-[7px] text-left text-xs transition-colors hover:underline"
                   >
-                    分支列表加载失败，点击重试
+                    {t("code.tapToRetry")}
                   </button>
                 ) : branchNames.length === 0 ? (
-                  <p className="text-muted-2 px-2 py-1.5 text-xs">这个仓库还没有分支。</p>
+                  <p className="text-muted-2 px-2 py-1.5 text-xs">{t("code.noBranches")}</p>
                 ) : (
                   branchNames.map((name) => (
                     <button
@@ -585,7 +608,7 @@ export function CodePage({ path, content, diff }: CodePageProps) {
                       onClick={() => {
                         setBranchOverride(name);
                         setBranchOpen(false);
-                        toast.info(`正在查看 ${name}。`);
+                        toast.info(t("code.viewingBranch", { name }));
                       }}
                       className={cn(
                         "flex w-full items-center gap-[9px] rounded-[5px] px-[9px] py-[7px] text-left text-xs transition-colors",
@@ -593,7 +616,7 @@ export function CodePage({ path, content, diff }: CodePageProps) {
                       )}
                     >
                       <span className="truncate font-mono text-xs">{name}</span>
-                      {name === repo.default_branch ? <span className="text-faint ml-auto font-mono text-2xs">默认</span> : null}
+                      {name === repo.default_branch ? <span className="text-faint ml-auto font-mono text-2xs">{t("code.defaultChip")}</span> : null}
                     </button>
                   ))
                 )}
@@ -602,7 +625,7 @@ export function CodePage({ path, content, diff }: CodePageProps) {
           ) : null}
         </div>
 
-        <div className="text-muted-2 flex min-w-0 items-center gap-1 overflow-hidden font-mono text-xs whitespace-nowrap" aria-label="文件路径">
+        <div className="text-muted-2 flex min-w-0 items-center gap-1 overflow-hidden font-mono text-xs whitespace-nowrap" aria-label={t("code.filePathAria")}>
           {(selectedPath || repo.path).split("/").map((part, index, parts) => (
             <span key={index} className={cn(index === parts.length - 1 && "text-bone-2")}>
               {index > 0 ? <span className="text-faint px-0.5">/</span> : null}
@@ -624,7 +647,7 @@ export function CodePage({ path, content, diff }: CodePageProps) {
           aria-label={t("code.copyPath")}
           onClick={() => {
             void navigator.clipboard?.writeText(selectedPath);
-            toast.info("文件路径已复制。");
+            toast.info(t("code.pathCopied"));
           }}
           className="text-muted-2 hover:text-bone grid size-[30px] place-items-center rounded-md transition-colors hover:bg-ink-800"
         >
@@ -633,7 +656,7 @@ export function CodePage({ path, content, diff }: CodePageProps) {
       </div>
 
       <Stage
-        dock={PANEL_DOCK}
+        dock={panelDock()}
         panel={(tab) => (
           <CodePanel
             tab={tab}
@@ -657,8 +680,8 @@ export function CodePage({ path, content, diff }: CodePageProps) {
                 type="text"
                 value={filter}
                 onChange={(event) => setFilter(event.target.value)}
-                placeholder="过滤文件…"
-                aria-label="过滤文件"
+                placeholder={t("code.filterFilesPlaceholder")}
+                aria-label={t("code.filterFilesAria")}
                 autoComplete="off"
                 className="text-bone min-w-0 flex-1 bg-transparent text-xs focus-visible:outline-none placeholder:text-muted-2"
               />
@@ -666,17 +689,17 @@ export function CodePage({ path, content, diff }: CodePageProps) {
           </div>
           <div className="flex-1 px-[5px] pt-[7px] pb-3">
             {treeQuery.isPending ? (
-              <p className="text-muted-2 px-[7px] py-1 text-xs">加载中…</p>
+              <p className="text-muted-2 px-[7px] py-1 text-xs">{t("common.loading")}</p>
             ) : treeQuery.error || !treeQuery.data ? (
               <button
                 type="button"
                 onClick={() => void treeQuery.refetch()}
                 className="text-muted-2 hover:text-amber-2 w-full rounded px-[7px] py-1 text-left text-xs transition-colors hover:underline"
               >
-                文件树加载失败，点击重试
+                {t("code.tapToRetry")}
               </button>
             ) : isEmptyRepo ? (
-              <p className="text-muted-2 px-[7px] py-1 text-xs">仓库还没有提交。</p>
+              <p className="text-muted-2 px-[7px] py-1 text-xs">{t("code.noCommitsYet")}</p>
             ) : (
               <FileTreeRows
                 entries={treeQuery.data.entries}
@@ -698,10 +721,14 @@ export function CodePage({ path, content, diff }: CodePageProps) {
               <span className="text-bone-2 truncate font-mono text-sm">{selectedPath || repo.path}</span>
               <span className="text-muted-2 text-xs">
                 {showDiff && file.diff
-                  ? `+${file.diff.stats.additions} −${file.diff.stats.deletions} · ${file.diff.stats.files_changed} 个文件`
+                  ? t("code.diffStatLine", {
+                        add: file.diff.stats.additions,
+                        del: file.diff.stats.deletions,
+                        files: file.diff.stats.files_changed,
+                      })
                   : selectedPath
-                    ? `${lineCount} 行 · ${file.lang || "文本"}`
-                    : "从左侧文件树选择一个文件。"}
+                    ? t("code.lineCountLang", { lines: lineCount, lang: file.lang || t("code.plainText") })
+                    : t("code.selectFileHint")}
               </span>
             </div>
             <div className="flex flex-none items-center gap-px">
@@ -712,7 +739,7 @@ export function CodePage({ path, content, diff }: CodePageProps) {
                 disabled={!selectedPath || !blob || blob.is_binary || Boolean(collab)}
               >
                 <Pencil className="size-3" aria-hidden="true" />
-                编辑
+                {t("code.edit")}
               </button>
               <button
                 type="button"
@@ -739,14 +766,14 @@ export function CodePage({ path, content, diff }: CodePageProps) {
                 disabled={!selectedPath || Boolean(blob?.is_binary)}
               >
                 <Pencil className="size-3" aria-hidden="true" />
-                {collab ? "退出协作" : "协作编辑"}
+                {collab ? t("code.exitCollab") : t("code.startCollab")}
               </button>
               <button
                 type="button"
                 className={QUIET_BTN}
                 onClick={() => {
                   void navigator.clipboard?.writeText(file.content);
-                  toast.info("原始内容已复制。");
+                  toast.info(t("code.rawCopied"));
                 }}
               >
                 <Download className="size-3" aria-hidden="true" />
@@ -767,9 +794,9 @@ export function CodePage({ path, content, diff }: CodePageProps) {
                 <span className="text-muted-2 font-mono text-2xs">
                   {COLLAB_STATUS_LABEL[collabStatus ?? "connecting"]}
                 </span>
-                <span className="text-faint font-mono text-2xs">· {collabPeers} 人在线</span>
+                <span className="text-faint font-mono text-2xs">{t("code.peersOnline", { count: collabPeers })}</span>
                 {!collabCanWrite ? (
-                  <span className="text-amber-2 font-mono text-2xs">· 只读</span>
+                  <span className="text-amber-2 font-mono text-2xs">{t("code.readOnlySuffix")}</span>
                 ) : null}
                 <div className="ml-auto flex items-center gap-1.5">
                   <button
@@ -778,7 +805,7 @@ export function CodePage({ path, content, diff }: CodePageProps) {
                     disabled={!collabCanWrite}
                     className="text-muted-2 hover:text-bone inline-flex h-[24px] items-center px-1.5 font-mono text-2xs transition-colors disabled:opacity-40"
                   >
-                    邀请
+                    {t("code.inviteAction")}
                   </button>
                   <button
                     type="button"
@@ -786,7 +813,7 @@ export function CodePage({ path, content, diff }: CodePageProps) {
                     disabled={!collabCanWrite || collabStatus !== "connected" || publishBusy}
                     className="border-edge-2 text-bone-2 hover:border-edge-3 inline-flex h-[24px] items-center rounded-md border px-2 font-mono text-2xs transition-colors disabled:opacity-50"
                   >
-                    发布草稿
+                    {t("code.publishDraft")}
                   </button>
                   <button
                     type="button"
@@ -794,14 +821,14 @@ export function CodePage({ path, content, diff }: CodePageProps) {
                     disabled={!collabCanWrite || collabStatus !== "connected"}
                     className="border-edge-2 text-bone-2 hover:border-edge-3 inline-flex h-[24px] items-center rounded-md border px-2 font-mono text-2xs transition-colors disabled:opacity-50"
                   >
-                    保存草稿
+                    {t("code.saveDraft")}
                   </button>
                   <button
                     type="button"
                     onClick={closeCollab}
                     className="text-muted-2 hover:text-bone inline-flex h-[24px] items-center px-1.5 font-mono text-2xs transition-colors"
                   >
-                    结束协作
+                    {t("code.endCollab")}
                   </button>
                 </div>
               </div>
@@ -817,22 +844,22 @@ export function CodePage({ path, content, diff }: CodePageProps) {
               <DiffViewer payload={file.diff} />
             </div>
           ) : !selectedPath ? (
-            <p className="text-muted-2 grid min-h-0 flex-1 place-items-center text-sm">从左侧文件树选择一个文件。</p>
+            <p className="text-muted-2 grid min-h-0 flex-1 place-items-center text-sm">{t("code.selectFileHint")}</p>
           ) : blobQuery.isPending ? (
-            <p className="text-muted-2 grid min-h-0 flex-1 place-items-center text-sm">正在加载文件…</p>
+            <p className="text-muted-2 grid min-h-0 flex-1 place-items-center text-sm">{t("code.loadingFile")}</p>
           ) : blobQuery.error || !blob ? (
             <div role="alert" className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
-              <p className="text-muted text-sm">文件内容加载失败：{blobQuery.error?.message}</p>
+              <p className="text-muted text-sm">{t("code.blobFailedMsg", { error: blobQuery.error?.message ?? "" })}</p>
               <button
                 type="button"
                 onClick={() => void blobQuery.refetch()}
                 className="border-edge-2 bg-ink-750/55 hover:border-edge-3 hover:bg-ink-750 text-bone-2 inline-flex h-[27px] items-center rounded-md border px-2.5 text-xs font-medium transition-colors"
               >
-                重试
+                {t("common.retry")}
               </button>
             </div>
           ) : isEmptyRepo ? (
-            <p className="text-muted-2 grid min-h-0 flex-1 place-items-center text-sm">仓库还没有提交。</p>
+            <p className="text-muted-2 grid min-h-0 flex-1 place-items-center text-sm">{t("code.noCommitsYet")}</p>
           ) : blob.is_binary ? (
             <p className="text-muted-2 grid min-h-0 flex-1 place-items-center text-sm">{t("code.binaryFile")}</p>
           ) : blob.size > MAX_VIEW_BYTES ? (
@@ -866,9 +893,9 @@ export function CodePage({ path, content, diff }: CodePageProps) {
     >
       <DialogContent className="max-w-[520px]">
         <DialogHeader>
-          <DialogTitle>邀请协作</DialogTitle>
+          <DialogTitle>{t("code.inviteTitle")}</DialogTitle>
           <DialogDescription>
-            链接 60 分钟内有效，只对当前文件生效；对方用同一实例打开即可加入。
+            {t("code.inviteHint")}
           </DialogDescription>
         </DialogHeader>
 
@@ -877,21 +904,21 @@ export function CodePage({ path, content, diff }: CodePageProps) {
             <input
               readOnly
               value={inviteLink}
-              aria-label="邀请链接"
+              aria-label={t("code.inviteLinkAria")}
               onFocus={(event) => event.currentTarget.select()}
               className="border-edge-2 bg-ink-950/60 text-bone-2 w-full rounded-md border px-2.5 py-2 font-mono text-xs focus-visible:outline-none"
             />
             <p className="text-faint text-2xs leading-relaxed">
-              链接里带文档路径与只读/可编辑档位，过期后需要重新签发。
+              {t("code.inviteLinkHint")}
             </p>
           </div>
         ) : (
           <div className="flex items-center gap-1.5">
             <Chip active={inviteScope === "write"} onClick={() => setInviteScope("write")}>
-              可编辑
+              {t("code.editable")}
             </Chip>
             <Chip active={inviteScope === "read"} onClick={() => setInviteScope("read")}>
-              只读
+              {t("code.readOnlyOption")}
             </Chip>
           </div>
         )}
@@ -900,24 +927,24 @@ export function CodePage({ path, content, diff }: CodePageProps) {
           {inviteLink ? (
             <>
               <Button variant="ghost" onClick={() => setInviteLink("")}>
-                重新签发
+                {t("code.reissue")}
               </Button>
               <Button
                 onClick={() => {
                   void navigator.clipboard?.writeText(inviteLink);
-                  toast.success("邀请链接已复制。");
+                  toast.success(t("code.inviteCopied"));
                 }}
               >
-                复制链接
+                {t("code.copyLink")}
               </Button>
             </>
           ) : (
             <>
               <Button variant="ghost" onClick={() => setInviteOpen(false)}>
-                取消
+                {t("common.cancel")}
               </Button>
               <Button onClick={() => void issueInvite()} disabled={inviteBusy}>
-                {inviteBusy ? "签发中…" : "生成链接"}
+                {inviteBusy ? t("code.issuing") : t("code.generateLink")}
               </Button>
             </>
           )}
@@ -1093,12 +1120,13 @@ function FolderChildren({
   onToggleFolder,
   onSelect,
 }: Omit<FileTreeRowsProps, "entries"> & { dirPath: string }) {
+  const { t } = useTranslation();
   const dirQuery = useApiQuery<TreeResponse>({
     queryKey: ["code", repoId, "tree", branch, dirPath],
     queryFn: () => fetchTree(repoId, branch, dirPath),
   });
 
-  if (dirQuery.isPending) return <p className="text-muted-2 px-[7px] py-1 text-xs">加载中…</p>;
+  if (dirQuery.isPending) return <p className="text-muted-2 px-[7px] py-1 text-xs">{t("common.loading")}</p>;
   if (dirQuery.error || !dirQuery.data) {
     return (
       <button
@@ -1106,7 +1134,7 @@ function FolderChildren({
         onClick={() => void dirQuery.refetch()}
         className="text-muted-2 hover:text-amber-2 w-full rounded px-[7px] py-1 text-left text-xs transition-colors hover:underline"
       >
-        加载失败，点击重试
+        {t("code.tapToRetry")}
       </button>
     );
   }
@@ -1162,28 +1190,29 @@ function SymbolsPane({
   onJump: (line: number) => void;
   onLookup: (name: string) => void;
 }) {
+  const { t } = useTranslation();
   const jump = (node: SymbolNode) => onJump(node.line);
 
   return (
     <RailBlock>
       <div className="mb-2.5 flex items-center gap-[9px]">
-        <h3 className="text-muted-2 text-2xs font-semibold tracking-[0.15em] uppercase">符号大纲</h3>
+        <h3 className="text-muted-2 text-2xs font-semibold tracking-[0.15em] uppercase">{t("code.outlineTitle")}</h3>
         <span className="rounded-full bg-bone/[0.06] px-1.5 font-mono text-2xs leading-[15px] text-muted-2">{file.symbols.length}</span>
       </div>
       {!file.path ? (
-        <p className="text-muted-2 text-xs">先在文件树里选择一个文件。</p>
+        <p className="text-muted-2 text-xs">{t("code.selectFileFirst")}</p>
       ) : symbolsQuery.isPending ? (
-        <p className="text-muted-2 text-xs">正在提取符号…</p>
+        <p className="text-muted-2 text-xs">{t("code.extractingSymbols")}</p>
       ) : symbolsQuery.error ? (
         <button
           type="button"
           onClick={() => void symbolsQuery.refetch()}
           className="text-muted-2 hover:text-amber-2 text-xs transition-colors hover:underline"
         >
-          符号加载失败，点击重试
+          {t("code.tapToRetry")}
         </button>
       ) : file.symbols.length === 0 ? (
-        <p className="text-muted-2 text-xs">这个文件没有可识别的符号。</p>
+        <p className="text-muted-2 text-xs">{t("code.noSymbols")}</p>
       ) : (
         <div className="flex flex-col gap-[3px]">
           {file.symbols.map((node) => (
@@ -1258,9 +1287,10 @@ function SymbolNodeRow({
 
 /** 文件事实面板：最近提交（commits?path=）+ 语言/大小（blob）。 */
 function FactsPane({ file, lastCommit }: { file: CodeFile; lastCommit: CommitInfo | null }) {
+  const { t } = useTranslation();
   const provenance = [
     {
-      key: "最近变更",
+      key: t("code.recentChanges"),
       value: lastCommit ? (
         <>
           <span className="font-mono">{lastCommit.sha.slice(0, 7)}</span> · {formatRelative(lastCommit.author?.date)}
@@ -1271,13 +1301,13 @@ function FactsPane({ file, lastCommit }: { file: CodeFile; lastCommit: CommitInf
         "—"
       ),
     },
-    { key: "作者", value: lastCommit?.author?.name ?? "—" },
-    { key: "语言", value: file.lang || "—" },
-    { key: "大小", value: file.size || "—" },
+    { key: t("code.authorLabel"), value: lastCommit?.author?.name ?? "—" },
+    { key: t("code.languageLabel"), value: file.lang || "—" },
+    { key: t("code.sizeLabel"), value: file.size || "—" },
   ];
 
   return (
-    <RailBlock title="来源">
+    <RailBlock title={t("code.sourceTitle")}>
       <dl>
         {provenance.map((item) => (
           <div key={item.key} className="border-edge-1 border-t py-[7px] first:border-t-0 first:pt-0">
@@ -1297,9 +1327,10 @@ function FactsPane({ file, lastCommit }: { file: CodeFile; lastCommit: CommitInf
  * 工具轨迹与写工具审批都在 Agent 控制台承载，这里只负责发起并跳过去。
  */
 function AgentPane({ path }: { path: string }) {
+  const { t } = useTranslation();
   const repo = useRepoStore((state) => state.current);
   const navigate = useNavigate();
-  const [prompt, setPrompt] = useState(`解释 ${path} 的职责、调用方与关键实现。`);
+  const [prompt, setPrompt] = useState(() => i18n.t("code.agentPromptDefault", { path }));
   const [pending, setPending] = useState(false);
 
   const submit = async () => {
@@ -1312,14 +1343,14 @@ function AgentPane({ path }: { path: string }) {
         body: { prompt: text, model: null },
       });
       if (res.error) {
-        const detail = (res.error as { detail?: string }).detail ?? "创建 Agent 运行失败。";
+        const detail = (res.error as { detail?: string }).detail ?? t("code.agentCreateFailed");
         throw new Error(detail);
       }
       const job = res.data as { id?: string } | undefined;
-      toast.success("已创建 Agent 运行，正在打开控制台。");
+      toast.success(t("code.agentCreated"));
       navigate(job?.id ? `/agent?job=${job.id}` : "/agent");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "创建 Agent 运行失败。");
+      toast.error(error instanceof Error ? error.message : t("code.agentCreateFailed"));
     } finally {
       setPending(false);
     }
@@ -1334,7 +1365,7 @@ function AgentPane({ path }: { path: string }) {
         <div className="min-w-0">
           <strong className="text-bone-2 block text-xs font-semibold leading-tight">Kustos Agent</strong>
           <span className="text-muted-2 block text-2xs">
-            {repo ? `在 ${repo.path} 上运行` : "尚未选择仓库"}
+            {repo ? t("code.runOnRepo", { repo: repo.path }) : t("code.noRepoSelected")}
           </span>
         </div>
         <Lamp tone={pending ? "warn" : "neutral"} live={pending} className="ml-auto" />
@@ -1348,10 +1379,10 @@ function AgentPane({ path }: { path: string }) {
       >
         <textarea
           rows={3}
-          aria-label="就这个文件提问"
+          aria-label={t("code.dockAgentAria")}
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
-          placeholder={`就 ${path} 提问…`}
+          placeholder={t("code.askAboutPath", { path })}
           className="border-edge-2 bg-ink-900/70 text-bone focus:border-amber/40 min-h-[58px] resize-none rounded-md border p-2 text-xs focus-visible:outline-none transition-colors placeholder:text-muted-2"
         />
         <button
@@ -1360,15 +1391,15 @@ function AgentPane({ path }: { path: string }) {
           className="bg-amber border-amber hover:bg-amber-2 hover:border-amber-2 inline-flex h-[27px] items-center justify-center gap-[7px] rounded-md border px-2.5 text-xs font-semibold text-ink-950 transition-colors disabled:pointer-events-none disabled:opacity-60"
         >
           <Send className="size-3" aria-hidden="true" />
-          {pending ? "正在创建…" : "询问 Kustos"}
+          {pending ? t("code.creatingRun") : t("code.askKustos")}
         </button>
       </form>
       <div className="border-edge-1 mt-2.5 flex flex-col gap-1.5 border-t pt-2.5">
         <p className="text-muted-2 text-2xs leading-[1.5]">
-          运行会在 Agent 控制台继续，工具轨迹与审批都在那边。
+          {t("code.agentContinues")}
         </p>
       </div>
-      <p className="text-muted-2 mt-3 text-2xs leading-[1.5]">写入类工具会暂停等待审批；批准前该面板只读。</p>
+      <p className="text-muted-2 mt-3 text-2xs leading-[1.5]">{t("code.writeToolsPause")}</p>
     </RailBlock>
   );
 }
