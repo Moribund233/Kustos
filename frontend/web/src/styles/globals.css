@@ -3,6 +3,8 @@
 @import "tw-animate-css";
 /* 西文 webfont（自托管，仅 latin 片段） */
 @import "./fonts.css";
+/* Markdown 正文排版与代码高亮（Issue / PR / 评论 / 聊天 / Agent 回答共用） */
+@import "./markdown.css";
 
 /* Kustos design tokens —— 与 docs/prototype/assets/css/tokens.css 同源。
    夜巡提灯：墨蓝底、骨白字、琥珀色只用于注意力与行动。 */
