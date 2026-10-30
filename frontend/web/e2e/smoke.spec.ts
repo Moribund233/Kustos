@@ -44,14 +44,18 @@ test("中文字符走系统字体而非西文 webfont", async ({ page }) => {
 
 test("语言切换会改变界面文案", async ({ page }) => {
   await gotoApp(page, "/");
-  const nav = page.getByRole("navigation").first();
-  const before = await nav.getAttribute("aria-label");
 
-  // 顶栏的语言切换器；浏览器默认语言是 en，这里切到中文看文案是否变化
-  await page.getByRole("button", { name: /语言|Language/ }).click();
-  await page.getByRole("menuitemradio").filter({ hasText: "简体中文" }).click();
+  // 观察点取侧栏的仓库分组标题：它由 t("nav.repositories") 提供，切语言必变。
+  // e2e 会话固定中文（见 session.ts），这里的断言因此不随开发机 locale 漂移。
+  await expect(page.getByRole("navigation", { name: "仓库" })).toBeVisible();
 
-  await expect(nav).not.toHaveAttribute("aria-label", before ?? "");
+  // 语言入口在侧栏底部账号菜单的第二级：顶栏没有语言切换器，
+  // 触发项是 DropdownMenuSubTrigger（role=menuitem），不是 button。
+  await page.getByRole("button", { name: /Lin Wei/ }).click();
+  await page.getByRole("menuitem", { name: /语言/ }).hover();
+  await page.getByRole("menuitemradio", { name: "English" }).click();
+
+  await expect(page.getByRole("navigation", { name: "Repositories" })).toBeVisible();
 });
 
 test("命令面板可用快捷键唤起", async ({ page }) => {

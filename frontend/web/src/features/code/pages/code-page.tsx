@@ -792,7 +792,7 @@ export function CodePage({ path, content, diff }: CodePageProps) {
                   live={collabStatus !== "error"}
                 />
                 <span className="text-muted-2 font-mono text-2xs">
-                  {COLLAB_STATUS_LABEL[collabStatus ?? "connecting"]}
+                  {t(COLLAB_STATUS_LABEL[collabStatus ?? "connecting"])}
                 </span>
                 <span className="text-faint font-mono text-2xs">{t("code.peersOnline", { count: collabPeers })}</span>
                 {!collabCanWrite ? (

@@ -777,6 +777,8 @@ export default {
     resetFailed: "Failed to reset password.",
     makeAdmin: "Make global admin",
     revokeAdmin: "Revoke global admin",
+    roleAdmin: "Admin",
+    roleMember: "Member",
     deactivate: "Deactivate",
     activate: "Activate",
     userActionsAria: "Actions for {{name}}",

@@ -835,7 +835,7 @@ function AdminConsole() {
                             </span>
                           </td>
                           <td>
-                            {user.isAdmin ? <Tag tone="warn">{t("admin.roleAdmin")}</Tag> : <Tag tone="neutral">{t("admin.member")}</Tag>}
+                            {user.isAdmin ? <Tag tone="warn">{t("admin.roleAdmin")}</Tag> : <Tag tone="neutral">{t("admin.roleMember")}</Tag>}
                           </td>
                           <td>
                             <span className={cn("inline-flex items-center gap-1.5 text-xs", user.isActive ? "text-sage" : "text-muted-2")}>

@@ -61,6 +61,11 @@ export async function signIn(page: Page): Promise<void> {
   await page.addInitScript(() => {
     // 刷新令牌留在 localStorage，access 令牌由 /auth/refresh 换发
     window.localStorage.setItem("kustos.refresh", "e2e-refresh-token");
+    // 界面语言固定为中文。i18n 的检测顺序是 localStorage > navigator，
+    // 若不固定，Playwright 的默认 locale（en-US）会让界面渲染成英文，
+    // 于是同一批用例在英文机器和中文机器上结果不同——断言里凡是
+    // 中文文案的地方都会随开发机环境漂移。
+    window.localStorage.setItem("kustos.locale", "zh");
   });
 
   await page.route("**/api/**", async (route) => {

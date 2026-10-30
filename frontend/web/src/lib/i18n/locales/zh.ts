@@ -777,6 +777,8 @@ export default {
     resetFailed: "重置密码失败。",
     makeAdmin: "设为全局管理员",
     revokeAdmin: "取消全局管理员",
+    roleAdmin: "管理员",
+    roleMember: "成员",
     deactivate: "停用账号",
     activate: "启用账号",
     userActionsAria: "{{name}} 的操作",
