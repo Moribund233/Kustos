@@ -11,6 +11,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.services.repository.repository_service import (
+    fetch_repository,
+)
 from app.api.prefixes import get_route_prefix
 from app.api.deps import get_current_user
 from app.models.async_db import get_async_db
@@ -52,10 +55,7 @@ async def issue_collab_invite(
 
     被邀请人凭 token 获得会话级临时权限 (绑定 docKey + read/write 档位 + 过期时间)。
     """
-    result = await db.execute(select(Repository).filter(Repository.id == repo_id))
-    repo = result.scalar_one_or_none()
-    if not repo:
-        raise NotFoundException(detail="Repository not found", error_code="repository_not_found")
+    repo = await fetch_repository(db, repo_id)
 
     if not await has_repo_action(db, current_user.id, repo_id, Action.INVITE_ISSUE):
         raise AuthorizationException(
@@ -93,10 +93,7 @@ async def revoke_collab_invite(
 
     被撤销的 token 立即失效: `/collab/auth` 与 `/collab/save` 将拒绝其换取权限。
     """
-    result = await db.execute(select(Repository).filter(Repository.id == repo_id))
-    repo = result.scalar_one_or_none()
-    if not repo:
-        raise NotFoundException(detail="Repository not found", error_code="repository_not_found")
+    repo = await fetch_repository(db, repo_id)
 
     if not await has_repo_action(db, current_user.id, repo_id, Action.INVITE_MANAGE):
         raise AuthorizationException(

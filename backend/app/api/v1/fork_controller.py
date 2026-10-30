@@ -9,6 +9,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+from app.services.repository.repository_service import (
+    fetch_repository,
+)
 from app.models.async_db import get_async_db
 from app.models.repository import Repository
 from app.models.user import User
@@ -31,29 +34,6 @@ class ForkCreateRequest(BaseModel):
     name: Optional[str] = Field(None, max_length=255, description="Fork 仓库名称（默认为源仓库名称）")
     description: Optional[str] = Field(None, description="Fork 仓库描述")
     is_public: Optional[bool] = Field(None, description="是否公开（默认为源仓库设置）")
-
-
-async def _get_repo(repo_id: uuid.UUID, db: AsyncSession) -> Repository:
-    """
-    获取仓库实例
-
-    Args:
-        repo_id: 仓库ID
-        db: 数据库会话
-
-    Returns:
-        Repository: 仓库实例
-
-    Raises:
-        NotFoundException: 仓库不存在
-    """
-    result = await db.execute(select(Repository).filter(Repository.id == repo_id))
-    repo = result.scalar_one_or_none()
-    if not repo:
-        raise NotFoundException(detail="Repository not found", error_code="repository_not_found")
-    return repo
-
-
 @router.post("/{repo_id}/forks", status_code=201)
 async def fork_repository(
     repo_id: uuid.UUID,
@@ -76,7 +56,7 @@ async def fork_repository(
         dict: 创建的 Fork 仓库信息
     """
     # 验证源仓库存在
-    await _get_repo(repo_id, db)
+    await fetch_repository(db, repo_id)
 
     return await fork_service.fork_repository(
         db=db,
@@ -107,7 +87,7 @@ async def list_repository_forks(
     Returns:
         dict: Fork 列表和分页信息
     """
-    await _get_repo(repo_id, db)
+    await fetch_repository(db, repo_id)
     return await fork_service.get_repository_forks(
         db=db,
         repository_id=repo_id,
@@ -131,7 +111,7 @@ async def get_fork_source(
     Returns:
         dict: 源仓库信息，如果不是 Fork 则返回 None
     """
-    repo = await _get_repo(repo_id, db)
+    repo = await fetch_repository(db, repo_id)
     return await fork_service.get_fork_source(
         db=db,
         repository_id=repo_id
@@ -157,7 +137,7 @@ async def sync_fork(
     Returns:
         dict: 同步结果
     """
-    await _get_repo(repo_id, db)
+    await fetch_repository(db, repo_id)
     return await fork_service.sync_fork(
         db=db,
         repository_id=repo_id,

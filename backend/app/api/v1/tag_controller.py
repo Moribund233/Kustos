@@ -14,6 +14,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
 
+from app.services.repository.repository_service import (
+    fetch_repository_storage_path,
+)
 from app.api.prefixes import get_route_prefix
 from app.core.permissions import Action
 from app.api.guards import require_repo_read, require_repo_permission
@@ -38,17 +41,6 @@ router = APIRouter(
     tags=["tags"],
     dependencies=[Depends(require_repo_read())],
 )
-
-
-async def _get_repo_path(repo_id: uuid.UUID, db: AsyncSession) -> str:
-    """获取仓库物理路径，不存在抛 404"""
-    result = await db.execute(select(Repository).filter(Repository.id == repo_id))
-    repo = result.scalar_one_or_none()
-    if not repo:
-        raise NotFoundException(detail="Repository not found", error_code="repository_not_found")
-    return get_repository_storage_path(repo.path)
-
-
 class TagCreateRequest(BaseModel):
     """创建标签请求体"""
     name: str = Field(..., min_length=1, max_length=255, description="标签名")
@@ -76,7 +68,7 @@ async def list_repository_tags(
     Raises:
         HTTPException: 仓库不存在
     """
-    repo_path = await _get_repo_path(repo_id, db)
+    repo_path = await fetch_repository_storage_path(db, repo_id)
     try:
         return list_git_tags(repo_path, pattern=pattern)
     except GitError as e:
@@ -90,7 +82,7 @@ async def get_repository_tag(
     db: AsyncSession = Depends(get_async_db)
 ):
     """获取单个标签信息，不存在返回 404"""
-    repo_path = await _get_repo_path(repo_id, db)
+    repo_path = await fetch_repository_storage_path(db, repo_id)
     try:
         tag = get_git_tag(repo_path, tag_name)
     except GitError as e:
@@ -116,7 +108,7 @@ async def create_repository_tag(
     Returns:
         dict: 创建的标签信息
     """
-    repo_path = await _get_repo_path(repo_id, db)
+    repo_path = await fetch_repository_storage_path(db, repo_id)
     target = data.target or get_head_commit(repo_path)
     if not target:
         raise ValidationException(detail="Repository has no commit to tag", error_code="tag_no_target")
@@ -146,7 +138,7 @@ async def delete_repository_tag(
     _perm: None = Depends(require_repo_permission(Action.REPO_WRITE, "delete tags")),
 ):
     """删除标签（需要认证，不存在则忽略）"""
-    repo_path = await _get_repo_path(repo_id, db)
+    repo_path = await fetch_repository_storage_path(db, repo_id)
     try:
         delete_git_tag(repo_path, tag_name)
     except GitError as e:

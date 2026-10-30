@@ -107,7 +107,7 @@ flowchart TB
 
 | 层 | 允许依赖 | 违反示例（应避免） |
 | --- | --- | --- |
-| `api` | `api / services / middleware / core / models / utils` | controller 写复杂 SQL/事务 |
+| `api` | `api / services / middleware / core / models / utils` | controller 直连 SQL/事务 |
 | `services` | `services / middleware / core / models / utils` | service import api |
 | `middleware` | `middleware / core / models / utils` | middleware 调用 service |
 | `core` | `core / models / utils` | `core/permissions` import controller |
@@ -116,10 +116,15 @@ flowchart TB
 
 `app/` 根目录模块（`main.py`、`lifespan.py`）属装配层，可依赖任意层。
 
-**规则由测试强制**：`tests/test_layer_boundary.py` 用 AST 扫描全部模块，
-同时覆盖**模块级**与**函数体内**的 import——后者最容易被当作「合法的延迟导入」
-而溜过去。该测试还带一条**延迟导入棘轮**：函数体内的 import 总数不得超过基线，
-只收不放，防止债务悄悄反弹。
+**规则由测试强制**：
+
+- `tests/test_layer_boundary.py` 用 AST 扫描全部模块，同时覆盖**模块级**与
+  **函数体内**的 import——后者最容易被当作「合法的延迟导入」而溜过去。
+  该测试还带一条**延迟导入棘轮**：函数体内的 import 总数不得超过基线，
+  只收不放，防止债务悄悄反弹。
+- `tests/test_controller_no_raw_sql.py` 断言控制器里不出现 `select()` /
+  `execute()` / `text()`；例外仅限**认证层**（逐个注明原因），业务查询一律
+  下沉到服务层。
 
 ### 打破循环依赖的手法
 

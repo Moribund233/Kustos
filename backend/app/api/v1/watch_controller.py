@@ -7,6 +7,9 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.services.repository.repository_service import (
+    fetch_repository,
+)
 from app.api.prefixes import get_route_prefix
 from app.models.async_db import get_async_db
 from app.models.repository import Repository
@@ -101,10 +104,7 @@ async def get_watchers(
     Returns:
         list: Watcher 列表
     """
-    result = await db.execute(select(Repository).filter(Repository.id == repo_id))
-    repo = result.scalar_one_or_none()
-    if not repo:
-        raise NotFoundException(detail="Repository not found", error_code="repository_not_found")
+    repo = await fetch_repository(db, repo_id)
     if not repo.is_public:
         await ensure_repo_action(db, current_user.id, repo_id, Action.REPO_READ, "view watchers")
     return await watch_service.get_watchers(repo_id, db)

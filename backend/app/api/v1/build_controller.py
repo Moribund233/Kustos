@@ -7,6 +7,9 @@ from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.services.repository.repository_service import (
+    fetch_repository,
+)
 from app.api.prefixes import get_route_prefix
 from app.api.deps import get_current_user, security
 from app.models.async_db import get_async_db
@@ -62,17 +65,6 @@ class BuildResponse(BaseModel):
 
     class Config:
         from_attributes = True
-
-
-async def _get_repo(repo_id: uuid.UUID, db: AsyncSession) -> Repository:
-    from sqlalchemy import select
-    result = await db.execute(select(Repository).filter(Repository.id == repo_id))
-    repo = result.scalar_one_or_none()
-    if not repo:
-        raise NotFoundException(detail="Repository not found", error_code="repository_not_found")
-    return repo
-
-
 def _build_to_response(build) -> BuildResponse:
     return BuildResponse(
         id=build.id,
@@ -98,7 +90,7 @@ async def create_build(
     # 触发构建是写操作——原仅认证，任何账号可在公开仓伪造构建记录
     _perm=Depends(require_repo_permission(Action.REPO_WRITE, "trigger builds")),
 ):
-    await _get_repo(repo_id, db)
+    await fetch_repository(db, repo_id)
     build = await BuildService.create_build(
         db=db,
         repo_id=repo_id,
@@ -120,7 +112,7 @@ async def list_builds(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user),
 ):
-    await _get_repo(repo_id, db)
+    await fetch_repository(db, repo_id)
     builds = await BuildService.get_builds_for_repository(
         db=db, repo_id=repo_id, limit=limit, offset=offset,
         branch=branch, status=status_filter,
@@ -135,7 +127,7 @@ async def get_build(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user),
 ):
-    await _get_repo(repo_id, db)
+    await fetch_repository(db, repo_id)
     build = await BuildService.get_build(db=db, build_id=build_id)
     if build.repo_id != repo_id:
         raise NotFoundException(detail="Build not found", error_code="build_not_found")
@@ -158,7 +150,7 @@ async def update_build(
     HMAC-SHA256 签名 (https://docs.github.com/webhooks/using-webhooks/validating-webhook-deliveries)
     回调; 否则回落到用户 token 鉴权。
     """
-    repo = await _get_repo(repo_id, db)
+    repo = await fetch_repository(db, repo_id)
     signature_header = request.headers.get("X-Kustos-Signature")
     if signature_header:
         if not repo.ci_secret:
@@ -239,7 +231,7 @@ async def get_build_logs(
     Returns:
         dict: {"logs": 整串快照, "entries": [逐条], "next_seq": 增量光标}
     """
-    await _get_repo(repo_id, db)
+    await fetch_repository(db, repo_id)
     build = await BuildService.get_build(db=db, build_id=build_id)
     if build.repo_id != repo_id:
         raise NotFoundException(detail="Build not found", error_code="build_not_found")

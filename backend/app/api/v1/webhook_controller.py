@@ -11,6 +11,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+from app.services.repository.repository_service import (
+    fetch_repository,
+)
 from app.api.prefixes import get_route_prefix
 from app.api.deps import get_current_user
 from app.models.async_db import get_async_db
@@ -40,29 +43,6 @@ class UpdateWebhookRequest(BaseModel):
     secret: Optional[str] = Field(None, description="签名密钥")
     content_type: Optional[str] = Field(None, description="Content-Type")
     is_active: Optional[bool] = Field(None, description="是否激活")
-
-
-async def _get_repo(repo_id: uuid.UUID, db: AsyncSession) -> Repository:
-    """
-    获取仓库实例
-
-    Args:
-        repo_id: 仓库ID
-        db: 数据库会话
-
-    Returns:
-        Repository: 仓库实例
-
-    Raises:
-        NotFoundException: 仓库不存在
-    """
-    result = await db.execute(select(Repository).filter(Repository.id == repo_id))
-    repo = result.scalar_one_or_none()
-    if not repo:
-        raise NotFoundException(detail="Repository not found", error_code="repository_not_found")
-    return repo
-
-
 @router.post("/{repo_id}/webhooks", status_code=status.HTTP_201_CREATED)
 async def create_webhook(
     repo_id: uuid.UUID,
@@ -82,7 +62,7 @@ async def create_webhook(
     Returns:
         dict: 创建的 WebHook 数据
     """
-    await _get_repo(repo_id, db)
+    await fetch_repository(db, repo_id)
     return await webhook_service.create_webhook(
         db=db,
         repository_id=repo_id,
@@ -116,7 +96,7 @@ async def list_webhooks(
     Returns:
         dict: WebHook 列表和分页信息
     """
-    await _get_repo(repo_id, db)
+    await fetch_repository(db, repo_id)
     return await webhook_service.list_webhooks(
         db=db,
         repository_id=repo_id,
@@ -145,7 +125,7 @@ async def get_webhook(
     Returns:
         dict: WebHook 详情
     """
-    await _get_repo(repo_id, db)
+    await fetch_repository(db, repo_id)
     return await webhook_service.get_webhook(
         db=db,
         repository_id=repo_id,
@@ -175,7 +155,7 @@ async def update_webhook(
     Returns:
         dict: 更新后的 WebHook 数据
     """
-    await _get_repo(repo_id, db)
+    await fetch_repository(db, repo_id)
     return await webhook_service.update_webhook(
         db=db,
         repository_id=repo_id,
@@ -205,7 +185,7 @@ async def delete_webhook(
         db: 数据库会话
         current_user: 当前认证用户
     """
-    await _get_repo(repo_id, db)
+    await fetch_repository(db, repo_id)
     await webhook_service.delete_webhook(
         db=db,
         repository_id=repo_id,
@@ -235,7 +215,7 @@ async def test_webhook(
     Returns:
         dict: 测试结果
     """
-    await _get_repo(repo_id, db)
+    await fetch_repository(db, repo_id)
     return await webhook_service.test_webhook(
         db=db,
         repository_id=repo_id,
@@ -267,7 +247,7 @@ async def list_webhook_deliveries(
     Returns:
         dict: 投递记录列表和分页信息
     """
-    await _get_repo(repo_id, db)
+    await fetch_repository(db, repo_id)
     return await webhook_service.list_webhook_deliveries(
         db=db,
         repository_id=repo_id,
@@ -299,7 +279,7 @@ async def get_webhook_delivery(
     Returns:
         dict: 投递记录详情
     """
-    await _get_repo(repo_id, db)
+    await fetch_repository(db, repo_id)
     return await webhook_service.get_webhook_delivery(
         db=db,
         repository_id=repo_id,

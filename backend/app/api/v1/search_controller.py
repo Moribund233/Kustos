@@ -14,8 +14,15 @@ from app.models.async_db import get_async_db
 from app.models import Repository, Issue, PullRequest
 from app.models.user import User
 from app.api.deps import get_current_user
+from app.services.search.global_search import (
+    search_across_repositories,
+    search_global_entities,
+)
 from app.services.search.search_service import SearchService
-from app.services.repository.repository_service import get_accessible_repository_ids
+from app.services.repository.repository_service import (
+    fetch_repository,
+    get_accessible_repository_ids,
+)
 from app.utils.git_utils import get_repository_storage_path
 from app.core.exception import NotFoundException
 from app.core.config import get_config_value
@@ -35,22 +42,6 @@ router = APIRouter(
     dependencies=[Depends(require_repo_read())],
 )
 global_search_router = APIRouter(prefix="/api/v1/search", tags=["search"])
-
-
-async def _get_repo(repo_id: uuid.UUID, db: AsyncSession) -> Repository:
-    """
-    获取仓库对象（用于取物理路径与仓库ID）
-
-    Raises:
-        NotFoundException: 仓库不存在
-    """
-    result = await db.execute(select(Repository).filter(Repository.id == repo_id))
-    repo = result.scalar_one_or_none()
-    if not repo:
-        raise NotFoundException(detail="Repository not found", error_code="repository_not_found")
-    return repo
-
-
 async def _ensure_read_access(repo: Repository, user: User, db: AsyncSession) -> None:
     """校验当前用户对该仓库有读权限（公开/拥有/活跃成员）"""
     accessible = await get_accessible_repository_ids(db, user.id)
@@ -82,7 +73,7 @@ async def search_code(
     Returns:
         dict: 搜索结果
     """
-    repo = await _get_repo(repo_id, db)
+    repo = await fetch_repository(db, repo_id)
     await _ensure_read_access(repo, current_user, db)
     repo_path = get_repository_storage_path(repo.path)
     search_service = SearchService()
@@ -112,7 +103,7 @@ async def find_symbol_definition(
     块级索引只覆盖默认分支 HEAD；传入非默认 ``ref`` 时改为按该 ref 现场扫描，
     响应中的 ``source`` / ``partial`` 用于标明答案来源与是否可能被护栏截断。
     """
-    repo = await _get_repo(repo_id, db)
+    repo = await fetch_repository(db, repo_id)
     await _ensure_read_access(repo, current_user, db)
     result = await SearchService().find_definition(
         db, repo.id, name, path=path, exclude_tests=exclude_tests,
@@ -141,7 +132,7 @@ async def find_symbol_usages(
     current_user: User = Depends(get_current_user),
 ):
     """按精确标识符名查找引用，附引用点所在符号块（引用图）。"""
-    repo = await _get_repo(repo_id, db)
+    repo = await fetch_repository(db, repo_id)
     await _ensure_read_access(repo, current_user, db)
     result = await SearchService().find_usages(
         db, repo.id, name, max_results=max_results, path=path,
@@ -192,7 +183,7 @@ async def search_index_status(
         current_generation, in_sync, chunks, refs, embeddings,
         semantic_enabled, last_indexed_at}``
     """
-    repo = await _get_repo(repo_id, db)
+    repo = await fetch_repository(db, repo_id)
     await _ensure_read_access(repo, current_user, db)
     return await SearchService().index_status(
         db, repo.id, get_repository_storage_path(repo.path)
@@ -216,7 +207,7 @@ async def search_reindex(
     Returns:
         dict: ``{started: bool, reason?: "rebuilding"}``
     """
-    repo = await _get_repo(repo_id, db)
+    repo = await fetch_repository(db, repo_id)
     await _ensure_read_access(repo, current_user, db)
     if await SearchService().is_rebuilding(repo.id):
         return {"started": False, "reason": "rebuilding"}
@@ -254,91 +245,15 @@ async def global_search_code(
     Returns:
         dict: 搜索结果（按仓库聚合）
     """
-    accessible_ids = await get_accessible_repository_ids(db, current_user.id)
-
-    if not accessible_ids:
-        return {
-            "query": q,
-            "repositories": [],
-            "total_count": 0,
-            "truncated": False,
-        }
-
-    result = await db.execute(
-        select(Repository).filter(Repository.id.in_(accessible_ids))
+    return await search_across_repositories(
+        db=db,
+        user_id=current_user.id,
+        q=q,
+        path=path,
+        ref=ref,
+        max_results=max_results,
+        per_repo_max=per_repo_max,
     )
-    repos = result.scalars().all()
-
-    search_service = SearchService()
-
-    async def search_one(repo: Repository):
-        repo_path = get_repository_storage_path(repo.path)
-        try:
-            response = await search_service.search_code(
-                db=db,
-                repository_id=repo.id,
-                repo_path=repo_path,
-                query=q,
-                path=path,
-                ref=ref,
-                max_results=per_repo_max,
-            )
-        except Exception:
-            return None
-        if not response.results:
-            return None
-        return {
-            "repository_id": repo.id,
-            "repository_name": repo.name,
-            "repository_path": repo.path,
-            "results": [
-                {
-                    "file": r.file,
-                    "line": r.line,
-                    "content": r.content,
-                    "chunk": asdict(r.chunk) if r.chunk else None,
-                }
-                for r in response.results
-            ],
-            "total_count": response.total_count,
-            "truncated": response.truncated,
-            "source": response.source,
-            "semantic_used": response.semantic_used,
-        }
-
-    # 串行执行：共用一个 AsyncSession，并发不安全
-    aggregated = []
-    for repo in repos:
-        result = await search_one(repo)
-        if result is not None:
-            aggregated.append(result)
-
-    # 按总结果数截断
-    total_count = sum(r["total_count"] for r in aggregated)
-    truncated = total_count > max_results
-    if total_count > max_results:
-        remaining = max_results
-        limited = []
-        for r in aggregated:
-            if remaining <= 0:
-                break
-            results = r["results"]
-            take = min(len(results), remaining)
-            limited.append({
-                **r,
-                "results": results[:take],
-                "total_count": take,
-                "truncated": take < len(results) or r["truncated"],
-            })
-            remaining -= take
-        aggregated = limited
-
-    return {
-        "query": q,
-        "repositories": aggregated,
-        "total_count": total_count,
-        "truncated": truncated,
-    }
 
 
 @global_search_router.get("/global")
@@ -367,90 +282,9 @@ async def global_search(
     Returns:
         dict: 三类分组搜索结果
     """
-    empty = {"query": q, "repositories": [], "issues": [], "pull_requests": []}
-    keyword = q.strip()
-    if not keyword:
-        return empty
-    pattern = f"%{keyword}%"
-
-    accessible_ids = await get_accessible_repository_ids(db, current_user.id)
-    if not accessible_ids:
-        return empty
-
-    # 仓库：名称 / 路径 / 描述
-    repo_result = await db.execute(
-        select(Repository)
-        .filter(
-            Repository.id.in_(accessible_ids),
-            or_(
-                Repository.name.ilike(pattern),
-                Repository.path.ilike(pattern),
-                Repository.description.ilike(pattern),
-            ),
-        )
-        .order_by(Repository.updated_at.desc())
-        .limit(per_type)
+    return await search_global_entities(
+        db=db,
+        user_id=current_user.id,
+        q=q,
+        per_type=per_type,
     )
-    repositories = [
-        {
-            "repository_id": repo.id,
-            "name": repo.name,
-            "path": repo.path,
-            "description": repo.description,
-            "is_public": repo.is_public,
-        }
-        for repo in repo_result.scalars().all()
-    ]
-
-    # Issue：标题 / 描述（限定可访问仓库）
-    issue_result = await db.execute(
-        select(Issue, Repository.name.label("repo_name"), Repository.path.label("repo_path"))
-        .join(Repository, Repository.id == Issue.repository_id)
-        .filter(
-            Issue.repository_id.in_(accessible_ids),
-            or_(Issue.title.ilike(pattern), Issue.description.ilike(pattern)),
-        )
-        .order_by(Issue.updated_at.desc())
-        .limit(per_type)
-    )
-    issues = [
-        {
-            "repository_id": issue.repository_id,
-            "repository_name": repo_name,
-            "repository_path": repo_path,
-            "issue_number": issue.issue_number,
-            "title": issue.title,
-            "status": issue.status,
-        }
-        for issue, repo_name, repo_path in issue_result.all()
-    ]
-
-    # PR：标题 / 描述（限定可访问仓库）
-    pr_result = await db.execute(
-        select(PullRequest, Repository.name.label("repo_name"), Repository.path.label("repo_path"))
-        .join(Repository, Repository.id == PullRequest.repository_id)
-        .filter(
-            PullRequest.repository_id.in_(accessible_ids),
-            or_(PullRequest.title.ilike(pattern), PullRequest.description.ilike(pattern)),
-        )
-        .order_by(PullRequest.updated_at.desc())
-        .limit(per_type)
-    )
-    pull_requests = [
-        {
-            "repository_id": pr.repository_id,
-            "repository_name": repo_name,
-            "repository_path": repo_path,
-            "pr_number": pr.pr_number,
-            "title": pr.title,
-            "status": pr.status,
-        }
-        for pr, repo_name, repo_path in pr_result.all()
-    ]
-
-    return {
-        "query": q,
-        "repositories": repositories,
-        "issues": issues,
-        "pull_requests": pull_requests,
-    }

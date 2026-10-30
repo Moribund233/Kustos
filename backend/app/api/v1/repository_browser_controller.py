@@ -13,6 +13,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Optional
 
+from app.services.repository.repository_service import (
+    fetch_repository,
+    fetch_repository_storage_path,
+)
 from app.api.prefixes import get_route_prefix
 from app.core.permissions import Action
 from app.api.guards import require_repo_read, require_repo_permission
@@ -46,30 +50,6 @@ router = APIRouter(
     tags=["repository-browser"],
     dependencies=[Depends(require_repo_read())],
 )
-
-
-async def _get_repo_path(repo_id: uuid.UUID, db: AsyncSession) -> str:
-    """
-    获取仓库物理路径
-
-    Args:
-        repo_id: 仓库ID
-        db: 数据库会话
-
-    Returns:
-        str: 仓库物理路径
-
-    Raises:
-        NotFoundException: 仓库不存在
-    """
-    result = await db.execute(select(Repository).filter(Repository.id == repo_id))
-    repo = result.scalar_one_or_none()
-    if not repo:
-        raise NotFoundException(detail="Repository not found", error_code="repository_not_found")
-
-    return get_repository_storage_path(repo.path)
-
-
 @router.get("/{repo_id}/tree")
 async def get_repository_tree(
     repo_id: uuid.UUID,
@@ -94,7 +74,7 @@ async def get_repository_tree(
     Raises:
         HTTPException: 仓库或路径不存在
     """
-    repo_path = await _get_repo_path(repo_id, db)
+    repo_path = await fetch_repository_storage_path(db, repo_id)
     return await get_tree_entries(repo_path, ref=ref, path=path, last_commit=last_commit)
 
 
@@ -120,7 +100,7 @@ async def get_repository_blob(
     Raises:
         HTTPException: 文件不存在或是目录
     """
-    repo_path = await _get_repo_path(repo_id, db)
+    repo_path = await fetch_repository_storage_path(db, repo_id)
     return await get_blob_content(repo_path, ref=ref, path=path)
 
 
@@ -145,12 +125,9 @@ async def update_repository_file(
 
     空仓库时创建初始提交并建立默认分支
     """
-    result = await db.execute(select(Repository).filter(Repository.id == repo_id))
-    repo = result.scalar_one_or_none()
-    if not repo:
-        raise NotFoundException(detail="Repository not found", error_code="repository_not_found")
+    repo = await fetch_repository(db, repo_id)
 
-    repo_path = await _get_repo_path(repo_id, db)
+    repo_path = await fetch_repository_storage_path(db, repo_id)
     branch = data.branch or repo.default_branch or "main"
     message = data.message or f"Update {file_path}"
 
@@ -179,12 +156,9 @@ async def delete_repository_file(
     _perm: None = Depends(require_repo_permission(Action.REPO_WRITE, "delete repository files")),
 ):
     """在指定分支删除文件并提交"""
-    result = await db.execute(select(Repository).filter(Repository.id == repo_id))
-    repo = result.scalar_one_or_none()
-    if not repo:
-        raise NotFoundException(detail="Repository not found", error_code="repository_not_found")
+    repo = await fetch_repository(db, repo_id)
 
-    repo_path = await _get_repo_path(repo_id, db)
+    repo_path = await fetch_repository_storage_path(db, repo_id)
     target_branch = branch or repo.default_branch or "main"
 
     # 本地 pygit2 写统一过保护裁决
@@ -222,12 +196,9 @@ async def move_repository_file(
 
     目标父目录不存在时自动创建; 目标已存在则返回 409。
     """
-    result = await db.execute(select(Repository).filter(Repository.id == repo_id))
-    repo = result.scalar_one_or_none()
-    if not repo:
-        raise NotFoundException(detail="Repository not found", error_code="repository_not_found")
+    repo = await fetch_repository(db, repo_id)
 
-    repo_path = await _get_repo_path(repo_id, db)
+    repo_path = await fetch_repository_storage_path(db, repo_id)
     branch = data.branch or repo.default_branch or "main"
     message = data.message or f"Move {data.from_path} -> {data.to_path}"
 
@@ -272,7 +243,7 @@ async def get_repository_commits(
     Raises:
         HTTPException: 仓库不存在
     """
-    repo_path = await _get_repo_path(repo_id, db)
+    repo_path = await fetch_repository_storage_path(db, repo_id)
     return await get_commits(repo_path, ref=ref, path=path, page=page, per_page=per_page)
 
 
@@ -300,7 +271,7 @@ async def get_repository_diff(
     Raises:
         HTTPException: 提交不存在
     """
-    repo_path = await _get_repo_path(repo_id, db)
+    repo_path = await fetch_repository_storage_path(db, repo_id)
     return await get_diff(repo_path, base=base, head=head, path=path)
 
 
@@ -326,7 +297,7 @@ async def get_repository_blame(
     Raises:
         HTTPException: 仓库/引用/文件不存在
     """
-    repo_path = await _get_repo_path(repo_id, db)
+    repo_path = await fetch_repository_storage_path(db, repo_id)
     return await get_blame(repo_path, ref=ref, path=path)
 
 
@@ -352,7 +323,7 @@ async def get_repository_graph(
     Raises:
         HTTPException: 仓库或引用不存在
     """
-    repo_path = await _get_repo_path(repo_id, db)
+    repo_path = await fetch_repository_storage_path(db, repo_id)
     return await get_commit_graph(repo_path, ref=ref, limit=limit)
 
 
@@ -380,7 +351,7 @@ async def get_repository_compare(
     Raises:
         HTTPException: 仓库或引用不存在
     """
-    repo_path = await _get_repo_path(repo_id, db)
+    repo_path = await fetch_repository_storage_path(db, repo_id)
     return await compare(repo_path, base=base, head=head, path=path)
 
 
@@ -410,7 +381,7 @@ async def get_repository_readme(
             "encoding": str
         }
     """
-    repo_path = await _get_repo_path(repo_id, db)
+    repo_path = await fetch_repository_storage_path(db, repo_id)
     return await get_readme_content(repo_path, ref=ref)
 
 
@@ -446,7 +417,7 @@ async def get_repository_file_symbols(
             ]
         }
     """
-    repo_path = await _get_repo_path(repo_id, db)
+    repo_path = await fetch_repository_storage_path(db, repo_id)
     return await get_file_symbols(repo_path, ref=ref, path=path)
 
 
@@ -472,7 +443,7 @@ async def detect_repository_file_language(
         }
     """
     # 验证仓库存在
-    await _get_repo_path(repo_id, db)
+    await fetch_repository_storage_path(db, repo_id)
 
     language = detect_file_language(path)
     return {

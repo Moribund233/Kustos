@@ -370,6 +370,74 @@ async def get_repositories(
     return build_pagination_response(items, total, page, limit)
 
 
+async def fetch_repository(db: AsyncSession, repo_id: uuid.UUID) -> Repository:
+    """按 id 取仓库**实体**；不存在抛 404。
+
+    控制器的「查仓库，不存在则 404」统一走这里——此前有十余个控制器各写
+    一遍 ``select(Repository)``，重复且容易漏掉错误码。
+
+    与 :func:`get_repository_by_id` 的区别：那个函数返回**响应 dict**，且附带
+    默认分支同步、物理存在性探测与语言统计——控制器只需要行本身时用这个。
+
+    Args:
+        db: 异步数据库会话
+        repo_id: 仓库 ID
+
+    Returns:
+        Repository: 仓库实体
+
+    Raises:
+        NotFoundException: 仓库不存在
+    """
+    result = await db.execute(select(Repository).filter(Repository.id == repo_id))
+    repo = result.scalar_one_or_none()
+    if repo is None:
+        raise NotFoundException(detail="Repository not found", error_code="repository_not_found")
+    return repo
+
+
+async def fetch_repository_storage_path(db: AsyncSession, repo_id: uuid.UUID) -> str:
+    """取仓库的物理存储路径；仓库不存在抛 404。
+
+    Args:
+        db: 异步数据库会话
+        repo_id: 仓库 ID
+
+    Returns:
+        str: 仓库在存储中的绝对路径
+
+    Raises:
+        NotFoundException: 仓库不存在
+    """
+    repo = await fetch_repository(db, repo_id)
+    return get_repository_storage_path(repo.path)
+
+
+async def fetch_repository_by_path(db: AsyncSession, repo_path: str) -> Repository:
+    """按仓库相对路径取**实体**；不存在抛 404（容忍 ``.git`` 后缀）。
+
+    供 Git hooks 这类「只有路径、没有 id」的内部回调使用。
+
+    Args:
+        db: 异步数据库会话
+        repo_path: 仓库相对路径（``owner/repo``）
+
+    Returns:
+        Repository: 仓库实体
+
+    Raises:
+        NotFoundException: 仓库不存在
+    """
+    path = repo_path[:-4] if repo_path.endswith(".git") else repo_path
+    result = await db.execute(select(Repository).filter(Repository.path == path))
+    repository = result.scalar_one_or_none()
+    if repository is None:
+        raise NotFoundException(
+            detail=f"Repository not found: {path}", error_code="repository_not_found"
+        )
+    return repository
+
+
 async def get_repository_by_id(repo_id: uuid.UUID, db: AsyncSession):
     """
     根据ID获取仓库

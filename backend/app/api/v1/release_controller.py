@@ -10,6 +10,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+from app.services.repository.repository_service import (
+    fetch_repository,
+)
 from app.models.async_db import get_async_db
 from app.models.repository import Repository
 from app.models.user import User
@@ -55,29 +58,6 @@ class AddAssetRequest(BaseModel):
     file_path: str = Field(..., description="文件存储路径")
     file_size: int = Field(..., ge=1, description="文件大小（字节）")
     content_type: Optional[str] = Field(None, description="MIME 类型")
-
-
-async def _get_repo(repo_id: uuid.UUID, db: AsyncSession) -> Repository:
-    """
-    获取仓库实例
-
-    Args:
-        repo_id: 仓库ID
-        db: 数据库会话
-
-    Returns:
-        Repository: 仓库实例
-
-    Raises:
-        NotFoundException: 仓库不存在
-    """
-    result = await db.execute(select(Repository).filter(Repository.id == repo_id))
-    repo = result.scalar_one_or_none()
-    if not repo:
-        raise NotFoundException(detail="Repository not found", error_code="repository_not_found")
-    return repo
-
-
 # ==================== Release CRUD ====================
 
 
@@ -104,7 +84,7 @@ async def list_releases(
     Returns:
         dict: Release 列表和分页信息
     """
-    await _get_repo(repo_id, db)
+    await fetch_repository(db, repo_id)
     return await release_service.list_releases(
         db=db,
         repository_id=repo_id,
@@ -135,7 +115,7 @@ async def create_release(
     Returns:
         dict: 创建的 Release 数据
     """
-    await _get_repo(repo_id, db)
+    await fetch_repository(db, repo_id)
     return await release_service.create_release(
         db=db,
         repository_id=repo_id,
@@ -167,7 +147,7 @@ async def get_release(
     Returns:
         dict: Release 详情（包含附件）
     """
-    await _get_repo(repo_id, db)
+    await fetch_repository(db, repo_id)
     return await release_service.get_release(
         db=db,
         repository_id=repo_id,
@@ -196,7 +176,7 @@ async def update_release(
     Returns:
         dict: 更新后的 Release 数据
     """
-    await _get_repo(repo_id, db)
+    await fetch_repository(db, repo_id)
     return await release_service.update_release(
         db=db,
         repository_id=repo_id,
@@ -225,7 +205,7 @@ async def delete_release(
         db: 数据库会话
         current_user: 当前认证用户
     """
-    await _get_repo(repo_id, db)
+    await fetch_repository(db, repo_id)
     await release_service.delete_release(
         db=db,
         repository_id=repo_id,
@@ -254,7 +234,7 @@ async def get_release_by_tag(
     Returns:
         dict: Release 详情
     """
-    await _get_repo(repo_id, db)
+    await fetch_repository(db, repo_id)
     return await release_service.get_release_by_tag(
         db=db,
         repository_id=repo_id,
@@ -286,7 +266,7 @@ async def add_release_asset(
     Returns:
         dict: 创建的附件数据
     """
-    await _get_repo(repo_id, db)
+    await fetch_repository(db, repo_id)
     return await release_service.add_release_asset(
         db=db,
         repository_id=repo_id,
@@ -320,7 +300,7 @@ async def upload_release_asset(
     Returns:
         dict: 创建的附件元数据
     """
-    await _get_repo(repo_id, db)
+    await fetch_repository(db, repo_id)
     file_data, safe_name, content_type = await release_asset_service.read_upload(file)
     return await release_service.add_release_asset_from_upload(
         db=db,
@@ -351,7 +331,7 @@ async def download_release_asset(
         db: 数据库会话
         current_user: 当前认证用户
     """
-    await _get_repo(repo_id, db)
+    await fetch_repository(db, repo_id)
     asset = await release_service.get_release_asset_for_download(
         db=db,
         repository_id=repo_id,
@@ -384,7 +364,7 @@ async def delete_release_asset(
         db: 数据库会话
         current_user: 当前认证用户
     """
-    await _get_repo(repo_id, db)
+    await fetch_repository(db, repo_id)
     await release_service.delete_release_asset(
         db=db,
         repository_id=repo_id,

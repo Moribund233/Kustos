@@ -24,6 +24,9 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.services.repository.repository_service import (
+    fetch_repository,
+)
 from app.core.exception import AuthenticationException, AuthorizationException, HttpStatusException, NotFoundException, ValidationException
 from app.core.permissions import Action, has_repo_action
 from app.core.config import get_config_value
@@ -111,16 +114,6 @@ async def _load_user_by_token(db: AsyncSession, token: str) -> User:
     if user is None or not user.is_active:
         raise AuthenticationException(detail="用户不存在或已禁用", error_code="user_not_found_inactive")
     return user
-
-
-async def _get_repo_or_404(db: AsyncSession, repository_id: UUID) -> Repository:
-    result = await db.execute(select(Repository).filter(Repository.id == repository_id))
-    repo = result.scalar_one_or_none()
-    if not repo:
-        raise NotFoundException(detail="Repository not found", error_code="repository_not_found")
-    return repo
-
-
 @router.post("/collab/auth")
 async def collab_auth(
     body: CollabAuthRequest, request: Request, db: AsyncSession = Depends(get_async_db)
@@ -135,7 +128,7 @@ async def collab_auth(
     user = await _load_user_by_token(db, body.token)
     repository_id, branch, path = parse_doc_key(body.docKey)
 
-    repo = await _get_repo_or_404(db, repository_id)
+    repo = await fetch_repository(db, repository_id)
 
     # 会话级覆盖层: 踢出即时拒绝; 权限覆盖优先于仓库角色与邀请 token
     override = await get_override(db, body.docKey, user.id)
@@ -185,7 +178,7 @@ async def collab_doc(
     """
     _require_internal_secret(request)
     repository_id, branch, path = parse_doc_key(docKey)
-    repo = await _get_repo_or_404(db, repository_id)
+    repo = await fetch_repository(db, repository_id)
 
     from app.services.repository.repository_browser_service import get_blob_content
     from app.utils.git_utils import get_repository_storage_path
@@ -214,7 +207,7 @@ async def collab_save(
 
     user = await _load_user_by_token(db, body.token)
     repository_id, branch, path = parse_doc_key(body.docKey)
-    repo = await _get_repo_or_404(db, repository_id)
+    repo = await fetch_repository(db, repository_id)
 
     # 会话级覆盖层: 踢出即时拒绝; 权限覆盖优先于仓库角色与邀请 token
     override = await get_override(db, body.docKey, user.id)

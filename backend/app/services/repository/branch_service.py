@@ -72,6 +72,33 @@ async def _materialize_branch_ref(repo: Repository, branch_data: dict) -> Option
         raise ValidationException(detail=str(e), error_code="branch_create_failed")
 
 
+async def ensure_branch_in_repository(
+    db: AsyncSession, branch_id: uuid.UUID, repo_id: uuid.UUID
+) -> None:
+    """确认分支属于指定仓库；否则抛 404。
+
+    提交接口用这个做归属校验——否则可以把提交行挂到**任意**仓库的分支上。
+
+    Args:
+        db: 数据库会话
+        branch_id: 分支 ID
+        repo_id: 仓库 ID
+
+    Raises:
+        NotFoundException: 分支不存在或不属于该仓库
+    """
+    from app.models.branch import Branch
+
+    result = await db.execute(
+        select(Branch).filter(
+            Branch.id == branch_id,
+            Branch.repository_id == repo_id,
+        )
+    )
+    if result.scalar_one_or_none() is None:
+        raise NotFoundException(detail="Branch not found", error_code="branch_not_found")
+
+
 async def get_branches(repo_id: uuid.UUID, db: AsyncSession):
     """
     获取仓库的所有分支

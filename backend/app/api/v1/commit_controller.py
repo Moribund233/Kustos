@@ -22,7 +22,10 @@ from app.services.repository.commit_service import (
     search_commits as service_search_commits,
     get_commits_by_author as service_get_commits_by_author
 )
-from app.services.repository.branch_service import get_branch as service_get_branch
+from app.services.repository.branch_service import (
+    ensure_branch_in_repository,
+    get_branch as service_get_branch,
+)
 from app.core.permissions import Action
 from app.api.guards import require_repo_read, require_repo_permission
 from app.core.constants import (
@@ -199,17 +202,7 @@ async def create_commit(
     # branch_id 必须属于本仓库（否则可经此把提交行挂到任意仓库的分支上）
     branch_id = commit_data.get("branch_id")
     if branch_id is not None:
-        from app.models.branch import Branch
-        from sqlalchemy import select as sa_select
-        from app.core.exception import NotFoundException
-        branch = (
-            await db.execute(sa_select(Branch).filter(
-                Branch.id == branch_id,
-                Branch.repository_id == repo_id,
-            ))
-        ).scalar_one_or_none()
-        if branch is None:
-            raise NotFoundException(detail="Branch not found", error_code="branch_not_found")
+        await ensure_branch_in_repository(db, branch_id, repo_id)
     return await service_create_commit(commit_data, db)
 
 

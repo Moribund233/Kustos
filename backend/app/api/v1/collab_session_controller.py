@@ -16,6 +16,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.services.repository.repository_service import (
+    fetch_repository,
+)
 from app.api.deps import get_current_user
 from app.api.prefixes import get_route_prefix
 from app.core.exception import (
@@ -57,16 +60,6 @@ def _serialize(override) -> dict:
         "scope": override.scope,
         "is_kicked": override.is_kicked,
     }
-
-
-async def _load_repo_or_404(db: AsyncSession, repo_id: uuid.UUID) -> Repository:
-    result = await db.execute(select(Repository).filter(Repository.id == repo_id))
-    repo = result.scalar_one_or_none()
-    if not repo:
-        raise NotFoundException(detail="Repository not found", error_code="repository_not_found")
-    return repo
-
-
 async def _require_host(db: AsyncSession, repo_id: uuid.UUID, user: User) -> None:
     """仅仓库所有者/管理员（会话发起人）可管理会话权限。"""
     if not await has_repo_action(db, user.id, repo_id, Action.COLLAB_MANAGE):
@@ -93,7 +86,7 @@ async def set_session_permission(
     current_user: User = Depends(get_current_user),
 ):
     """改成员权限 / 清空覆盖（scope=null）。"""
-    await _load_repo_or_404(db, repo_id)
+    await fetch_repository(db, repo_id)
     await _require_host(db, repo_id, current_user)
     _require_doc_in_repo(data.doc_key, repo_id)
 
@@ -111,7 +104,7 @@ async def kick_session_member(
     current_user: User = Depends(get_current_user),
 ):
     """踢出成员：即时拒绝其后续鉴权与保存。"""
-    await _load_repo_or_404(db, repo_id)
+    await fetch_repository(db, repo_id)
     await _require_host(db, repo_id, current_user)
     _require_doc_in_repo(data.doc_key, repo_id)
 

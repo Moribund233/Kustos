@@ -57,7 +57,7 @@ flowchart TB
 | 服务层 | `app/services` | 业务规则、事务、权限调用、跨领域编排 | 不解析 HTTP 请求 |
 | 领域基础层 | `app/core`、`app/utils`、`app/models` | 配置、权限、异常、Git、日志、ORM | 不反向依赖控制器 |
 
-> 说明：仓库早期存在控制器直连 ORM 的路径（如 `repository_controller` 的简单查询），但复杂业务均下沉到 service；新增代码应遵循 `controller → service → model`。
+> 说明：**控制器已不再直连 ORM**——`controller → service → model` 由 `backend/tests/test_controller_no_raw_sql.py` 用 AST 强制。唯一例外是**认证层**（`api/deps.py`、`api/guards.py`、`api/ws/auth.py`、LFS 与 Git HTTP 认证端点），因为令牌→用户、仓库可见性这类裁决本就属于「请求进来时你是谁」的判断层；白名单逐个注明了原因，见该测试的 `_AUTH_LAYER_ALLOW`。
 
 ---
 

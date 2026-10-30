@@ -18,6 +18,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.services.repository.repository_service import (
+    fetch_repository_by_path,
+)
 from app.core.exception import AuthorizationException, HttpStatusException, NotFoundException
 from app.models import Repository
 from app.models.async_db import get_async_db
@@ -65,20 +68,6 @@ def _require_hook_secret(request: Request) -> None:
         raise AuthorizationException(
             detail="Git hook 密钥校验失败", error_code="git_hook_invalid_secret"
         )
-
-
-async def _get_repo_or_404(db: AsyncSession, repo_path: str) -> Repository:
-    """按相对路径定位仓库（容忍 .git 后缀）。"""
-    path = repo_path[:-4] if repo_path.endswith(".git") else repo_path
-    result = await db.execute(select(Repository).filter(Repository.path == path))
-    repository = result.scalar_one_or_none()
-    if repository is None:
-        raise NotFoundException(
-            detail=f"Repository not found: {path}", error_code="repository_not_found"
-        )
-    return repository
-
-
 @router.post("/git-internal/pre-receive")
 async def pre_receive(
     request: Request,
@@ -87,7 +76,7 @@ async def pre_receive(
 ):
     """推送前回调：保护分支 + 大小上限裁决。非 2xx 时 hook 拒绝本次推送。"""
     _require_hook_secret(request)
-    repository = await _get_repo_or_404(db, body.repo_path)
+    repository = await fetch_repository_by_path(db, body.repo_path)
     updates = [u.model_dump() for u in body.updates]
 
     reason = await git_event_service.evaluate_pre_receive(
@@ -109,7 +98,7 @@ async def post_receive(
 ):
     """推送后回调：分支对账 + 提交入库 + webhook。失败由 hook 记日志，下推自愈。"""
     _require_hook_secret(request)
-    repository = await _get_repo_or_404(db, body.repo_path)
+    repository = await fetch_repository_by_path(db, body.repo_path)
     updates = [u.model_dump() for u in body.updates]
 
     stats = await git_event_service.handle_post_receive(db, repository, updates)
