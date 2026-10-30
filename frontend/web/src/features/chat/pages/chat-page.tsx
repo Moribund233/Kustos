@@ -2,6 +2,8 @@ import { AtSign, FileText, Paperclip, Pin, Search, Send, Settings, Smile, Users,
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+
+import { currentLocale } from "@/lib/i18n";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
 
@@ -37,12 +39,12 @@ import { useUiStore } from "@/stores/ui-store";
 const MESSAGE_PAGE_SIZE = 30;
 
 /** 实时通道状态文案；idle 表示尚未选中房间或会话未就绪。 */
-const CHANNEL_STATUS_LABEL: Record<RoomChannelStatus, string> = {
-  idle: "实时通道待命",
-  connecting: "正在连接实时通道",
-  open: "实时通道已连接",
-  closed: "实时通道断开，正在重连",
-  error: "实时通道异常，正在重试",
+const CHANNEL_STATUS_KEY: Record<RoomChannelStatus, string> = {
+  idle: "chat.channelIdle",
+  connecting: "chat.channelConnecting",
+  open: "chat.channelOpen",
+  closed: "chat.channelClosed",
+  error: "chat.channelError",
 };
 
 const AVATAR_TONES: AvatarTone[] = ["amber", "sage", "sky", "rose", "slate"];
@@ -221,10 +223,10 @@ export function ChatPage() {
         return;
       }
       if (event.type === "error") {
-        toast.error(typeof event.error === "string" ? event.error : "实时通道报错");
+        toast.error(typeof event.error === "string" ? event.error : t("chat.channelErrorToast"));
       }
     },
-    [queryClient, roomId, markRoomRead],
+    [queryClient, roomId, markRoomRead, t],
   );
 
   const channel = useRoomChannel(roomId, handleRealtimeEvent);
@@ -286,7 +288,7 @@ export function ChatPage() {
     });
     const older = res.data as MessagesPage | null;
     if (!older || older.messages.length === 0) {
-      toast.info("没有更早的消息了。");
+      toast.info(t("chat.noEarlierMessages"));
       return;
     }
     queryClient.setQueryData<MessagesPage>(["messages", roomId, ""], (old) =>
@@ -317,11 +319,11 @@ export function ChatPage() {
       byRepo.set(key, list);
     }
     return [...byRepo.entries()].map(([repoId, list]) => ({
-      repo: repos.find((repo) => repo.id === repoId)?.path ?? "其他仓库",
+      repo: repos.find((repo) => repo.id === repoId)?.path ?? t("chat.otherRepo"),
       active: repoId !== "" && repoId === currentRepo?.id,
       rooms: list,
     }));
-  }, [roomList, unreadMap, repos, roomId, currentRepo]);
+  }, [roomList, unreadMap, repos, roomId, currentRepo, t]);
 
   // bot 置顶（后端 get_members 注释约定），其余按用户名排序
   const sortedMembers = useMemo(
@@ -380,19 +382,19 @@ export function ChatPage() {
                     type="text"
                     value={keyword}
                     onChange={(event) => setKeyword(event.target.value)}
-                    placeholder="在本房间搜索消息…"
-                    aria-label="搜索本房间消息"
+                    placeholder={t("chat.searchInRoom")}
+                    aria-label={t("chat.searchRoomAria")}
                     className="text-bone placeholder:text-muted-2 min-w-0 flex-1 bg-transparent text-xs focus-visible:outline-none"
                   />
                   {search ? (
                     <span className="text-faint shrink-0 font-mono text-2xs">
-                      {loadingMessages ? "搜索中…" : `${messages.length} 条`}
+                      {loadingMessages ? t("chat.searching") : `${messages.length}`}
                     </span>
                   ) : null}
                   <button
                     type="button"
                     onClick={toggleSearch}
-                    aria-label="关闭搜索"
+                    aria-label={t("chat.closeSearch")}
                     className="text-muted-2 hover:text-bone shrink-0 transition-colors"
                   >
                     <X className="size-[13px]" aria-hidden="true" />
@@ -408,18 +410,23 @@ export function ChatPage() {
                       onClick={() => void loadMore()}
                       className="border-edge-2 text-muted hover:border-edge-3 hover:text-bone rounded-md border px-2.5 py-1 text-xs transition-colors"
                     >
-                      加载更早的消息
+                      {t("chat.loadEarlier")}
                     </button>
                   </div>
                 ) : null}
                 <div className="text-faint my-2 flex items-center gap-2.5 font-mono text-2xs uppercase">
                   <span className="bg-edge-1 h-px flex-1" />
-                  今天 · {new Date().toLocaleDateString("zh-CN", { month: "long", day: "numeric" })}
+                  {t("chat.today", {
+                    date: new Date().toLocaleDateString(currentLocale() === "en" ? "en-US" : "zh-CN", {
+                      month: "long",
+                      day: "numeric",
+                    }),
+                  })}
                   <span className="bg-edge-1 h-px flex-1" />
                 </div>
                 {!loadingMessages && messages.length === 0 ? (
                   <p className="text-muted-2 py-6 text-center text-xs">
-                    {search ? `没有匹配「${search}」的消息。` : "本房间还没有消息。"}
+                    {search ? t("chat.noSearchResults", { q: search }) : t("chat.noMessagesYet")}
                   </p>
                 ) : null}
                 {messages.map((message) => (
@@ -449,7 +456,7 @@ export function ChatPage() {
                 connected={channel.status === "open"}
                 onSend={(text) => {
                   if (channel.sendMessage(text)) return true;
-                  toast.error("实时通道未连接，消息未发送。");
+                  toast.error(t("chat.notConnectedToast"));
                   return false;
                 }}
                 onTyping={channel.notifyTyping}
@@ -465,13 +472,13 @@ export function ChatPage() {
                     body: form,
                   });
                   if (!res.ok) {
-                    toast.error("附件上传失败。");
+                    toast.error(t("chat.attachFailed"));
                     return null;
                   }
                   const data = (await res.json()) as { name?: string; url?: string; content_type?: string };
                   if (!data.url) return null;
                   const label = data.name ?? file.name;
-                  toast.success("附件已上传，已插入输入框。");
+                  toast.success(t("chat.attachUploaded"));
                   return data.content_type?.startsWith("image/")
                     ? `![${label}](${data.url})`
                     : `[${label}](${data.url})`;
@@ -481,7 +488,7 @@ export function ChatPage() {
           ) : (
             <div className="flex flex-1 items-center justify-center">
               <p className="text-muted-2 text-sm">
-                {loadingRooms ? "正在加载房间…" : "暂无可访问的频道。"}
+                {loadingRooms ? t("chat.loadingRooms") : t("chat.noAccessibleChannels")}
               </p>
             </div>
           )}
@@ -512,6 +519,7 @@ function ChannelsColumn({
   activeRoomId: string | null;
   onSelect: (roomId: string) => void;
 }) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
   const visible = groups
@@ -523,10 +531,10 @@ function ChannelsColumn({
   const visibleDms = dms.filter((dm) => dm.peer_username.toLowerCase().includes(q));
 
   return (
-    <aside aria-label="频道" className="bg-ink-950/60 border-edge-2 flex min-w-0 flex-col overflow-hidden border-r">
+    <aside aria-label={t("chat.channels")} className="bg-ink-950/60 border-edge-2 flex min-w-0 flex-col overflow-hidden border-r">
       <div className="flex-none px-[13px] pt-4 pb-[11px]">
         <p className="text-faint text-2xs font-semibold tracking-[0.15em] uppercase">Kustos</p>
-        <h1 className="font-display text-bone mt-[5px] text-[1.6rem] leading-none font-medium">聊天</h1>
+        <h1 className="font-display text-bone mt-[5px] text-[1.6rem] leading-none font-medium">{t("chat.title")}</h1>
       </div>
       <div className="flex-none px-[11px] pb-[11px]">
         <div className="border-edge-2 bg-ink-900/70 focus-within:border-amber/40 flex h-[30px] items-center gap-1.5 rounded-md border px-2 transition-colors">
@@ -535,8 +543,8 @@ function ChannelsColumn({
             type="text"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="查找房间…"
-            aria-label="查找房间"
+            placeholder={t("chat.findRoom")}
+            aria-label={t("chat.findRoomAria")}
             className="text-bone placeholder:text-muted-2 min-w-0 flex-1 bg-transparent text-xs focus-visible:outline-none"
           />
         </div>
@@ -544,9 +552,9 @@ function ChannelsColumn({
 
       <div className="min-h-0 flex-1 overflow-y-auto pb-2">
         <section className="px-[7px] pb-2.5">
-          <p className="text-faint px-2 pt-[9px] pb-[5px] text-2xs font-semibold tracking-[0.15em] uppercase">按仓库分组</p>
+          <p className="text-faint px-2 pt-[9px] pb-[5px] text-2xs font-semibold tracking-[0.15em] uppercase">{t("chat.groupByRepo")}</p>
           {visible.length === 0 ? (
-            <p className="text-muted-2 px-2 py-1 text-xs">暂无频道。</p>
+            <p className="text-muted-2 px-2 py-1 text-xs">{t("chat.noChannels")}</p>
           ) : null}
           {visible.map((group) => (
             <div key={group.repo} className="mt-0.5">
@@ -583,14 +591,14 @@ function ChannelsColumn({
 
         <section className="px-[7px] pb-2.5">
           <p className="text-faint flex items-center gap-1 px-2 pt-[9px] pb-[5px] text-2xs font-semibold tracking-[0.15em] uppercase">
-            私聊
+            {t("chat.dmLabel")}
             <span className="ml-auto normal-case">
               <StartDmButton onCreated={onSelect} />
             </span>
           </p>
           {visibleDms.length === 0 ? (
             <p className="text-muted-2 px-2 py-1 text-xs">
-              {dms.length === 0 ? "还没有私聊会话。" : "没有匹配的私聊。"}
+              {dms.length === 0 ? t("chat.noDms") : t("chat.noDmMatch")}
             </p>
           ) : (
             visibleDms.map((dm) => (
@@ -612,7 +620,7 @@ function ChannelsColumn({
           tone={status === "open" ? "good" : status === "connecting" ? "warn" : "bad"}
           live={status === "connecting"}
         />
-        {CHANNEL_STATUS_LABEL[status]}
+        {t(CHANNEL_STATUS_KEY[status])}
       </div>
     </aside>
   );
@@ -684,8 +692,12 @@ function RoomHeader({
   const [settingsOpen, setSettingsOpen] = useState(false);
   // 在线人数来自实时通道；未连上时只报成员总数，不谎报在线
   const summary = dm
-    ? `私聊 · ${onlineCount > 0 ? `${onlineCount} 人在线` : "对方离线"}`
-    : `${room.topic ?? "暂无话题"} · ${memberCount} 名成员${onlineCount > 0 ? ` · ${onlineCount} 在线` : ""}`;
+    ? `${t("chat.dmLabel")} · ${
+        onlineCount > 0 ? t("chat.onlineCount", { count: onlineCount }) : t("chat.offline")
+      }`
+    : `${room.topic ?? t("chat.noTopic")} · ${t("chat.memberCount", { count: memberCount })}${
+        onlineCount > 0 ? ` · ${t("chat.onlineShort", { count: onlineCount })}` : ""
+      }`;
   return (
     <header className="bg-ink-950/50 border-edge-2 flex flex-none items-center justify-between gap-3.5 border-b px-[18px] py-3">
       <div className="min-w-0">
@@ -703,7 +715,7 @@ function RoomHeader({
       <div className="flex flex-none items-center gap-0.5">
         <button
           type="button"
-          aria-label="搜索本房间"
+          aria-label={t("chat.searchRoomAria")}
           aria-pressed={searchActive}
           onClick={onToggleSearch}
           className={cn(
@@ -737,12 +749,13 @@ function RoomHeader({
 
 /** 置顶话题横幅：房间有 topic 才渲染。 */
 function TopicBanner({ topic }: { topic: string | null }) {
+  const { t } = useTranslation();
   if (!topic) return null;
   return (
     <div className="border-amber/20 bg-amber/5 text-muted mx-[18px] mt-2.5 flex flex-none items-center gap-[7px] rounded-md border px-2.5 py-[7px] text-xs">
       <Pin className="text-amber size-[13px] flex-none" aria-hidden="true" />
       <span className="min-w-0 truncate">
-        <strong className="text-amber-2 font-semibold">话题</strong> {topic}
+        <strong className="text-amber-2 font-semibold">{t("chat.topicLabel")}</strong> {topic}
       </span>
     </div>
   );
@@ -783,6 +796,7 @@ function MessageRow({
   onReact?: (emoji: string) => void;
   canReact?: boolean;
 }) {
+  const { t } = useTranslation();
   const [pickerOpen, setPickerOpen] = useState(false);
   const reactions = message.reactions ?? [];
 
@@ -793,7 +807,7 @@ function MessageRow({
         <div className="flex flex-wrap items-center gap-[7px]">
           <strong className="text-bone-2 text-xs font-semibold">{message.author}</strong>
           {message.me ? (
-            <span className="border-edge-2 text-muted-2 inline-flex h-[15px] items-center rounded-full border px-1.5 text-2xs">你</span>
+            <span className="border-edge-2 text-muted-2 inline-flex h-[15px] items-center rounded-full border px-1.5 text-2xs">{t("chat.you")}</span>
           ) : null}
           {message.bot ? (
             <span className="border-amber/30 bg-amber/10 text-amber-2 inline-flex h-[15px] items-center rounded-full border px-1.5 text-2xs">bot</span>
@@ -818,7 +832,7 @@ function MessageRow({
               type="button"
               onClick={() => onReact?.(reaction.emoji)}
               aria-pressed={reaction.active}
-              aria-label={`${reaction.emoji} ${reaction.count} 人`}
+              aria-label={t("chat.reactionAria", { emoji: reaction.emoji, count: reaction.count })}
               className={cn(
                 "inline-flex h-[19px] items-center gap-1 rounded-full border px-1.5 font-mono text-2xs transition-colors",
                 reaction.active
@@ -840,7 +854,7 @@ function MessageRow({
                     onReact?.(emoji);
                     setPickerOpen(false);
                   }}
-                  aria-label={`回应 ${emoji}`}
+                  aria-label={t("chat.reactAria", { emoji })}
                   className="border-edge-2 hover:border-amber/40 hover:bg-amber/10 inline-flex size-[19px] items-center justify-center rounded-full border text-2xs transition-colors"
                 >
                   {emoji}
@@ -852,7 +866,7 @@ function MessageRow({
             type="button"
             onClick={() => setPickerOpen((open) => !open)}
             disabled={!canReact}
-            aria-label="添加表情回应"
+            aria-label={t("chat.addReactionAria")}
             aria-expanded={pickerOpen}
             className="border-edge-2 text-faint hover:border-edge-3 hover:text-bone-2 inline-flex h-[19px] items-center rounded-full border px-1.5 text-2xs transition-colors disabled:opacity-40"
           >
@@ -890,6 +904,7 @@ function Composer({
   /** 上传附件并返回要插入输入框的 Markdown 片段；失败返回 null。 */
   onAttach?: (file: File) => Promise<string | null>;
 }) {
+  const { t } = useTranslation();
   const [draft, setDraft] = useState("");
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -914,8 +929,8 @@ function Composer({
   };
 
   const tools = [
-    { icon: AtSign, label: "提及某人", toast: "在输入框里直接写 @kustos-agent 即可唤起 Agent。" },
-    { icon: Smile, label: "添加表情", toast: "表情回应在消息右侧的微笑按钮里。" },
+    { icon: AtSign, label: t("chat.mentionLabel"), toast: t("chat.mentionToast") },
+    { icon: Smile, label: t("chat.emojiLabel"), toast: t("chat.emojiToast") },
   ];
   return (
     <form
@@ -930,8 +945,8 @@ function Composer({
           rows={1}
           value={draft}
           disabled={!connected}
-          aria-label="消息输入"
-          placeholder={connected ? placeholder : "正在连接实时通道…"}
+          aria-label={t("chat.inputAria")}
+          placeholder={connected ? placeholder : t("chat.connectingPlaceholder")}
           onChange={(event) => {
             setDraft(event.target.value);
             onTyping();
@@ -958,8 +973,8 @@ function Composer({
           />
           <button
             type="button"
-            aria-label="添加附件"
-            title="添加附件"
+            aria-label={t("chat.addAttachment")}
+            title={t("chat.addAttachment")}
             disabled={!connected || uploading || !onAttach}
             onClick={() => fileRef.current?.click()}
             className="text-muted-2 hover:bg-bone/5 hover:text-bone grid size-[25px] place-items-center rounded-md transition-colors disabled:opacity-40"
@@ -978,7 +993,7 @@ function Composer({
             </button>
           ))}
           <span className="text-faint ml-auto mr-1.5 font-mono text-2xs">
-            {connected ? "Enter 发送 · Shift+Enter 换行" : "实时通道未连接"}
+            {connected ? t("chat.sendHint") : t("chat.disconnected")}
           </span>
           <button
             type="submit"
