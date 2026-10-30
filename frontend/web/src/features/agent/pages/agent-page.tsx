@@ -22,6 +22,7 @@ import { Chip, Lamp, SectionHead, StatusPill, ToneAvatar, type Tone } from "@/co
 import type { AgentRun, RunStatus, RunStep, ToolStep } from "@/features/agent/types";
 import { api } from "@/lib/api/client";
 import { useApiMutation, useApiQuery } from "@/lib/api/hooks";
+import i18n from "@/lib/i18n";
 import { Markdown } from "@/lib/markdown/markdown";
 import { cn } from "@/lib/utils";
 import { useRepoStore } from "@/stores/repo-store";
@@ -74,7 +75,7 @@ function errDetail(error: unknown): string {
     const detail = (error as { detail: unknown }).detail;
     if (typeof detail === "string") return detail;
   }
-  return "请求失败，请稍后重试。";
+  return i18n.t("agent.requestFailed");
 }
 
 async function fetchJobs(repoId: string): Promise<AgentJobDto[]> {
@@ -144,17 +145,17 @@ function isActiveStatus(status: string): boolean {
 function statusMeta(status: RunStatus, runningLabel: string): { tone: Tone; live: boolean; label: string } {
   switch (status) {
     case "awaiting_approval":
-      return { tone: "warn", live: true, label: "等待批准" };
+      return { tone: "warn", live: true, label: i18n.t("agent.statusAwaitingApproval") };
     case "running":
       return { tone: "info", live: true, label: runningLabel };
     case "queued":
-      return { tone: "info", live: false, label: "排队中" };
+      return { tone: "info", live: false, label: i18n.t("agent.statusQueued") };
     case "succeeded":
-      return { tone: "good", live: false, label: "已完成" };
+      return { tone: "good", live: false, label: i18n.t("agent.statusSucceeded") };
     case "failed":
-      return { tone: "bad", live: false, label: "失败" };
+      return { tone: "bad", live: false, label: i18n.t("agent.statusFailed") };
     default:
-      return { tone: "neutral", live: false, label: "已取消" };
+      return { tone: "neutral", live: false, label: i18n.t("agent.statusCancelled") };
   }
 }
 
@@ -213,7 +214,10 @@ function mapSteps(dtos: AgentStepDto[], jobStatus: string): RunStep[] {
       const call = [...steps]
         .reverse()
         .find((step): step is ToolStep => step.type === "tool" && step.name === dto.name && !step.result);
-      const summary = `${dto.name ?? "工具"}：${resultSummary(parseData(dto.data))}`;
+      const summary = i18n.t("agent.toolResultSummary", {
+        name: dto.name ?? i18n.t("agent.toolFallback"),
+        summary: resultSummary(parseData(dto.data)),
+      });
       if (call) call.result = resultSummary(parseData(dto.data));
       else steps.push({ type: "note", content: summary });
     } else if (dto.type === "approval_required") {
@@ -221,12 +225,18 @@ function mapSteps(dtos: AgentStepDto[], jobStatus: string): RunStep[] {
       if (jobStatus === "awaiting_approval") {
         const data = parseData(dto.data);
         const args = data && typeof data === "object" && "arguments" in data ? (data as { arguments: unknown }).arguments : data;
-        steps.push({ type: "tool", name: dto.name ?? "write tool", args: argRows(args), result: "等待批准", pending: true });
+        steps.push({
+          type: "tool",
+          name: dto.name ?? i18n.t("agent.writeTool"),
+          args: argRows(args),
+          result: i18n.t("agent.statusAwaitingApproval"),
+          pending: true,
+        });
       }
     } else if (dto.type === "assistant") {
       steps.push({ type: "assistant", content: dto.content ?? "" });
     } else if (dto.type === "error") {
-      steps.push({ type: "error", content: dto.content ?? "运行失败" });
+      steps.push({ type: "error", content: dto.content ?? i18n.t("agent.runFailed") });
     }
   }
   return steps;
@@ -236,11 +246,11 @@ function mapSteps(dtos: AgentStepDto[], jobStatus: string): RunStep[] {
 function formatRelative(iso: string | null): string {
   if (!iso) return "—";
   const minutes = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
-  if (minutes < 1) return "刚刚";
-  if (minutes < 60) return `${minutes} 分钟前`;
+  if (minutes < 1) return i18n.t("agent.justNow");
+  if (minutes < 60) return i18n.t("agent.minutesAgo", { count: minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} 小时前`;
-  return `${Math.floor(hours / 24)} 天前`;
+  if (hours < 24) return i18n.t("agent.hoursAgo", { count: hours });
+  return i18n.t("agent.daysAgo", { count: Math.floor(hours / 24) });
 }
 
 /** 时长：22s / 2m 14s；未开跑显示 —。 */
@@ -258,10 +268,10 @@ function mapJob(dto: AgentJobDto, repoName: string, steps: RunStep[] = []): Agen
   const pending = dto.pending_approval;
   return {
     id: dto.id,
-    title: (dto.prompt.split("\n")[0] ?? "").slice(0, 48) || "未命名运行",
+    title: (dto.prompt.split("\n")[0] ?? "").slice(0, 48) || i18n.t("agent.untitledRun"),
     repo: repoName,
     status: mapStatus(dto.status),
-    model: dto.model ?? "实例默认",
+    model: dto.model ?? i18n.t("agent.instanceDefault"),
     session: dto.session_id.slice(0, 8),
     created: formatRelative(dto.created_at),
     duration: formatDuration(dto.started_at, dto.finished_at),
@@ -275,8 +285,8 @@ function mapJob(dto: AgentJobDto, repoName: string, steps: RunStep[] = []): Agen
         ? {
             tool: pending.tool,
             args: argRows(pending.arguments),
-            reason: "向仓库写文件属于写操作。Kustos 在此暂停，等你决定。",
-            note: "尚未写入任何内容。批准后作业继续执行，拒绝则该写入不会发生。",
+            reason: i18n.t("agent.writeReason"),
+            note: i18n.t("agent.writeNote"),
           }
         : undefined,
   };
@@ -351,8 +361,8 @@ export function AgentPage() {
     {
       onSuccess: (_data, action) => {
         invalidate();
-        if (action === "approve") toast.success("已批准写入，作业继续执行。");
-        else toast("已拒绝写入，该写入不会发生。");
+        if (action === "approve") toast.success(t("agent.approvedToast"));
+        else toast(t("agent.rejectedToast"));
       },
       onError: (error) => toast.error(errDetail(error)),
     },
@@ -361,7 +371,7 @@ export function AgentPage() {
   const cancel = useApiMutation<void, void>(() => cancelJob(repo!.id, jobId!), {
     onSuccess: () => {
       invalidate();
-      toast("已取消运行。");
+      toast(t("agent.cancelledToast"));
     },
     onError: (error) => toast.error(errDetail(error)),
   });
@@ -373,7 +383,7 @@ export function AgentPage() {
         if (repo) void queryClient.invalidateQueries({ queryKey: ["agent-jobs", repo.id] });
         setComposing(false);
         setSearchParams({ job: job.id });
-        toast.success("新运行已排队。");
+        toast.success(t("agent.queuedToast"));
       },
       onError: (error) => toast.error(errDetail(error)),
     },
@@ -384,8 +394,8 @@ export function AgentPage() {
       <div className="border-edge-2 bg-ink-900/60 mx-auto grid h-[calc(100vh_-_190px)] min-h-[640px] w-full max-w-[1560px] place-items-center rounded-[14px] border">
         <div className="text-muted-2 flex flex-col items-center gap-2.5 text-center">
           <Bot className="text-faint size-7" aria-hidden="true" />
-          <strong className="text-bone-2 text-sm font-medium">未选择仓库</strong>
-          <span className="max-w-[34ch] text-xs">Agent 作业按仓库隔离，先在侧栏选一个仓库。</span>
+          <strong className="text-bone-2 text-sm font-medium">{t("agent.noRepo")}</strong>
+          <span className="max-w-[34ch] text-xs">{t("agent.noRepoHint")}</span>
         </div>
       </div>
     );
@@ -417,7 +427,7 @@ export function AgentPage() {
   return (
     <div className="border-edge-2 bg-ink-900/60 mx-auto grid h-[calc(100vh_-_190px)] min-h-[640px] w-full max-w-[1560px] grid-cols-[252px_minmax(0,1fr)] overflow-hidden rounded-[14px] border">
       {/* 左栏：运行列表 */}
-      <aside className="border-edge-2 bg-ink-850/40 flex min-w-0 flex-col overflow-hidden border-r" aria-label="Agent 运行列表">
+      <aside className="border-edge-2 bg-ink-850/40 flex min-w-0 flex-col overflow-hidden border-r" aria-label={t("agent.runListAria")}>
         <div className="border-edge-2 flex flex-none items-end justify-between gap-2.5 border-b px-3.5 pt-4 pb-3">
           <div className="min-w-0">
             <p className="text-faint text-2xs font-semibold tracking-[0.16em] uppercase">KUSTOS</p>
@@ -433,7 +443,7 @@ export function AgentPage() {
           </button>
         </div>
 
-        <div className="border-edge-1 flex flex-none gap-1.5 border-b px-2.5 py-2.5" role="group" aria-label="运行状态筛选">
+        <div className="border-edge-1 flex flex-none gap-1.5 border-b px-2.5 py-2.5" role="group" aria-label={t("agent.statusFilterAria")}>
           <Chip active={filter === "active"} onClick={() => setFilter("active")}>
             {t("agent.running")}
             <span className="font-mono text-2xs">{activeCount}</span>
@@ -468,7 +478,7 @@ export function AgentPage() {
           ))}
           {!groups.length ? (
             <p className="text-muted-2 px-3 py-6 text-center text-xs">
-              {jobsQuery.isLoading ? "加载中…" : filter === "active" ? "暂无进行中的运行" : "暂无历史运行"}
+              {jobsQuery.isLoading ? t("common.loading") : filter === "active" ? t("agent.noActiveRuns") : t("agent.noHistoryRuns")}
             </p>
           ) : null}
         </div>
@@ -476,10 +486,10 @@ export function AgentPage() {
         <div className="border-edge-2 text-muted-2 flex flex-none items-center gap-1.5 border-t px-3 py-[9px] text-2xs">
           <Lamp tone={awaiting ? "warn" : "good"} live={Boolean(awaiting)} className="size-[5px]" />
           {awaiting
-            ? `${activeCount} 个进行中 · ${awaiting} 个等待批准`
+            ? t("agent.activeSummary", { active: activeCount, awaiting })
             : activeCount
-              ? `${activeCount} 个进行中 · 无待批准`
-              : "暂无进行中的运行"}
+              ? t("agent.activeNoAwaiting", { active: activeCount })
+              : t("agent.noActiveRuns")}
         </div>
       </aside>
 
@@ -502,8 +512,8 @@ export function AgentPage() {
       ) : (
         <div className="text-muted-2 flex flex-col items-center justify-center gap-2.5 p-10 text-center">
           <Bot className="text-faint size-7" aria-hidden="true" />
-          <strong className="text-bone-2 text-sm font-medium">未选中运行</strong>
-          <span className="max-w-[34ch] text-xs">从左侧列表里挑一个运行，或新建一个。</span>
+          <strong className="text-bone-2 text-sm font-medium">{t("agent.noSelection")}</strong>
+          <span className="max-w-[34ch] text-xs">{t("agent.noSelectionHint")}</span>
         </div>
       )}
     </div>
@@ -512,7 +522,8 @@ export function AgentPage() {
 
 /** 列表项：状态灯 + 标题 + ID + 元信息 + 状态胶囊。 */
 function RunItem({ run, active, onSelect }: { run: AgentRun; active: boolean; onSelect: () => void }) {
-  const meta = statusMeta(run.status, "执行中");
+  const { t } = useTranslation();
+  const meta = statusMeta(run.status, t("agent.running"));
   return (
     <button
       type="button"
@@ -611,10 +622,10 @@ function RunDetail({
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-[18px] py-[17px]">
         {/* 提问 */}
         <div className="border-edge-1 bg-ink-850/45 grid grid-cols-[29px_minmax(0,1fr)] gap-2.5 rounded-[10px] border px-3 py-[11px]">
-          <ToneAvatar initials="我" tone="amber" size="sm" />
+          <ToneAvatar initials={t("agent.me")} tone="amber" size="sm" />
           <div className="min-w-0">
             <div className="flex items-center gap-[7px]">
-              <span className="text-bone-2 text-sm font-semibold">我</span>
+              <span className="text-bone-2 text-sm font-semibold">{t("agent.me")}</span>
               <span className="text-muted-2 font-mono text-2xs">{run.created}</span>
             </div>
             <p className="text-bone-2 mt-1.5 text-sm leading-[1.62]">{run.prompt}</p>
@@ -644,7 +655,7 @@ function RunDetail({
                 run.streaming ? (
                   <span className="text-amber inline-flex items-center gap-1.5">
                     <Lamp tone="warn" live />
-                    流式输出中
+                    {t("agent.streaming")}
                   </span>
                 ) : (
                   run.model
@@ -673,10 +684,10 @@ function RunDetail({
             </span>
             <div className="min-w-0">
               <strong className="text-bone block text-sm font-semibold">{t("agent.awaitingApproval")}</strong>
-              <span className="text-muted-2 block text-2xs">写工具 · 任务已暂停</span>
+              <span className="text-muted-2 block text-2xs">{t("agent.writeToolPaused")}</span>
             </div>
             <StatusPill tone="warn" className="ml-auto h-[19px] px-[7px] text-2xs">
-              已阻塞
+              {t("agent.blocked")}
             </StatusPill>
           </div>
           <div className="flex flex-col gap-[9px] px-3 py-[11px]">
@@ -716,14 +727,14 @@ function RunDetail({
               <X className="size-[13px]" aria-hidden="true" />
               {t("agent.reject")}
             </button>
-            <span className="text-faint ml-auto text-2xs">没有你的决定，任何写入都不会发生。</span>
+            <span className="text-faint ml-auto text-2xs">{t("agent.noWriteWithoutDecision")}</span>
           </div>
         </div>
       ) : null}
       {!pending && run.status === "awaiting_approval" ? (
         <div className="border-edge-2 text-muted-2 flex flex-none items-center gap-2 border-t px-[18px] py-3 text-2xs">
           <Lamp tone="warn" live className="size-[5px]" />
-          运行停在批准闸门上。批准或拒绝上方的写工具以继续。
+          {t("agent.pausedAtGate")}
         </div>
       ) : null}
     </div>
@@ -732,6 +743,7 @@ function RunDetail({
 
 /** 轨迹中的一步：图标 + 名称 + 结果摘要 + 参数 well 块。 */
 function StepRow({ step }: { step: RunStep }) {
+  const { t } = useTranslation();
   if (step.type === "tool") {
     const Icon = toolIcon(step.name);
     return (
@@ -750,7 +762,7 @@ function StepRow({ step }: { step: RunStep }) {
             <span className="text-bone-2 font-mono text-xs">{step.name}</span>
             {step.pending ? (
               <StatusPill tone="warn" lamp live className="h-[17px] px-1.5 text-2xs">
-                待审批
+                {t("agent.pendingApprovalChip")}
               </StatusPill>
             ) : null}
             <span className="text-faint ml-auto font-mono text-2xs">{step.result}</span>
@@ -778,7 +790,7 @@ function StepRow({ step }: { step: RunStep }) {
           <AlertTriangle className="size-3" />
         </span>
         <div className="min-w-0 pt-0.5">
-          <span className="text-rose-2 font-mono text-xs">运行失败</span>
+          <span className="text-rose-2 font-mono text-xs">{t("agent.runFailedLabel")}</span>
           <p className="border-rose/[0.22] bg-rose/[0.06] text-rose-2 mt-1.5 max-w-[min(74ch,580px)] rounded-md border px-3 py-2.5 text-sm leading-[1.62]">
             {step.content}
           </p>
@@ -806,6 +818,7 @@ function StepRow({ step }: { step: RunStep }) {
 
 /** 模型用量：提示词 / 缓存 / 回答的三段拆分条；provider 未回传 usage 时整块隐藏。 */
 function TokenUsage({ run }: { run: AgentRun }) {
+  const { t } = useTranslation();
   const { prompt, completion, cached } = run.tokens;
   if (!prompt && !completion && !cached) return null;
   const total = Math.max(prompt + completion, 1);
@@ -814,9 +827,9 @@ function TokenUsage({ run }: { run: AgentRun }) {
   const share = (value: number) => `${Math.round((value / total) * 100)}%`;
 
   return (
-    <section aria-label="模型用量" className="border-edge-2 bg-ink-850/40 mt-4 rounded-[10px] border px-3 py-2.5">
+    <section aria-label={t("agent.usageAria")} className="border-edge-2 bg-ink-850/40 mt-4 rounded-[10px] border px-3 py-2.5">
       <div className="flex items-baseline justify-between gap-2">
-        <h3 className="text-muted-2 text-2xs font-semibold tracking-[0.15em] uppercase">模型用量</h3>
+        <h3 className="text-muted-2 text-2xs font-semibold tracking-[0.15em] uppercase">{t("agent.usageTitle")}</h3>
         <span className="text-bone-2 font-mono text-xs">{k(prompt + completion)} tokens</span>
       </div>
       <div aria-hidden="true" className="bg-bone/5 mt-2 flex h-[5px] overflow-hidden rounded-full">
@@ -826,9 +839,9 @@ function TokenUsage({ run }: { run: AgentRun }) {
       </div>
       <dl className="mt-1.5 grid grid-cols-3 gap-2">
         {[
-          { label: "提示词", value: k(prompt) },
-          { label: "回答", value: k(completion) },
-          { label: "命中缓存", value: k(cached) },
+          { label: t("agent.usagePrompt"), value: k(prompt) },
+          { label: t("agent.usageCompletion"), value: k(completion) },
+          { label: t("agent.usageCached"), value: k(cached) },
         ].map((item) => (
           <div key={item.label}>
             <dt className="text-faint text-2xs">{item.label}</dt>
@@ -863,7 +876,7 @@ function NewRunForm({
         {t("agent.startRun")}
       </h2>
       <p className="text-muted mt-1.5 max-w-[60ch] text-xs leading-[1.55]">
-        Kustos 通过工具读取仓库。写操作会在批准前暂停。
+        {t("agent.repoAccessHint")}
       </p>
 
       <form
@@ -875,41 +888,41 @@ function NewRunForm({
         }}
       >
         <label className="block">
-          <span className="text-bone-2 text-xs font-medium">仓库</span>
+          <span className="text-bone-2 text-xs font-medium">{t("agent.fieldRepo")}</span>
           <span className="border-edge-2 bg-ink-900/60 text-bone mt-1.5 flex h-8 w-full items-center rounded-md border px-2 text-sm">
             {repoName}
           </span>
         </label>
 
         <label className="block">
-          <span className="text-bone-2 text-xs font-medium">提示词</span>
+          <span className="text-bone-2 text-xs font-medium">{t("agent.fieldPrompt")}</span>
           <textarea
             required
             rows={4}
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
-            placeholder="要让 Kustos 调查什么？"
+            placeholder={t("agent.promptPlaceholder")}
             className="border-edge-2 bg-ink-900 text-bone mt-1.5 block w-full rounded-md border px-2.5 py-2 text-sm leading-relaxed focus-visible:outline-none transition-colors placeholder:text-muted-2 focus:border-amber/45"
           />
           <span className="text-faint mt-1 block text-2xs">
-            越具体越好。Kustos 能搜索代码、读文件、看 diff，也能在批准后写文件。
+            {t("agent.promptHint")}
           </span>
         </label>
 
         <div className="block">
-          <span className="text-bone-2 text-xs font-medium">模型</span>
+          <span className="text-bone-2 text-xs font-medium">{t("agent.fieldModel")}</span>
           {/* shortcut: 后端无面向用户的模型目录端点，只支持实例默认；有目录端点后再恢复选择器 */}
           <span className="border-edge-1 bg-ink-900 text-muted mt-1.5 flex h-8 items-center rounded-md border px-2.5 text-sm">
-            实例默认（由实例的 Agent provider 配置决定）
+            {t("agent.instanceDefaultHint")}
           </span>
         </div>
 
         <label className="flex cursor-not-allowed items-start gap-2">
           <input type="checkbox" checked disabled className="accent-amber mt-0.5 size-[14px]" />
           <span className="text-bone-2 text-sm leading-[1.5]">
-            允许写工具
+            {t("agent.allowWriteTools")}
             <span className="text-faint mt-0.5 block text-2xs">
-              写工具始终逐次审批，作业发起后不可更改。
+              {t("agent.writeToolsHint")}
             </span>
           </span>
         </label>
@@ -927,7 +940,7 @@ function NewRunForm({
             onClick={onCancel}
             className="border-edge-2 bg-ink-750/55 hover:border-edge-3 hover:bg-ink-750 text-bone-2 inline-flex h-8 items-center rounded-md border px-3 text-sm font-medium transition-colors"
           >
-            取消
+            {t("common.cancel")}
           </button>
         </div>
       </form>
