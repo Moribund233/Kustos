@@ -246,7 +246,7 @@ export function RoomSettingsDialog({
                       <>
                         <select
                           value={member.role}
-                          aria-label={`${member.username} 的角色`}
+                          aria-label={t("common.roleOf", { name: member.username })}
                           onChange={(event) =>
                             memberAction.mutate({
                               userId: member.user_id,

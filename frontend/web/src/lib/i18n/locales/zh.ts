@@ -45,6 +45,7 @@ export default {
     noNotifications: "暂无通知",
     allMarkedRead: "通知已全部标记为已读。",
     newAction: "新建",
+    roleOf: "{{name}} 的角色",
     notImplemented: "页面尚未实现。",
   },
   nav: {

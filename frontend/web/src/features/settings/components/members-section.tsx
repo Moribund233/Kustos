@@ -163,7 +163,7 @@ export function MembersSection({ repoId }: { repoId: string }) {
                     <>
                       <select
                         value={member.role}
-                        aria-label={`${name} 的角色`}
+                        aria-label={t("common.roleOf", { name })}
                         onChange={(event) =>
                           updateMutation.mutate({ userId: member.user_id, body: { role: event.target.value } })
                         }

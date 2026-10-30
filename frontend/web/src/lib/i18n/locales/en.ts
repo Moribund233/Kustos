@@ -45,6 +45,7 @@ export default {
     noNotifications: "No notifications",
     allMarkedRead: "All notifications marked as read.",
     newAction: "New",
+    roleOf: "{{name}} role",
     notImplemented: "This page is not implemented yet.",
   },
   nav: {
