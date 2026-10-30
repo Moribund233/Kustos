@@ -106,7 +106,7 @@ export interface ChatMessage {
   /** 当前用户自己的消息。 */
   me?: boolean;
   time: string;
-  /** Markdown 原文；@kustos-agent 提及由页面高亮。 */
+  /** Markdown 原文；@kustos-agent 提及在 Markdown 渲染时着成胶囊。 */
   body: string;
   /** 表情回应聚合；空表示还没有人回应。 */
   reactions?: { emoji: string; count: number; active: boolean }[];
