@@ -203,7 +203,7 @@ export function ReleasesPage() {
         <h1 className="font-display text-bone text-[clamp(1.7rem,2.6vw,2.3rem)] font-medium tracking-[-0.028em] leading-none">
           Release
         </h1>
-        <p className="text-muted-2 mt-4 text-[12px]">未选择仓库。请先在侧栏选择一个仓库。</p>
+        <p className="text-muted-2 mt-4 text-sm">未选择仓库。请先在侧栏选择一个仓库。</p>
       </div>
     );
   }
@@ -215,16 +215,16 @@ export function ReleasesPage() {
     <div className="mx-auto w-full max-w-[1560px] px-[34px] pt-[30px] pb-20">
       <header className="mb-[22px] flex items-end justify-between gap-8">
         <div className="min-w-0">
-          <p className="text-faint text-[10.5px] font-semibold tracking-[0.16em] uppercase">{repo.name}</p>
+          <p className="text-faint text-xs font-semibold tracking-[0.16em] uppercase">{repo.name}</p>
           <div className="mt-1.5 flex items-center gap-3">
             <h1 className="font-display text-bone text-[clamp(1.7rem,2.6vw,2.3rem)] font-medium tracking-[-0.028em] leading-none">
               Release
             </h1>
-            <span className="border-edge-2 text-muted inline-flex h-[19px] items-center rounded-full border px-2 font-mono text-[10px]">
+            <span className="border-edge-2 text-muted inline-flex h-[19px] items-center rounded-full border px-2 font-mono text-2xs">
               {total}
             </span>
           </div>
-          <nav className="mt-3 flex items-center gap-2 text-[11px]" aria-label="仓库页">
+          <nav className="mt-3 flex items-center gap-2 text-xs" aria-label="仓库页">
             <Link to="/code" className="text-muted-2 hover:text-amber-2 transition-colors">
               {repo.path}
             </Link>
@@ -253,7 +253,7 @@ export function ReleasesPage() {
       <div className="border-edge-2 bg-ink-900/50 overflow-hidden rounded-[12px] border">
         <div className="border-edge-2 flex items-center gap-2.5 border-b px-4 py-2.5">
           <Lamp tone={releases.length ? "good" : "neutral"} />
-          <span className="text-muted-2 font-mono text-[10px]">
+          <span className="text-muted-2 font-mono text-2xs">
             {listQuery.isLoading ? "加载中…" : `显示 ${releases.length} / 共 ${total} 条`}
           </span>
           <span className="from-edge-1 ml-auto h-px flex-1 bg-gradient-to-r to-transparent" aria-hidden="true" />
@@ -261,14 +261,14 @@ export function ReleasesPage() {
 
         {listQuery.isError ? (
           <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
-            <p className="text-bone-2 text-[12px] font-medium">Release 列表加载失败。</p>
-            <p className="text-muted-2 text-[10.5px]">{listQuery.error?.message}</p>
+            <p className="text-bone-2 text-sm font-medium">Release 列表加载失败。</p>
+            <p className="text-muted-2 text-xs">{listQuery.error?.message}</p>
             <Button size="sm" variant="secondary" onClick={() => void listQuery.refetch()}>
               重试
             </Button>
           </div>
         ) : releases.length === 0 && !listQuery.isLoading ? (
-          <p className="text-muted-2 px-4 py-12 text-center text-[11.5px]">
+          <p className="text-muted-2 px-4 py-12 text-center text-xs">
             还没有发布版本。新建一个 Release 会同时打上 Git 标签。
           </p>
         ) : (
@@ -276,28 +276,28 @@ export function ReleasesPage() {
             {releases.map((release) => (
               <li key={release.id} className="border-edge-1 border-b px-4 py-3.5 last:border-b-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-amber-2 inline-flex items-center gap-1.5 font-mono text-[12px]">
+                  <span className="text-amber-2 inline-flex items-center gap-1.5 font-mono text-sm">
                     <Tag className="size-[13px]" aria-hidden="true" />
                     {release.tag_name}
                   </span>
-                  <span className="text-bone-2 text-[13px] font-medium">{release.name}</span>
+                  <span className="text-bone-2 text-base font-medium">{release.name}</span>
                   {release.is_draft ? (
-                    <span className="border-edge-2 text-muted-2 inline-flex h-[17px] items-center rounded-full border px-1.5 text-[9px]">
+                    <span className="border-edge-2 text-muted-2 inline-flex h-[17px] items-center rounded-full border px-1.5 text-2xs">
                       草稿
                     </span>
                   ) : null}
                   {release.is_prerelease ? (
-                    <span className="border-amber/30 bg-amber/10 text-amber-2 inline-flex h-[17px] items-center rounded-full border px-1.5 text-[9px]">
+                    <span className="border-amber/30 bg-amber/10 text-amber-2 inline-flex h-[17px] items-center rounded-full border px-1.5 text-2xs">
                       预发布
                     </span>
                   ) : null}
-                  <span className="text-faint ml-auto font-mono text-[9.5px]">
+                  <span className="text-faint ml-auto font-mono text-2xs">
                     #{release.release_number} · {release.author?.username ?? "unknown"} ·{" "}
                     {relativeTime(release.created_at)}
                   </span>
                 </div>
                 {release.description ? (
-                  <div className={cn("text-muted mt-2 max-w-[80ch] text-[11.5px] leading-[1.6]")}>
+                  <div className={cn("text-muted mt-2 max-w-[80ch] text-xs leading-[1.6]")}>
                     <Markdown content={release.description} />
                   </div>
                 ) : null}
@@ -309,7 +309,7 @@ export function ReleasesPage() {
                       key={asset.id}
                       type="button"
                       onClick={() => void downloadAsset(release, asset)}
-                      className="border-edge-2 text-muted-2 hover:border-edge-3 hover:text-bone-2 inline-flex h-[20px] items-center gap-1 rounded-full border px-2 font-mono text-[9.5px] transition-colors"
+                      className="border-edge-2 text-muted-2 hover:border-edge-3 hover:text-bone-2 inline-flex h-[20px] items-center gap-1 rounded-full border px-2 font-mono text-2xs transition-colors"
                     >
                       <Paperclip className="size-[10px]" aria-hidden="true" />
                       {asset.name}
@@ -319,7 +319,7 @@ export function ReleasesPage() {
                   <button
                     type="button"
                     onClick={() => pickAssetFile(release)}
-                    className="text-faint hover:text-amber-2 inline-flex h-[20px] items-center gap-1 px-1 font-mono text-[9.5px] transition-colors"
+                    className="text-faint hover:text-amber-2 inline-flex h-[20px] items-center gap-1 px-1 font-mono text-2xs transition-colors"
                   >
                     + 上传附件
                   </button>
@@ -329,7 +329,7 @@ export function ReleasesPage() {
           </ul>
         )}
 
-        <div className="border-edge-2 text-faint flex items-center gap-2 border-t px-4 py-2 font-mono text-[10px]">
+        <div className="border-edge-2 text-faint flex items-center gap-2 border-t px-4 py-2 font-mono text-2xs">
           <button
             type="button"
             disabled={!listQuery.data?.has_prev}
@@ -437,7 +437,7 @@ function CreateReleaseDialog({
               value={description}
               onChange={setDescription}
               placeholder="发布说明（Markdown）…"
-              className="text-bone px-2.5 py-2 text-[11px]"
+              className="text-bone px-2.5 py-2 text-xs"
             />
           </div>
           <div className="flex items-center gap-1.5">

@@ -118,11 +118,11 @@ export function CapabilitiesPanel() {
   return (
     <div className="grid gap-3.5 lg:grid-cols-2">
       <section className="border-edge-1 bg-ink-850/40 rounded-[10px] border p-4">
-        <h3 className="text-bone text-[12.5px] font-semibold">{t("admin.capAgent")}</h3>
+        <h3 className="text-bone text-sm font-semibold">{t("admin.capAgent")}</h3>
         {errorText(keyQuery.error, t) ? (
-          <p className="text-muted-2 mt-2 text-[11px]">{errorText(keyQuery.error, t)}</p>
+          <p className="text-muted-2 mt-2 text-xs">{errorText(keyQuery.error, t)}</p>
         ) : (
-          <div className="mt-2 flex flex-col gap-1.5 text-[11px]">
+          <div className="mt-2 flex flex-col gap-1.5 text-xs">
             <p className="text-muted-2">
               {t("admin.capKey")}{" "}
               <span className={keyQuery.data?.configured ? "text-sage" : "text-amber-2"}>
@@ -139,7 +139,7 @@ export function CapabilitiesPanel() {
               <span className="text-bone-2 font-mono">{usage?.tokens ?? 0}</span> tokens
             </p>
             {usageQuery.data?.tools?.length ? (
-              <p className="text-faint text-[10.5px]">
+              <p className="text-faint text-xs">
                 {t("admin.toolCalls")}
                 {usageQuery.data.tools.slice(0, 6).map((tool) => `${tool.name}×${tool.calls}`).join(" · ")}
               </p>
@@ -149,11 +149,11 @@ export function CapabilitiesPanel() {
       </section>
 
       <section className="border-edge-1 bg-ink-850/40 rounded-[10px] border p-4">
-        <h3 className="text-bone text-[12.5px] font-semibold">{t("admin.capSearch")}</h3>
+        <h3 className="text-bone text-sm font-semibold">{t("admin.capSearch")}</h3>
         {errorText(indexQuery.error, t) ? (
-          <p className="text-muted-2 mt-2 text-[11px]">{errorText(indexQuery.error, t)}</p>
+          <p className="text-muted-2 mt-2 text-xs">{errorText(indexQuery.error, t)}</p>
         ) : (
-          <div className="mt-2 flex flex-col gap-1.5 text-[11px] text-muted-2">
+          <div className="mt-2 flex flex-col gap-1.5 text-xs text-muted-2">
             <p>
               {t("admin.repos")}<span className="text-bone-2 font-mono">{indexQuery.data?.totals?.repos ?? 0}</span> · {t("admin.inSync")}{" "}
               <span className="text-sage font-mono">{indexQuery.data?.totals?.in_sync ?? 0}</span> · {t("admin.behind")}{" "}
@@ -171,14 +171,14 @@ export function CapabilitiesPanel() {
       </section>
 
       <section className="border-edge-1 bg-ink-850/40 rounded-[10px] border p-4">
-        <h3 className="text-bone text-[12.5px] font-semibold">{t("admin.capRedis")}</h3>
+        <h3 className="text-bone text-sm font-semibold">{t("admin.capRedis")}</h3>
         {errorText(redisQuery.error, t) ? (
-          <p className="text-muted-2 mt-2 text-[11px]">{errorText(redisQuery.error, t)}</p>
+          <p className="text-muted-2 mt-2 text-xs">{errorText(redisQuery.error, t)}</p>
         ) : (
-          <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-2">
+          <div className="mt-2 flex items-center gap-2 text-xs text-muted-2">
             <Lamp tone={redisQuery.data?.reachable ? "good" : "bad"} />
             <span>{redisQuery.data ? (redisQuery.data.reachable ? t("admin.reachable") : t("admin.unreachable")) : "—"}</span>
-            <span className="border-edge-1 text-muted rounded-full border px-2 py-0.5 font-mono text-[10px]">
+            <span className="border-edge-1 text-muted rounded-full border px-2 py-0.5 font-mono text-2xs">
               {redisQuery.data?.latency_ms ?? "—"} ms
             </span>
             <span className="font-mono">{redisQuery.data?.server?.version ?? ""}</span>
@@ -187,13 +187,13 @@ export function CapabilitiesPanel() {
       </section>
 
       <section className="border-edge-1 bg-ink-850/40 rounded-[10px] border p-4">
-        <h3 className="text-bone text-[12.5px] font-semibold">{t("admin.capMetrics")}</h3>
+        <h3 className="text-bone text-sm font-semibold">{t("admin.capMetrics")}</h3>
         {errorText(metricsQuery.error, t) ? (
-          <p className="text-muted-2 mt-2 text-[11px]">{errorText(metricsQuery.error, t)}</p>
+          <p className="text-muted-2 mt-2 text-xs">{errorText(metricsQuery.error, t)}</p>
         ) : (
           <>
             <Sparkline points={points} />
-            <p className="text-faint mt-1 font-mono text-[9.5px]">
+            <p className="text-faint mt-1 font-mono text-2xs">
               {points.length} {t("admin.points")} · {t("admin.source")} {metricsQuery.data?.source ?? "—"} · {t("admin.peakRpm")}{" "}
               {points.length ? Math.max(...points.map((point) => point.rpm)).toFixed(1) : "—"}
             </p>
@@ -202,14 +202,14 @@ export function CapabilitiesPanel() {
       </section>
 
       <section className="border-edge-1 bg-ink-850/40 rounded-[10px] border p-4 lg:col-span-2">
-        <h3 className="text-bone text-[12.5px] font-semibold">{t("admin.logCleanup")}</h3>
-        <p className="text-muted-2 mt-1 text-[11px]">{t("admin.logCleanupHint")}</p>
+        <h3 className="text-bone text-sm font-semibold">{t("admin.logCleanup")}</h3>
+        <p className="text-muted-2 mt-1 text-xs">{t("admin.logCleanupHint")}</p>
         <div className="mt-2 flex items-center gap-2">
           <Input
             value={retention}
             onChange={(event) => setRetention(event.target.value)}
             aria-label={t("admin.retentionDays")}
-            className="h-8 w-24 text-[11px]"
+            className="h-8 w-24 text-xs"
           />
           <Button
             size="sm"
@@ -228,7 +228,7 @@ export function CapabilitiesPanel() {
 function Sparkline({ points }: { points: MetricsPoint[] }) {
   const { t } = useTranslation();
   if (points.length < 2) {
-    return <p className="text-muted-2 mt-2 text-[11px]">{t("admin.noSamples")}</p>;
+    return <p className="text-muted-2 mt-2 text-xs">{t("admin.noSamples")}</p>;
   }
   const width = 320;
   const height = 72;

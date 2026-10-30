@@ -36,12 +36,12 @@ export function RepoStatsRow({ repoId }: { repoId: string }) {
 
   return (
     <section className="border-edge-2 bg-ink-900/50 rounded-[12px] border p-5">
-      <h2 className="text-bone text-[13px] font-semibold">{t("settings.stats")}</h2>
+      <h2 className="text-bone text-base font-semibold">{t("settings.stats")}</h2>
       <div className="mt-4 grid grid-cols-5 gap-3">
         {items.map((item) => (
           <div key={item.label}>
-            <p className="text-muted-2 text-[9.5px] font-semibold tracking-[0.13em] uppercase">{item.label}</p>
-            <p className="text-bone mt-1 font-mono text-[20px] leading-none">{item.value}</p>
+            <p className="text-muted-2 text-2xs font-semibold tracking-[0.13em] uppercase">{item.label}</p>
+            <p className="text-bone mt-1 font-mono text-2xl leading-none">{item.value}</p>
           </div>
         ))}
       </div>

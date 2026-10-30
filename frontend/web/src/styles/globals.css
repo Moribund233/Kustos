@@ -19,8 +19,11 @@
   --color-bone: #f0e7d8;
   --color-bone-2: #d8cdbb;
   --color-muted: #9aa5a7;
-  --color-muted-2: #758185;
-  --color-faint: #536064;
+  /* 灰阶按「同一背景下一律 ≥ 4.5:1」取值：muted-2 与 faint 原先在
+     ink-800 面板上只有 4.32 / 2.66，弱化文本几乎读不出来。抬高后
+     仍保留三级明度差（6.85 / 5.76 / 4.93），层次没被压平。 */
+  --color-muted-2: #8a979c;
+  --color-faint: #7e8b90;
 
   --color-amber: #f2ae5b;
   --color-amber-2: #ffd08a;
@@ -54,6 +57,33 @@
     "PingFang SC", "Microsoft YaHei", "Noto Sans Mono CJK SC", monospace;
 
   --radius-panel: 10px;
+
+  /* 字号刻度。原先全站用 text-[9.5px] 这类任意值，出现过 7.5px 到 13.5px
+     之间十几档半像素，同一层级在不同组件里各调各的。收敛成固定刻度后，
+     「辅助文本 / 正文 / 标题」各对应唯一档位，跨组件自然一致。
+
+     档位按 rem 定义而非 px：浏览器字号设置与页面缩放能真实生效，
+     这是 WCAG 1.4.4（调整文字大小）的要求。 */
+  --text-2xs: 0.625rem; /* 10px —— 元信息、时间戳、计数 */
+  --text-2xs--line-height: 1.45;
+  --text-xs: 0.6875rem; /* 11px —— 表格正文、次要标签 */
+  --text-xs--line-height: 1.5;
+  --text-sm: 0.75rem; /* 12px —— 正文默认、输入框 */
+  --text-sm--line-height: 1.55;
+  --text-base: 0.8125rem; /* 13px —— 强调正文、代码 */
+  --text-base--line-height: 1.6;
+  --text-md: 0.875rem; /* 14px —— 小标题 */
+  --text-md--line-height: 1.5;
+  --text-lg: 1rem; /* 16px —— 区块标题 */
+  --text-lg--line-height: 1.4;
+  --text-xl: 1.25rem; /* 20px —— 页面标题 */
+  --text-xl--line-height: 1.3;
+  --text-2xl: 1.5rem; /* 24px —— 品牌字标 */
+  --text-2xl--line-height: 1.2;
+  --text-3xl: 1.75rem; /* 28px —— 空状态大标题 */
+  --text-3xl--line-height: 1.2;
+  --text-4xl: 2.25rem; /* 36px —— 统计数字、登录页标题 */
+  --text-4xl--line-height: 1.15;
 }
 
 @layer base {
@@ -69,11 +99,55 @@
 
   body {
     @apply bg-ink-1000 text-bone-2 font-sans antialiased;
-    font-size: 13.5px;
+    font-size: 13px;
     line-height: 1.6;
   }
 
   ::selection {
     background: rgba(242, 174, 91, 0.25);
   }
+
+  /* 尊重系统的「减弱动态效果」设置：把动画与过渡压到接近零，
+     但保留 0.01ms 而非 0，确保 transitionend 事件仍会触发，
+     依赖它的逻辑（如 Radix 弹层收尾）不会挂住。 */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* 焦点环。原先只有 components/ui 下的 11 个组件带 focus-visible 样式，
+   业务层的裸 <button>（全站 110 处）与聊天/编辑器的输入框完全没有焦点
+   指示，键盘用户无法判断焦点落点 —— WCAG 2.4.7 要求可见焦点。
+
+   刻意放在 @layer base 之外：Tailwind 的 utilities 层里存在
+   focus-visible:outline-none（输入框用它压掉浏览器默认焦点框），
+   若本规则留在 base 层会被它盖掉。移到顶层后优先级最高，
+   键盘聚焦时任何元素都必然有可见焦点环。
+
+   用 Tailwind 的 ring 机制而非 outline：Chromium 对 :focus-visible
+   匹配的控件会强制绘制原生焦点环，其颜色取自 outline-color 但不受
+   CSS outline 的颜色控制 —— 实测 outline-color 写 #ff0000 !important
+   也无法改变渲染结果。而 ring 走 box-shadow 变量，能精确着色为琥珀，
+   且不会覆盖元素自身的阴影（按钮、输入框都有 focus:shadow-* 反馈）。
+
+   outline: none 只用于压掉原生环，焦点指示改由 ring 承担，
+   两者不会重复。鼠标点击不触发 :focus-visible，因此不会出现
+   「点一下就留一圈」的噪声。 */
+:focus-visible {
+  outline: none;
+  --tw-ring-offset-shadow: 0 0 0 0 var(--tw-ring-offset-color, #0000);
+  --tw-ring-shadow: 0 0 0 calc(2px + var(--tw-ring-offset-width, 0px))
+    var(--tw-ring-color, currentcolor);
+  --tw-ring-color: var(--color-amber);
+  box-shadow:
+    var(--tw-ring-inset,) 0 0 0 var(--tw-ring-offset-width, 0px)
+      var(--tw-ring-offset-color, #0000),
+    var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
 }

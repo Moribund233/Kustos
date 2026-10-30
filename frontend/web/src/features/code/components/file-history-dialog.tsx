@@ -107,17 +107,17 @@ export function FileHistoryDialog({
             aria-label={t("code.historyTitle")}
           >
             {historyQuery.isLoading ? (
-              <p className="text-muted-2 p-3 text-[11.5px]">{t("common.loading")}</p>
+              <p className="text-muted-2 p-3 text-xs">{t("common.loading")}</p>
             ) : historyQuery.error ? (
               <button
                 type="button"
-                className="text-muted-2 hover:text-amber-2 w-full p-3 text-left text-[11.5px] hover:underline"
+                className="text-muted-2 hover:text-amber-2 w-full p-3 text-left text-xs hover:underline"
                 onClick={() => void historyQuery.refetch()}
               >
                 {t("code.historyLoadFailed")}
               </button>
             ) : commits.length === 0 ? (
-              <p className="text-muted-2 p-3 text-[11.5px]">{t("code.noFileCommits")}</p>
+              <p className="text-muted-2 p-3 text-xs">{t("code.noFileCommits")}</p>
             ) : (
               <ul>
                 {commits.map((commit) => (
@@ -130,10 +130,10 @@ export function FileHistoryDialog({
                         commit.sha === activeSha ? "bg-ink-750/60" : "hover:bg-ink-800/50",
                       )}
                     >
-                      <span className="text-bone-2 block truncate text-[11.5px] font-medium">
+                      <span className="text-bone-2 block truncate text-xs font-medium">
                         {summaryOf(commit.message)}
                       </span>
-                      <span className="text-faint mt-1 flex items-center gap-2 font-mono text-[10px]">
+                      <span className="text-faint mt-1 flex items-center gap-2 font-mono text-2xs">
                         <span>{commit.sha.slice(0, 7)}</span>
                         <span>{commit.author.name}</span>
                         <span className="ml-auto">{formatRelative(commit.date)}</span>
@@ -152,20 +152,20 @@ export function FileHistoryDialog({
             {activeCommit ? (
               <>
                 <header className="mb-2">
-                  <p className="text-bone text-[12.5px] font-medium">
+                  <p className="text-bone text-sm font-medium">
                     {summaryOf(activeCommit.message)}
                   </p>
-                  <p className="text-faint mt-1 font-mono text-[10px]">
+                  <p className="text-faint mt-1 font-mono text-2xs">
                     {activeCommit.sha.slice(0, 10)} · {activeCommit.author.name} ·{" "}
                     {formatRelative(activeCommit.date)}
                   </p>
                 </header>
                 {diffQuery.isLoading ? (
-                  <p className="text-muted-2 text-[11.5px]">{t("common.loading")}</p>
+                  <p className="text-muted-2 text-xs">{t("common.loading")}</p>
                 ) : diffQuery.error ? (
                   <button
                     type="button"
-                    className="text-muted-2 hover:text-amber-2 text-[11.5px] hover:underline"
+                    className="text-muted-2 hover:text-amber-2 text-xs hover:underline"
                     onClick={() => void diffQuery.refetch()}
                   >
                     {t("code.diffLoadFailed")}
@@ -175,7 +175,7 @@ export function FileHistoryDialog({
                 ) : null}
               </>
             ) : (
-              <p className="text-faint grid h-full place-items-center text-[11.5px]">
+              <p className="text-faint grid h-full place-items-center text-xs">
                 选择左侧一条提交查看差异。
               </p>
             )}

@@ -23,13 +23,13 @@ export function ActionsPage() {
   return (
     <div className="mx-auto w-full max-w-[1560px] px-[34px] pt-[30px] pb-20">
       <header className="border-edge-1 border-b pb-5">
-        <p className="text-faint text-[10.5px] font-semibold tracking-[0.16em] uppercase">
+        <p className="text-faint text-xs font-semibold tracking-[0.16em] uppercase">
           {repo?.path ?? "—"}
         </p>
         <h1 className="font-display text-bone mt-[7px] text-[clamp(1.75rem,2.5vw,2.3rem)] leading-none font-medium tracking-tight">
           {t("actions.title")}
         </h1>
-        <p className="text-muted-2 mt-2 text-[11.5px]">{t("actions.hint")}</p>
+        <p className="text-muted-2 mt-2 text-xs">{t("actions.hint")}</p>
       </header>
 
       <RepoTabs />
@@ -38,7 +38,7 @@ export function ActionsPage() {
         {repo ? (
           <BuildsSection repoId={repo.id} />
         ) : (
-          <p className="text-muted-2 text-[11.5px]">{t("settings.noRepo")}</p>
+          <p className="text-muted-2 text-xs">{t("settings.noRepo")}</p>
         )}
       </div>
     </div>

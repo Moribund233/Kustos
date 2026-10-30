@@ -106,9 +106,9 @@ export function StartDmDialog({
 
         <div className="border-edge-1 max-h-[280px] min-h-[120px] overflow-auto rounded-md border">
           {usersQuery.isLoading ? (
-            <p className="text-muted-2 p-3 text-[11.5px]">{t("common.loading")}</p>
+            <p className="text-muted-2 p-3 text-xs">{t("common.loading")}</p>
           ) : candidates.length === 0 ? (
-            <p className="text-muted-2 p-3 text-[11.5px]">{t("chat.noCandidates")}</p>
+            <p className="text-muted-2 p-3 text-xs">{t("chat.noCandidates")}</p>
           ) : (
             <ul>
               {candidates.map((item) => (
@@ -119,9 +119,9 @@ export function StartDmDialog({
                     onClick={() => createMutation.mutate(item.id)}
                     className="border-edge-1 hover:bg-ink-800/50 flex w-full items-center gap-2 border-b px-3 py-2 text-left transition-colors last:border-b-0 disabled:opacity-60"
                   >
-                    <span className="text-bone-2 text-[12px] font-medium">{item.username}</span>
+                    <span className="text-bone-2 text-sm font-medium">{item.username}</span>
                     {item.full_name ? (
-                      <span className="text-faint truncate text-[10.5px]">{item.full_name}</span>
+                      <span className="text-faint truncate text-xs">{item.full_name}</span>
                     ) : null}
                   </button>
                 </li>

@@ -57,8 +57,8 @@ export function IssueDetail({ issue, comments, error, onRetry, onToggleStatus, o
   if (!issue) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-1.5 px-4 py-10 text-center">
-        <p className="text-bone-2 text-[13px] font-medium">未选择 Issue</p>
-        <p className="text-muted-2 text-[11px]">调整筛选条件，或从左侧选择一条 Issue。</p>
+        <p className="text-bone-2 text-base font-medium">未选择 Issue</p>
+        <p className="text-muted-2 text-xs">调整筛选条件，或从左侧选择一条 Issue。</p>
       </div>
     );
   }
@@ -66,8 +66,8 @@ export function IssueDetail({ issue, comments, error, onRetry, onToggleStatus, o
   if (error) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2 px-4 py-10 text-center">
-        <p className="text-bone-2 text-[13px] font-medium">加载 Issue 详情失败。</p>
-        <p className="text-muted-2 text-[11px]">{error}</p>
+        <p className="text-bone-2 text-base font-medium">加载 Issue 详情失败。</p>
+        <p className="text-muted-2 text-xs">{error}</p>
         {onRetry ? (
           <Button size="sm" variant="secondary" onClick={onRetry}>
             重试
@@ -97,10 +97,10 @@ export function IssueDetail({ issue, comments, error, onRetry, onToggleStatus, o
               <StatusPill tone={closed ? "default" : "good"} lamp={!closed}>
                 {closed ? t("issue.closed") : t("issue.open")}
               </StatusPill>
-              <span className="text-muted-2 font-mono text-[11px]">#{issue.id}</span>
+              <span className="text-muted-2 font-mono text-xs">#{issue.id}</span>
               <span
                 className={cn(
-                  "inline-flex h-[19px] items-center rounded-full border px-[7px] text-[9.5px] font-medium",
+                  "inline-flex h-[19px] items-center rounded-full border px-[7px] text-2xs font-medium",
                   issue.priority === "high" || issue.priority === "critical"
                     ? "border-rose/30 bg-rose/10 text-rose-2"
                     : issue.priority === "medium"
@@ -114,7 +114,7 @@ export function IssueDetail({ issue, comments, error, onRetry, onToggleStatus, o
             <h2 className="font-display text-bone mt-2 text-[clamp(1.35rem,2vw,1.7rem)] font-medium tracking-[-0.02em] leading-tight">
               {issue.title}
             </h2>
-            <p className="text-muted-2 mt-2 flex flex-wrap items-center gap-1.5 text-[10px]">
+            <p className="text-muted-2 mt-2 flex flex-wrap items-center gap-1.5 text-2xs">
               由 <span className="text-muted">{issue.author.name}</span> 创建于 {issue.opened}
               <span className="text-faint">·</span>
               {timeline.length} 条评论
@@ -139,7 +139,7 @@ export function IssueDetail({ issue, comments, error, onRetry, onToggleStatus, o
 
         {/* 正文 */}
         <div className="max-w-[78ch]">
-          <Markdown content={issue.body} className="mt-5 text-[13px]" />
+          <Markdown content={issue.body} className="mt-5 text-base" />
         </div>
 
         {/* 活动：评论时间线 + 评论编辑器 */}
@@ -161,20 +161,20 @@ export function IssueDetail({ issue, comments, error, onRetry, onToggleStatus, o
                   />
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-[7px]">
-                      <strong className="text-bone-2 text-[11px] font-semibold">{comment.author.name}</strong>
-                      <time className="text-muted-2 font-mono text-[10px]">{comment.time}</time>
+                      <strong className="text-bone-2 text-xs font-semibold">{comment.author.name}</strong>
+                      <time className="text-muted-2 font-mono text-2xs">{comment.time}</time>
                       {comment.author.bot ? (
-                        <span className="border-amber/30 bg-amber/10 text-amber-2 inline-flex h-[17px] items-center rounded-full border px-1.5 text-[9px]">
+                        <span className="border-amber/30 bg-amber/10 text-amber-2 inline-flex h-[17px] items-center rounded-full border px-1.5 text-2xs">
                           agent
                         </span>
                       ) : null}
                     </div>
-                    <Markdown content={comment.body} className="text-muted mt-1.5 max-w-[78ch] text-[11.5px] leading-[1.62]" />
+                    <Markdown content={comment.body} className="text-muted mt-1.5 max-w-[78ch] text-xs leading-[1.62]" />
                   </div>
                 </article>
               ))
             ) : (
-              <p className="text-muted-2 py-6 text-center text-[11px]">还没有评论，来开个头。</p>
+              <p className="text-muted-2 py-6 text-center text-xs">还没有评论，来开个头。</p>
             )}
           </div>
 
@@ -186,13 +186,13 @@ export function IssueDetail({ issue, comments, error, onRetry, onToggleStatus, o
                 value={draft}
                 onChange={setDraft}
                 placeholder="添加评论…"
-                className="text-bone px-2.5 py-2 text-[11px]"
+                className="text-bone px-2.5 py-2 text-xs"
               />
               <div className="border-edge-1 flex items-center gap-[7px] border-t px-2.5 py-1.5">
-                <span className="text-faint mr-auto text-[10px]">
+                <span className="text-faint mr-auto text-2xs">
                   {t("issue.markdownHint")} · 通知按你的偏好发送
                 </span>
-                <Button size="sm" className="h-[26px] px-2.5 text-[11px]" onClick={submitComment}>
+                <Button size="sm" className="h-[26px] px-2.5 text-xs" onClick={submitComment}>
                   {t("issue.comment")}
                 </Button>
               </div>

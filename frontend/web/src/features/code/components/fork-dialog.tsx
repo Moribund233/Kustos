@@ -141,7 +141,7 @@ export function ForkDialog({
 
         {source ? (
           <div className="border-edge-1 flex items-center gap-2 rounded-md border px-3 py-2">
-            <span className="text-muted text-[11.5px]">
+            <span className="text-muted text-xs">
               {t("code.forkedFrom")} <span className="text-bone-2 font-mono">{source.path}</span>
             </span>
             <Button
@@ -158,9 +158,9 @@ export function ForkDialog({
 
         <div className="border-edge-1 max-h-[240px] min-h-[80px] overflow-auto rounded-md border">
           {forksQuery.isLoading ? (
-            <p className="text-muted-2 p-3 text-[11.5px]">{t("common.loading")}</p>
+            <p className="text-muted-2 p-3 text-xs">{t("common.loading")}</p>
           ) : forks.length === 0 ? (
-            <p className="text-muted-2 p-3 text-[11.5px]">{t("code.noForks")}</p>
+            <p className="text-muted-2 p-3 text-xs">{t("code.noForks")}</p>
           ) : (
             <ul>
               {forks.map((fork) => (
@@ -168,10 +168,10 @@ export function ForkDialog({
                   key={fork.id}
                   className="border-edge-1 flex items-center gap-2 border-b px-3 py-2 last:border-b-0"
                 >
-                  <span className="text-bone-2 min-w-0 flex-1 truncate font-mono text-[11px]">
+                  <span className="text-bone-2 min-w-0 flex-1 truncate font-mono text-xs">
                     {fork.path}
                   </span>
-                  <span className="text-faint text-[10px]">{formatRelative(fork.updated_at ?? "")}</span>
+                  <span className="text-faint text-2xs">{formatRelative(fork.updated_at ?? "")}</span>
                 </li>
               ))}
             </ul>
@@ -184,7 +184,7 @@ export function ForkDialog({
             onChange={(event) => setName(event.target.value)}
             placeholder={t("code.forkName")}
             aria-label={t("code.forkName")}
-            className="h-8 font-mono text-[11px]"
+            className="h-8 font-mono text-xs"
           />
           <Button
             size="sm"

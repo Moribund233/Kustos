@@ -16,7 +16,7 @@ const DropdownMenuSubTrigger = React.forwardRef<
   <DropdownMenuPrimitive.SubTrigger
     ref={ref}
     className={cn(
-      "text-muted-2 data-[state=open]:bg-ink-750/60 focus:bg-ink-750/60 focus:text-bone-2 flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-[11.5px] outline-none select-none",
+      "text-muted-2 data-[state=open]:bg-ink-750/60 focus:bg-ink-750/60 focus:text-bone-2 flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-xs outline-none select-none",
       className,
     )}
     {...props}
@@ -132,7 +132,7 @@ const DropdownMenuLabel = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DropdownMenuPrimitive.Label
     ref={ref}
-    className={cn("text-faint px-2 py-1.5 text-[10px] tracking-[0.15em] uppercase", className)}
+    className={cn("text-faint px-2 py-1.5 text-2xs tracking-[0.15em] uppercase", className)}
     {...props}
   />
 ));

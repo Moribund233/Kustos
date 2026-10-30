@@ -382,10 +382,10 @@ export function ChatPage() {
                     onChange={(event) => setKeyword(event.target.value)}
                     placeholder="在本房间搜索消息…"
                     aria-label="搜索本房间消息"
-                    className="text-bone placeholder:text-muted-2 min-w-0 flex-1 bg-transparent text-[11.5px] outline-none"
+                    className="text-bone placeholder:text-muted-2 min-w-0 flex-1 bg-transparent text-xs focus-visible:outline-none"
                   />
                   {search ? (
-                    <span className="text-faint shrink-0 font-mono text-[9.5px]">
+                    <span className="text-faint shrink-0 font-mono text-2xs">
                       {loadingMessages ? "搜索中…" : `${messages.length} 条`}
                     </span>
                   ) : null}
@@ -406,19 +406,19 @@ export function ChatPage() {
                     <button
                       type="button"
                       onClick={() => void loadMore()}
-                      className="border-edge-2 text-muted hover:border-edge-3 hover:text-bone rounded-md border px-2.5 py-1 text-[10.5px] transition-colors"
+                      className="border-edge-2 text-muted hover:border-edge-3 hover:text-bone rounded-md border px-2.5 py-1 text-xs transition-colors"
                     >
                       加载更早的消息
                     </button>
                   </div>
                 ) : null}
-                <div className="text-faint my-2 flex items-center gap-2.5 font-mono text-[9.5px] uppercase">
+                <div className="text-faint my-2 flex items-center gap-2.5 font-mono text-2xs uppercase">
                   <span className="bg-edge-1 h-px flex-1" />
                   今天 · {new Date().toLocaleDateString("zh-CN", { month: "long", day: "numeric" })}
                   <span className="bg-edge-1 h-px flex-1" />
                 </div>
                 {!loadingMessages && messages.length === 0 ? (
-                  <p className="text-muted-2 py-6 text-center text-[11.5px]">
+                  <p className="text-muted-2 py-6 text-center text-xs">
                     {search ? `没有匹配「${search}」的消息。` : "本房间还没有消息。"}
                   </p>
                 ) : null}
@@ -438,7 +438,7 @@ export function ChatPage() {
                 ))}
               </div>
               {channel.typing.length > 0 ? (
-                <p className="text-muted-2 flex flex-none items-center gap-1.5 px-[18px] pb-1 text-[10.5px]">
+                <p className="text-muted-2 flex flex-none items-center gap-1.5 px-[18px] pb-1 text-xs">
                   <Lamp tone="warn" live />
                   {channel.typing.slice(0, 3).join("、")} {t("chat.typing")}…
                 </p>
@@ -480,7 +480,7 @@ export function ChatPage() {
             </>
           ) : (
             <div className="flex flex-1 items-center justify-center">
-              <p className="text-muted-2 text-[12px]">
+              <p className="text-muted-2 text-sm">
                 {loadingRooms ? "正在加载房间…" : "暂无可访问的频道。"}
               </p>
             </div>
@@ -525,7 +525,7 @@ function ChannelsColumn({
   return (
     <aside aria-label="频道" className="bg-ink-950/60 border-edge-2 flex min-w-0 flex-col overflow-hidden border-r">
       <div className="flex-none px-[13px] pt-4 pb-[11px]">
-        <p className="text-faint text-[9.5px] font-semibold tracking-[0.15em] uppercase">Kustos</p>
+        <p className="text-faint text-2xs font-semibold tracking-[0.15em] uppercase">Kustos</p>
         <h1 className="font-display text-bone mt-[5px] text-[1.6rem] leading-none font-medium">聊天</h1>
       </div>
       <div className="flex-none px-[11px] pb-[11px]">
@@ -537,22 +537,22 @@ function ChannelsColumn({
             onChange={(event) => setQuery(event.target.value)}
             placeholder="查找房间…"
             aria-label="查找房间"
-            className="text-bone placeholder:text-muted-2 min-w-0 flex-1 bg-transparent text-[11px] outline-none"
+            className="text-bone placeholder:text-muted-2 min-w-0 flex-1 bg-transparent text-xs focus-visible:outline-none"
           />
         </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto pb-2">
         <section className="px-[7px] pb-2.5">
-          <p className="text-faint px-2 pt-[9px] pb-[5px] text-[9.5px] font-semibold tracking-[0.15em] uppercase">按仓库分组</p>
+          <p className="text-faint px-2 pt-[9px] pb-[5px] text-2xs font-semibold tracking-[0.15em] uppercase">按仓库分组</p>
           {visible.length === 0 ? (
-            <p className="text-muted-2 px-2 py-1 text-[10.5px]">暂无频道。</p>
+            <p className="text-muted-2 px-2 py-1 text-xs">暂无频道。</p>
           ) : null}
           {visible.map((group) => (
             <div key={group.repo} className="mt-0.5">
               <p
                 className={cn(
-                  "flex items-center gap-1.5 px-2 pt-1.5 pb-1 font-mono text-[9.5px]",
+                  "flex items-center gap-1.5 px-2 pt-1.5 pb-1 font-mono text-2xs",
                   group.active ? "text-amber-3" : "text-muted-2",
                 )}
               >
@@ -582,14 +582,14 @@ function ChannelsColumn({
         </section>
 
         <section className="px-[7px] pb-2.5">
-          <p className="text-faint flex items-center gap-1 px-2 pt-[9px] pb-[5px] text-[9.5px] font-semibold tracking-[0.15em] uppercase">
+          <p className="text-faint flex items-center gap-1 px-2 pt-[9px] pb-[5px] text-2xs font-semibold tracking-[0.15em] uppercase">
             私聊
             <span className="ml-auto normal-case">
               <StartDmButton onCreated={onSelect} />
             </span>
           </p>
           {visibleDms.length === 0 ? (
-            <p className="text-muted-2 px-2 py-1 text-[10.5px]">
+            <p className="text-muted-2 px-2 py-1 text-xs">
               {dms.length === 0 ? "还没有私聊会话。" : "没有匹配的私聊。"}
             </p>
           ) : (
@@ -607,7 +607,7 @@ function ChannelsColumn({
         </section>
       </div>
 
-      <div className="border-edge-2 text-muted-2 flex flex-none items-center gap-1.5 border-t px-3 py-[9px] font-mono text-[9.5px]">
+      <div className="border-edge-2 text-muted-2 flex flex-none items-center gap-1.5 border-t px-3 py-[9px] font-mono text-2xs">
         <Lamp
           tone={status === "open" ? "good" : status === "connecting" ? "warn" : "bad"}
           live={status === "connecting"}
@@ -638,16 +638,16 @@ function ChannelItem({
       onClick={onClick}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex h-[29px] w-full items-center gap-[7px] rounded px-2 text-left text-[11.5px] transition-colors",
+        "flex h-[29px] w-full items-center gap-[7px] rounded px-2 text-left text-xs transition-colors",
         active ? "bg-[linear-gradient(90deg,rgba(242,174,91,0.1),rgba(242,174,91,0.02))] text-bone" : "text-muted hover:bg-ink-750/50 hover:text-bone-2",
       )}
     >
-      <span className={cn("font-mono text-[12px]", active ? "text-amber" : "text-faint")}>{prefix}</span>
+      <span className={cn("font-mono text-sm", active ? "text-amber" : "text-faint")}>{prefix}</span>
       <span className="min-w-0 truncate">{name}</span>
       {unread ? (
         <span
           className={cn(
-            "ml-auto inline-grid min-w-4 place-items-center rounded-full px-1 font-mono text-[9px] leading-4",
+            "ml-auto inline-grid min-w-4 place-items-center rounded-full px-1 font-mono text-2xs leading-4",
             active ? "bg-amber/10 text-amber" : "bg-bone/[0.07] text-muted-2",
           )}
         >
@@ -694,11 +694,11 @@ function RoomHeader({
             {dm ? "@" : "#"}
           </span>
           <h2 className="font-display text-bone text-[1.3rem] leading-none font-medium">{room.name}</h2>
-          <span className="border-edge-2 text-muted inline-flex h-[17px] items-center rounded-full border px-[7px] text-[9.5px]">
+          <span className="border-edge-2 text-muted inline-flex h-[17px] items-center rounded-full border px-[7px] text-2xs">
             {dm ? "dm" : "room"}
           </span>
         </div>
-        <p className="text-muted-2 mt-1 truncate text-[11px]">{summary}</p>
+        <p className="text-muted-2 mt-1 truncate text-xs">{summary}</p>
       </div>
       <div className="flex flex-none items-center gap-0.5">
         <button
@@ -739,7 +739,7 @@ function RoomHeader({
 function TopicBanner({ topic }: { topic: string | null }) {
   if (!topic) return null;
   return (
-    <div className="border-amber/20 bg-amber/5 text-muted mx-[18px] mt-2.5 flex flex-none items-center gap-[7px] rounded-md border px-2.5 py-[7px] text-[11px]">
+    <div className="border-amber/20 bg-amber/5 text-muted mx-[18px] mt-2.5 flex flex-none items-center gap-[7px] rounded-md border px-2.5 py-[7px] text-xs">
       <Pin className="text-amber size-[13px] flex-none" aria-hidden="true" />
       <span className="min-w-0 truncate">
         <strong className="text-amber-2 font-semibold">话题</strong> {topic}
@@ -755,7 +755,7 @@ function ChatBody({ content, className }: { content: string; className?: string 
   // 提及前后各成一段 Markdown；段落改 inline 以便与胶囊同行排布
   const parts = content.split(MENTION_PATTERN).filter((part) => part.length > 0);
   return (
-    <div className={cn("text-muted text-[12.5px] leading-[1.62]", className)}>
+    <div className={cn("text-muted text-sm leading-[1.62]", className)}>
       {parts.map((part, index) =>
         part.toLowerCase() === "@kustos-agent" ? (
           <span
@@ -791,14 +791,14 @@ function MessageRow({
       <ToneAvatar initials={message.initials} tone={message.tone} bot={message.bot} size="sm" className="mt-0.5" />
       <div className="min-w-0 pt-px">
         <div className="flex flex-wrap items-center gap-[7px]">
-          <strong className="text-bone-2 text-[11.5px] font-semibold">{message.author}</strong>
+          <strong className="text-bone-2 text-xs font-semibold">{message.author}</strong>
           {message.me ? (
-            <span className="border-edge-2 text-muted-2 inline-flex h-[15px] items-center rounded-full border px-1.5 text-[9px]">你</span>
+            <span className="border-edge-2 text-muted-2 inline-flex h-[15px] items-center rounded-full border px-1.5 text-2xs">你</span>
           ) : null}
           {message.bot ? (
-            <span className="border-amber/30 bg-amber/10 text-amber-2 inline-flex h-[15px] items-center rounded-full border px-1.5 text-[9px]">bot</span>
+            <span className="border-amber/30 bg-amber/10 text-amber-2 inline-flex h-[15px] items-center rounded-full border px-1.5 text-2xs">bot</span>
           ) : null}
-          <time className="text-faint font-mono text-[10px]">{message.time}</time>
+          <time className="text-faint font-mono text-2xs">{message.time}</time>
         </div>
         <ChatBody
           content={message.body}
@@ -820,7 +820,7 @@ function MessageRow({
               aria-pressed={reaction.active}
               aria-label={`${reaction.emoji} ${reaction.count} 人`}
               className={cn(
-                "inline-flex h-[19px] items-center gap-1 rounded-full border px-1.5 font-mono text-[10px] transition-colors",
+                "inline-flex h-[19px] items-center gap-1 rounded-full border px-1.5 font-mono text-2xs transition-colors",
                 reaction.active
                   ? "border-amber/40 bg-amber/10 text-amber-2"
                   : "border-edge-2 text-muted-2 hover:border-edge-3 hover:text-bone-2",
@@ -841,7 +841,7 @@ function MessageRow({
                     setPickerOpen(false);
                   }}
                   aria-label={`回应 ${emoji}`}
-                  className="border-edge-2 hover:border-amber/40 hover:bg-amber/10 inline-flex size-[19px] items-center justify-center rounded-full border text-[10px] transition-colors"
+                  className="border-edge-2 hover:border-amber/40 hover:bg-amber/10 inline-flex size-[19px] items-center justify-center rounded-full border text-2xs transition-colors"
                 >
                   {emoji}
                 </button>
@@ -854,7 +854,7 @@ function MessageRow({
             disabled={!canReact}
             aria-label="添加表情回应"
             aria-expanded={pickerOpen}
-            className="border-edge-2 text-faint hover:border-edge-3 hover:text-bone-2 inline-flex h-[19px] items-center rounded-full border px-1.5 text-[10px] transition-colors disabled:opacity-40"
+            className="border-edge-2 text-faint hover:border-edge-3 hover:text-bone-2 inline-flex h-[19px] items-center rounded-full border px-1.5 text-2xs transition-colors disabled:opacity-40"
           >
             <Smile className="size-[11px]" aria-hidden="true" />
           </button>
@@ -942,7 +942,7 @@ function Composer({
               submit();
             }
           }}
-          className="text-bone placeholder:text-muted-2 max-h-[140px] min-h-[42px] w-full resize-none bg-transparent px-[11px] pt-2.5 pb-0.5 text-[12.5px] leading-[1.58] outline-none disabled:opacity-60"
+          className="text-bone placeholder:text-muted-2 max-h-[140px] min-h-[42px] w-full resize-none bg-transparent px-[11px] pt-2.5 pb-0.5 text-sm leading-[1.58] focus-visible:outline-none disabled:opacity-60"
         />
         <div className="flex items-center gap-0.5 px-1.5 py-1">
           <input
@@ -964,7 +964,7 @@ function Composer({
             onClick={() => fileRef.current?.click()}
             className="text-muted-2 hover:bg-bone/5 hover:text-bone grid size-[25px] place-items-center rounded-md transition-colors disabled:opacity-40"
           >
-            {uploading ? <span className="text-[9px]">…</span> : <Paperclip className="size-[13px]" aria-hidden="true" />}
+            {uploading ? <span className="text-2xs">…</span> : <Paperclip className="size-[13px]" aria-hidden="true" />}
           </button>
           {tools.map((tool) => (
             <button
@@ -977,13 +977,13 @@ function Composer({
               <tool.icon className="size-[13px]" aria-hidden="true" />
             </button>
           ))}
-          <span className="text-faint ml-auto mr-1.5 font-mono text-[9.5px]">
+          <span className="text-faint ml-auto mr-1.5 font-mono text-2xs">
             {connected ? "Enter 发送 · Shift+Enter 换行" : "实时通道未连接"}
           </span>
           <button
             type="submit"
             disabled={!connected || !draft.trim()}
-            className="bg-amber border-amber hover:bg-amber-2 hover:border-amber-2 inline-flex h-[27px] items-center gap-[7px] whitespace-nowrap rounded-md border px-2.5 text-[11px] font-semibold text-ink-950 transition-colors disabled:pointer-events-none disabled:opacity-60"
+            className="bg-amber border-amber hover:bg-amber-2 hover:border-amber-2 inline-flex h-[27px] items-center gap-[7px] whitespace-nowrap rounded-md border px-2.5 text-xs font-semibold text-ink-950 transition-colors disabled:pointer-events-none disabled:opacity-60"
           >
             <Send className="size-[13px]" aria-hidden="true" />
             {sendLabel}
@@ -1013,7 +1013,7 @@ function MembersPanel({
   return (
     <RailBlock title={`${t("chat.members")} · ${members.length}`}>
       {members.length === 0 ? (
-        <p className="text-muted-2 text-[10.5px]">{t("chat.noMembers")}</p>
+        <p className="text-muted-2 text-xs">{t("chat.noMembers")}</p>
       ) : (
         <ul>
           {members.map((member) => {
@@ -1027,8 +1027,8 @@ function MembersPanel({
                   size="sm"
                 />
                 <span className="min-w-0 flex-1">
-                  <strong className="text-bone-2 block text-[11.5px] font-medium leading-[1.35]">{member.username}</strong>
-                  <span className="text-muted-2 block text-[10px] leading-[1.4]">
+                  <strong className="text-bone-2 block text-xs font-medium leading-[1.35]">{member.username}</strong>
+                  <span className="text-muted-2 block text-2xs leading-[1.4]">
                     {member.user_id === currentUserId
                       ? t("chat.you")
                       : member.role === "admin"
@@ -1042,7 +1042,7 @@ function MembersPanel({
           })}
         </ul>
       )}
-      <p className="text-faint mt-2 text-[9.5px]">
+      <p className="text-faint mt-2 text-2xs">
         {online.length > 0 ? t("chat.onlineCount", { count: online.length }) : t("chat.nobodyOnline")}
       </p>
     </RailBlock>
@@ -1055,8 +1055,8 @@ function DocsPanel() {
   return (
     <RailBlock title={t("chat.sharedDocs")}>
       <div className="border-edge-2 bg-ink-1000/55 rounded-md border px-3 py-5 text-center">
-        <p className="text-muted-2 text-[11px]">{t("chat.docsHint")}</p>
-        <p className="text-faint mt-1 text-[9.5px] leading-[1.4]">{t("chat.docsSubHint")}</p>
+        <p className="text-muted-2 text-xs">{t("chat.docsHint")}</p>
+        <p className="text-faint mt-1 text-2xs leading-[1.4]">{t("chat.docsSubHint")}</p>
       </div>
     </RailBlock>
   );

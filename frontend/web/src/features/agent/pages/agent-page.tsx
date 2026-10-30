@@ -384,8 +384,8 @@ export function AgentPage() {
       <div className="border-edge-2 bg-ink-900/60 mx-auto grid h-[calc(100vh_-_190px)] min-h-[640px] w-full max-w-[1560px] place-items-center rounded-[14px] border">
         <div className="text-muted-2 flex flex-col items-center gap-2.5 text-center">
           <Bot className="text-faint size-7" aria-hidden="true" />
-          <strong className="text-bone-2 text-[12px] font-medium">未选择仓库</strong>
-          <span className="max-w-[34ch] text-[10.5px]">Agent 作业按仓库隔离，先在侧栏选一个仓库。</span>
+          <strong className="text-bone-2 text-sm font-medium">未选择仓库</strong>
+          <span className="max-w-[34ch] text-xs">Agent 作业按仓库隔离，先在侧栏选一个仓库。</span>
         </div>
       </div>
     );
@@ -420,13 +420,13 @@ export function AgentPage() {
       <aside className="border-edge-2 bg-ink-850/40 flex min-w-0 flex-col overflow-hidden border-r" aria-label="Agent 运行列表">
         <div className="border-edge-2 flex flex-none items-end justify-between gap-2.5 border-b px-3.5 pt-4 pb-3">
           <div className="min-w-0">
-            <p className="text-faint text-[9.5px] font-semibold tracking-[0.16em] uppercase">KUSTOS</p>
+            <p className="text-faint text-2xs font-semibold tracking-[0.16em] uppercase">KUSTOS</p>
             <h1 className="font-display text-bone mt-[5px] text-[1.6rem] leading-none">{t("agent.title")}</h1>
           </div>
           <button
             type="button"
             onClick={() => setComposing(true)}
-            className="bg-amber border-amber hover:bg-amber-2 hover:border-amber-2 inline-flex h-[27px] flex-none items-center gap-[5px] rounded-md border px-2.5 text-[10.5px] font-semibold text-ink-950 transition-colors"
+            className="bg-amber border-amber hover:bg-amber-2 hover:border-amber-2 inline-flex h-[27px] flex-none items-center gap-[5px] rounded-md border px-2.5 text-xs font-semibold text-ink-950 transition-colors"
           >
             <Plus className="size-[13px]" aria-hidden="true" />
             {t("agent.newRun")}
@@ -436,20 +436,20 @@ export function AgentPage() {
         <div className="border-edge-1 flex flex-none gap-1.5 border-b px-2.5 py-2.5" role="group" aria-label="运行状态筛选">
           <Chip active={filter === "active"} onClick={() => setFilter("active")}>
             {t("agent.running")}
-            <span className="font-mono text-[9.5px]">{activeCount}</span>
+            <span className="font-mono text-2xs">{activeCount}</span>
           </Chip>
           <Chip active={filter === "history"} onClick={() => setFilter("history")}>
             {t("agent.history")}
-            <span className="font-mono text-[9.5px]">{runs.length - activeCount}</span>
+            <span className="font-mono text-2xs">{runs.length - activeCount}</span>
           </Chip>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {groups.map((group) => (
             <section key={group.key} aria-label={group.label} className="border-edge-2 first:border-t-0 border-t">
-              <p className="text-muted-2 flex items-center gap-[7px] px-3 pt-3 pb-[5px] text-[9.5px] font-semibold tracking-[0.13em] uppercase">
+              <p className="text-muted-2 flex items-center gap-[7px] px-3 pt-3 pb-[5px] text-2xs font-semibold tracking-[0.13em] uppercase">
                 {group.label}
-                <span className="rounded-full bg-bone/[0.06] px-1.5 font-mono text-[9px] leading-[14px] tracking-normal">
+                <span className="rounded-full bg-bone/[0.06] px-1.5 font-mono text-2xs leading-[14px] tracking-normal">
                   {group.runs.length}
                 </span>
               </p>
@@ -467,13 +467,13 @@ export function AgentPage() {
             </section>
           ))}
           {!groups.length ? (
-            <p className="text-muted-2 px-3 py-6 text-center text-[10.5px]">
+            <p className="text-muted-2 px-3 py-6 text-center text-xs">
               {jobsQuery.isLoading ? "加载中…" : filter === "active" ? "暂无进行中的运行" : "暂无历史运行"}
             </p>
           ) : null}
         </div>
 
-        <div className="border-edge-2 text-muted-2 flex flex-none items-center gap-1.5 border-t px-3 py-[9px] text-[10px]">
+        <div className="border-edge-2 text-muted-2 flex flex-none items-center gap-1.5 border-t px-3 py-[9px] text-2xs">
           <Lamp tone={awaiting ? "warn" : "good"} live={Boolean(awaiting)} className="size-[5px]" />
           {awaiting
             ? `${activeCount} 个进行中 · ${awaiting} 个等待批准`
@@ -502,8 +502,8 @@ export function AgentPage() {
       ) : (
         <div className="text-muted-2 flex flex-col items-center justify-center gap-2.5 p-10 text-center">
           <Bot className="text-faint size-7" aria-hidden="true" />
-          <strong className="text-bone-2 text-[12px] font-medium">未选中运行</strong>
-          <span className="max-w-[34ch] text-[10.5px]">从左侧列表里挑一个运行，或新建一个。</span>
+          <strong className="text-bone-2 text-sm font-medium">未选中运行</strong>
+          <span className="max-w-[34ch] text-xs">从左侧列表里挑一个运行，或新建一个。</span>
         </div>
       )}
     </div>
@@ -524,19 +524,19 @@ function RunItem({ run, active, onSelect }: { run: AgentRun; active: boolean; on
     >
       <span className="flex items-start gap-[7px]">
         <Lamp tone={meta.tone} live={meta.live} className="mt-[5px]" />
-        <span className={cn("truncate text-[12px] font-medium leading-snug", active ? "text-bone" : "text-bone-2")}>
+        <span className={cn("truncate text-sm font-medium leading-snug", active ? "text-bone" : "text-bone-2")}>
           {run.title}
         </span>
-        <span className="text-faint ml-auto flex-none font-mono text-[9.5px]">{run.session}</span>
+        <span className="text-faint ml-auto flex-none font-mono text-2xs">{run.session}</span>
       </span>
-      <span className="text-muted-2 mt-1 block truncate font-mono text-[9.5px]">
+      <span className="text-muted-2 mt-1 block truncate font-mono text-2xs">
         {run.repo} · {run.model}
       </span>
       <span className="mt-1.5 flex items-center gap-1.5">
-        <StatusPill tone={meta.tone} lamp live={meta.live} className="h-[17px] px-1.5 text-[9px]">
+        <StatusPill tone={meta.tone} lamp live={meta.live} className="h-[17px] px-1.5 text-2xs">
           {meta.label}
         </StatusPill>
-        <span className="text-muted-2 text-[10px]">{run.duration}</span>
+        <span className="text-muted-2 text-2xs">{run.duration}</span>
       </span>
     </button>
   );
@@ -578,12 +578,12 @@ function RunDetail({
             <StatusPill tone={meta.tone} lamp live={meta.live}>
               {meta.label}
             </StatusPill>
-            <span className="text-muted font-mono text-[11px]">{run.session}</span>
+            <span className="text-muted font-mono text-xs">{run.session}</span>
           </div>
           <h2 className="font-display text-bone mt-1.5 text-[1.35rem] font-medium tracking-[-0.02em] leading-tight">
             {run.title}
           </h2>
-          <p className="text-muted-2 mt-[7px] flex flex-wrap items-center gap-1.5 text-[10px]">
+          <p className="text-muted-2 mt-[7px] flex flex-wrap items-center gap-1.5 text-2xs">
             <span>{run.repo}</span>
             <span className="text-faint">·</span>
             <span className="font-mono">{run.model}</span>
@@ -600,7 +600,7 @@ function RunDetail({
             type="button"
             onClick={onCancel}
             disabled={cancelling}
-            className="border-edge-2 bg-ink-750/55 hover:border-edge-3 hover:bg-ink-750 text-bone-2 inline-flex h-[27px] flex-none items-center gap-[5px] rounded-md border px-2.5 text-[11px] font-medium transition-colors disabled:opacity-60"
+            className="border-edge-2 bg-ink-750/55 hover:border-edge-3 hover:bg-ink-750 text-bone-2 inline-flex h-[27px] flex-none items-center gap-[5px] rounded-md border px-2.5 text-xs font-medium transition-colors disabled:opacity-60"
           >
             <X className="size-[13px]" aria-hidden="true" />
             {t("agent.cancel")}
@@ -614,10 +614,10 @@ function RunDetail({
           <ToneAvatar initials="我" tone="amber" size="sm" />
           <div className="min-w-0">
             <div className="flex items-center gap-[7px]">
-              <span className="text-bone-2 text-[12px] font-semibold">我</span>
-              <span className="text-muted-2 font-mono text-[10px]">{run.created}</span>
+              <span className="text-bone-2 text-sm font-semibold">我</span>
+              <span className="text-muted-2 font-mono text-2xs">{run.created}</span>
             </div>
-            <p className="text-bone-2 mt-1.5 text-[12px] leading-[1.62]">{run.prompt}</p>
+            <p className="text-bone-2 mt-1.5 text-sm leading-[1.62]">{run.prompt}</p>
           </div>
         </div>
 
@@ -672,19 +672,19 @@ function RunDetail({
               <ShieldAlert className="size-[13px]" />
             </span>
             <div className="min-w-0">
-              <strong className="text-bone block text-[12px] font-semibold">{t("agent.awaitingApproval")}</strong>
-              <span className="text-muted-2 block text-[10px]">写工具 · 任务已暂停</span>
+              <strong className="text-bone block text-sm font-semibold">{t("agent.awaitingApproval")}</strong>
+              <span className="text-muted-2 block text-2xs">写工具 · 任务已暂停</span>
             </div>
-            <StatusPill tone="warn" className="ml-auto h-[19px] px-[7px] text-[9.5px]">
+            <StatusPill tone="warn" className="ml-auto h-[19px] px-[7px] text-2xs">
               已阻塞
             </StatusPill>
           </div>
           <div className="flex flex-col gap-[9px] px-3 py-[11px]">
-            <span className="border-amber/[0.3] bg-ink-950/40 text-amber inline-flex h-6 w-fit items-center gap-[5px] rounded-md border px-2 font-mono text-[10px]">
+            <span className="border-amber/[0.3] bg-ink-950/40 text-amber inline-flex h-6 w-fit items-center gap-[5px] rounded-md border px-2 font-mono text-2xs">
               <Terminal className="size-[11px]" aria-hidden="true" />
               {pending.tool}
             </span>
-            <div className="border-edge-1 bg-ink-950/60 rounded-md border px-2.5 py-2 font-mono text-[10px] leading-[1.6] shadow-[inset_0_1px_6px_rgba(0,0,0,0.28)]">
+            <div className="border-edge-1 bg-ink-950/60 rounded-md border px-2.5 py-2 font-mono text-2xs leading-[1.6] shadow-[inset_0_1px_6px_rgba(0,0,0,0.28)]">
               {pending.args.map(([key, value]) => (
                 <div key={key} className="grid grid-cols-[64px_minmax(0,1fr)] gap-2 py-px">
                   <span className="text-faint">{key}</span>
@@ -693,8 +693,8 @@ function RunDetail({
               ))}
             </div>
             <div>
-              <p className="text-muted text-[11.5px] leading-[1.55]">{pending.reason}</p>
-              <p className="text-faint mt-[5px] text-[10px] leading-[1.5]">{pending.note}</p>
+              <p className="text-muted text-xs leading-[1.55]">{pending.reason}</p>
+              <p className="text-faint mt-[5px] text-2xs leading-[1.5]">{pending.note}</p>
             </div>
           </div>
           <div className="flex items-center gap-[7px] px-3 pb-3">
@@ -702,7 +702,7 @@ function RunDetail({
               type="button"
               onClick={onApprove}
               disabled={deciding}
-              className="bg-amber border-amber hover:bg-amber-2 hover:border-amber-2 inline-flex h-[27px] items-center gap-[5px] rounded-md border px-2.5 text-[10.5px] font-semibold text-ink-950 transition-colors disabled:opacity-60"
+              className="bg-amber border-amber hover:bg-amber-2 hover:border-amber-2 inline-flex h-[27px] items-center gap-[5px] rounded-md border px-2.5 text-xs font-semibold text-ink-950 transition-colors disabled:opacity-60"
             >
               <Check className="size-[13px]" aria-hidden="true" />
               {t("agent.approveWrite")}
@@ -711,17 +711,17 @@ function RunDetail({
               type="button"
               onClick={onReject}
               disabled={deciding}
-              className="border-edge-2 bg-ink-750/55 hover:border-edge-3 hover:bg-ink-750 text-bone-2 inline-flex h-[27px] items-center gap-[5px] rounded-md border px-2.5 text-[10.5px] font-medium transition-colors disabled:opacity-60"
+              className="border-edge-2 bg-ink-750/55 hover:border-edge-3 hover:bg-ink-750 text-bone-2 inline-flex h-[27px] items-center gap-[5px] rounded-md border px-2.5 text-xs font-medium transition-colors disabled:opacity-60"
             >
               <X className="size-[13px]" aria-hidden="true" />
               {t("agent.reject")}
             </button>
-            <span className="text-faint ml-auto text-[10px]">没有你的决定，任何写入都不会发生。</span>
+            <span className="text-faint ml-auto text-2xs">没有你的决定，任何写入都不会发生。</span>
           </div>
         </div>
       ) : null}
       {!pending && run.status === "awaiting_approval" ? (
-        <div className="border-edge-2 text-muted-2 flex flex-none items-center gap-2 border-t px-[18px] py-3 text-[10px]">
+        <div className="border-edge-2 text-muted-2 flex flex-none items-center gap-2 border-t px-[18px] py-3 text-2xs">
           <Lamp tone="warn" live className="size-[5px]" />
           运行停在批准闸门上。批准或拒绝上方的写工具以继续。
         </div>
@@ -747,15 +747,15 @@ function StepRow({ step }: { step: RunStep }) {
         </span>
         <div className="min-w-0 pt-0.5">
           <div className="flex flex-wrap items-center gap-[7px]">
-            <span className="text-bone-2 font-mono text-[10.5px]">{step.name}</span>
+            <span className="text-bone-2 font-mono text-xs">{step.name}</span>
             {step.pending ? (
-              <StatusPill tone="warn" lamp live className="h-[17px] px-1.5 text-[9px]">
+              <StatusPill tone="warn" lamp live className="h-[17px] px-1.5 text-2xs">
                 待审批
               </StatusPill>
             ) : null}
-            <span className="text-faint ml-auto font-mono text-[10px]">{step.result}</span>
+            <span className="text-faint ml-auto font-mono text-2xs">{step.result}</span>
           </div>
-          <div className="border-edge-1 bg-ink-950/60 mt-1.5 rounded-md border px-2.5 py-1.5 font-mono text-[10px] leading-[1.6] shadow-[inset_0_1px_6px_rgba(0,0,0,0.28)]">
+          <div className="border-edge-1 bg-ink-950/60 mt-1.5 rounded-md border px-2.5 py-1.5 font-mono text-2xs leading-[1.6] shadow-[inset_0_1px_6px_rgba(0,0,0,0.28)]">
             {step.args.map(([key, value]) => (
               <div key={key} className="grid grid-cols-[64px_minmax(0,1fr)] gap-2 py-px">
                 <span className="text-faint">{key}</span>
@@ -778,8 +778,8 @@ function StepRow({ step }: { step: RunStep }) {
           <AlertTriangle className="size-3" />
         </span>
         <div className="min-w-0 pt-0.5">
-          <span className="text-rose-2 font-mono text-[10.5px]">运行失败</span>
-          <p className="border-rose/[0.22] bg-rose/[0.06] text-rose-2 mt-1.5 max-w-[min(74ch,580px)] rounded-md border px-3 py-2.5 text-[12px] leading-[1.62]">
+          <span className="text-rose-2 font-mono text-xs">运行失败</span>
+          <p className="border-rose/[0.22] bg-rose/[0.06] text-rose-2 mt-1.5 max-w-[min(74ch,580px)] rounded-md border px-3 py-2.5 text-sm leading-[1.62]">
             {step.content}
           </p>
         </div>
@@ -796,7 +796,7 @@ function StepRow({ step }: { step: RunStep }) {
         <Terminal className="size-3" />
       </span>
       <div className="min-w-0 pt-0.5">
-        <p className="text-muted border-edge-1 bg-ink-850/40 mt-1.5 max-w-[min(74ch,580px)] rounded-md border px-3 py-2 text-[11.5px] leading-[1.55]">
+        <p className="text-muted border-edge-1 bg-ink-850/40 mt-1.5 max-w-[min(74ch,580px)] rounded-md border px-3 py-2 text-xs leading-[1.55]">
           {step.content}
         </p>
       </div>
@@ -816,8 +816,8 @@ function TokenUsage({ run }: { run: AgentRun }) {
   return (
     <section aria-label="模型用量" className="border-edge-2 bg-ink-850/40 mt-4 rounded-[10px] border px-3 py-2.5">
       <div className="flex items-baseline justify-between gap-2">
-        <h3 className="text-muted-2 text-[10px] font-semibold tracking-[0.15em] uppercase">模型用量</h3>
-        <span className="text-bone-2 font-mono text-[11px]">{k(prompt + completion)} tokens</span>
+        <h3 className="text-muted-2 text-2xs font-semibold tracking-[0.15em] uppercase">模型用量</h3>
+        <span className="text-bone-2 font-mono text-xs">{k(prompt + completion)} tokens</span>
       </div>
       <div aria-hidden="true" className="bg-bone/5 mt-2 flex h-[5px] overflow-hidden rounded-full">
         <span className="bg-amber/60 h-full" style={{ width: share(promptOnly) }} />
@@ -831,12 +831,12 @@ function TokenUsage({ run }: { run: AgentRun }) {
           { label: "命中缓存", value: k(cached) },
         ].map((item) => (
           <div key={item.label}>
-            <dt className="text-faint text-[9.5px]">{item.label}</dt>
-            <dd className="text-bone-2 font-mono text-[11px] tabular-nums">{item.value}</dd>
+            <dt className="text-faint text-2xs">{item.label}</dt>
+            <dd className="text-bone-2 font-mono text-xs tabular-nums">{item.value}</dd>
           </div>
         ))}
       </dl>
-      <p className="text-faint mt-1.5 font-mono text-[9.5px]">
+      <p className="text-faint mt-1.5 font-mono text-2xs">
         {run.session} · provider usage
       </p>
     </section>
@@ -858,11 +858,11 @@ function NewRunForm({
 
   return (
     <div className="min-w-0 overflow-y-auto px-[18px] py-[17px]">
-      <p className="text-faint text-[9.5px] font-semibold tracking-[0.16em] uppercase">KUSTOS AGENT</p>
+      <p className="text-faint text-2xs font-semibold tracking-[0.16em] uppercase">KUSTOS AGENT</p>
       <h2 className="font-display text-bone mt-1.5 text-[1.35rem] font-medium tracking-[-0.02em] leading-tight">
         {t("agent.startRun")}
       </h2>
-      <p className="text-muted mt-1.5 max-w-[60ch] text-[11.5px] leading-[1.55]">
+      <p className="text-muted mt-1.5 max-w-[60ch] text-xs leading-[1.55]">
         Kustos 通过工具读取仓库。写操作会在批准前暂停。
       </p>
 
@@ -875,40 +875,40 @@ function NewRunForm({
         }}
       >
         <label className="block">
-          <span className="text-bone-2 text-[11px] font-medium">仓库</span>
-          <span className="border-edge-2 bg-ink-900/60 text-bone mt-1.5 flex h-8 w-full items-center rounded-md border px-2 text-[12px]">
+          <span className="text-bone-2 text-xs font-medium">仓库</span>
+          <span className="border-edge-2 bg-ink-900/60 text-bone mt-1.5 flex h-8 w-full items-center rounded-md border px-2 text-sm">
             {repoName}
           </span>
         </label>
 
         <label className="block">
-          <span className="text-bone-2 text-[11px] font-medium">提示词</span>
+          <span className="text-bone-2 text-xs font-medium">提示词</span>
           <textarea
             required
             rows={4}
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
             placeholder="要让 Kustos 调查什么？"
-            className="border-edge-2 bg-ink-900 text-bone mt-1.5 block w-full rounded-md border px-2.5 py-2 text-[12px] leading-relaxed outline-none transition-colors placeholder:text-muted-2 focus:border-amber/45"
+            className="border-edge-2 bg-ink-900 text-bone mt-1.5 block w-full rounded-md border px-2.5 py-2 text-sm leading-relaxed focus-visible:outline-none transition-colors placeholder:text-muted-2 focus:border-amber/45"
           />
-          <span className="text-faint mt-1 block text-[10px]">
+          <span className="text-faint mt-1 block text-2xs">
             越具体越好。Kustos 能搜索代码、读文件、看 diff，也能在批准后写文件。
           </span>
         </label>
 
         <div className="block">
-          <span className="text-bone-2 text-[11px] font-medium">模型</span>
+          <span className="text-bone-2 text-xs font-medium">模型</span>
           {/* shortcut: 后端无面向用户的模型目录端点，只支持实例默认；有目录端点后再恢复选择器 */}
-          <span className="border-edge-1 bg-ink-900 text-muted mt-1.5 flex h-8 items-center rounded-md border px-2.5 text-[12px]">
+          <span className="border-edge-1 bg-ink-900 text-muted mt-1.5 flex h-8 items-center rounded-md border px-2.5 text-sm">
             实例默认（由实例的 Agent provider 配置决定）
           </span>
         </div>
 
         <label className="flex cursor-not-allowed items-start gap-2">
           <input type="checkbox" checked disabled className="accent-amber mt-0.5 size-[14px]" />
-          <span className="text-bone-2 text-[12px] leading-[1.5]">
+          <span className="text-bone-2 text-sm leading-[1.5]">
             允许写工具
-            <span className="text-faint mt-0.5 block text-[10px]">
+            <span className="text-faint mt-0.5 block text-2xs">
               写工具始终逐次审批，作业发起后不可更改。
             </span>
           </span>
@@ -917,7 +917,7 @@ function NewRunForm({
         <div className="mt-1 flex items-center gap-2">
           <button
             type="submit"
-            className="bg-amber border-amber hover:bg-amber-2 hover:border-amber-2 inline-flex h-8 items-center gap-[7px] rounded-md border px-3 text-[12px] font-semibold text-ink-950 transition-colors"
+            className="bg-amber border-amber hover:bg-amber-2 hover:border-amber-2 inline-flex h-8 items-center gap-[7px] rounded-md border px-3 text-sm font-semibold text-ink-950 transition-colors"
           >
             <Play className="size-[14px]" aria-hidden="true" />
             {t("agent.startRun")}
@@ -925,7 +925,7 @@ function NewRunForm({
           <button
             type="button"
             onClick={onCancel}
-            className="border-edge-2 bg-ink-750/55 hover:border-edge-3 hover:bg-ink-750 text-bone-2 inline-flex h-8 items-center rounded-md border px-3 text-[12px] font-medium transition-colors"
+            className="border-edge-2 bg-ink-750/55 hover:border-edge-3 hover:bg-ink-750 text-bone-2 inline-flex h-8 items-center rounded-md border px-3 text-sm font-medium transition-colors"
           >
             取消
           </button>

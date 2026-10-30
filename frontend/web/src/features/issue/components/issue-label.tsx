@@ -19,7 +19,7 @@ export function IssueLabel({ label }: { label: string }) {
   return (
     <span
       className={cn(
-        "inline-flex h-[17px] items-center rounded-full border px-1.5 text-[9px] leading-none whitespace-nowrap opacity-90",
+        "inline-flex h-[17px] items-center rounded-full border px-1.5 text-2xs leading-none whitespace-nowrap opacity-90",
         LABEL_CLASS[label] ?? LABEL_CLASS.admin,
       )}
     >

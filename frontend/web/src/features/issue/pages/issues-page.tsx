@@ -56,7 +56,7 @@ function PersonAvatar({ person, size = "sm" }: { person: Person | null; size?: "
     return (
       <span
         aria-hidden="true"
-        className="bg-ink-800 text-muted-2 border-edge-1 inline-grid size-[23px] shrink-0 place-items-center rounded-full border text-[9px]"
+        className="bg-ink-800 text-muted-2 border-edge-1 inline-grid size-[23px] shrink-0 place-items-center rounded-full border text-2xs"
       >
         —
       </span>
@@ -250,7 +250,7 @@ export function IssuesPage() {
         <h1 className="font-display text-bone text-[clamp(1.7rem,2.6vw,2.3rem)] font-medium tracking-[-0.028em] leading-none">
           {t("issue.title")}
         </h1>
-        <p className="text-muted-2 mt-4 text-[12px]">未选择仓库。请先在侧栏选择一个仓库，再查看它的 Issue。</p>
+        <p className="text-muted-2 mt-4 text-sm">未选择仓库。请先在侧栏选择一个仓库，再查看它的 Issue。</p>
       </div>
     );
   }
@@ -264,20 +264,20 @@ export function IssuesPage() {
       {/* 页头 */}
       <header className="mb-[22px] flex items-end justify-between gap-8">
         <div className="min-w-0">
-          <p className="text-faint text-[10.5px] font-semibold tracking-[0.16em] uppercase">{repo.name}</p>
+          <p className="text-faint text-xs font-semibold tracking-[0.16em] uppercase">{repo.name}</p>
           <h1 className="font-display text-bone mt-1.5 text-[clamp(1.7rem,2.6vw,2.3rem)] font-medium tracking-[-0.028em] leading-none">
             {t("issue.title")}
           </h1>
-          <p className="text-muted-2 mt-2 flex flex-wrap items-center gap-[7px] text-[11px]">
+          <p className="text-muted-2 mt-2 flex flex-wrap items-center gap-[7px] text-xs">
             <span>
-              <strong className="text-bone-2 font-mono text-[11px] font-medium">{openCount}</strong> 打开
+              <strong className="text-bone-2 font-mono text-xs font-medium">{openCount}</strong> 打开
             </span>
             <span className="text-faint">·</span>
             <span>
-              <strong className="text-bone-2 font-mono text-[11px] font-medium">{closedCount}</strong> 已关闭
+              <strong className="text-bone-2 font-mono text-xs font-medium">{closedCount}</strong> 已关闭
             </span>
             <span className="text-faint">·</span>
-            <span className="border-amber/30 bg-amber/10 text-amber-2 inline-flex h-[19px] items-center rounded-full border px-[7px] text-[10px] font-medium">
+            <span className="border-amber/30 bg-amber/10 text-amber-2 inline-flex h-[19px] items-center rounded-full border px-[7px] text-2xs font-medium">
               {assignedCount} 个指派给你
             </span>
           </p>
@@ -307,12 +307,12 @@ export function IssuesPage() {
                   type="button"
                   onClick={() => setStatusFilter(status)}
                   className={cn(
-                    "flex-1 rounded-[5px] px-2.5 py-1 text-[11px] font-medium transition-colors",
+                    "flex-1 rounded-[5px] px-2.5 py-1 text-xs font-medium transition-colors",
                     statusFilter === status ? "bg-amber/15 text-amber-2" : "text-muted hover:text-bone-2",
                   )}
                 >
                   {status === "open" ? t("issue.open") : t("issue.closed")}{" "}
-                  <span className="font-mono text-[10px] opacity-80">
+                  <span className="font-mono text-2xs opacity-80">
                     {status === "open" ? openCount : closedCount}
                   </span>
                 </button>
@@ -329,7 +329,7 @@ export function IssuesPage() {
                   onChange={(event) => setKeyword(event.target.value)}
                   placeholder="搜索标题与描述…"
                   aria-label="搜索 Issue"
-                  className="text-bone placeholder:text-muted-2 min-w-0 flex-1 bg-transparent text-[11px] outline-none"
+                  className="text-bone placeholder:text-muted-2 min-w-0 flex-1 bg-transparent text-xs focus-visible:outline-none"
                 />
               </div>
               <button
@@ -358,14 +358,14 @@ export function IssuesPage() {
           <div className="min-h-0 flex-1 overflow-y-auto">
             {listQuery.isError ? (
               <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
-                <p className="text-bone-2 text-[12px] font-medium">Issue 列表加载失败。</p>
-                <p className="text-muted-2 text-[10.5px]">{listQuery.error?.message}</p>
+                <p className="text-bone-2 text-sm font-medium">Issue 列表加载失败。</p>
+                <p className="text-muted-2 text-xs">{listQuery.error?.message}</p>
                 <Button size="sm" variant="secondary" onClick={() => listQuery.refetch()}>
                   重试
                 </Button>
               </div>
             ) : listQuery.isLoading ? (
-              <p className="text-muted-2 px-4 py-7 text-center text-[11px]">加载中…</p>
+              <p className="text-muted-2 px-4 py-7 text-center text-xs">加载中…</p>
             ) : items.length ? (
               PRIORITY_GROUPS.map((group) => {
                 const groupItems = items.filter((issue) => group.match(issue.priority));
@@ -373,8 +373,8 @@ export function IssuesPage() {
                 return (
                   <section key={group.key} aria-label={group.label} className="min-w-0">
                     <div className="border-edge-1 bg-ink-950/94 sticky top-0 z-[3] flex items-center gap-[7px] border-b px-3 pt-2 pb-[7px] shadow-[0_1px_0_rgba(0,0,0,0.35)] backdrop-blur-[6px]">
-                      <span className="text-muted-2 text-[9.5px] font-semibold tracking-[0.13em] uppercase">{group.label}</span>
-                      <span className="rounded-full bg-bone/[0.06] px-1.5 font-mono text-[10px] leading-[14px] text-muted-2">{groupItems.length}</span>
+                      <span className="text-muted-2 text-2xs font-semibold tracking-[0.13em] uppercase">{group.label}</span>
+                      <span className="rounded-full bg-bone/[0.06] px-1.5 font-mono text-2xs leading-[14px] text-muted-2">{groupItems.length}</span>
                       <span className="from-edge-1 h-px flex-1 bg-gradient-to-r to-transparent" aria-hidden="true" />
                     </div>
                     {groupItems.map((issue) => (
@@ -389,12 +389,12 @@ export function IssuesPage() {
                 );
               })
             ) : (
-              <p className="text-muted-2 px-4 py-7 text-center text-[11px]">{t("issue.noResults")}</p>
+              <p className="text-muted-2 px-4 py-7 text-center text-xs">{t("issue.noResults")}</p>
             )}
           </div>
 
           {/* 列表脚注：总数 + 翻页 */}
-          <div className="border-edge-2 text-faint flex flex-none items-center gap-1.5 border-t px-3 py-[9px] text-[10px]">
+          <div className="border-edge-2 text-faint flex flex-none items-center gap-1.5 border-t px-3 py-[9px] text-2xs">
             <Lamp tone={items.length ? "good" : "warn"} />
             <span>
               显示 {items.length} / 共 {total} 条
@@ -490,10 +490,10 @@ function IssueRow({ issue, active, onClick }: { issue: Issue; active: boolean; o
         <span className="size-1 rounded-full bg-current" />
       </span>
       <span className="min-w-0">
-        <span className={cn("block truncate text-[12.5px] font-medium leading-snug", active ? "text-bone" : "text-bone-2")}>
+        <span className={cn("block truncate text-sm font-medium leading-snug", active ? "text-bone" : "text-bone-2")}>
           {issue.title}
         </span>
-        <span className="text-muted-2 mt-1 flex flex-wrap items-center gap-[5px] font-mono text-[10px]">
+        <span className="text-muted-2 mt-1 flex flex-wrap items-center gap-[5px] font-mono text-2xs">
           <span>#{issue.id}</span>
           <span className="text-faint">·</span>
           <span>{issue.opened}</span>
@@ -523,19 +523,19 @@ function IssuePanel({ issue }: { issue: Issue | null }) {
   const { t } = useTranslation();
 
   if (!issue) {
-    return <p className="text-muted-2 px-[15px] py-3.5 text-[11.5px]">未选择 Issue。</p>;
+    return <p className="text-muted-2 px-[15px] py-3.5 text-xs">未选择 Issue。</p>;
   }
 
   return (
     <RailBlock title="字段">
       <MetaGroup label={t("issue.assignee")}>
         {issue.assignee ? (
-          <span className="text-bone-2 flex items-center gap-[7px] text-[11px]">
+          <span className="text-bone-2 flex items-center gap-[7px] text-xs">
             <PersonAvatar person={issue.assignee} />
             {issue.assignee.name}
           </span>
         ) : (
-          <span className="text-muted-2 text-[11px]">未指派</span>
+          <span className="text-muted-2 text-xs">未指派</span>
         )}
       </MetaGroup>
       <MetaGroup label={t("issue.labels")}>
@@ -557,10 +557,10 @@ function IssuePanel({ issue }: { issue: Issue | null }) {
               <Link
                 key={pr.number}
                 to={`/pull-requests?pr=${pr.number}`}
-                className="text-bone-2 hover:text-amber-2 text-left text-[11px] leading-snug transition-colors hover:underline underline-offset-[3px]"
+                className="text-bone-2 hover:text-amber-2 text-left text-xs leading-snug transition-colors hover:underline underline-offset-[3px]"
               >
                 #{pr.number} · {pr.title}
-                <span className="text-muted-2 mt-px block text-[9.5px]">
+                <span className="text-muted-2 mt-px block text-2xs">
                   {pr.status}
                   {pr.closesOnMerge ? " · 合并即关闭" : ""}
                 </span>
@@ -568,18 +568,18 @@ function IssuePanel({ issue }: { issue: Issue | null }) {
             ))}
           </span>
         ) : (
-          <span className="text-muted-2 text-[11px]">{t("common.none")}</span>
+          <span className="text-muted-2 text-xs">{t("common.none")}</span>
         )}
       </MetaGroup>
       <MetaGroup label="创建者">
-        <span className="text-bone-2 flex items-center gap-[7px] text-[11px]">
+        <span className="text-bone-2 flex items-center gap-[7px] text-xs">
           <PersonAvatar person={issue.author} />
           {issue.author.name}
         </span>
       </MetaGroup>
       {issue.closedBy ? (
         <MetaGroup label="关闭者">
-          <span className="text-muted-2 text-[11px]">{issue.closedBy}</span>
+          <span className="text-muted-2 text-xs">{issue.closedBy}</span>
         </MetaGroup>
       ) : null}
     </RailBlock>
@@ -590,7 +590,7 @@ function IssuePanel({ issue }: { issue: Issue | null }) {
 function MetaGroup({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="border-edge-1 border-b py-[11px] first:pt-0.5 last:border-b-0">
-      <span className="text-faint mb-1.5 block text-[9.5px] font-semibold tracking-[0.13em] uppercase">{label}</span>
+      <span className="text-faint mb-1.5 block text-2xs font-semibold tracking-[0.13em] uppercase">{label}</span>
       {children}
     </div>
   );
@@ -646,7 +646,7 @@ function CreateIssueDialog({
               value={description}
               onChange={setDescription}
               placeholder="描述（Markdown）…"
-              className="text-bone px-2.5 py-2 text-[11px]"
+              className="text-bone px-2.5 py-2 text-xs"
             />
           </div>
           {labels.length ? (
@@ -753,12 +753,12 @@ function EditIssueDialog({
               value={description}
               onChange={setDescription}
               placeholder="描述（Markdown）…"
-              className="text-bone px-2.5 py-2 text-[11px]"
+              className="text-bone px-2.5 py-2 text-xs"
             />
           </div>
 
           <div className="flex flex-wrap items-center gap-1" aria-label="优先级">
-            <span className="text-faint mr-1 text-[9.5px] font-semibold tracking-[0.12em] uppercase">优先级</span>
+            <span className="text-faint mr-1 text-2xs font-semibold tracking-[0.12em] uppercase">优先级</span>
             {EDIT_PRIORITIES.map((level) => (
               <Chip key={level} active={priority === level} onClick={() => setPriority(level)}>
                 {level}
@@ -767,12 +767,12 @@ function EditIssueDialog({
           </div>
 
           <label className="flex items-center gap-2">
-            <span className="text-faint text-[9.5px] font-semibold tracking-[0.12em] uppercase">指派给</span>
+            <span className="text-faint text-2xs font-semibold tracking-[0.12em] uppercase">指派给</span>
             <select
               value={assigneeId}
               onChange={(event) => setAssigneeId(event.target.value)}
               aria-label="指派给"
-              className="border-edge-2 bg-ink-900 text-bone-2 focus:border-amber/45 h-[30px] min-w-0 flex-1 rounded-md border px-2 text-[11.5px] outline-none"
+              className="border-edge-2 bg-ink-900 text-bone-2 focus:border-amber/45 h-[30px] min-w-0 flex-1 rounded-md border px-2 text-xs focus-visible:outline-none"
             >
               <option value="">未指派</option>
               {candidates.map((member) => (

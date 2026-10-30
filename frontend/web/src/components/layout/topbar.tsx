@@ -98,11 +98,11 @@ export function Topbar() {
       </button>
 
       {/* 面包屑 */}
-      <nav aria-label="Breadcrumb" className="flex min-w-0 flex-[0_1_auto] items-center gap-[7px] overflow-hidden text-[12px] whitespace-nowrap">
+      <nav aria-label="Breadcrumb" className="flex min-w-0 flex-[0_1_auto] items-center gap-[7px] overflow-hidden text-sm whitespace-nowrap">
         {crumbs.map((crumb, index) => (
           <span key={`${crumb.label}-${index}`} className="flex min-w-0 items-center gap-[7px]">
             {index > 0 ? (
-              <span aria-hidden="true" className="text-faint font-mono text-[10px]">
+              <span aria-hidden="true" className="text-faint font-mono text-2xs">
                 /
               </span>
             ) : null}
@@ -130,7 +130,7 @@ export function Topbar() {
         type="button"
         aria-label="搜索 Kustos"
         onClick={() => setPaletteOpen(true)}
-        className="border-edge-1 bg-ink-800/55 hover:border-edge-2 hover:text-muted flex h-8 w-[310px] items-center gap-2 rounded-md border px-2.5 text-left text-[11.5px] text-muted-2 transition-colors hover:bg-ink-800"
+        className="border-edge-1 bg-ink-800/55 hover:border-edge-2 hover:text-muted flex h-8 w-[310px] items-center gap-2 rounded-md border px-2.5 text-left text-xs text-muted-2 transition-colors hover:bg-ink-800"
       >
         <Search className="size-[15px]" aria-hidden="true" />
         <span className="truncate">{t("command.placeholder")}</span>
@@ -141,7 +141,7 @@ export function Topbar() {
         {/* Agent 状态胶囊 */}
         <Link
           to="/agent"
-          className="border-amber/[0.24] bg-amber/[0.07] hover:border-amber/[0.42] hover:bg-amber/[0.13] text-amber-2 flex h-[30px] items-center gap-[7px] whitespace-nowrap rounded-full border px-2.5 text-[11px] font-medium transition-colors"
+          className="border-amber/[0.24] bg-amber/[0.07] hover:border-amber/[0.42] hover:bg-amber/[0.13] text-amber-2 flex h-[30px] items-center gap-[7px] whitespace-nowrap rounded-full border px-2.5 text-xs font-medium transition-colors"
         >
           <Lamp tone="warn" live />
           <span>
@@ -168,11 +168,11 @@ export function Topbar() {
           </PopoverTrigger>
           <PopoverContent align="end" className="w-[350px] overflow-hidden rounded-[10px] p-0">
             <div className="border-edge-1 flex items-center gap-2.5 border-b px-[13px] py-3">
-              <h3 className="text-[12px] font-semibold">{t("nav.notifications")}</h3>
+              <h3 className="text-sm font-semibold">{t("nav.notifications")}</h3>
               {unread > 0 ? (
                 <button
                   type="button"
-                  className="text-muted-2 hover:text-bone ml-auto text-[11.5px] transition-colors"
+                  className="text-muted-2 hover:text-bone ml-auto text-xs transition-colors"
                   onClick={() => void markAllRead()}
                 >
                   全部已读
@@ -181,7 +181,7 @@ export function Topbar() {
             </div>
             <div className="max-h-[380px] overflow-y-auto">
               {(notifications ?? []).length === 0 ? (
-                <p className="text-muted-2 px-[13px] py-8 text-center text-[11.5px]">暂无通知</p>
+                <p className="text-muted-2 px-[13px] py-8 text-center text-xs">暂无通知</p>
               ) : (
                 (notifications ?? []).map((notif) => {
                   const style = NOTIF_STYLE[notif.type] ?? { icon: Bell, tone: "text-sky bg-sky/10" };
@@ -206,14 +206,14 @@ export function Topbar() {
                         <style.icon className="size-[13px]" aria-hidden="true" />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <p className="text-bone-2 text-[11.5px] leading-[1.45]">
+                        <p className="text-bone-2 text-xs leading-[1.45]">
                           {notif.title}
                           {!notif.is_read ? (
                             <span aria-hidden="true" className="bg-amber ml-1.5 inline-block size-1 rounded-full align-[2px]" />
                           ) : null}
                         </p>
-                        <p className="text-muted mt-0.5 text-[10.5px] leading-[1.4]">{notif.message}</p>
-                        <time className="text-muted-2 mt-0.5 block font-mono text-[9.5px]">
+                        <p className="text-muted mt-0.5 text-xs leading-[1.4]">{notif.message}</p>
+                        <time className="text-muted-2 mt-0.5 block font-mono text-2xs">
                           {formatRelative(notif.created_at)}
                         </time>
                       </span>
@@ -230,14 +230,14 @@ export function Topbar() {
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="bg-amber border-amber hover:bg-amber-2 hover:border-amber-2 inline-flex h-[27px] items-center gap-[7px] whitespace-nowrap rounded-md border px-2.5 text-[11px] font-semibold text-ink-950 transition-colors"
+              className="bg-amber border-amber hover:bg-amber-2 hover:border-amber-2 inline-flex h-[27px] items-center gap-[7px] whitespace-nowrap rounded-md border px-2.5 text-xs font-semibold text-ink-950 transition-colors"
             >
               <Plus className="size-[13px]" aria-hidden="true" />
               新建
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-[214px]">
-            <DropdownMenuLabel className="text-muted-2 text-[9px] font-semibold tracking-[0.13em] uppercase">
+            <DropdownMenuLabel className="text-muted-2 text-2xs font-semibold tracking-[0.13em] uppercase">
               创建
             </DropdownMenuLabel>
             <DropdownMenuItem onSelect={() => setCreateRepoOpen(true)}>
@@ -274,7 +274,7 @@ export function Topbar() {
 
 function KbdHint({ children }: { children: string }) {
   return (
-    <kbd className="border-edge-2 text-muted-2 ml-auto inline-flex h-[18px] items-center whitespace-nowrap rounded border bg-ink-950/45 px-[5px] font-mono text-[9px] leading-none">
+    <kbd className="border-edge-2 text-muted-2 ml-auto inline-flex h-[18px] items-center whitespace-nowrap rounded border bg-ink-950/45 px-[5px] font-mono text-2xs leading-none">
       {children}
     </kbd>
   );

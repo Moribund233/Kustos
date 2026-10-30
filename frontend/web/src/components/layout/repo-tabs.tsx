@@ -5,7 +5,7 @@ import { NavLink } from "react-router";
 import { cn } from "@/lib/utils";
 
 const TAB_BASE =
-  "relative inline-flex h-[38px] items-center gap-[7px] px-[11px] text-[12px] font-medium transition-colors";
+  "relative inline-flex h-[38px] items-center gap-[7px] px-[11px] text-sm font-medium transition-colors";
 
 /**
  * 仓库级 tab 栏。

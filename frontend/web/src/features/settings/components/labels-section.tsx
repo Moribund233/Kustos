@@ -47,8 +47,8 @@ export function LabelsSection({ repoId }: { repoId: string }) {
   const { t } = useTranslation();
   return (
     <section className="border-edge-2 bg-ink-900/50 rounded-[12px] border p-5">
-      <h2 className="text-bone text-[13px] font-semibold">{t("settings.labels")}</h2>
-      <p className="text-muted-2 mt-1 text-[11px]">
+      <h2 className="text-bone text-base font-semibold">{t("settings.labels")}</h2>
+      <p className="text-muted-2 mt-1 text-xs">
         {t("settings.labelsHint")}
       </p>
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
@@ -108,15 +108,15 @@ function LabelEditor({ repoId, kind, title }: { repoId: string; kind: "issue" | 
 
   return (
     <div className="border-edge-1 rounded-md border p-3">
-      <h3 className="text-muted text-[11px] font-semibold tracking-[0.08em] uppercase">{title}</h3>
+      <h3 className="text-muted text-xs font-semibold tracking-[0.08em] uppercase">{title}</h3>
       <ul className="mt-2 flex flex-wrap gap-1.5">
         {(listQuery.data ?? []).length === 0 ? (
-          <li className="text-muted-2 text-[10.5px]">{t("settings.noLabels")}</li>
+          <li className="text-muted-2 text-xs">{t("settings.noLabels")}</li>
         ) : (
           (listQuery.data ?? []).map((label) => (
             <li key={label.id}>
               <span
-                className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10.5px]"
+                className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs"
                 style={{
                   borderColor: `${label.color ?? DEFAULT_COLOR}55`,
                   backgroundColor: `${label.color ?? DEFAULT_COLOR}14`,
@@ -143,7 +143,7 @@ function LabelEditor({ repoId, kind, title }: { repoId: string; kind: "issue" | 
           onChange={(event) => setName(event.target.value)}
           placeholder={t("settings.labelName")}
           aria-label={`${title} ${t("settings.labelName")}`}
-          className="h-8 text-[11px]"
+          className="h-8 text-xs"
         />
         <input
           type="color"

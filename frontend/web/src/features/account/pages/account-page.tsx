@@ -71,13 +71,13 @@ export function AccountPage() {
   return (
     <div className="mx-auto w-full max-w-[860px] px-[34px] pt-[30px] pb-20">
       <header className="mb-6">
-        <p className="text-faint text-[10.5px] font-semibold tracking-[0.16em] uppercase">
+        <p className="text-faint text-xs font-semibold tracking-[0.16em] uppercase">
           {t("account.kicker")}
         </p>
         <h1 className="font-display text-bone mt-1.5 text-[clamp(1.7rem,2.6vw,2.3rem)] leading-none font-medium tracking-[-0.028em]">
           {t("account.title")}
         </h1>
-        <p className="text-muted-2 mt-2 text-[11.5px]">
+        <p className="text-muted-2 mt-2 text-xs">
           {t("account.currentUser")} <span className="font-mono">{username ?? "—"}</span>{" "}
           · {t("account.sensitiveHint")}
         </p>
@@ -97,8 +97,8 @@ export function AccountPage() {
 function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
   return (
     <section className="border-edge-2 bg-ink-900/50 rounded-[12px] border p-5">
-      <h2 className="text-bone text-[13px] font-semibold">{title}</h2>
-      {hint ? <p className="text-muted-2 mt-1 text-[11px]">{hint}</p> : null}
+      <h2 className="text-bone text-base font-semibold">{title}</h2>
+      {hint ? <p className="text-muted-2 mt-1 text-xs">{hint}</p> : null}
       <div className="mt-4 flex flex-col gap-3">{children}</div>
     </section>
   );
@@ -107,7 +107,7 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-muted-2 text-[10px] font-semibold tracking-[0.13em] uppercase">
+      <span className="text-muted-2 text-2xs font-semibold tracking-[0.13em] uppercase">
         {label}
       </span>
       {children}
@@ -177,7 +177,7 @@ function ProfileSection() {
           />
         )}
         <div className="flex flex-col gap-1">
-          <span className="text-muted-2 text-[10.5px]">{t("account.avatarHint")}</span>
+          <span className="text-muted-2 text-xs">{t("account.avatarHint")}</span>
           <div className="flex items-center gap-2">
             <input
               ref={avatarInputRef}
@@ -287,7 +287,7 @@ function PasswordSection() {
           autoComplete="new-password"
         />
       </Field>
-      {mismatch ? <p className="text-rose text-[11px]">{t("account.mismatch")}</p> : null}
+      {mismatch ? <p className="text-rose text-xs">{t("account.mismatch")}</p> : null}
       <div className="border-edge-1 flex items-center gap-2 border-t pt-4">
         <Button
           size="sm"
@@ -355,9 +355,9 @@ function SshKeySection() {
   return (
     <Section title={t("account.sshKeys")} hint={t("account.sshHint")}>
       {listQuery.isLoading ? (
-        <p className="text-muted-2 text-[11.5px]">{t("common.loading")}</p>
+        <p className="text-muted-2 text-xs">{t("common.loading")}</p>
       ) : (listQuery.data ?? []).length === 0 ? (
-        <p className="text-muted-2 text-[11.5px]">{t("account.noKeys")}</p>
+        <p className="text-muted-2 text-xs">{t("account.noKeys")}</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {(listQuery.data ?? []).map((key) => (
@@ -367,14 +367,14 @@ function SshKeySection() {
             >
               <KeyRound className="text-muted-2 size-[14px] shrink-0" aria-hidden="true" />
               <span className="min-w-0 flex-1">
-                <span className="text-bone-2 block truncate text-[12px] font-medium">
+                <span className="text-bone-2 block truncate text-sm font-medium">
                   {key.name}
                 </span>
-                <span className="text-faint block truncate font-mono text-[10px]">
+                <span className="text-faint block truncate font-mono text-2xs">
                   {key.fingerprint}
                 </span>
               </span>
-              <span className="text-faint text-[10px]">{formatRelative(key.created_at)}</span>
+              <span className="text-faint text-2xs">{formatRelative(key.created_at)}</span>
               <button
                 type="button"
                 aria-label={t("common.delete")}
@@ -400,7 +400,7 @@ function SshKeySection() {
           rows={3}
           placeholder="ssh-ed25519 AAAA… user@host"
           aria-label={t("account.publicKey")}
-          className="border-edge-2 bg-ink-950/60 text-bone placeholder:text-muted-2 focus:border-amber/40 min-h-[70px] w-full resize-none rounded-md border px-2.5 py-2 font-mono text-[11px] transition-colors outline-none"
+          className="border-edge-2 bg-ink-950/60 text-bone placeholder:text-muted-2 focus:border-amber/40 min-h-[70px] w-full resize-none rounded-md border px-2.5 py-2 font-mono text-xs transition-colors focus-visible:outline-none"
         />
         <Button
           size="sm"
@@ -448,7 +448,7 @@ function NotificationSection() {
   return (
     <Section title={t("account.notifications")} hint={t("account.notificationsHint")}>
       {!prefs ? (
-        <p className="text-muted-2 text-[11.5px]">
+        <p className="text-muted-2 text-xs">
           {prefsQuery.isLoading ? t("common.loading") : t("account.readFailed")}
         </p>
       ) : (
@@ -458,7 +458,7 @@ function NotificationSection() {
               key={key}
               className="border-edge-1 flex items-center justify-between gap-3 rounded-md border px-3 py-2"
             >
-              <span className="text-muted text-[11.5px]">{t(labelKey)}</span>
+              <span className="text-muted text-xs">{t(labelKey)}</span>
               <Switch
                 checked={prefs[key]}
                 disabled={updateMutation.isPending}
@@ -511,7 +511,7 @@ function OAuthSection() {
       hint={t("account.oauthHint")}
     >
       {accounts.length === 0 ? (
-        <p className="text-muted-2 text-[11.5px]">
+        <p className="text-muted-2 text-xs">
           {accountsQuery.isLoading ? t("common.loading") : t("account.noOauth")}
         </p>
       ) : (
@@ -521,10 +521,10 @@ function OAuthSection() {
               key={account.provider}
               className="border-edge-1 flex items-center gap-3 rounded-md border px-3 py-2"
             >
-              <span className="text-bone-2 flex-1 text-[12px] font-medium capitalize">
+              <span className="text-bone-2 flex-1 text-sm font-medium capitalize">
                 {account.provider}
               </span>
-              <span className="text-faint font-mono text-[10.5px]">
+              <span className="text-faint font-mono text-xs">
                 {account.provider_username ?? "—"}
               </span>
               <Button

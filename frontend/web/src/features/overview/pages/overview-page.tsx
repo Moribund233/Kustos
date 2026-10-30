@@ -268,14 +268,14 @@ export function OverviewPage() {
       {/* 页头 */}
       <header className="mb-[30px] flex items-end justify-between gap-8">
         <div className="min-w-0">
-          <p className="text-faint text-[10.5px] font-semibold tracking-[0.16em] uppercase">
+          <p className="text-faint text-xs font-semibold tracking-[0.16em] uppercase">
             {now.date} · <span className="font-mono">{now.clock}</span>{" "}
             <span className="text-faint font-normal tracking-normal">UTC+8</span>
           </p>
           <h1 className="font-display text-bone mt-2.5 text-[clamp(2rem,3vw,2.9rem)] font-medium tracking-[-0.028em] leading-none">
             {greeting()}，{displayName}。
           </h1>
-          <p className="text-muted mt-2.5 max-w-[64ch] text-[14px] leading-relaxed">
+          <p className="text-muted mt-2.5 max-w-[64ch] text-md leading-relaxed">
             {dash
               ? `打开 ${dash.open_prs} 个 PR、${dash.open_issues} 个 Issue 在等你处理。`
               : isPending
@@ -292,7 +292,7 @@ export function OverviewPage() {
           <button
             type="button"
             onClick={() => navigate("/agent")}
-            className="bg-amber border-amber hover:bg-amber-2 hover:border-amber-2 inline-flex h-8 items-center gap-[7px] rounded-md border px-3 text-[12px] font-semibold text-ink-950 transition-colors"
+            className="bg-amber border-amber hover:bg-amber-2 hover:border-amber-2 inline-flex h-8 items-center gap-[7px] rounded-md border px-3 text-sm font-semibold text-ink-950 transition-colors"
           >
             <Bot className="size-[15px]" aria-hidden="true" />
             发起运行
@@ -301,14 +301,14 @@ export function OverviewPage() {
       </header>
 
       {isPending ? (
-        <p className="text-muted-2 border-edge-2 border-y py-10 text-center text-[12px]">正在加载值守数据…</p>
+        <p className="text-muted-2 border-edge-2 border-y py-10 text-center text-sm">正在加载值守数据…</p>
       ) : error ? (
         <div role="alert" className="border-edge-2 border-y flex flex-col items-center gap-3 py-10">
-          <p className="text-muted text-[12.5px]">值守数据加载失败：{error.message}</p>
+          <p className="text-muted text-sm">值守数据加载失败：{error.message}</p>
           <button
             type="button"
             onClick={() => void refetch()}
-            className="border-edge-2 bg-ink-750/55 hover:border-edge-3 hover:bg-ink-750 text-bone-2 inline-flex h-[27px] items-center rounded-md border px-2.5 text-[11px] font-medium transition-colors"
+            className="border-edge-2 bg-ink-750/55 hover:border-edge-3 hover:bg-ink-750 text-bone-2 inline-flex h-[27px] items-center rounded-md border px-2.5 text-xs font-medium transition-colors"
           >
             重试
           </button>
@@ -326,12 +326,12 @@ export function OverviewPage() {
                   (index > 0 ? " pl-[22px]" : "")
                 }
               >
-                <dt className="text-muted-2 text-[10px] font-semibold tracking-[0.14em] uppercase">{stat.label}</dt>
-                <dd className="font-display text-bone mt-[7px] text-[28px] font-medium tabular-nums tracking-[-0.03em] leading-none">
+                <dt className="text-muted-2 text-2xs font-semibold tracking-[0.14em] uppercase">{stat.label}</dt>
+                <dd className="font-display text-bone mt-[7px] text-4xl font-medium tabular-nums tracking-[-0.03em] leading-none">
                   {stat.value}
-                  {stat.unit ? <span className="text-muted-2 font-sans ml-1 text-[11.5px] font-medium tracking-normal">{stat.unit}</span> : null}
+                  {stat.unit ? <span className="text-muted-2 font-sans ml-1 text-xs font-medium tracking-normal">{stat.unit}</span> : null}
                 </dd>
-                <dd className="text-muted-2 mt-2 flex items-center gap-1.5 text-[10px] leading-[1.35]">
+                <dd className="text-muted-2 mt-2 flex items-center gap-1.5 text-2xs leading-[1.35]">
                   <Lamp tone={stat.lamp} />
                   {stat.meta}
                 </dd>
@@ -352,7 +352,7 @@ export function OverviewPage() {
             />
 
             {queueCount === 0 ? (
-              <p className="text-muted-2 py-7 text-center text-[12px]">暂无待你过目的 PR 或 Issue。</p>
+              <p className="text-muted-2 py-7 text-center text-sm">暂无待你过目的 PR 或 Issue。</p>
             ) : (
               <div className="flex flex-col gap-2 pt-1">
                 {prRows.length ? (
@@ -378,12 +378,12 @@ export function OverviewPage() {
             <SectionHead title="活跃仓库" meta="按最近更新" />
             <div className="pt-0.5">
               <div className="border-edge-1 flex items-center gap-2 border-b py-3.5 pb-2">
-                <span className="text-muted text-[10px] font-semibold tracking-[0.13em] uppercase">{user?.username ?? "全部"}</span>
-                <span className="rounded-full bg-bone/[0.06] px-1.5 font-mono text-[10px] leading-[15px] text-muted-2">{repos.length}</span>
-                <span className="text-faint ml-auto text-[10px]">自托管实例 · 全部可访问仓库</span>
+                <span className="text-muted text-2xs font-semibold tracking-[0.13em] uppercase">{user?.username ?? "全部"}</span>
+                <span className="rounded-full bg-bone/[0.06] px-1.5 font-mono text-2xs leading-[15px] text-muted-2">{repos.length}</span>
+                <span className="text-faint ml-auto text-2xs">自托管实例 · 全部可访问仓库</span>
               </div>
               {repos.length === 0 ? (
-                <p className="text-muted-2 py-7 text-center text-[12px]">暂无仓库。</p>
+                <p className="text-muted-2 py-7 text-center text-sm">暂无仓库。</p>
               ) : (
                 repos.map((repo, index) => (
                   <button
@@ -397,13 +397,13 @@ export function OverviewPage() {
                   >
                     <RepoGlyph letter={(repo.name[0] ?? "?").toLowerCase()} tone={GLYPH_TONES[index % GLYPH_TONES.length]} />
                     <span className="flex min-w-0 flex-col gap-0.5">
-                      <span className="text-bone flex items-center gap-[7px] text-[12.5px] font-medium leading-snug">
+                      <span className="text-bone flex items-center gap-[7px] text-sm font-medium leading-snug">
                         {repo.name}
-                        <span className="border-edge-2 inline-flex h-[17px] items-center rounded-full border px-[7px] text-[9.5px] font-medium text-muted">
+                        <span className="border-edge-2 inline-flex h-[17px] items-center rounded-full border px-[7px] text-2xs font-medium text-muted">
                           {repo.is_public ? "Public" : "Private"}
                         </span>
                       </span>
-                      <span className="text-muted-2 text-[10px] leading-snug">
+                      <span className="text-muted-2 text-2xs leading-snug">
                         默认分支 <span className="font-mono">{repo.default_branch}</span>
                       </span>
                     </span>
@@ -413,13 +413,13 @@ export function OverviewPage() {
                         { value: repo.fork_count, label: "forks" },
                         { value: repo.watch_count, label: "watch" },
                       ].map((metric) => (
-                        <span key={metric.label} className="text-faint flex items-baseline gap-1 text-[9.5px] tracking-[0.06em] whitespace-nowrap uppercase">
-                          <span className="text-bone-2 font-mono text-[12px] tracking-normal">{metric.value}</span>
+                        <span key={metric.label} className="text-faint flex items-baseline gap-1 text-2xs tracking-[0.06em] whitespace-nowrap uppercase">
+                          <span className="text-bone-2 font-mono text-sm tracking-normal">{metric.value}</span>
                           {metric.label}
                         </span>
                       ))}
                     </span>
-                    <span className="text-muted-2 inline-flex items-center justify-end gap-1.5 text-[10px] whitespace-nowrap">
+                    <span className="text-muted-2 inline-flex items-center justify-end gap-1.5 text-2xs whitespace-nowrap">
                       <Lamp tone="info" />
                       更新 {formatRelative(repo.updated_at)}
                     </span>
@@ -453,11 +453,11 @@ export function OverviewPage() {
             autoComplete="off"
             aria-label="问 Kustos"
             placeholder="在 Agent 控制台发起运行 —「LFS 传输令牌是在哪里签发的？」"
-            className="text-bone min-w-0 flex-1 border-0 bg-transparent text-[12.5px] outline-none placeholder:text-muted-2"
+            className="text-bone min-w-0 flex-1 border-0 bg-transparent text-sm focus-visible:outline-none placeholder:text-muted-2"
           />
           <button
             type="submit"
-            className="bg-amber border-amber hover:bg-amber-2 hover:border-amber-2 inline-flex h-[27px] items-center gap-[7px] whitespace-nowrap rounded-md border px-2.5 text-[11px] font-semibold text-ink-950 transition-colors"
+            className="bg-amber border-amber hover:bg-amber-2 hover:border-amber-2 inline-flex h-[27px] items-center gap-[7px] whitespace-nowrap rounded-md border px-2.5 text-xs font-semibold text-ink-950 transition-colors"
           >
             运行
           </button>
@@ -471,9 +471,9 @@ function QueueGroup({ title, count, note, children }: { title: string; count: nu
   return (
     <div className="min-w-0">
       <div className="flex items-center gap-2 pt-3.5 pb-2">
-        <span className="text-muted text-[10px] font-semibold tracking-[0.13em] uppercase">{title}</span>
-        <span className="rounded-full bg-bone/[0.06] px-1.5 font-mono text-[10px] leading-[15px] text-muted-2">{count}</span>
-        <span className="text-faint ml-auto text-[10px]">{note}</span>
+        <span className="text-muted text-2xs font-semibold tracking-[0.13em] uppercase">{title}</span>
+        <span className="rounded-full bg-bone/[0.06] px-1.5 font-mono text-2xs leading-[15px] text-muted-2">{count}</span>
+        <span className="text-faint ml-auto text-2xs">{note}</span>
       </div>
       <div className="min-w-0">{children}</div>
     </div>
@@ -488,13 +488,13 @@ function ReviewRow({ row }: { row: QueueRow }) {
         <Lamp tone={row.lamp} live={row.live} className="mt-0.5" />
       </div>
       <div className="min-w-0">
-        <div className="text-bone flex items-baseline gap-2 text-[14.5px] font-medium leading-snug">
+        <div className="text-bone flex items-baseline gap-2 text-md font-medium leading-snug">
           <Link to={row.href} className="hover:text-amber-2 truncate underline-offset-[3px] hover:underline">
             {row.title}
           </Link>
-          <span className="text-faint flex-none font-mono text-[10px]">{row.number}</span>
+          <span className="text-faint flex-none font-mono text-2xs">{row.number}</span>
         </div>
-        <p className="text-muted-2 mt-1.5 flex flex-wrap items-center gap-[5px] text-[10px] leading-relaxed">
+        <p className="text-muted-2 mt-1.5 flex flex-wrap items-center gap-[5px] text-2xs leading-relaxed">
           <span className="text-muted">{row.repo}</span>
           <span className="text-faint">·</span>
           <span>{row.author}</span>
@@ -509,7 +509,7 @@ function ReviewRow({ row }: { row: QueueRow }) {
           {row.badge ? (
             <span
               className={
-                "inline-flex h-[19px] items-center rounded-full px-[7px] text-[10px] font-medium " +
+                "inline-flex h-[19px] items-center rounded-full px-[7px] text-2xs font-medium " +
                 (row.badge.tone === "warn"
                   ? "bg-amber/10 text-amber-2"
                   : row.badge.tone === "bad"
@@ -523,10 +523,10 @@ function ReviewRow({ row }: { row: QueueRow }) {
         </p>
       </div>
       <div className="flex min-w-[58px] flex-col items-end gap-2 pt-px">
-        <span className="text-faint font-mono text-[10px]">{row.age}</span>
+        <span className="text-faint font-mono text-2xs">{row.age}</span>
         <Link
           to={row.href}
-          className="border-edge-2 bg-ink-750/55 hover:border-edge-3 hover:bg-ink-750 text-bone-2 inline-flex h-[27px] items-center rounded-md border px-2.5 text-[11px] font-medium transition-colors"
+          className="border-edge-2 bg-ink-750/55 hover:border-edge-3 hover:bg-ink-750 text-bone-2 inline-flex h-[27px] items-center rounded-md border px-2.5 text-xs font-medium transition-colors"
         >
           {row.action}
         </Link>
@@ -581,7 +581,7 @@ function OverviewPanel({ tab, dash, user, repoCount, onRetry }: { tab: DockTab; 
     // presence 在服务端按房间聚合，没有全局在线名单端点：这里不做假名单
     return (
       <RailBlock title="现在在线">
-        <p className="text-muted-2 py-6 text-center text-[11.5px] leading-relaxed">
+        <p className="text-muted-2 py-6 text-center text-xs leading-relaxed">
           在线状态按房间聚合。
           <br />
           进入仓库频道即可看到谁在线。
@@ -601,7 +601,7 @@ function OverviewPanel({ tab, dash, user, repoCount, onRetry }: { tab: DockTab; 
             { key: "仓库", value: <span className="font-mono">{repoCount} 个可访问</span> },
           ]}
         />
-        <p className="text-muted-2 mt-3 text-[11.5px] leading-[1.45]">
+        <p className="text-muted-2 mt-3 text-xs leading-[1.45]">
           实例存储与 Agent 配额属于管理员指标，不下发到此视图。
         </p>
       </RailBlock>
@@ -613,24 +613,24 @@ function OverviewPanel({ tab, dash, user, repoCount, onRetry }: { tab: DockTab; 
   return (
     <RailBlock>
       <div className="mb-2.5 flex items-center">
-        <h3 className="text-muted-2 text-[10px] font-semibold tracking-[0.15em] uppercase">实时动态</h3>
-        <span className="text-amber ml-auto inline-flex items-center gap-1.5 text-[9.5px] font-semibold tracking-[0.14em] uppercase">
+        <h3 className="text-muted-2 text-2xs font-semibold tracking-[0.15em] uppercase">实时动态</h3>
+        <span className="text-amber ml-auto inline-flex items-center gap-1.5 text-2xs font-semibold tracking-[0.14em] uppercase">
           <Lamp tone="warn" live />
           Live
         </span>
       </div>
       {!dash ? (
-        <p className="text-muted-2 py-3.5 text-[11.5px]">
+        <p className="text-muted-2 py-3.5 text-xs">
           动态加载中或失败。
           <button type="button" onClick={onRetry} className="text-amber hover:text-amber-2 ml-1.5 transition-colors">
             重试
           </button>
         </p>
       ) : activities.length === 0 ? (
-        <p className="text-muted-2 py-3.5 text-[11.5px]">暂无动态。</p>
+        <p className="text-muted-2 py-3.5 text-xs">暂无动态。</p>
       ) : (
         <div className="pt-0.5">
-          <p className="text-faint block py-[15px] pb-1 text-[10px] font-semibold tracking-[0.13em] uppercase">最近动态</p>
+          <p className="text-faint block py-[15px] pb-1 text-2xs font-semibold tracking-[0.13em] uppercase">最近动态</p>
           {activities.map((activity) => {
             const style = ACTIVITY_STYLE[activity.entity_type] ?? { icon: GitCommitHorizontal, tone: "neutral" as const };
             const tone = TONE_BY_ACTION[activity.action] ?? style.tone;
@@ -651,14 +651,14 @@ function OverviewPanel({ tab, dash, user, repoCount, onRetry }: { tab: DockTab; 
                   <style.icon className="size-3" aria-hidden="true" />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-muted text-[11.5px] leading-[1.5]">
+                  <p className="text-muted text-xs leading-[1.5]">
                     <span className="text-bone-2">{activity.actor_username ?? "系统"}</span>{" "}
                     {ACTIVITY_VERB[activity.action] ?? activity.action}
                     {activity.details
                       ? ` ${activity.details}`
                       : ` ${ENTITY_LABEL[activity.entity_type] ?? activity.entity_type}`}
                   </p>
-                  <time className="text-faint mt-[3px] block font-mono text-[10px]">{formatRelative(activity.created_at)}</time>
+                  <time className="text-faint mt-[3px] block font-mono text-2xs">{formatRelative(activity.created_at)}</time>
                 </div>
               </div>
             );

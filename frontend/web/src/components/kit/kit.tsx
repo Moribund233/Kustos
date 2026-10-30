@@ -71,7 +71,7 @@ export function StatusPill({ tone = "default", lamp, live, className, children }
   return (
     <span
       className={cn(
-        "inline-flex h-7 items-center gap-[7px] whitespace-nowrap rounded-full border px-2.5 text-[11px]",
+        "inline-flex h-7 items-center gap-[7px] whitespace-nowrap rounded-full border px-2.5 text-xs",
         PILL_TONE[tone],
         className,
       )}
@@ -92,7 +92,7 @@ export function Chip({ active = false, className, children, ...props }: ChipProp
     <button
       type="button"
       className={cn(
-        "inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-full border px-2 text-[10.5px] transition-colors",
+        "inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-full border px-2 text-xs transition-colors",
         active
           ? "border-amber/30 bg-amber/10 text-amber-2"
           : "border-edge-1 text-muted hover:border-edge-2 hover:text-bone-2",
@@ -126,7 +126,7 @@ export function CheckChip({ tone = "neutral", icon: Icon, children, className }:
   return (
     <span
       className={cn(
-        "inline-flex h-5 items-center gap-1 whitespace-nowrap rounded border px-[7px] text-[10px] leading-none",
+        "inline-flex h-5 items-center gap-1 whitespace-nowrap rounded border px-[7px] text-2xs leading-none",
         CHECK_TONE[tone],
         className,
       )}
@@ -142,7 +142,7 @@ export function Kbd({ className, children }: { className?: string; children: Rea
   return (
     <kbd
       className={cn(
-        "inline-flex h-[18px] items-center whitespace-nowrap rounded border-edge-2 border bg-ink-950/45 px-[5px] font-mono text-[9px] leading-none text-muted-2",
+        "inline-flex h-[18px] items-center whitespace-nowrap rounded border-edge-2 border bg-ink-950/45 px-[5px] font-mono text-2xs leading-none text-muted-2",
         className,
       )}
     >
@@ -163,13 +163,13 @@ interface SectionHeadProps {
 export function SectionHead({ title, count, meta, className }: SectionHeadProps) {
   return (
     <div className={cn("flex min-h-[27px] items-center gap-[9px] border-edge-2 border-b pb-[9px]", className)}>
-      <h2 className="text-bone-2 text-[10px] font-semibold tracking-[0.15em] uppercase">{title}</h2>
+      <h2 className="text-bone-2 text-2xs font-semibold tracking-[0.15em] uppercase">{title}</h2>
       {count !== undefined ? (
-        <span className="rounded-full bg-bone/[0.06] px-1.5 font-mono text-[10px] leading-[15px] text-muted-2">
+        <span className="rounded-full bg-bone/[0.06] px-1.5 font-mono text-2xs leading-[15px] text-muted-2">
           {count}
         </span>
       ) : null}
-      {meta ? <div className="ml-auto text-faint font-mono text-[10px]">{meta}</div> : null}
+      {meta ? <div className="ml-auto text-faint font-mono text-2xs">{meta}</div> : null}
     </div>
   );
 }
@@ -189,9 +189,9 @@ const AVATAR_TONE: Record<AvatarTone, string> = {
 };
 
 const AVATAR_SIZE: Record<"sm" | "md" | "lg", string> = {
-  sm: "size-[23px] text-[8.5px]",
-  md: "size-7 text-[10px]",
-  lg: "size-9 text-[12px]",
+  sm: "size-[23px] text-2xs",
+  md: "size-7 text-2xs",
+  lg: "size-9 text-sm",
 };
 
 interface ToneAvatarProps {
@@ -229,7 +229,7 @@ export function RepoGlyph({ letter, tone = "amber" }: { letter: string; tone?: A
     <span
       aria-hidden="true"
       className={cn(
-        "font-display inline-grid size-6 shrink-0 place-items-center rounded-md text-[13px] font-semibold text-ink-950",
+        "font-display inline-grid size-6 shrink-0 place-items-center rounded-md text-base font-semibold text-ink-950",
         AVATAR_TONE[tone],
       )}
     >
@@ -334,8 +334,8 @@ export function Stage({ dock, panel, defaultPane, className, children }: StagePr
         {activeTab && title ? (
           <header className="flex flex-none items-start gap-2.5 border-edge-1 border-b px-[15px] pt-3.5 pb-[11px]">
             <div className="min-w-0 flex-1">
-              <p className="text-faint text-[9.5px] font-semibold tracking-[0.16em] uppercase">{title.kicker}</p>
-              <h2 className="font-display text-bone mt-[3px] text-[18px] font-medium tracking-tight leading-tight">
+              <p className="text-faint text-2xs font-semibold tracking-[0.16em] uppercase">{title.kicker}</p>
+              <h2 className="font-display text-bone mt-[3px] text-xl font-medium tracking-tight leading-tight">
                 {title.label}
               </h2>
             </div>
@@ -365,7 +365,7 @@ export function RailBlock({ title, children }: { title?: string; children: React
   return (
     <section className="border-edge-1 border-b px-[15px] pt-3.5 pb-[15px] last:border-b-0">
       {title ? (
-        <h3 className="text-muted-2 mb-2.5 text-[10px] font-semibold tracking-[0.15em] uppercase">{title}</h3>
+        <h3 className="text-muted-2 mb-2.5 text-2xs font-semibold tracking-[0.15em] uppercase">{title}</h3>
       ) : null}
       {children}
     </section>
@@ -378,8 +378,8 @@ export function FactList({ items }: { items: { key: string; value: ReactNode }[]
     <dl>
       {items.map((item) => (
         <div key={item.key} className="flex items-baseline justify-between gap-3 border-edge-1 border-b py-[9px] last:border-b-0">
-          <dt className="text-muted-2 text-[10px]">{item.key}</dt>
-          <dd className="text-bone-2 text-right text-[10px]">{item.value}</dd>
+          <dt className="text-muted-2 text-2xs">{item.key}</dt>
+          <dd className="text-bone-2 text-right text-2xs">{item.value}</dd>
         </div>
       ))}
     </dl>

@@ -93,13 +93,13 @@ export function CommitsPage() {
     <div className="mx-auto w-full max-w-[1560px] px-[34px] pt-[30px] pb-20">
       <header className="border-edge-1 flex items-end justify-between gap-7 border-b pb-5">
         <div className="min-w-0">
-          <p className="text-faint text-[10.5px] font-semibold tracking-[0.16em] uppercase">
+          <p className="text-faint text-xs font-semibold tracking-[0.16em] uppercase">
             {repo?.path ?? "—"}
           </p>
           <h1 className="font-display text-bone mt-[7px] text-[clamp(1.75rem,2.5vw,2.3rem)] leading-none font-medium tracking-tight">
             {repo?.name ?? t("commits.title")}
           </h1>
-          <p className="text-muted-2 mt-2 text-[11.5px]">
+          <p className="text-muted-2 mt-2 text-xs">
             {repo?.description || t("commits.hint")}
           </p>
         </div>
@@ -108,7 +108,7 @@ export function CommitsPage() {
       <RepoTabs />
 
       <div className="mt-4 flex items-center gap-2.5">
-        <label className="text-muted-2 text-[10px] font-semibold tracking-[0.13em] uppercase">
+        <label className="text-muted-2 text-2xs font-semibold tracking-[0.13em] uppercase">
           {t("commits.branch")}
         </label>
         <select
@@ -118,7 +118,7 @@ export function CommitsPage() {
             setPage(1);
           }}
           aria-label={t("commits.branch")}
-          className="border-edge-2 bg-ink-950/60 text-bone focus:border-amber/40 h-8 rounded-md border px-2 font-mono text-[11px] outline-none"
+          className="border-edge-2 bg-ink-950/60 text-bone focus:border-amber/40 h-8 rounded-md border px-2 font-mono text-xs focus-visible:outline-none"
         >
           {(branchesQuery.data ?? []).map((item) => (
             <option key={item.name} value={item.name}>
@@ -127,7 +127,7 @@ export function CommitsPage() {
           ))}
           {!branchesQuery.data?.length ? <option value={ref}>{ref}</option> : null}
         </select>
-        <span className="text-faint ml-auto font-mono text-[10px]">
+        <span className="text-faint ml-auto font-mono text-2xs">
           {t("commits.page", { page })}
         </span>
       </div>
@@ -143,17 +143,17 @@ export function CommitsPage() {
       >
       <div className="border-edge-2 bg-ink-900/55 overflow-hidden rounded-[10px] border">
         {commitsQuery.isLoading ? (
-          <p className="text-muted-2 p-4 text-[11.5px]">{t("common.loading")}</p>
+          <p className="text-muted-2 p-4 text-xs">{t("common.loading")}</p>
         ) : commitsQuery.error ? (
           <button
             type="button"
             onClick={() => void commitsQuery.refetch()}
-            className="text-muted-2 hover:text-amber-2 w-full p-4 text-left text-[11.5px] hover:underline"
+            className="text-muted-2 hover:text-amber-2 w-full p-4 text-left text-xs hover:underline"
           >
             {t("commits.loadFailed")}
           </button>
         ) : commits.length === 0 ? (
-          <p className="text-muted-2 p-4 text-[11.5px]">{t("commits.empty")}</p>
+          <p className="text-muted-2 p-4 text-xs">{t("commits.empty")}</p>
         ) : (
           <ul>
             {commits.map((commit) => (
@@ -164,16 +164,16 @@ export function CommitsPage() {
                   className="border-edge-1 hover:bg-ink-800/45 flex w-full items-center gap-3 border-b px-3 py-2.5 text-left transition-colors last:border-b-0"
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="text-bone-2 block truncate text-[11.5px] font-medium">
+                    <span className="text-bone-2 block truncate text-xs font-medium">
                       {commit.message.split("\n")[0]}
                     </span>
-                    <span className="text-faint mt-0.5 flex items-center gap-2 font-mono text-[10px]">
+                    <span className="text-faint mt-0.5 flex items-center gap-2 font-mono text-2xs">
                       <span>{commit.sha.slice(0, 7)}</span>
                       <span>{commit.author.name}</span>
                       <span className="text-muted-2">{formatRelative(commit.date)}</span>
                     </span>
                   </span>
-                  <span className="text-faint text-[10px]">{commit.parents.length > 1 ? "merge" : ""}</span>
+                  <span className="text-faint text-2xs">{commit.parents.length > 1 ? "merge" : ""}</span>
                 </button>
               </li>
             ))}
@@ -260,7 +260,7 @@ function ComparePanel({ repoId, defaultBranch }: { repoId: string; defaultBranch
   return (
     <RailBlock>
       <div className="mb-2.5 flex items-center gap-[9px]">
-        <h3 className="text-muted-2 text-[10px] font-semibold tracking-[0.15em] uppercase">
+        <h3 className="text-muted-2 text-2xs font-semibold tracking-[0.15em] uppercase">
           {t("commits.compare")}
         </h3>
       </div>
@@ -270,13 +270,13 @@ function ComparePanel({ repoId, defaultBranch }: { repoId: string; defaultBranch
           { label: t("commits.head"), value: head, onChange: setHead },
         ].map((field) => (
           <label key={field.label} className="flex flex-col gap-1">
-            <span className="text-faint text-[9.5px] font-semibold tracking-[0.12em] uppercase">
+            <span className="text-faint text-2xs font-semibold tracking-[0.12em] uppercase">
               {field.label}
             </span>
             <select
               value={field.value}
               onChange={(event) => field.onChange(event.target.value)}
-              className="border-edge-2 bg-ink-950/60 text-bone h-8 rounded-md border px-2 font-mono text-[10.5px] outline-none"
+              className="border-edge-2 bg-ink-950/60 text-bone h-8 rounded-md border px-2 font-mono text-xs focus-visible:outline-none"
             >
               {branches.map((item) => (
                 <option key={item.name} value={item.name}>
@@ -289,9 +289,9 @@ function ComparePanel({ repoId, defaultBranch }: { repoId: string; defaultBranch
         <Button size="sm" onClick={() => void runCompare()} disabled={!base || !head || base === head || pending}>
           {pending ? t("common.loading") : t("commits.runCompare")}
         </Button>
-        {error ? <p className="text-rose text-[10.5px]">{error}</p> : null}
+        {error ? <p className="text-rose text-xs">{error}</p> : null}
         {result ? (
-          <div className="border-edge-1 mt-1 flex flex-col gap-1 rounded-md border p-2 text-[10.5px]">
+          <div className="border-edge-1 mt-1 flex flex-col gap-1 rounded-md border p-2 text-xs">
             <p className="text-muted-2">
               {t("commits.ahead", { count: result.ahead_by ?? 0 })}
             </p>
@@ -358,9 +358,9 @@ function CommitDialog({ repoId, commit, onClose }: { repoId: string; commit: Com
         </DialogHeader>
         <div className="max-h-[62vh] overflow-auto">
           {diffQuery.isLoading ? (
-            <p className="text-muted-2 text-[11.5px]">{t("common.loading")}</p>
+            <p className="text-muted-2 text-xs">{t("common.loading")}</p>
           ) : diffQuery.error ? (
-            <p className="text-rose text-[11.5px]">{t("code.diffLoadFailed")}</p>
+            <p className="text-rose text-xs">{t("code.diffLoadFailed")}</p>
           ) : diffQuery.data ? (
             <DiffViewer payload={diffQuery.data} />
           ) : null}

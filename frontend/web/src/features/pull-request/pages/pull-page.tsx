@@ -44,7 +44,7 @@ type PullTab = "conversation" | "files";
 
 /** 头部评审决策按钮的样式（批准为琥珀主按钮，请求修改为玫红描边）。 */
 const DECISION_BTN =
-  "inline-flex h-8 items-center gap-[7px] rounded-md border px-3 text-[12px] font-semibold transition-colors disabled:pointer-events-none disabled:opacity-50";
+  "inline-flex h-8 items-center gap-[7px] rounded-md border px-3 text-sm font-semibold transition-colors disabled:pointer-events-none disabled:opacity-50";
 
 /** PR 状态 → 页头胶囊文案。 */
 const STATUS_LABEL: Record<string, string> = { open: "Open", merged: "Merged", closed: "Closed" };
@@ -401,13 +401,13 @@ export function PullPage() {
             <StatusPill tone={pr.status === "open" ? "good" : "neutral"} lamp>
               {stateLabel}
             </StatusPill>
-            <span className="text-muted font-mono text-[12px]">{prLabel}</span>
+            <span className="text-muted font-mono text-sm">{prLabel}</span>
             <StatusPill tone={changesRequested ? "bad" : approvals > 0 ? "good" : "warn"}>{reviewLabel}</StatusPill>
           </div>
           <h1 className="font-display text-bone mt-2 text-[clamp(1.6rem,2.4vw,2.2rem)] font-medium tracking-[-0.028em] leading-tight">
             {pr.title}
           </h1>
-          <p className="text-muted-2 mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] leading-relaxed">
+          <p className="text-muted-2 mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs leading-relaxed">
             <span className="text-muted font-mono">{pr.source_branch}</span>
             <span className="text-faint">→</span>
             <span className="text-muted font-mono">{pr.target_branch}</span>
@@ -448,7 +448,7 @@ export function PullPage() {
           <button
             type="button"
             onClick={() => setWatchOpen(true)}
-            className="border-edge-2 text-muted hover:border-edge-3 hover:text-bone-2 inline-flex h-8 items-center gap-[7px] rounded-md border px-2.5 text-[11px] font-medium transition-colors"
+            className="border-edge-2 text-muted hover:border-edge-3 hover:text-bone-2 inline-flex h-8 items-center gap-[7px] rounded-md border px-2.5 text-xs font-medium transition-colors"
           >
             <Eye className="size-[14px]" aria-hidden="true" />
             {t("pullRequest.watchRepo")}
@@ -500,15 +500,15 @@ export function PullPage() {
             <div className="border-edge-1 flex items-center gap-2.5 border-b pb-3">
               <ToneAvatar initials={initialsOf(pr.author)} tone={toneFor(pr.author?.id)} />
               <div className="min-w-0">
-                <strong className="text-bone block text-[12.5px] font-semibold">{authorName}</strong>
-                <span className="text-muted-2 block text-[10px]">{formatRelative(pr.created_at)}发起</span>
+                <strong className="text-bone block text-sm font-semibold">{authorName}</strong>
+                <span className="text-muted-2 block text-2xs">{formatRelative(pr.created_at)}发起</span>
               </div>
-              <StatusPill className="ml-auto h-[19px] px-2 text-[9.5px]">作者</StatusPill>
+              <StatusPill className="ml-auto h-[19px] px-2 text-2xs">作者</StatusPill>
             </div>
             {pr.description ? (
               <Markdown content={pr.description} className="pt-3.5" />
             ) : (
-              <p className="text-faint pt-3.5 text-[11.5px]">（没有描述）</p>
+              <p className="text-faint pt-3.5 text-xs">（没有描述）</p>
             )}
           </article>
 
@@ -517,7 +517,7 @@ export function PullPage() {
           {/* 评审时间线（详情里的评审 + 评论） */}
           <ol aria-label={t("pullRequest.timeline")} className="mt-[22px]">
             {timeline.length === 0 ? (
-              <li className="text-faint py-2 text-[11px]">还没有评审或评论。</li>
+              <li className="text-faint py-2 text-xs">还没有评审或评论。</li>
             ) : (
               timeline.map((event, index, all) => (
                 <li key={event.id} className="relative grid grid-cols-[30px_minmax(0,1fr)] gap-[11px] pb-[18px] last:pb-0">
@@ -532,16 +532,16 @@ export function PullPage() {
                   />
                   <div className="min-w-0 pt-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <strong className="text-bone-2 text-[11.5px] font-semibold">{event.name}</strong>
-                      <span className="text-muted-2 text-[9.5px]">{event.action}</span>
-                      <span className="text-faint font-mono text-[9.5px]">{formatRelative(event.at)}</span>
+                      <strong className="text-bone-2 text-xs font-semibold">{event.name}</strong>
+                      <span className="text-muted-2 text-2xs">{event.action}</span>
+                      <span className="text-faint font-mono text-2xs">{formatRelative(event.at)}</span>
                       {event.badge ? (
-                        <StatusPill className="h-[17px] px-[7px] text-[9px]">{event.badge}</StatusPill>
+                        <StatusPill className="h-[17px] px-[7px] text-2xs">{event.badge}</StatusPill>
                       ) : null}
                     </div>
                     {event.body ? (
                       <div className="border-edge-1 bg-ink-850/50 mt-1.5 rounded-md border px-3 py-2.5">
-                        <Markdown content={event.body} className="text-muted text-[11.5px]" />
+                        <Markdown content={event.body} className="text-muted text-xs" />
                       </div>
                     ) : null}
                   </div>
@@ -557,10 +557,10 @@ export function PullPage() {
               rows={3}
               placeholder={t("pullRequest.commentPlaceholder")}
               aria-label={t("pullRequest.commentPlaceholder")}
-              className="border-edge-2 bg-ink-950/60 text-bone placeholder:text-muted-2 focus:border-amber/40 min-h-[76px] w-full resize-none rounded-md border px-2.5 py-2 text-[11.5px] outline-none transition-colors"
+              className="border-edge-2 bg-ink-950/60 text-bone placeholder:text-muted-2 focus:border-amber/40 min-h-[76px] w-full resize-none rounded-md border px-2.5 py-2 text-xs focus-visible:outline-none transition-colors"
             />
             <div className="mt-2 flex items-center justify-between gap-3">
-              <span className="text-faint text-[10px]">{t("pullRequest.commentHint")}</span>
+              <span className="text-faint text-2xs">{t("pullRequest.commentHint")}</span>
               <Button
                 size="sm"
                 onClick={() => commentMutation.mutate()}
@@ -585,7 +585,7 @@ export function PullPage() {
 
       {tab === "files" && (
         <div className="min-w-0">
-          <div className="text-muted-2 border-edge-1 flex items-center gap-2.5 border-b pb-2.5 text-[10.5px]">
+          <div className="text-muted-2 border-edge-1 flex items-center gap-2.5 border-b pb-2.5 text-xs">
             <span>
               <span className="font-mono">{diffPayload?.stats.files_changed ?? "—"}</span> 个文件变更
             </span>
@@ -594,9 +594,9 @@ export function PullPage() {
             <span className="text-faint ml-auto">文件头可展开/收起，点击行可锚定评论</span>
           </div>
           {diffQuery.isPending ? (
-            <p className="text-faint py-6 text-center text-[13px]">正在加载 diff…</p>
+            <p className="text-faint py-6 text-center text-base">正在加载 diff…</p>
           ) : diffQuery.isError ? (
-            <p className="text-rose-2 py-6 text-center text-[13px]">{diffQuery.error?.message ?? "diff 加载失败"}</p>
+            <p className="text-rose-2 py-6 text-center text-base">{diffQuery.error?.message ?? "diff 加载失败"}</p>
           ) : diffPayload ? (
             <DiffViewer payload={diffPayload} className="pt-3" />
           ) : null}
@@ -626,13 +626,13 @@ function TabButton({
       aria-selected={active}
       onClick={onClick}
       className={
-        "relative -mb-px flex items-center gap-1.5 pb-2.5 text-[12.5px] transition-colors " +
+        "relative -mb-px flex items-center gap-1.5 pb-2.5 text-sm transition-colors " +
         (active ? "text-bone" : "text-muted hover:text-bone-2")
       }
     >
       {label}
       {count !== undefined ? (
-        <span className="rounded-full bg-bone/[0.06] px-1.5 font-mono text-[10px] leading-[15px] text-muted-2">{count}</span>
+        <span className="rounded-full bg-bone/[0.06] px-1.5 font-mono text-2xs leading-[15px] text-muted-2">{count}</span>
       ) : null}
       <span
         aria-hidden="true"
@@ -658,8 +658,8 @@ function PullEmpty({
   return (
     <div className="mx-auto flex max-w-[520px] flex-col items-center gap-2 pt-[120px] text-center">
       <GitMerge className="text-faint size-[26px]" aria-hidden="true" />
-      <h1 className="font-display text-bone text-[19px] font-medium tracking-tight">{title}</h1>
-      {hint ? <p className="text-muted-2 text-[12px] leading-relaxed">{hint}</p> : null}
+      <h1 className="font-display text-bone text-2xl font-medium tracking-tight">{title}</h1>
+      {hint ? <p className="text-muted-2 text-sm leading-relaxed">{hint}</p> : null}
       {children ? <div className="mt-2">{children}</div> : null}
     </div>
   );
@@ -756,14 +756,14 @@ function PullPanel({
     return (
       <RailBlock title={t("pullRequest.linkedIssues")}>
         {issues.length === 0 ? (
-          <p className="text-faint py-2.5 text-[10.5px]">还没有关联的 Issue。</p>
+          <p className="text-faint py-2.5 text-xs">还没有关联的 Issue。</p>
         ) : (
           issues.map((issue) => (
             <div key={issue.id} className="border-edge-1 flex items-start gap-2 border-t py-2.5 first:border-t-0">
               <Link2 className="text-muted-2 mt-0.5 size-[15px] shrink-0" aria-hidden="true" />
               <div className="flex min-w-0 flex-col gap-0.5">
-                <span className="text-bone-2 text-[11.5px] leading-snug">{issue.title}</span>
-                <span className="text-faint text-[9.5px]">
+                <span className="text-bone-2 text-xs leading-snug">{issue.title}</span>
+                <span className="text-faint text-2xs">
                   <span className="font-mono">#{issue.issue_number}</span> · {issue.status}
                   {issue.closes_on_merge ? " · 合并时关闭" : ""}
                 </span>
@@ -774,7 +774,7 @@ function PullPanel({
         <button
           type="button"
           onClick={() => toast.info("在 PR 描述里写「Fixes #123」即可自动关联同仓库 Issue。")}
-          className="text-amber-2 hover:text-amber mt-2.5 text-[10.5px] transition-colors"
+          className="text-amber-2 hover:text-amber mt-2.5 text-xs transition-colors"
         >
           关联 Issue
         </button>
@@ -809,8 +809,8 @@ function PullPanel({
           <div className="flex items-start gap-2">
             <Lamp tone={merged || ready ? "good" : closed ? "neutral" : "warn"} className="mt-1.5" />
             <div className="min-w-0">
-              <strong className="text-bone block text-[12.5px] font-semibold leading-snug">{mergeTitle}</strong>
-              <p className="text-muted-2 mt-[3px] text-[10px] leading-[1.5]">{mergeDesc}</p>
+              <strong className="text-bone block text-sm font-semibold leading-snug">{mergeTitle}</strong>
+              <p className="text-muted-2 mt-[3px] text-2xs leading-[1.5]">{mergeDesc}</p>
             </div>
           </div>
           <ul className="my-2.5 flex flex-col gap-1">
@@ -822,12 +822,12 @@ function PullPanel({
             type="button"
             onClick={onMerge}
             disabled={!ready || mergePending}
-            className="bg-amber border-amber text-ink-950 inline-flex h-8 w-full items-center justify-center gap-[7px] rounded-md border text-[12px] font-semibold opacity-50 disabled:pointer-events-none"
+            className="bg-amber border-amber text-ink-950 inline-flex h-8 w-full items-center justify-center gap-[7px] rounded-md border text-sm font-semibold opacity-50 disabled:pointer-events-none"
           >
             <GitMerge className="size-[15px]" aria-hidden="true" />
             {merged ? "已合并" : "合并"}
           </button>
-          <p className="text-faint mt-2.5 flex items-start gap-[5px] text-[9.5px] leading-[1.45]">
+          <p className="text-faint mt-2.5 flex items-start gap-[5px] text-2xs leading-[1.45]">
             <ShieldCheck className="mt-px size-[11px] shrink-0" aria-hidden="true" />
             <span>
               <span className="font-mono">{pr.target_branch}</span> 的合并条件由服务端分支保护裁决；仓库所有者可带原因覆写，覆写会被审计。
@@ -849,11 +849,11 @@ function PullPanel({
             }
           >
             <ToneAvatar initials={initialsOf(pr.author)} tone={toneFor(pr.author.id)} size="sm" />
-            <span className="text-bone-2 truncate text-[11.5px]">
+            <span className="text-bone-2 truncate text-xs">
               {displayName(pr.author)}
               {pr.author.id === me?.id ? <span className="text-faint">（你）</span> : null}
             </span>
-            <StatusPill className="ml-auto h-[19px] flex-none px-2 text-[9.5px]">作者</StatusPill>
+            <StatusPill className="ml-auto h-[19px] flex-none px-2 text-2xs">作者</StatusPill>
           </li>
         ) : null}
         {reviewerRows.map((row) => {
@@ -868,32 +868,32 @@ function PullPanel({
               }
             >
               <ToneAvatar initials={initialsOf(row.user)} tone={toneFor(row.user.id)} size="sm" />
-              <span className="text-bone-2 truncate text-[11.5px]">
+              <span className="text-bone-2 truncate text-xs">
                 {displayName(row.user)}
                 {isYou ? <span className="text-faint">（你）</span> : null}
               </span>
-              <StatusPill tone={style.tone} className="ml-auto h-[19px] flex-none px-2 text-[9.5px]">
+              <StatusPill tone={style.tone} className="ml-auto h-[19px] flex-none px-2 text-2xs">
                 {style.label}
               </StatusPill>
             </li>
           );
         })}
         {reviewerRows.length === 0 ? (
-          <li className="text-faint py-2 text-[10.5px]">还没有人被请求评审。</li>
+          <li className="text-faint py-2 text-xs">还没有人被请求评审。</li>
         ) : null}
       </ul>
       <button
         type="button"
         onClick={() => setInviteOpen((open) => !open)}
-        className="text-amber-2 hover:text-amber mt-2.5 text-[10.5px] transition-colors"
+        className="text-amber-2 hover:text-amber mt-2.5 text-xs transition-colors"
       >
         {inviteOpen ? "收起候选" : "邀请评审"}
       </button>
       {inviteOpen ? (
         <ul className="border-edge-1 mt-1.5 flex flex-col gap-1 border-t pt-2">
-          {membersQuery.isPending ? <li className="text-faint text-[10.5px]">正在加载成员…</li> : null}
+          {membersQuery.isPending ? <li className="text-faint text-xs">正在加载成员…</li> : null}
           {membersQuery.isError ? (
-            <li className="text-rose-2 text-[10.5px]">成员列表加载失败：{membersQuery.error?.message}</li>
+            <li className="text-rose-2 text-xs">成员列表加载失败：{membersQuery.error?.message}</li>
           ) : null}
           {inviteCandidates.map((member) => (
             <li key={member.id}>
@@ -901,15 +901,15 @@ function PullPanel({
                 type="button"
                 disabled={inviteMutation.isPending}
                 onClick={() => inviteMutation.mutate(member.username)}
-                className="text-muted-2 hover:text-bone-2 flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-[11px] transition-colors disabled:pointer-events-none disabled:opacity-50"
+                className="text-muted-2 hover:text-bone-2 flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs transition-colors disabled:pointer-events-none disabled:opacity-50"
               >
                 <span className="truncate">{member.name}</span>
-                <span className="text-amber-2 ml-auto flex-none text-[10px]">请求评审</span>
+                <span className="text-amber-2 ml-auto flex-none text-2xs">请求评审</span>
               </button>
             </li>
           ))}
           {membersQuery.isSuccess && inviteCandidates.length === 0 ? (
-            <li className="text-faint text-[10.5px]">没有可邀请的仓库成员。</li>
+            <li className="text-faint text-xs">没有可邀请的仓库成员。</li>
           ) : null}
         </ul>
       ) : null}
@@ -918,7 +918,7 @@ function PullPanel({
           type="button"
           onClick={onApprove}
           disabled={pr.status !== "open" || reviewPending || myState === "approved"}
-          className="border-edge-2 text-bone-2 hover:border-edge-3 hover:bg-ink-750 inline-flex h-8 items-center justify-start gap-[7px] rounded-md border px-2.5 text-[11.5px] font-medium transition-colors disabled:pointer-events-none disabled:opacity-50"
+          className="border-edge-2 text-bone-2 hover:border-edge-3 hover:bg-ink-750 inline-flex h-8 items-center justify-start gap-[7px] rounded-md border px-2.5 text-xs font-medium transition-colors disabled:pointer-events-none disabled:opacity-50"
         >
           <Check className="size-[14px]" aria-hidden="true" />
           {myState === "approved" ? "已批准" : t("pullRequest.approve")}
@@ -927,7 +927,7 @@ function PullPanel({
           type="button"
           onClick={onRequestChanges}
           disabled={pr.status !== "open" || reviewPending || myState === "changes_requested"}
-          className="border-rose/25 bg-rose/5 text-rose-2 hover:bg-rose/12 hover:border-rose/40 inline-flex h-8 items-center justify-start rounded-md border px-2.5 text-[11.5px] font-medium transition-colors disabled:pointer-events-none disabled:opacity-50"
+          className="border-rose/25 bg-rose/5 text-rose-2 hover:bg-rose/12 hover:border-rose/40 inline-flex h-8 items-center justify-start rounded-md border px-2.5 text-xs font-medium transition-colors disabled:pointer-events-none disabled:opacity-50"
         >
           {myState === "changes_requested" ? "已请求修改" : t("pullRequest.requestChanges")}
         </button>
@@ -939,7 +939,7 @@ function PullPanel({
 /** 合并条件列表的一行：满足为勾，未满足为等待。 */
 function MergeCondition({ done, label }: { done: boolean; label: string }) {
   return (
-    <li className={"flex items-center gap-1.5 text-[9.5px] " + (done ? "text-sage" : "text-muted-2")}>
+    <li className={"flex items-center gap-1.5 text-2xs " + (done ? "text-sage" : "text-muted-2")}>
       {done ? <Check className="size-[11px]" aria-hidden="true" /> : <Clock3 className="size-[11px] text-amber" aria-hidden="true" />}
       {label}
     </li>

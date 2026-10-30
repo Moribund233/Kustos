@@ -33,7 +33,7 @@ const ROLE_KEYS: Record<string, string> = {
 };
 
 const SELECT_CLASS =
-  "border-edge-2 bg-ink-950/60 text-bone focus:border-amber/40 h-7 rounded-md border px-1.5 text-[10.5px] outline-none transition-colors";
+  "border-edge-2 bg-ink-950/60 text-bone focus:border-amber/40 h-7 rounded-md border px-1.5 text-xs focus-visible:outline-none transition-colors";
 
 /**
  * 仓库成员与角色。
@@ -130,16 +130,16 @@ export function MembersSection({ repoId }: { repoId: string }) {
 
   return (
     <section className="border-edge-2 bg-ink-900/50 rounded-[12px] border p-5">
-      <h2 className="text-bone text-[13px] font-semibold">{t("settings.members")}</h2>
-      <p className="text-muted-2 mt-1 text-[11px]">
+      <h2 className="text-bone text-base font-semibold">{t("settings.members")}</h2>
+      <p className="text-muted-2 mt-1 text-xs">
         {t("settings.membersHint")}
       </p>
 
       <div className="mt-4 flex flex-col gap-2">
         {membersQuery.isLoading ? (
-          <p className="text-muted-2 text-[11.5px]">{t("common.loading")}</p>
+          <p className="text-muted-2 text-xs">{t("common.loading")}</p>
         ) : members.length === 0 ? (
-          <p className="text-muted-2 text-[11.5px]">{t("settings.noMembers")}</p>
+          <p className="text-muted-2 text-xs">{t("settings.noMembers")}</p>
         ) : (
           <ul className="border-edge-1 overflow-hidden rounded-md border">
             {members.map((member) => {
@@ -152,8 +152,8 @@ export function MembersSection({ repoId }: { repoId: string }) {
                 >
                   <ToneAvatar initials={name.slice(0, 2).toUpperCase()} tone="slate" size="sm" />
                   <span className="min-w-0 flex-1">
-                    <span className="text-bone-2 block truncate text-[12px] font-medium">{name}</span>
-                    <span className="text-faint text-[10px]">
+                    <span className="text-bone-2 block truncate text-sm font-medium">{name}</span>
+                    <span className="text-faint text-2xs">
                       {t(ROLE_KEYS[member.role] ?? member.role)}
                       {member.is_active ? "" : ` · ${t("settings.inactive")}`}
                     </span>
@@ -177,7 +177,7 @@ export function MembersSection({ repoId }: { repoId: string }) {
                       </select>
                       <button
                         type="button"
-                        className="text-muted-2 hover:text-amber-2 text-[10.5px] transition-colors"
+                        className="text-muted-2 hover:text-amber-2 text-xs transition-colors"
                         onClick={() =>
                           updateMutation.mutate({
                             userId: member.user_id,

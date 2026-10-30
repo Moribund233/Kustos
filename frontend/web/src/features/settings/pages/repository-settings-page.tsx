@@ -81,7 +81,7 @@ export function RepositorySettingsPage() {
         <h1 className="font-display text-bone text-[clamp(1.7rem,2.6vw,2.3rem)] font-medium tracking-[-0.028em] leading-none">
           {t("settings.title")}
         </h1>
-        <p className="text-muted-2 mt-4 text-[12px]">{t("settings.noRepo")}</p>
+        <p className="text-muted-2 mt-4 text-sm">{t("settings.noRepo")}</p>
       </div>
     );
   }
@@ -89,11 +89,11 @@ export function RepositorySettingsPage() {
   return (
     <div className="mx-auto w-full max-w-[860px] px-[34px] pt-[30px] pb-20">
       <header className="mb-6">
-        <p className="text-faint text-[10.5px] font-semibold tracking-[0.16em] uppercase">{repo.path}</p>
+        <p className="text-faint text-xs font-semibold tracking-[0.16em] uppercase">{repo.path}</p>
         <h1 className="font-display text-bone mt-1.5 text-[clamp(1.7rem,2.6vw,2.3rem)] font-medium tracking-[-0.028em] leading-none">
           {t("settings.title")}
         </h1>
-        <p className="text-muted-2 mt-2 text-[11.5px]">
+        <p className="text-muted-2 mt-2 text-xs">
           {t("settings.pathHint", { path: repo.path })}
         </p>
       </header>
@@ -102,7 +102,7 @@ export function RepositorySettingsPage() {
 
       <div className="border-edge-2 bg-ink-900/50 flex flex-col gap-4 rounded-[12px] border p-5">
         <label className="flex flex-col gap-1.5">
-          <span className="text-muted-2 text-[10px] font-semibold tracking-[0.13em] uppercase">{t("settings.name")}</span>
+          <span className="text-muted-2 text-2xs font-semibold tracking-[0.13em] uppercase">{t("settings.name")}</span>
           <Input
             value={name}
             onChange={(event) => setName(event.target.value)}
@@ -112,19 +112,19 @@ export function RepositorySettingsPage() {
         </label>
 
         <label className="flex flex-col gap-1.5">
-          <span className="text-muted-2 text-[10px] font-semibold tracking-[0.13em] uppercase">{t("settings.description")}</span>
+          <span className="text-muted-2 text-2xs font-semibold tracking-[0.13em] uppercase">{t("settings.description")}</span>
           <textarea
             value={description}
             onChange={(event) => setDescription(event.target.value)}
             aria-label={t("settings.description")}
             rows={3}
             placeholder={t("settings.description")}
-            className="border-edge-2 bg-ink-950/60 text-bone placeholder:text-muted-2 focus:border-amber/40 min-h-[70px] w-full resize-none rounded-md border px-2.5 py-2 text-[12px] outline-none transition-colors"
+            className="border-edge-2 bg-ink-950/60 text-bone placeholder:text-muted-2 focus:border-amber/40 min-h-[70px] w-full resize-none rounded-md border px-2.5 py-2 text-sm focus-visible:outline-none transition-colors"
           />
         </label>
 
         <div className="flex items-center gap-2">
-          <span className="text-muted-2 text-[10px] font-semibold tracking-[0.13em] uppercase">{t("settings.visibility")}</span>
+          <span className="text-muted-2 text-2xs font-semibold tracking-[0.13em] uppercase">{t("settings.visibility")}</span>
           <Chip active={isPublic} onClick={() => setIsPublic(true)}>
             {t("repository.public")}
           </Chip>
@@ -156,7 +156,7 @@ export function RepositorySettingsPage() {
           </Button>
           <Link
             to="/code"
-            className="text-muted-2 hover:text-amber-2 ml-auto text-[11px] transition-colors"
+            className="text-muted-2 hover:text-amber-2 ml-auto text-xs transition-colors"
           >
             {t("settings.backToCode")}
           </Link>

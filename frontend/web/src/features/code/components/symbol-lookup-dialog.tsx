@@ -98,13 +98,13 @@ export function SymbolLookupDialog({
 
         <div className="grid max-h-[54vh] grid-cols-2 gap-3 overflow-auto">
           <section aria-label={t("code.definition")} className="border-edge-1 min-h-[160px] rounded-md border">
-            <h3 className="border-edge-1 text-muted-2 border-b px-3 py-2 text-[10px] font-semibold tracking-[0.12em] uppercase">
+            <h3 className="border-edge-1 text-muted-2 border-b px-3 py-2 text-2xs font-semibold tracking-[0.12em] uppercase">
               {t("code.definition")} · {definitions.length}
             </h3>
             {definitionQuery.isLoading ? (
-              <p className="text-muted-2 p-3 text-[11px]">{t("common.loading")}</p>
+              <p className="text-muted-2 p-3 text-xs">{t("common.loading")}</p>
             ) : definitions.length === 0 ? (
-              <p className="text-muted-2 p-3 text-[11px]">{t("code.noDefinition")}</p>
+              <p className="text-muted-2 p-3 text-xs">{t("code.noDefinition")}</p>
             ) : (
               <ul>
                 {definitions.map((hit) => (
@@ -114,8 +114,8 @@ export function SymbolLookupDialog({
                       onClick={() => onOpenFile(hit.file, hit.start_line)}
                       className="border-edge-1 hover:bg-ink-800/50 block w-full border-b px-3 py-2 text-left transition-colors last:border-b-0"
                     >
-                      <span className="text-bone-2 block truncate font-mono text-[11px]">{hit.file}</span>
-                      <span className="text-faint block text-[10px]">
+                      <span className="text-bone-2 block truncate font-mono text-xs">{hit.file}</span>
+                      <span className="text-faint block text-2xs">
                         L{hit.start_line}–{hit.end_line} · {hit.kind ?? "symbol"}
                       </span>
                     </button>
@@ -126,13 +126,13 @@ export function SymbolLookupDialog({
           </section>
 
           <section aria-label={t("code.usages")} className="border-edge-1 min-h-[160px] rounded-md border">
-            <h3 className="border-edge-1 text-muted-2 border-b px-3 py-2 text-[10px] font-semibold tracking-[0.12em] uppercase">
+            <h3 className="border-edge-1 text-muted-2 border-b px-3 py-2 text-2xs font-semibold tracking-[0.12em] uppercase">
               {t("code.usages")} · {usages.length}
             </h3>
             {usageQuery.isLoading ? (
-              <p className="text-muted-2 p-3 text-[11px]">{t("common.loading")}</p>
+              <p className="text-muted-2 p-3 text-xs">{t("common.loading")}</p>
             ) : usages.length === 0 ? (
-              <p className="text-muted-2 p-3 text-[11px]">{t("code.noUsages")}</p>
+              <p className="text-muted-2 p-3 text-xs">{t("code.noUsages")}</p>
             ) : (
               <ul>
                 {usages.map((hit) => (
@@ -142,8 +142,8 @@ export function SymbolLookupDialog({
                       onClick={() => onOpenFile(hit.file, hit.line)}
                       className="border-edge-1 hover:bg-ink-800/50 block w-full border-b px-3 py-2 text-left transition-colors last:border-b-0"
                     >
-                      <span className="text-bone-2 block truncate font-mono text-[11px]">{hit.file}</span>
-                      <span className="text-faint block text-[10px]">
+                      <span className="text-bone-2 block truncate font-mono text-xs">{hit.file}</span>
+                      <span className="text-faint block text-2xs">
                         L{hit.line}
                         {hit.symbol ? ` · 在 ${hit.symbol}` : ""}
                       </span>

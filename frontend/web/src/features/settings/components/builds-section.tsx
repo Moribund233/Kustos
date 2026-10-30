@@ -73,16 +73,16 @@ export function BuildsSection({ repoId }: { repoId: string }) {
 
   return (
     <section className="border-edge-2 bg-ink-900/50 rounded-[12px] border p-5">
-      <h2 className="text-bone text-[13px] font-semibold">{t("settings.builds")}</h2>
-      <p className="text-muted-2 mt-1 text-[11px]">
+      <h2 className="text-bone text-base font-semibold">{t("settings.builds")}</h2>
+      <p className="text-muted-2 mt-1 text-xs">
         {t("settings.buildsHint")}
       </p>
 
       <div className="mt-4 flex flex-col gap-1">
         {buildsQuery.isLoading ? (
-          <p className="text-muted-2 text-[11.5px]">{t("common.loading")}</p>
+          <p className="text-muted-2 text-xs">{t("common.loading")}</p>
         ) : builds.length === 0 ? (
-          <p className="text-muted-2 text-[11.5px]">{t("settings.noBuilds")}</p>
+          <p className="text-muted-2 text-xs">{t("settings.noBuilds")}</p>
         ) : (
           builds.map((build) => (
             <button
@@ -92,11 +92,11 @@ export function BuildsSection({ repoId }: { repoId: string }) {
               className="border-edge-1 hover:bg-ink-800/40 flex items-center gap-2 rounded-md border px-3 py-2 text-left transition-colors"
             >
               <StatusPill tone={STATUS_TONE[build.status] ?? "neutral"}>{build.status}</StatusPill>
-              <span className="text-bone-2 min-w-0 flex-1 truncate text-[11.5px]">
+              <span className="text-bone-2 min-w-0 flex-1 truncate text-xs">
                 {build.commit_message || build.commit_sha.slice(0, 7)}
               </span>
-              <span className="text-faint font-mono text-[10px]">{build.branch}</span>
-              <span className="text-faint text-[10px]">{formatRelative(build.created_at)}</span>
+              <span className="text-faint font-mono text-2xs">{build.branch}</span>
+              <span className="text-faint text-2xs">{formatRelative(build.created_at)}</span>
             </button>
           ))
         )}
@@ -144,7 +144,7 @@ function BuildLogsDialog({
             {build.status}
           </DialogDescription>
         </DialogHeader>
-        <pre className="border-edge-1 bg-ink-950 max-h-[54vh] min-h-[200px] overflow-auto rounded-md border p-3 font-mono text-[10.5px] leading-relaxed whitespace-pre-wrap">
+        <pre className="border-edge-1 bg-ink-950 max-h-[54vh] min-h-[200px] overflow-auto rounded-md border p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap">
           {logsQuery.isLoading ? t("common.loading") : text || t("settings.noLogs")}
         </pre>
         <DialogFooter>

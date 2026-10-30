@@ -76,16 +76,16 @@ export function BranchesSection({ repoId }: { repoId: string }) {
 
   return (
     <section className="border-edge-2 bg-ink-900/50 rounded-[12px] border p-5">
-      <h2 className="text-bone text-[13px] font-semibold">{t("settings.branches")}</h2>
-      <p className="text-muted-2 mt-1 text-[11px]">
+      <h2 className="text-bone text-base font-semibold">{t("settings.branches")}</h2>
+      <p className="text-muted-2 mt-1 text-xs">
         {t("settings.branchesHint")}
       </p>
 
       <div className="mt-4 flex flex-col gap-2">
         {branchesQuery.isLoading ? (
-          <p className="text-muted-2 text-[11.5px]">{t("common.loading")}</p>
+          <p className="text-muted-2 text-xs">{t("common.loading")}</p>
         ) : branches.length === 0 ? (
-          <p className="text-muted-2 text-[11.5px]">{t("settings.noBranches")}</p>
+          <p className="text-muted-2 text-xs">{t("settings.noBranches")}</p>
         ) : (
           branches.map((branch) => (
             <div
@@ -94,17 +94,17 @@ export function BranchesSection({ repoId }: { repoId: string }) {
               className="border-edge-1 rounded-md border px-3 py-2"
             >
               <div className="flex items-center gap-2">
-                <span className="text-bone-2 min-w-0 flex-1 truncate font-mono text-[11.5px]">
+                <span className="text-bone-2 min-w-0 flex-1 truncate font-mono text-xs">
                   {branch.name}
                 </span>
                 {branch.is_default ? (
-                  <span className="border-edge-2 text-muted rounded-full border px-1.5 py-0.5 text-[9.5px]">
+                  <span className="border-edge-2 text-muted rounded-full border px-1.5 py-0.5 text-2xs">
                     {t("settings.defaultBadge")}
                   </span>
                 ) : (
                   <button
                     type="button"
-                    className="text-muted-2 hover:text-amber-2 text-[10px] transition-colors"
+                    className="text-muted-2 hover:text-amber-2 text-2xs transition-colors"
                     onClick={() => mutation.mutate({ name: branch.name, action: "default" })}
                   >
                     {t("settings.setDefault")}
@@ -112,7 +112,7 @@ export function BranchesSection({ repoId }: { repoId: string }) {
                 )}
                 <button
                   type="button"
-                  className="border-edge-2 text-muted hover:border-edge-3 hover:text-bone-2 inline-flex h-6 items-center rounded-md border px-2 text-[10px] transition-colors"
+                  className="border-edge-2 text-muted hover:border-edge-3 hover:text-bone-2 inline-flex h-6 items-center rounded-md border px-2 text-2xs transition-colors"
                   onClick={() =>
                     mutation.mutate({
                       name: branch.name,
@@ -130,7 +130,7 @@ export function BranchesSection({ repoId }: { repoId: string }) {
               {branch.is_protected ? (
                 <div className="border-edge-1 mt-2 flex flex-wrap items-center gap-4 border-t pt-2">
                   <label className="flex items-center gap-2">
-                    <span className="text-muted-2 text-[10.5px]">{t("settings.requireReview")}</span>
+                    <span className="text-muted-2 text-xs">{t("settings.requireReview")}</span>
                     <Switch
                       checked={branch.require_code_review ?? false}
                       aria-label={`${branch.name} ${t("settings.requireReview")}`}
@@ -147,7 +147,7 @@ export function BranchesSection({ repoId }: { repoId: string }) {
                     />
                   </label>
                   <label className="flex items-center gap-2">
-                    <span className="text-muted-2 text-[10.5px]">{t("settings.requireChecks")}</span>
+                    <span className="text-muted-2 text-xs">{t("settings.requireChecks")}</span>
                     <Switch
                       checked={branch.require_status_checks ?? false}
                       aria-label={`${branch.name} ${t("settings.requireChecks")}`}

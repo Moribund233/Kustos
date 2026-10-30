@@ -112,34 +112,34 @@ export function DiscussionsSection({ repoId }: { repoId: string }) {
 
   return (
     <section className="border-edge-2 bg-ink-900/50 rounded-[12px] border p-5">
-      <h2 className="text-bone text-[13px] font-semibold">{t("settings.discussions")}</h2>
-      <p className="text-muted-2 mt-1 text-[11px]">
+      <h2 className="text-bone text-base font-semibold">{t("settings.discussions")}</h2>
+      <p className="text-muted-2 mt-1 text-xs">
         {t("settings.discussionsHint")}
       </p>
 
       <div className="mt-4 flex flex-col gap-2">
         {listQuery.isLoading ? (
-          <p className="text-muted-2 text-[11.5px]">{t("common.loading")}</p>
+          <p className="text-muted-2 text-xs">{t("common.loading")}</p>
         ) : discussions.length === 0 ? (
-          <p className="text-muted-2 text-[11.5px]">{t("settings.noDiscussions")}</p>
+          <p className="text-muted-2 text-xs">{t("settings.noDiscussions")}</p>
         ) : (
           <ul className="border-edge-1 overflow-hidden rounded-md border">
             {discussions.map((item) => (
               <li key={item.id} className="border-edge-1 border-b px-3 py-2 last:border-b-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-bone-2 text-[11px] font-medium">{item.author_username}</span>
-                  <span className="text-faint font-mono text-[10px]">
+                  <span className="text-bone-2 text-xs font-medium">{item.author_username}</span>
+                  <span className="text-faint font-mono text-2xs">
                     {item.file_path}
                     {item.line_number ? `:${item.line_number}` : ""}
                   </span>
-                  <span className="text-faint text-[10px]">{formatRelative(item.created_at ?? "")}</span>
+                  <span className="text-faint text-2xs">{formatRelative(item.created_at ?? "")}</span>
                   {item.resolved ? (
-                    <span className="text-sage text-[10px]">{t("settings.resolved")}</span>
+                    <span className="text-sage text-2xs">{t("settings.resolved")}</span>
                   ) : null}
                   <div className="ml-auto flex items-center gap-2">
                     <button
                       type="button"
-                      className="text-muted-2 hover:text-amber-2 text-[10px] transition-colors"
+                      className="text-muted-2 hover:text-amber-2 text-2xs transition-colors"
                       onClick={() => resolveMutation.mutate({ id: item.id, resolved: !item.resolved })}
                     >
                       {item.resolved ? t("settings.reopen") : t("settings.resolve")}
@@ -154,7 +154,7 @@ export function DiscussionsSection({ repoId }: { repoId: string }) {
                     </button>
                   </div>
                 </div>
-                <p className="text-muted mt-1 text-[11px] leading-relaxed whitespace-pre-wrap">
+                <p className="text-muted mt-1 text-xs leading-relaxed whitespace-pre-wrap">
                   {item.content}
                 </p>
               </li>
@@ -169,14 +169,14 @@ export function DiscussionsSection({ repoId }: { repoId: string }) {
               onChange={(event) => setFilePath(event.target.value)}
               placeholder={t("settings.filePath")}
               aria-label={t("settings.filePath")}
-              className="h-8 font-mono text-[11px]"
+              className="h-8 font-mono text-xs"
             />
             <Input
               value={line}
               onChange={(event) => setLine(event.target.value)}
               placeholder={t("settings.lineNumber")}
               aria-label={t("settings.lineNumber")}
-              className="h-8 w-28 text-[11px]"
+              className="h-8 w-28 text-xs"
             />
           </div>
           <textarea
@@ -185,7 +185,7 @@ export function DiscussionsSection({ repoId }: { repoId: string }) {
             rows={2}
             placeholder={t("settings.commentBody")}
             aria-label={t("settings.commentBody")}
-            className="border-edge-2 bg-ink-950/60 text-bone placeholder:text-muted-2 focus:border-amber/40 min-h-[54px] w-full resize-none rounded-md border px-2.5 py-2 text-[11px] outline-none transition-colors"
+            className="border-edge-2 bg-ink-950/60 text-bone placeholder:text-muted-2 focus:border-amber/40 min-h-[54px] w-full resize-none rounded-md border px-2.5 py-2 text-xs focus-visible:outline-none transition-colors"
           />
           <Button
             size="sm"

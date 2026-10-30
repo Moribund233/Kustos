@@ -20,7 +20,7 @@ import { useAuthStore } from "@/stores/auth-store";
 
 /** 原型 .input 的 Tailwind 翻译（登录页专用尺寸，比 ui/Input 矮一截）。 */
 const INPUT_CLS =
-  "border-edge-2 bg-ink-950/55 text-bone h-[34px] w-full rounded-md border px-3 text-[12.5px] transition-colors outline-none placeholder:text-faint focus:border-amber/55 focus:shadow-[0_0_0_3px_rgba(242,174,91,0.08)]";
+  "border-edge-2 bg-ink-950/55 text-bone h-[34px] w-full rounded-md border px-3 text-sm transition-colors focus-visible:outline-none placeholder:text-faint focus:border-amber/55 focus:shadow-[0_0_0_3px_rgba(242,174,91,0.08)]";
 
 /** 品牌侧的三条卖点（原型 login-features）。 */
 const FEATURES = [
@@ -94,15 +94,15 @@ export function LoginPage() {
           <span className="inline-flex items-center gap-3">
             <BrandMark size={42} />
             <span>
-              <span className="font-display text-bone block text-[24px] font-semibold tracking-[0.16em] leading-none">
+              <span className="font-display text-bone block text-3xl font-semibold tracking-[0.16em] leading-none">
                 KUSTOS
               </span>
-              <span className="text-faint mt-1 block text-[7.5px] font-semibold tracking-[0.2em]">
+              <span className="text-faint mt-1 block text-2xs font-semibold tracking-[0.2em]">
                 SELF-HOSTED GIT FORGE
               </span>
             </span>
           </span>
-          <span className="border-edge-1 bg-ink-800/70 text-muted inline-flex h-7 items-center gap-[7px] whitespace-nowrap rounded-full border px-2.5 text-[11px]">
+          <span className="border-edge-1 bg-ink-800/70 text-muted inline-flex h-7 items-center gap-[7px] whitespace-nowrap rounded-full border px-2.5 text-xs">
             <Lock className="size-3" aria-hidden="true" />
             {t("auth.selfHosted")}
           </span>
@@ -110,7 +110,7 @@ export function LoginPage() {
 
         {/* 宣言区 */}
         <div className="relative z-[1] max-w-[560px] py-[42px] lg:py-[60px]">
-          <p className="text-faint text-[10.5px] font-semibold tracking-[0.16em] uppercase">
+          <p className="text-faint text-xs font-semibold tracking-[0.16em] uppercase">
             MERIDIAN · NORTHSTAR LABS
           </p>
           <h1
@@ -121,13 +121,13 @@ export function LoginPage() {
             <br />
             重要的代码。
           </h1>
-          <p className="text-muted mt-6 max-w-[42ch] text-[14.5px] leading-[1.62]">
+          <p className="text-muted mt-6 max-w-[42ch] text-md leading-[1.62]">
             一座安静的自托管 Git 锻炉，配一位常驻守护者。仓库、评审、实时房间与一个谨慎的 Agent
             ——全部跑在你自己的机器上。
           </p>
           <ul className="border-edge-1 mt-[38px] hidden max-w-[390px] flex-col border-t lg:flex">
             {FEATURES.map((feature) => (
-              <li key={feature.label} className="border-edge-1 flex items-center gap-2.5 border-b py-2.5 text-[11.5px] text-bone-2 last:border-b-0">
+              <li key={feature.label} className="border-edge-1 flex items-center gap-2.5 border-b py-2.5 text-xs text-bone-2 last:border-b-0">
                 <feature.icon className="text-amber size-3.5 shrink-0" aria-hidden="true" />
                 <span>{feature.label}</span>
               </li>
@@ -136,7 +136,7 @@ export function LoginPage() {
         </div>
 
         {/* 页脚 */}
-        <footer className="text-faint relative z-[1] flex items-center gap-[18px] text-[9.5px]">
+        <footer className="text-faint relative z-[1] flex items-center gap-[18px] text-2xs">
           <span className="text-muted-2 inline-flex items-center gap-[7px]">
             <ShieldCheck className="size-3" aria-hidden="true" />
             仅登录入口
@@ -148,15 +148,15 @@ export function LoginPage() {
       {/* ---------------- 表单侧 ---------------- */}
       <section aria-labelledby="login-title" className="bg-ink-950/55 grid place-items-center p-[36px_20px_50px] lg:p-10">
         <div className="w-full max-w-[382px]">
-          <p className="text-faint text-[10.5px] font-semibold tracking-[0.16em] uppercase">NORTHSTAR LABS</p>
-          <h2 id="login-title" className="font-display text-bone mt-2.5 text-[26px] font-medium tracking-[-0.03em] leading-none">
+          <p className="text-faint text-xs font-semibold tracking-[0.16em] uppercase">NORTHSTAR LABS</p>
+          <h2 id="login-title" className="font-display text-bone mt-2.5 text-4xl font-medium tracking-[-0.03em] leading-none">
             欢迎回来。
           </h2>
-          <p className="text-muted mt-2 text-[11px]">登录以继续。</p>
+          <p className="text-muted mt-2 text-xs">登录以继续。</p>
 
           <form className="mt-[30px] flex flex-col gap-[15px]" onSubmit={handleSubmit} noValidate>
             <div>
-              <label htmlFor="username" className="text-bone-2 mb-1.5 block text-[11.5px] font-medium">
+              <label htmlFor="username" className="text-bone-2 mb-1.5 block text-xs font-medium">
                 用户名
               </label>
               <input
@@ -174,13 +174,13 @@ export function LoginPage() {
 
             <div>
               <div className="mb-[-1px] flex items-center justify-between">
-                <label htmlFor="password" className="text-bone-2 text-[11.5px] font-medium">
+                <label htmlFor="password" className="text-bone-2 text-xs font-medium">
                   {t("auth.password")}
                 </label>
                 <button
                   type="button"
                   onClick={() => toast.info("本实例不提供自助重置：请联系实例管理员签发新密码。")}
-                  className="text-muted hover:text-amber-2 rounded-sm text-[10.5px] transition-colors hover:underline decoration-amber/45 underline-offset-[3px]"
+                  className="text-muted hover:text-amber-2 rounded-sm text-xs transition-colors hover:underline decoration-amber/45 underline-offset-[3px]"
                 >
                   忘记密码？
                 </button>
@@ -212,7 +212,7 @@ export function LoginPage() {
             </div>
 
             {error ? (
-              <p role="alert" className="border-rose/30 bg-rose/10 text-rose-2 rounded-md border px-2.5 py-2 text-[11px]">
+              <p role="alert" className="border-rose/30 bg-rose/10 text-rose-2 rounded-md border px-2.5 py-2 text-xs">
                 {error}
               </p>
             ) : null}
@@ -220,7 +220,7 @@ export function LoginPage() {
             <button
               type="submit"
               disabled={pending}
-              className="bg-amber border-amber hover:bg-amber-2 hover:border-amber-2 flex h-[38px] w-full items-center justify-center gap-2 rounded-md border text-[12.5px] font-semibold text-ink-950 transition-colors disabled:opacity-50"
+              className="bg-amber border-amber hover:bg-amber-2 hover:border-amber-2 flex h-[38px] w-full items-center justify-center gap-2 rounded-md border text-sm font-semibold text-ink-950 transition-colors disabled:opacity-50"
             >
               {pending ? t("common.loading") : t("auth.signInWithPassword")}
               <ArrowUpRight className="size-4" aria-hidden="true" />
@@ -228,7 +228,7 @@ export function LoginPage() {
           </form>
 
           {/* 分隔线 */}
-          <div className="text-faint my-[22px] mb-3.5 flex items-center gap-3 text-[9.5px] tracking-[0.08em] uppercase">
+          <div className="text-faint my-[22px] mb-3.5 flex items-center gap-3 text-2xs tracking-[0.08em] uppercase">
             <span className="border-edge-1 h-px flex-1 border-t" />
             <span>{t("auth.oauthProviders")}</span>
             <span className="border-edge-1 h-px flex-1 border-t" />
@@ -241,7 +241,7 @@ export function LoginPage() {
                 key={provider}
                 type="button"
                 onClick={() => toast.info(`${provider} OAuth 由实例管理员配置（环境变量，受保护）。`)}
-                className="border-edge-2 bg-ink-750/55 hover:border-edge-3 hover:bg-ink-750 text-muted hover:text-bone inline-flex h-[34px] w-full items-center justify-center gap-2 rounded-md border text-[12px] font-medium transition-colors"
+                className="border-edge-2 bg-ink-750/55 hover:border-edge-3 hover:bg-ink-750 text-muted hover:text-bone inline-flex h-[34px] w-full items-center justify-center gap-2 rounded-md border text-sm font-medium transition-colors"
               >
                 <Globe className="size-[15px]" aria-hidden="true" />
                 {provider}
@@ -249,7 +249,7 @@ export function LoginPage() {
             ))}
           </div>
 
-          <p className="text-muted-2 mt-[26px] text-center text-[11px]">
+          <p className="text-muted-2 mt-[26px] text-center text-xs">
             第一次使用 Kustos？{" "}
             <button
               type="button"
@@ -260,7 +260,7 @@ export function LoginPage() {
             </button>
           </p>
 
-          <p className="text-faint mt-[30px] text-center text-[9.5px]">
+          <p className="text-faint mt-[30px] text-center text-2xs">
             <span className="font-mono">kustos 1.0.0</span> · self-hosted ·{" "}
             <Link to="/" className="text-muted-2 hover:text-amber-2 underline decoration-edge-2 underline-offset-[3px] transition-colors">
               返回应用预览

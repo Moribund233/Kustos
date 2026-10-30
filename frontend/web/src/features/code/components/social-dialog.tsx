@@ -103,9 +103,9 @@ export function SocialDialog({
 
         <div className="border-edge-1 max-h-[280px] min-h-[100px] overflow-auto rounded-md border">
           {listQuery.isLoading ? (
-            <p className="text-muted-2 p-3 text-[11.5px]">{t("common.loading")}</p>
+            <p className="text-muted-2 p-3 text-xs">{t("common.loading")}</p>
           ) : people.length === 0 ? (
-            <p className="text-muted-2 p-3 text-[11.5px]">{t("code.noPeople")}</p>
+            <p className="text-muted-2 p-3 text-xs">{t("code.noPeople")}</p>
           ) : (
             <ul>
               {people.map((person) => (
@@ -113,11 +113,11 @@ export function SocialDialog({
                   key={person.user_id ?? person.id ?? person.username}
                   className="border-edge-1 flex items-center gap-2 border-b px-3 py-2 last:border-b-0"
                 >
-                  <span className="text-bone-2 min-w-0 flex-1 truncate text-[11.5px]">
+                  <span className="text-bone-2 min-w-0 flex-1 truncate text-xs">
                     {person.username}
                     {person.full_name ? <span className="text-faint"> · {person.full_name}</span> : null}
                   </span>
-                  <span className="text-faint text-[10px]">{formatRelative(person.created_at ?? "")}</span>
+                  <span className="text-faint text-2xs">{formatRelative(person.created_at ?? "")}</span>
                 </li>
               ))}
             </ul>

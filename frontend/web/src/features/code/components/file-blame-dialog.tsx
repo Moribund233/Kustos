@@ -77,17 +77,17 @@ export function FileBlameDialog({
 
         <div className="border-edge-1 max-h-[62vh] min-h-[240px] overflow-auto rounded-md border">
           {blameQuery.isLoading ? (
-            <p className="text-muted-2 p-3 text-[11.5px]">{t("common.loading")}</p>
+            <p className="text-muted-2 p-3 text-xs">{t("common.loading")}</p>
           ) : blameQuery.error ? (
             <button
               type="button"
-              className="text-muted-2 hover:text-amber-2 w-full p-3 text-left text-[11.5px] hover:underline"
+              className="text-muted-2 hover:text-amber-2 w-full p-3 text-left text-xs hover:underline"
               onClick={() => void blameQuery.refetch()}
             >
               {t("code.blameLoadFailed")}
             </button>
           ) : hunks.length === 0 ? (
-            <p className="text-muted-2 p-3 text-[11.5px]">{t("code.noBlameLines")}</p>
+            <p className="text-muted-2 p-3 text-xs">{t("code.noBlameLines")}</p>
           ) : (
             <ul>
               {hunks.map((hunk) => {
@@ -98,14 +98,14 @@ export function FileBlameDialog({
                     key={`${hunk.final_commit_id}-${start}`}
                     className="border-edge-1 flex items-start gap-3 border-b px-3 py-2 last:border-b-0"
                   >
-                    <span className="text-faint mt-0.5 w-[74px] shrink-0 font-mono text-[10.5px]">
+                    <span className="text-faint mt-0.5 w-[74px] shrink-0 font-mono text-xs">
                       {start === end ? `L${start}` : `L${start}-${end}`}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="text-bone-2 block truncate text-[11.5px]">
+                      <span className="text-bone-2 block truncate text-xs">
                         {hunk.commit.summary}
                       </span>
-                      <span className="text-faint mt-0.5 block font-mono text-[10px]">
+                      <span className="text-faint mt-0.5 block font-mono text-2xs">
                         {hunk.commit.sha.slice(0, 7)} · {hunk.commit.author.name} ·{" "}
                         {formatRelative(hunk.commit.author.date)}
                       </span>

@@ -26,7 +26,7 @@ interface BranchRow {
 }
 
 const SELECT_CLASS =
-  "border-edge-2 bg-ink-950/60 text-bone focus:border-amber/40 h-9 w-full rounded-md border px-2.5 text-[12px] outline-none transition-colors";
+  "border-edge-2 bg-ink-950/60 text-bone focus:border-amber/40 h-9 w-full rounded-md border px-2.5 text-sm focus-visible:outline-none transition-colors";
 
 /**
  * 新建 Pull Request。
@@ -162,11 +162,11 @@ export function NewPullRequestDialog({
             rows={4}
             placeholder={t("pullRequest.descriptionPlaceholder")}
             aria-label={t("pullRequest.descriptionPlaceholder")}
-            className="border-edge-2 bg-ink-950/60 text-bone placeholder:text-muted-2 focus:border-amber/40 min-h-[90px] w-full resize-none rounded-md border px-2.5 py-2 text-[12px] transition-colors outline-none"
+            className="border-edge-2 bg-ink-950/60 text-bone placeholder:text-muted-2 focus:border-amber/40 min-h-[90px] w-full resize-none rounded-md border px-2.5 py-2 text-sm transition-colors focus-visible:outline-none"
           />
           <div className="grid grid-cols-2 gap-3">
             <label className="flex flex-col gap-1.5">
-              <span className="text-muted-2 text-[10px] font-semibold tracking-[0.13em] uppercase">
+              <span className="text-muted-2 text-2xs font-semibold tracking-[0.13em] uppercase">
                 {t("pullRequest.sourceBranch")}
               </span>
               <select
@@ -186,7 +186,7 @@ export function NewPullRequestDialog({
               </select>
             </label>
             <label className="flex flex-col gap-1.5">
-              <span className="text-muted-2 text-[10px] font-semibold tracking-[0.13em] uppercase">
+              <span className="text-muted-2 text-2xs font-semibold tracking-[0.13em] uppercase">
                 {t("pullRequest.targetBranch")}
               </span>
               <select
@@ -206,7 +206,7 @@ export function NewPullRequestDialog({
             </label>
           </div>
           {branches.length > 0 && branches.every((branch) => branch.name === defaultBranch) ? (
-            <p className="text-amber-2 text-[11px]">{t("pullRequest.onlyDefaultBranch")}</p>
+            <p className="text-amber-2 text-xs">{t("pullRequest.onlyDefaultBranch")}</p>
           ) : null}
         </div>
 

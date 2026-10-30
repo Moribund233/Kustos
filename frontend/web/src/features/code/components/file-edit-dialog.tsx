@@ -104,7 +104,7 @@ export function FileEditDialog({
         />
 
         <DialogFooter>
-          <span className="text-faint mr-auto self-center text-[10.5px]">
+          <span className="text-faint mr-auto self-center text-xs">
             {changed ? t("code.changed") : t("code.unchanged")}
           </span>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>

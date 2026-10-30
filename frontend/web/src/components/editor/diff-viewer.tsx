@@ -50,19 +50,19 @@ function DiffFileBlock({
           aria-expanded={open}
         >
           {open ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
-          <span className="font-mono text-[12px]">{path}</span>
+          <span className="font-mono text-sm">{path}</span>
         </button>
         {isRenamed(file) && (
-          <span className="text-faint font-mono text-[11px]">← {file.old_path}</span>
+          <span className="text-faint font-mono text-xs">← {file.old_path}</span>
         )}
-        <span className="text-faint ml-auto flex items-center gap-2 font-mono text-[11px]">
+        <span className="text-faint ml-auto flex items-center gap-2 font-mono text-xs">
           <span className="text-sage">+{file.additions}</span>
           <span className="text-rose">−{file.deletions}</span>
         </span>
       </header>
 
       {open && (
-        <div className="font-mono text-[12px] leading-relaxed">
+        <div className="font-mono text-sm leading-relaxed">
           {(file.hunks ?? []).map((hunk, hunkIndex) => (
             <DiffHunkBlock
               key={`${path}-${hunkIndex}`}
@@ -92,7 +92,7 @@ function DiffHunkBlock({ hunk, file, commented, onLineClick }: DiffHunkBlockProp
 
   return (
     <div className="border-edge-1 border-b last:border-b-0">
-      <div className="bg-ink-850/60 text-faint border-edge-1 border-b px-3 py-1 text-[11px]">
+      <div className="bg-ink-850/60 text-faint border-edge-1 border-b px-3 py-1 text-xs">
         @@ -{hunk.old_start},{hunk.old_lines} +{hunk.new_start},{hunk.new_lines} @@
       </div>
       {lines.map((line, index) => {
@@ -148,7 +148,7 @@ function DiffHunkBlock({ hunk, file, commented, onLineClick }: DiffHunkBlockProp
  */
 export function DiffViewer({ payload, className, onLineClick, commentedLines }: DiffViewerProps) {
   if (!payload.files.length) {
-    return <p className="text-faint py-6 text-center text-[13px]">没有差异</p>;
+    return <p className="text-faint py-6 text-center text-base">没有差异</p>;
   }
 
   return (

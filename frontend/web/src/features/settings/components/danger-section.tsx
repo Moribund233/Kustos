@@ -82,14 +82,14 @@ export function DangerSection({ repoId, repoName }: { repoId: string; repoName: 
 
   return (
     <section className="border-rose/25 bg-rose/[0.04] rounded-[12px] border p-5">
-      <h2 className="text-rose-2 text-[13px] font-semibold">{t("settings.danger")}</h2>
-      <p className="text-muted-2 mt-1 text-[11px]">
+      <h2 className="text-rose-2 text-base font-semibold">{t("settings.danger")}</h2>
+      <p className="text-muted-2 mt-1 text-xs">
         {t("settings.dangerHint")}
       </p>
 
       <div className="mt-4 flex flex-col gap-3">
         <div className="border-edge-1 flex items-center gap-3 border-b pb-3">
-          <span className="text-muted flex-1 text-[11.5px]">
+          <span className="text-muted flex-1 text-xs">
             {isArchived ? t("settings.archivedHint") : t("settings.archiveHint")}
           </span>
           <Button
@@ -103,7 +103,7 @@ export function DangerSection({ repoId, repoName }: { repoId: string; repoName: 
         </div>
 
         <div className="flex flex-col gap-2">
-          <span className="text-muted-2 text-[11px]">
+          <span className="text-muted-2 text-xs">
             {t("settings.deleteHint", { name: repoName })}
           </span>
           <div className="flex items-center gap-2">
@@ -112,7 +112,7 @@ export function DangerSection({ repoId, repoName }: { repoId: string; repoName: 
               onChange={(event) => setConfirmName(event.target.value)}
               placeholder={repoName}
               aria-label={t("settings.confirmRepoName")}
-              className="h-8 font-mono text-[11px]"
+              className="h-8 font-mono text-xs"
             />
             <AlertDialog>
               <AlertDialogTrigger asChild>

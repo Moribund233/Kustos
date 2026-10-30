@@ -64,12 +64,12 @@ export function IndexSection({ repoId }: { repoId: string }) {
 
   return (
     <section className="border-edge-2 bg-ink-900/50 rounded-[12px] border p-5">
-      <h2 className="text-bone text-[13px] font-semibold">{t("settings.index")}</h2>
-      <p className="text-muted-2 mt-1 text-[11px]">
+      <h2 className="text-bone text-base font-semibold">{t("settings.index")}</h2>
+      <p className="text-muted-2 mt-1 text-xs">
         {t("settings.indexHint")}
       </p>
 
-      <div className="mt-4 grid gap-2 text-[11px] sm:grid-cols-2">
+      <div className="mt-4 grid gap-2 text-xs sm:grid-cols-2">
         <p className="text-muted-2">
           {t("settings.indexStatus")}
           <span className={status?.in_sync ? "text-sage" : "text-amber-2"}>

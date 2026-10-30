@@ -25,7 +25,7 @@ export function Markdown({ content, className, openLinksInNewTab = false }: Mark
   if (!content) return null;
 
   return (
-    <div className={cn("kustos-markdown text-bone-2 text-[13.5px] leading-relaxed", className)}>
+    <div className={cn("kustos-markdown text-bone-2 text-base leading-relaxed", className)}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[
@@ -60,7 +60,7 @@ export function Markdown({ content, className, openLinksInNewTab = false }: Mark
           table({ children }) {
             return (
               <div className="border-edge-1 my-3 overflow-x-auto rounded-md border">
-                <table className="w-full border-collapse text-[13px]">{children}</table>
+                <table className="w-full border-collapse text-base">{children}</table>
               </div>
             );
           },

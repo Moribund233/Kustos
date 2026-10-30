@@ -14,6 +14,15 @@ import { Topbar } from "@/components/layout/topbar";
 export function AppShell() {
   return (
     <div className="bg-ink-1000 flex h-full min-h-screen">
+      {/* 跳过导航：键盘用户从侧栏起步时不必逐个穿过几十个链接，
+          按下 Tab 即可直达内容区（WCAG 2.4.1 绕过区块）。 */}
+      <a
+        href="#main-content"
+        className="bg-amber text-ink-1000 sr-only rounded-md px-3 py-2 text-sm font-semibold focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-[100]"
+      >
+        跳到主内容
+      </a>
+
       {/* 氛围：左上琥珀提灯 + 右上冷光，覆一层软噪点 */}
       <div
         aria-hidden="true"
@@ -27,7 +36,7 @@ export function AppShell() {
       <Sidebar />
       <div className="relative z-[2] flex min-w-0 flex-1 flex-col">
         <Topbar />
-        <main className="min-h-0 flex-1 overflow-auto">
+        <main id="main-content" tabIndex={-1} className="min-h-0 flex-1 overflow-auto focus:outline-none">
           <Outlet />
         </main>
       </div>

@@ -56,7 +56,7 @@ function NavItemRow({ item }: { item: NavSection["items"][number] }) {
       end={item.to === "/"}
       className={({ isActive }) =>
         cn(
-          "relative mb-0.5 flex h-[34px] items-center gap-2.5 rounded-md px-2.5 text-[12.5px] font-medium transition-colors",
+          "relative mb-0.5 flex h-[34px] items-center gap-2.5 rounded-md px-2.5 text-sm font-medium transition-colors",
           "text-muted hover:bg-ink-750/55 hover:text-bone",
           isActive &&
             "bg-[linear-gradient(90deg,rgba(242,174,91,0.14),rgba(242,174,91,0.025))] text-bone before:absolute before:top-2 before:bottom-2 before:-left-px before:w-0.5 before:rounded-sm before:bg-amber before:shadow-[0_0_12px_rgba(242,174,91,0.55)] before:content-['']",
@@ -71,10 +71,10 @@ function NavItemRow({ item }: { item: NavSection["items"][number] }) {
       {item.badge ? (
         <span
           className={cn(
-            "ml-auto rounded-full bg-bone/[0.06] px-1.5 font-mono text-[9.5px] leading-4 text-muted-2",
+            "ml-auto rounded-full bg-bone/[0.06] px-1.5 font-mono text-2xs leading-4 text-muted-2",
             item.badgeAmber && "bg-amber/10 text-amber",
             item.id === "admin" &&
-              "rounded-full border border-edge-2 bg-transparent px-1.5 text-[9px] uppercase tracking-[0.05em]",
+              "rounded-full border border-edge-2 bg-transparent px-1.5 text-2xs uppercase tracking-[0.05em]",
           )}
           aria-hidden="true"
         >
@@ -97,7 +97,7 @@ function NavGroup({
 }) {
   return (
     <nav aria-label={label} className="mt-[18px]">
-      <p className="text-faint flex items-center gap-1 px-2.5 pb-[7px] text-[10px] font-semibold tracking-[0.16em] uppercase">
+      <p className="text-faint flex items-center gap-1 px-2.5 pb-[7px] text-2xs font-semibold tracking-[0.16em] uppercase">
         {label}
         {action ? <span className="ml-auto">{action}</span> : null}
       </p>
@@ -132,12 +132,12 @@ function RepoRow({
         )}
       />
       <span className="min-w-0 flex flex-col gap-px">
-        <span className="truncate text-[12px] font-medium leading-tight">{repo.name}</span>
-        <span className="text-faint truncate text-[10px] leading-snug">
+        <span className="truncate text-sm font-medium leading-tight">{repo.name}</span>
+        <span className="text-faint truncate text-2xs leading-snug">
           {formatRelative(repo.updated_at)}推送
         </span>
       </span>
-      <span aria-hidden="true" className="text-faint mt-0.5 self-start font-mono text-[10px]">
+      <span aria-hidden="true" className="text-faint mt-0.5 self-start font-mono text-2xs">
         {repo.watch_count || repo.star_count || ""}
       </span>
     </button>
@@ -218,10 +218,10 @@ export function Sidebar() {
         <Link to="/" className="flex min-w-0 items-center gap-2.5 rounded-md">
           <BrandMark size={31} />
           <span className="min-w-0">
-            <span className="font-display text-bone block text-[18px] font-semibold tracking-[0.155em] leading-none">
+            <span className="font-display text-bone block text-xl font-semibold tracking-[0.155em] leading-none">
               KUSTOS
             </span>
-            <span className="text-faint mt-1 block text-[8px] font-semibold tracking-[0.19em]">
+            <span className="text-faint mt-1 block text-2xs font-semibold tracking-[0.19em]">
               SELF-HOSTED
             </span>
           </span>
@@ -237,10 +237,10 @@ export function Sidebar() {
           <BrandMark size={17} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="text-bone-2 block truncate text-[12.5px] font-semibold leading-tight">
+          <span className="text-bone-2 block truncate text-sm font-semibold leading-tight">
             Kustos 实例
           </span>
-          <span className="text-muted-2 block truncate font-mono text-[10px] leading-snug">
+          <span className="text-muted-2 block truncate font-mono text-2xs leading-snug">
             {window.location.host}
           </span>
         </span>
@@ -275,7 +275,7 @@ export function Sidebar() {
             }
           >
             {repos.length === 0 ? (
-              <p className="text-faint px-2.5 py-1 text-[10.5px]">
+              <p className="text-faint px-2.5 py-1 text-xs">
                 {useRepoStore.getState().loading ? "加载中…" : "还没有仓库"}
               </p>
             ) : (
@@ -286,7 +286,7 @@ export function Sidebar() {
                     <RepoRow repo={repo} isActive={isActive} onSelect={select} />
                     {isActive && here ? (
                       <div className="relative mb-1.5 flex flex-col gap-0.5 rounded-md bg-ink-750/40 py-1.5 pr-2.5 pl-[25px] before:absolute before:top-2 before:bottom-[9px] before:left-4 before:w-px before:bg-amber/40 before:content-['']">
-                        <span className="text-amber text-[10px] font-semibold tracking-[0.04em] leading-snug">
+                        <span className="text-amber text-2xs font-semibold tracking-[0.04em] leading-snug">
                           {t(here)}
                         </span>
                       </div>
@@ -319,10 +319,10 @@ export function Sidebar() {
             >
               <ToneAvatar initials={initialsOf(user?.full_name, user?.username ?? "?")} tone="amber" size="sm" />
               <span className="min-w-0 flex-1">
-                <span className="text-bone-2 block truncate text-[12px] font-medium leading-tight">
+                <span className="text-bone-2 block truncate text-sm font-medium leading-tight">
                   {user?.full_name || user?.username || "—"}
                 </span>
-                <span className="text-muted-2 block text-[10px] leading-tight">
+                <span className="text-muted-2 block text-2xs leading-tight">
                   {isAdmin ? "全局管理员" : "成员"}
                 </span>
               </span>
@@ -330,7 +330,7 @@ export function Sidebar() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent side="top" align="start" className="w-[214px]">
-            <DropdownMenuLabel className="text-[11px]">
+            <DropdownMenuLabel className="text-xs">
               {user?.username} · @{user?.username}
             </DropdownMenuLabel>
             <DropdownMenuItem asChild>
@@ -352,7 +352,7 @@ export function Sidebar() {
               <DropdownMenuSubTrigger>
                 <Languages className="text-muted-2 size-[14px]" aria-hidden="true" />
                 {t("common.language")}
-                <span className="text-faint mr-0.5 text-[10px]">
+                <span className="text-faint mr-0.5 text-2xs">
                   {LOCALE_LABELS[(i18n.resolvedLanguage ?? i18n.language) as Locale]}
                 </span>
               </DropdownMenuSubTrigger>

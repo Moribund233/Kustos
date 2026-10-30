@@ -97,7 +97,7 @@ export function CreateUserDialog() {
               aria-label={t("admin.initialPassword")}
               type="password"
             />
-            <label className="text-muted-2 flex items-center gap-2 text-[11px]">
+            <label className="text-muted-2 flex items-center gap-2 text-xs">
               <input type="checkbox" checked={isAdmin} onChange={(event) => setIsAdmin(event.target.checked)} />
               {t("admin.asAdmin")}
             </label>

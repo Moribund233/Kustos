@@ -156,16 +156,16 @@ export function WebhooksSection({ repoId }: { repoId: string }) {
 
   return (
     <section className="border-edge-2 bg-ink-900/50 rounded-[12px] border p-5">
-      <h2 className="text-bone text-[13px] font-semibold">{t("settings.webhooks")}</h2>
-      <p className="text-muted-2 mt-1 text-[11px]">
+      <h2 className="text-bone text-base font-semibold">{t("settings.webhooks")}</h2>
+      <p className="text-muted-2 mt-1 text-xs">
         {t("settings.webhooksHint")}
       </p>
 
       <div className="mt-4 flex flex-col gap-2">
         {listQuery.isLoading ? (
-          <p className="text-muted-2 text-[11.5px]">{t("common.loading")}</p>
+          <p className="text-muted-2 text-xs">{t("common.loading")}</p>
         ) : webhooks.length === 0 ? (
-          <p className="text-muted-2 text-[11.5px]">{t("settings.noWebhooks")}</p>
+          <p className="text-muted-2 text-xs">{t("settings.noWebhooks")}</p>
         ) : (
           webhooks.map((hook) => (
             <div key={hook.id} className="border-edge-1 rounded-md border px-3 py-2">
@@ -182,16 +182,16 @@ export function WebhooksSection({ repoId }: { repoId: string }) {
                     <ChevronRight className="size-[13px]" aria-hidden="true" />
                   )}
                 </button>
-                <span className="text-bone-2 min-w-0 flex-1 truncate font-mono text-[11px]">{hook.url}</span>
-                <span className="text-faint text-[10px]">{hook.events.join(", ")}</span>
+                <span className="text-bone-2 min-w-0 flex-1 truncate font-mono text-xs">{hook.url}</span>
+                <span className="text-faint text-2xs">{hook.events.join(", ")}</span>
                 <span
-                  className={`text-[10px] ${hook.last_response_status && hook.last_response_status < 400 ? "text-sage" : "text-muted-2"}`}
+                  className={`text-2xs ${hook.last_response_status && hook.last_response_status < 400 ? "text-sage" : "text-muted-2"}`}
                 >
                   {hook.last_response_status ?? "—"}
                 </span>
                 <button
                   type="button"
-                  className="text-muted-2 hover:text-amber-2 text-[10px] transition-colors"
+                  className="text-muted-2 hover:text-amber-2 text-2xs transition-colors"
                   onClick={() => testMutation.mutate(hook.id)}
                 >
                   {t("settings.test")}
@@ -217,14 +217,14 @@ export function WebhooksSection({ repoId }: { repoId: string }) {
               onChange={(event) => setUrl(event.target.value)}
               placeholder={t("settings.webhookUrl")}
               aria-label={t("settings.webhookUrl")}
-              className="h-8 font-mono text-[11px]"
+              className="h-8 font-mono text-xs"
             />
             <Input
               value={secret}
               onChange={(event) => setSecret(event.target.value)}
               placeholder={t("settings.webhookSecret")}
               aria-label={t("settings.webhookSecret")}
-              className="h-8 text-[11px]"
+              className="h-8 text-xs"
             />
           </div>
           <div className="flex flex-wrap gap-1">
@@ -267,13 +267,13 @@ function Deliveries({ repoId, webhookId }: { repoId: string; webhookId: string }
   return (
     <div className="border-edge-1 mt-2 border-t pt-2">
       {query.isLoading ? (
-        <p className="text-muted-2 text-[10.5px]">{t("common.loading")}</p>
+        <p className="text-muted-2 text-xs">{t("common.loading")}</p>
       ) : deliveries.length === 0 ? (
-        <p className="text-muted-2 text-[10.5px]">{t("settings.noDeliveries")}</p>
+        <p className="text-muted-2 text-xs">{t("settings.noDeliveries")}</p>
       ) : (
         <ul className="flex flex-col gap-1">
           {deliveries.map((delivery) => (
-            <li key={delivery.id} className="text-faint flex items-center gap-2 font-mono text-[10px]">
+            <li key={delivery.id} className="text-faint flex items-center gap-2 font-mono text-2xs">
               <span className={delivery.is_success ? "text-sage" : "text-rose"}>
                 {delivery.is_success ? "ok" : "fail"}
               </span>

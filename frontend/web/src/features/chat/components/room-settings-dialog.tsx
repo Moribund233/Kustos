@@ -62,7 +62,7 @@ async function roomRequest(
 }
 
 const SELECT_CLASS =
-  "border-edge-2 bg-ink-950/60 text-bone focus:border-amber/40 h-8 rounded-md border px-2 text-[11px] outline-none transition-colors";
+  "border-edge-2 bg-ink-950/60 text-bone focus:border-amber/40 h-8 rounded-md border px-2 text-xs focus-visible:outline-none transition-colors";
 
 /**
  * 房间设置：成员与角色、本人静音、删除会话。
@@ -209,7 +209,7 @@ export function RoomSettingsDialog({
 
         {myMembership ? (
           <label className="border-edge-1 flex items-center justify-between gap-3 rounded-md border px-3 py-2">
-<span className="text-muted text-[11.5px]">{t("chat.muteSelf")}</span>
+<span className="text-muted text-xs">{t("chat.muteSelf")}</span>
             <Switch
               checked={myMembership.is_muted}
               disabled={muteMutation.isPending}
@@ -221,9 +221,9 @@ export function RoomSettingsDialog({
 
         <div className="border-edge-1 max-h-[300px] min-h-[120px] overflow-auto rounded-md border">
           {membersQuery.isLoading ? (
-            <p className="text-muted-2 p-3 text-[11.5px]">{t("common.loading")}</p>
+            <p className="text-muted-2 p-3 text-xs">{t("common.loading")}</p>
           ) : members.length === 0 ? (
-            <p className="text-muted-2 p-3 text-[11.5px]">{t("chat.noMembers")}</p>
+            <p className="text-muted-2 p-3 text-xs">{t("chat.noMembers")}</p>
           ) : (
             <ul>
               {members.map((member) => {
@@ -234,14 +234,14 @@ export function RoomSettingsDialog({
                     className="border-edge-1 flex items-center gap-2 border-b px-3 py-2 last:border-b-0"
                   >
                     <span className="min-w-0 flex-1">
-                      <span className="text-bone-2 block truncate text-[11.5px] font-medium">
+                      <span className="text-bone-2 block truncate text-xs font-medium">
                         {member.username}
                         {isSelf ? <span className="text-faint font-normal">{t("chat.you")}</span> : null}
                       </span>
-                      {member.is_bot ? <span className="text-faint text-[10px]">bot</span> : null}
+                      {member.is_bot ? <span className="text-faint text-2xs">bot</span> : null}
                     </span>
                     {isSelf ? (
-                      <span className="text-muted-2 text-[10.5px]">{member.role}</span>
+                      <span className="text-muted-2 text-xs">{member.role}</span>
                     ) : (
                       <>
                         <select
@@ -314,7 +314,7 @@ export function RoomSettingsDialog({
         ) : null}
 
         <div className="border-edge-1 flex items-center justify-between border-t pt-3">
-          <span className="text-faint text-[10px]">{t("chat.deleteRoomHint")}</span>
+          <span className="text-faint text-2xs">{t("chat.deleteRoomHint")}</span>
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button size="sm" variant="ghost" className="text-rose hover:text-rose-2">

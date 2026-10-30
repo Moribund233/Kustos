@@ -88,14 +88,14 @@ export function TagsSection({ repoId }: { repoId: string }) {
 
   return (
     <section className="border-edge-2 bg-ink-900/50 rounded-[12px] border p-5">
-      <h2 className="text-bone text-[13px] font-semibold">{t("settings.tags")}</h2>
-      <p className="text-muted-2 mt-1 text-[11px]">{t("settings.tagsHint")}</p>
+      <h2 className="text-bone text-base font-semibold">{t("settings.tags")}</h2>
+      <p className="text-muted-2 mt-1 text-xs">{t("settings.tagsHint")}</p>
 
       <div className="mt-4 flex flex-col gap-2">
         {tagsQuery.isLoading ? (
-          <p className="text-muted-2 text-[11.5px]">{t("common.loading")}</p>
+          <p className="text-muted-2 text-xs">{t("common.loading")}</p>
         ) : tags.length === 0 ? (
-          <p className="text-muted-2 text-[11.5px]">{t("settings.noTags")}</p>
+          <p className="text-muted-2 text-xs">{t("settings.noTags")}</p>
         ) : (
           <ul className="border-edge-1 overflow-hidden rounded-md border">
             {tags.map((tag) => (
@@ -103,9 +103,9 @@ export function TagsSection({ repoId }: { repoId: string }) {
                 key={tag.name}
                 className="border-edge-1 flex items-center gap-2 border-b px-3 py-2 last:border-b-0"
               >
-                <span className="text-bone-2 font-mono text-[11.5px]">{tag.name}</span>
-                <span className="text-faint min-w-0 flex-1 truncate text-[10.5px]">{tag.message ?? ""}</span>
-                <span className="text-faint font-mono text-[10px]">
+                <span className="text-bone-2 font-mono text-xs">{tag.name}</span>
+                <span className="text-faint min-w-0 flex-1 truncate text-xs">{tag.message ?? ""}</span>
+                <span className="text-faint font-mono text-2xs">
                   {tag.commit_hash ? tag.commit_hash.slice(0, 7) : "—"}
                 </span>
                 <button
@@ -127,14 +127,14 @@ export function TagsSection({ repoId }: { repoId: string }) {
             onChange={(event) => setName(event.target.value)}
             placeholder={t("settings.tagName")}
             aria-label={t("settings.tagNameLabel")}
-            className="h-8 font-mono text-[11px]"
+            className="h-8 font-mono text-xs"
           />
           <Input
             value={message}
             onChange={(event) => setMessage(event.target.value)}
             placeholder={t("settings.tagMessage")}
             aria-label={t("settings.tagMessage")}
-            className="h-8 text-[11px]"
+            className="h-8 text-xs"
           />
           <Button
             size="sm"

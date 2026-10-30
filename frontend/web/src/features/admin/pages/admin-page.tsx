@@ -124,7 +124,7 @@ function formatDate(value: string | null): string {
 /** 微型描边徽标：表格与事实流内的状态标记。 */
 function Tag({ tone, children }: { tone: Tone; children: ReactNode }) {
   return (
-    <span className={cn("inline-flex h-[17px] items-center whitespace-nowrap rounded-full border px-[7px] text-[10px]", TAG_TONE[tone])}>
+    <span className={cn("inline-flex h-[17px] items-center whitespace-nowrap rounded-full border px-[7px] text-2xs", TAG_TONE[tone])}>
       {children}
     </span>
   );
@@ -133,7 +133,7 @@ function Tag({ tone, children }: { tone: Tone; children: ReactNode }) {
 /** 查询失败的行内提示：403 走页面级受限块，其余错误就地展示并可重试。 */
 function LoadError({ error, onRetry }: { error: Error; onRetry: () => void }) {
   return (
-    <p className="text-rose flex items-center gap-2 text-[11px]">
+    <p className="text-rose flex items-center gap-2 text-xs">
       加载失败：{error.message}
       <Button variant="ghost" size="sm" type="button" onClick={onRetry}>
         重试
@@ -437,15 +437,15 @@ function AdminConsole() {
       <div className="mx-auto flex w-full max-w-[1560px] flex-col items-center px-[34px] pt-[120px] pb-20">
         <div className="border-edge-2 bg-ink-900/60 flex max-w-[440px] flex-col items-center rounded-xl border px-8 py-10 text-center">
           <Lock className="text-faint size-7" aria-hidden="true" />
-          <h1 className="font-display text-bone mt-3 text-[19px] font-medium">
+          <h1 className="font-display text-bone mt-3 text-2xl font-medium">
             {t("admin.unavailableTitle")}
           </h1>
-          <p className="text-muted-2 mt-2 text-[12px] leading-relaxed">
+          <p className="text-muted-2 mt-2 text-sm leading-relaxed">
             {t("admin.unavailableHint")}
           </p>
           <Link
             to="/"
-            className="border-edge-2 text-muted hover:border-edge-3 hover:text-bone-2 mt-5 inline-flex h-8 items-center rounded-md border px-3 text-[11px] transition-colors"
+            className="border-edge-2 text-muted hover:border-edge-3 hover:text-bone-2 mt-5 inline-flex h-8 items-center rounded-md border px-3 text-xs transition-colors"
           >
             {t("admin.backToWatch")}
           </Link>
@@ -459,13 +459,13 @@ function AdminConsole() {
       {/* 页头 */}
       <header className="mb-3.5 flex items-end justify-between gap-7">
         <div className="min-w-0">
-          <p className="text-faint text-[10.5px] font-semibold tracking-[0.16em] uppercase">
+          <p className="text-faint text-xs font-semibold tracking-[0.16em] uppercase">
             Instance · <span className="font-mono">kustos {status?.version ?? "…"}</span>
           </p>
           <h1 className="font-display text-bone mt-1.5 text-[clamp(1.9rem,2.6vw,2.6rem)] font-medium tracking-[-0.028em] leading-none">
             {t("admin.title")}
           </h1>
-          <p className="text-muted mt-2.5 max-w-[78ch] text-[13px] leading-relaxed">
+          <p className="text-muted mt-2.5 max-w-[78ch] text-base leading-relaxed">
             本实例的运行时、访问与配置——这里的每一项操作都会写入审计日志。
           </p>
         </div>
@@ -500,14 +500,14 @@ function AdminConsole() {
             <TabsTrigger value="runtime" type="button" className="gap-1.5">
               {t("admin.runtime")}
               {coreComponents.filter((component) => !component.running).length > 0 ? (
-                <span className="bg-amber/10 text-amber-2 rounded-full px-1.5 font-mono text-[9.5px] leading-4">
+                <span className="bg-amber/10 text-amber-2 rounded-full px-1.5 font-mono text-2xs leading-4">
                   {coreComponents.filter((component) => !component.running).length}
                 </span>
               ) : null}
             </TabsTrigger>
             <TabsTrigger value="access" type="button" className="gap-1.5">
               {t("admin.access")}
-              <span className="rounded-full bg-bone/[0.06] px-1.5 font-mono text-[9.5px] leading-4 text-muted-2">
+              <span className="rounded-full bg-bone/[0.06] px-1.5 font-mono text-2xs leading-4 text-muted-2">
                 {usersQuery.data?.length ?? 0}
               </span>
             </TabsTrigger>
@@ -539,14 +539,14 @@ function AdminConsole() {
                       index > 0 && "pl-[22px]",
                     )}
                   >
-                    <dt className="text-muted-2 text-[10px] font-semibold tracking-[0.14em] uppercase">{kpi.label}</dt>
-                    <dd className="font-display text-bone mt-[7px] text-[28px] font-medium tabular-nums tracking-[-0.03em] leading-none">
+                    <dt className="text-muted-2 text-2xs font-semibold tracking-[0.14em] uppercase">{kpi.label}</dt>
+                    <dd className="font-display text-bone mt-[7px] text-4xl font-medium tabular-nums tracking-[-0.03em] leading-none">
                       {kpi.value}
                       {kpi.unit ? (
-                        <span className="text-muted-2 font-sans ml-1 text-[11.5px] font-medium tracking-normal">{kpi.unit}</span>
+                        <span className="text-muted-2 font-sans ml-1 text-xs font-medium tracking-normal">{kpi.unit}</span>
                       ) : null}
                     </dd>
-                    <dd className="text-muted-2 mt-2 flex items-center gap-1.5 text-[10px] leading-[1.35]">
+                    <dd className="text-muted-2 mt-2 flex items-center gap-1.5 text-2xs leading-[1.35]">
                       <Lamp tone={kpi.tone} />
                       {kpi.meta}
                     </dd>
@@ -579,7 +579,7 @@ function AdminConsole() {
                 {componentsQuery.error ? (
                   <LoadError error={componentsQuery.error} onRetry={() => void componentsQuery.refetch()} />
                 ) : componentsQuery.data && !componentsQuery.data.available ? (
-                  <p className="text-muted-2 text-[10.5px] leading-relaxed">
+                  <p className="text-muted-2 text-xs leading-relaxed">
                     Docker 编排状态不可用：{componentsQuery.data.reason ?? "未知原因"}——指标仍在进程内记录。
                   </p>
                 ) : (
@@ -591,7 +591,7 @@ function AdminConsole() {
                       const optionalStopped = group === "可选组件" && items.every((component) => !component.running);
                       return (
                         <div key={group} className="border-edge-1 flex items-center gap-2.5 border-b py-[7px] last:border-b-0">
-                          <span className="text-muted-2 w-[68px] shrink-0 text-[10.5px]">{group}</span>
+                          <span className="text-muted-2 w-[68px] shrink-0 text-xs">{group}</span>
                           <span className="flex gap-1">
                             {items.map((component) => (
                               <Lamp key={component.service} tone={lampFor(component)} />
@@ -599,7 +599,7 @@ function AdminConsole() {
                           </span>
                           <span
                             className={cn(
-                              "ml-auto font-mono text-[9.5px]",
+                              "ml-auto font-mono text-2xs",
                               down.length ? "text-amber-2" : optionalStopped ? "text-faint" : "text-sage",
                             )}
                           >
@@ -615,7 +615,7 @@ function AdminConsole() {
                   </div>
                 )}
                 {monitoring ? (
-                  <p className="text-muted-2 mt-3 flex items-center gap-1.5 text-[10.5px] leading-relaxed">
+                  <p className="text-muted-2 mt-3 flex items-center gap-1.5 text-xs leading-relaxed">
                     <Lamp tone={monitoring.grafana.running ? "good" : "warn"} />
                     {monitoring.grafana.running
                       ? "监控栈运行中——Grafana / Prometheus 容器在线。"
@@ -628,17 +628,17 @@ function AdminConsole() {
 
           {/* ---------------------------------------------- 运行时 */}
           <TabsContent value="runtime">
-            <div className="border-edge-2 bg-ink-900/55 mb-3.5 flex flex-wrap items-center gap-2.5 rounded-lg border px-3.5 py-2.5 text-[11px] text-muted-2">
-              <span className="text-faint text-[9px] font-semibold tracking-[0.12em] uppercase">核心</span>
-              <strong className="text-bone font-mono text-[11.5px] font-medium">
+            <div className="border-edge-2 bg-ink-900/55 mb-3.5 flex flex-wrap items-center gap-2.5 rounded-lg border px-3.5 py-2.5 text-xs text-muted-2">
+              <span className="text-faint text-2xs font-semibold tracking-[0.12em] uppercase">核心</span>
+              <strong className="text-bone font-mono text-xs font-medium">
                 {coreComponents.filter((component) => component.running).length}/{coreComponents.length}
               </strong>
               <span aria-hidden="true" className="bg-edge-2 h-3.5 w-px" />
-              <span className="text-faint text-[9px] font-semibold tracking-[0.12em] uppercase">可选</span>
-              <strong className="text-bone font-mono text-[11.5px] font-medium">
+              <span className="text-faint text-2xs font-semibold tracking-[0.12em] uppercase">可选</span>
+              <strong className="text-bone font-mono text-xs font-medium">
                 {optionalComponents.filter((component) => component.running).length}/{optionalComponents.length}
               </strong>
-              <span className="text-muted-2 ml-auto font-mono text-[10px]">
+              <span className="text-muted-2 ml-auto font-mono text-2xs">
                 docker · project {componentsQuery.data?.project ?? "—"}
               </span>
               <Button variant="ghost" size="sm" type="button" onClick={() => void componentsQuery.refetch()}>
@@ -649,8 +649,8 @@ function AdminConsole() {
 
             <section className="border-edge-1 bg-ink-850/40 rounded-[10px] border shadow-[inset_0_1px_0_rgba(240,231,216,0.04)]">
               <div className="border-edge-1 flex items-center gap-3 border-b px-4 py-3">
-                <h3 className="text-bone text-[12.5px] font-semibold">{t("admin.components")}</h3>
-                <span className="text-faint text-[9.5px]">按职责分组 · 健康来自只读 Docker socket 代理</span>
+                <h3 className="text-bone text-sm font-semibold">{t("admin.components")}</h3>
+                <span className="text-faint text-2xs">按职责分组 · 健康来自只读 Docker socket 代理</span>
               </div>
               {componentsQuery.error ? (
                 <div className="px-4 py-3">
@@ -658,7 +658,7 @@ function AdminConsole() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[680px] border-collapse text-[12px]">
+                  <table className="w-full min-w-[680px] border-collapse text-sm">
                     <thead>
                       <tr className="border-edge-2 border-b">
                         <th className="w-6" />
@@ -681,7 +681,7 @@ function AdminConsole() {
                   </table>
                 </div>
               )}
-              <p className="text-muted-2 border-edge-1 border-t px-4 py-2.5 text-[10.5px] leading-relaxed">
+              <p className="text-muted-2 border-edge-1 border-t px-4 py-2.5 text-xs leading-relaxed">
                 <code className={CODE_CLS}>init</code> 是迁移 + 管理员引导任务，退出码 0 即成功——监控栈停止不影响指标记录。
               </p>
             </section>
@@ -696,13 +696,13 @@ function AdminConsole() {
               {monitoringQuery.error ? (
                 <LoadError error={monitoringQuery.error} onRetry={() => void monitoringQuery.refetch()} />
               ) : monitoring ? (
-                <div className="flex flex-wrap items-center gap-4 text-[11px] text-muted">
+                <div className="flex flex-wrap items-center gap-4 text-xs text-muted">
                   {(["grafana", "prometheus"] as const).map((name) => {
                     const service = monitoring[name];
                     return (
                       <span key={name} className="inline-flex items-center gap-2">
                         <Lamp tone={service.ready ? "good" : service.running ? "warn" : "neutral"} />
-                        <span className="text-bone-2 font-mono text-[11.5px]">{name}</span>
+                        <span className="text-bone-2 font-mono text-xs">{name}</span>
                         <span className="text-muted-2">
                           {service.ready ? "就绪" : service.running ? "运行中（未就绪）" : service.configured ? "已停止" : "未部署"}
                         </span>
@@ -720,12 +720,12 @@ function AdminConsole() {
                       {monitoring.grafana.running || monitoring.prometheus.running ? "停止监控栈" : "启动监控栈"}
                     </Button>
                   </span>
-                  <p className="text-muted-2 w-full text-[10.5px] leading-relaxed">
+                  <p className="text-muted-2 w-full text-xs leading-relaxed">
                     启停经窄写 docker 代理对监控容器做 start/stop；从未部署过会返回 409 并给出拉起命令。
                   </p>
                 </div>
               ) : (
-                <p className="text-muted-2 text-[10.5px]">加载中…</p>
+                <p className="text-muted-2 text-xs">加载中…</p>
               )}
             </section>
 
@@ -752,7 +752,7 @@ function AdminConsole() {
                   </Button>
                 }
               />
-              <p className="text-muted-2 mt-3 text-[10.5px] leading-relaxed">
+              <p className="text-muted-2 mt-3 text-xs leading-relaxed">
                 两个接口都只接受管理员（或回环地址上的调试模式）；都不是软重置——会话与 Agent 流都会断开。
               </p>
             </section>
@@ -760,14 +760,14 @@ function AdminConsole() {
 
           {/* ---------------------------------------------- 访问控制 */}
           <TabsContent value="access">
-            <p className="border-edge-2 bg-ink-900/55 text-muted-2 mb-3.5 rounded-lg border px-3.5 py-2.5 text-[10.5px] leading-relaxed">
+            <p className="border-edge-2 bg-ink-900/55 text-muted-2 mb-3.5 rounded-lg border px-3.5 py-2.5 text-xs leading-relaxed">
               {t("admin.accessHint")}
             </p>
 
             <section className="border-edge-1 bg-ink-850/40 rounded-[10px] border shadow-[inset_0_1px_0_rgba(240,231,216,0.04)]">
               <div className="border-edge-1 flex items-center gap-3 border-b px-4 py-3">
-                <h3 className="text-bone text-[12.5px] font-semibold">{t("admin.users")}</h3>
-                <span className="text-faint text-[9.5px]">{usersQuery.data?.length ?? 0} 个账号 · 全局角色</span>
+                <h3 className="text-bone text-sm font-semibold">{t("admin.users")}</h3>
+                <span className="text-faint text-2xs">{usersQuery.data?.length ?? 0} 个账号 · 全局角色</span>
                 <span className="ml-auto">
                   <CreateUserDialog />
                 </span>
@@ -778,7 +778,7 @@ function AdminConsole() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[640px] border-collapse text-[12px]">
+                  <table className="w-full min-w-[640px] border-collapse text-sm">
                     <thead>
                       <tr className="border-edge-2 border-b">
                         <Th>账号</Th>
@@ -795,8 +795,8 @@ function AdminConsole() {
                             <span className="flex items-center gap-2.5">
                               <ToneAvatar initials={user.initials} tone={user.avatarTone} size="sm" />
                               <span className="flex min-w-0 flex-col">
-                                <span className="text-bone-2 text-[12px] leading-tight">{user.name}</span>
-                                <span className="text-faint truncate font-mono text-[9.5px]">{user.email}</span>
+                                <span className="text-bone-2 text-sm leading-tight">{user.name}</span>
+                                <span className="text-faint truncate font-mono text-2xs">{user.email}</span>
                               </span>
                             </span>
                           </td>
@@ -804,12 +804,12 @@ function AdminConsole() {
                             {user.isAdmin ? <Tag tone="warn">管理员</Tag> : <Tag tone="neutral">成员</Tag>}
                           </td>
                           <td>
-                            <span className={cn("inline-flex items-center gap-1.5 text-[10.5px]", user.isActive ? "text-sage" : "text-muted-2")}>
+                            <span className={cn("inline-flex items-center gap-1.5 text-xs", user.isActive ? "text-sage" : "text-muted-2")}>
                               <Lamp tone={user.isActive ? "good" : "neutral"} />
                               {user.isActive ? "活跃" : "已停用"}
                             </span>
                           </td>
-                          <td className="text-muted text-right font-mono text-[11px]">{formatDate(user.createdAt)}</td>
+                          <td className="text-muted text-right font-mono text-xs">{formatDate(user.createdAt)}</td>
                           <td className="text-right">
                             <UserRowActions
                               user={{
@@ -827,7 +827,7 @@ function AdminConsole() {
                   </table>
                 </div>
               )}
-              <p className="text-muted-2 border-edge-1 border-t px-4 py-2.5 text-[10.5px] leading-relaxed">
+              <p className="text-muted-2 border-edge-1 border-t px-4 py-2.5 text-xs leading-relaxed">
                 全局管理员是用户记录上的一位标记；仓库角色（owner/admin/developer/readonly）挂在成员关系上，在各仓库内管理，两者互不推导。
               </p>
             </section>
@@ -838,7 +838,7 @@ function AdminConsole() {
             {configQuery.error ? (
               <LoadError error={configQuery.error} onRetry={() => void configQuery.refetch()} />
             ) : !section ? (
-              <p className="text-muted-2 text-[10.5px]">加载中…</p>
+              <p className="text-muted-2 text-xs">加载中…</p>
             ) : (
               <div className="grid grid-cols-[192px_minmax(0,1fr)] items-start gap-3.5">
                 <nav
@@ -857,12 +857,12 @@ function AdminConsole() {
                           : "text-muted hover:bg-ink-750/50 hover:text-bone-2",
                       )}
                     >
-                      <span className="truncate font-mono text-[10.5px]">{item.name}</span>
+                      <span className="truncate font-mono text-xs">{item.name}</span>
                       {item.writable ? null : (
                         <Lock className="ml-auto size-2.5 text-faint" aria-label={t("admin.protectedKey")} />
                       )}
                       {item.hot ? (
-                        <span className="bg-sage/10 text-sage ml-auto rounded px-1 text-[8.5px] leading-[14px] tracking-[0.04em]">
+                        <span className="bg-sage/10 text-sage ml-auto rounded px-1 text-2xs leading-[14px] tracking-[0.04em]">
                           hot
                         </span>
                       ) : null}
@@ -872,15 +872,15 @@ function AdminConsole() {
 
                 <section className="border-edge-1 bg-ink-850/40 rounded-[10px] border shadow-[inset_0_1px_0_rgba(240,231,216,0.04)]">
                   <div className="border-edge-1 flex items-center gap-3 border-b px-4 py-3">
-                    <h3 className="text-bone font-mono text-[12.5px] font-semibold">{section.name}</h3>
-                    <span className="text-faint text-[9.5px]">
+                    <h3 className="text-bone font-mono text-sm font-semibold">{section.name}</h3>
+                    <span className="text-faint text-2xs">
                       {section.keys.length} 个键 · {section.writable ? "可写" : "受保护"}
                       {section.hot ? " · 热重载" : ""}
                     </span>
                   </div>
 
                   {/* 优先级说明：env 钉死的键永远不可在此编辑 */}
-                  <div className="border-edge-1 flex flex-wrap items-center gap-[7px] border-b px-4 py-2.5 text-[9.5px] text-muted-2">
+                  <div className="border-edge-1 flex flex-wrap items-center gap-[7px] border-b px-4 py-2.5 text-2xs text-muted-2">
                     <Tag tone="info">{t("admin.sourceEnv")}</Tag>
                     <span className="text-faint">›</span>
                     <Tag tone="warn">{t("admin.sourceDb")}</Tag>
@@ -907,7 +907,7 @@ function AdminConsole() {
                           const draftKey = `${section.name}.${row.key}`;
                           return (
                             <tr key={row.key} className="border-edge-1 border-b last:border-b-0">
-                              <td className="py-[7px] pr-3 text-bone-2 font-mono text-[10.5px]">
+                              <td className="py-[7px] pr-3 text-bone-2 font-mono text-xs">
                                 {row.key}
                                 {pinned ? (
                                   <Lock
@@ -918,12 +918,12 @@ function AdminConsole() {
                               </td>
                               <td className="py-[7px] pr-3">
                                 {pinned ? (
-                                  <span className="font-mono text-[10.5px] text-muted">{row.value}</span>
+                                  <span className="font-mono text-xs text-muted">{row.value}</span>
                                 ) : (
                                   <Input
                                     value={cfgDraft[draftKey] ?? row.value}
                                     onChange={(event) => setCfgDraft((prev) => ({ ...prev, [draftKey]: event.target.value }))}
-                                    className="h-6 w-full min-w-[160px] px-1.5 font-mono text-[10.5px]"
+                                    className="h-6 w-full min-w-[160px] px-1.5 font-mono text-xs"
                                     aria-label={`${row.key} 的值`}
                                   />
                                 )}
@@ -946,11 +946,11 @@ function AdminConsole() {
                   </div>
 
                   <div className="border-edge-2 bg-ink-850/80 flex flex-wrap items-center gap-2.5 border-t px-4 py-2.5">
-                    <span className="inline-flex items-center gap-1.5 text-[10.5px] text-muted-2">
+                    <span className="inline-flex items-center gap-1.5 text-xs text-muted-2">
                       <Lamp tone={pendingCount ? "warn" : "good"} />
                       {pendingCount ? `有 ${pendingCount} 项未保存的修改` : "无未保存的修改"}
                     </span>
-                    <span className="text-muted-2 ml-auto text-[10px]">密钥不会回显</span>
+                    <span className="text-muted-2 ml-auto text-2xs">密钥不会回显</span>
                     <Button variant="ghost" size="sm" type="button" onClick={() => validateConfig.mutate()}>
                       校验
                     </Button>
@@ -979,13 +979,13 @@ function AdminConsole() {
           <TabsContent value="audit">
             <section className="border-edge-1 bg-ink-850/40 rounded-[10px] border shadow-[inset_0_1px_0_rgba(240,231,216,0.04)]">
               <div className="border-edge-1 flex flex-wrap items-center gap-3 border-b px-4 py-3">
-                <h3 className="text-bone text-[12.5px] font-semibold">{t("admin.audit")}</h3>
-                <span className="text-faint text-[9.5px]">
+                <h3 className="text-bone text-sm font-semibold">{t("admin.audit")}</h3>
+                <span className="text-faint text-2xs">
                   {auditQuery.data?.total ?? 0} 条 · 最近 7 天 · 最新在前
                 </span>
                 <Tag tone="warn">仅管理员</Tag>
                 {auditQuery.data?.truncated ? (
-                  <span className="text-amber-2 text-[9.5px]">已达扫描上限，更早记录未纳入</span>
+                  <span className="text-amber-2 text-2xs">已达扫描上限，更早记录未纳入</span>
                 ) : null}
               </div>
               {auditQuery.error ? (
@@ -993,9 +993,9 @@ function AdminConsole() {
                   <LoadError error={auditQuery.error} onRetry={() => void auditQuery.refetch()} />
                 </div>
               ) : auditQuery.isPending ? (
-                <p className="text-muted-2 px-4 py-3 text-[10.5px]">加载中…</p>
+                <p className="text-muted-2 px-4 py-3 text-xs">加载中…</p>
               ) : auditQuery.data.items.length === 0 ? (
-                <p className="text-muted-2 px-4 py-3 text-[10.5px]">窗口内暂无审计条目。</p>
+                <p className="text-muted-2 px-4 py-3 text-xs">窗口内暂无审计条目。</p>
               ) : (
                 <ol className="px-4 py-1">
                   {auditQuery.data.items.map((entry) => (
@@ -1004,7 +1004,7 @@ function AdminConsole() {
                 </ol>
               )}
               <div className="border-edge-1 flex items-center gap-2 border-t px-4 py-2.5">
-                <span className="text-muted-2 text-[10.5px]">
+                <span className="text-muted-2 text-xs">
                   第 {auditQuery.data?.page ?? 1} / {Math.max(auditQuery.data?.pages ?? 1, 1)} 页
                 </span>
                 <div className="ml-auto flex gap-2">
@@ -1028,7 +1028,7 @@ function AdminConsole() {
                   </Button>
                 </div>
               </div>
-              <p className="text-muted-2 border-edge-1 border-t px-4 py-2.5 text-[10.5px] leading-relaxed">
+              <p className="text-muted-2 border-edge-1 border-t px-4 py-2.5 text-xs leading-relaxed">
                 HTTP 请求审计（<code className={CODE_CLS}>audit.log</code>）与业务事件（
                 <code className={CODE_CLS}>activities</code> 表）两条轨迹合并展示。
               </p>
@@ -1037,14 +1037,14 @@ function AdminConsole() {
             {/* 日志视图（/api/app/logs/content） */}
             <section className="border-edge-1 bg-ink-850/40 mt-3.5 rounded-[10px] border shadow-[inset_0_1px_0_rgba(240,231,216,0.04)]">
               <div className="border-edge-1 flex flex-wrap items-center gap-3 border-b px-4 py-3">
-                <h3 className="text-bone text-[12.5px] font-semibold">日志视图</h3>
-                <span className="text-faint font-mono text-[9.5px]">logs/{activeLogName}</span>
+                <h3 className="text-bone text-sm font-semibold">日志视图</h3>
+                <span className="text-faint font-mono text-2xs">logs/{activeLogName}</span>
                 <div className="ml-auto flex items-center gap-2">
                   <select
                     value={activeLogName}
                     onChange={(event) => setLogName(event.target.value)}
                     aria-label="日志文件"
-                    className="border-edge-2 bg-ink-900/60 text-bone-2 h-6 rounded-md border px-1.5 font-mono text-[10.5px]"
+                    className="border-edge-2 bg-ink-900/60 text-bone-2 h-6 rounded-md border px-1.5 font-mono text-xs"
                   >
                     {logFiles.length === 0 ? <option value="app">app</option> : null}
                     {logFiles.map((file) => (
@@ -1058,7 +1058,7 @@ function AdminConsole() {
                     value={logLevel}
                     onChange={(event) => setLogLevel(event.target.value)}
                     aria-label="日志级别"
-                    className="border-edge-2 bg-ink-900/60 text-bone-2 h-6 rounded-md border px-1.5 text-[10.5px]"
+                    className="border-edge-2 bg-ink-900/60 text-bone-2 h-6 rounded-md border px-1.5 text-xs"
                   >
                     {LOG_LEVELS.map((level) => (
                       <option key={level.value} value={level.value}>
@@ -1077,11 +1077,11 @@ function AdminConsole() {
                   <LoadError error={logContentQuery.error} onRetry={() => void logContentQuery.refetch()} />
                 </div>
               ) : (
-                <pre className="text-muted bg-ink-900/40 max-h-[320px] overflow-auto px-4 py-3 font-mono text-[10.5px] leading-relaxed whitespace-pre-wrap">
+                <pre className="text-muted bg-ink-900/40 max-h-[320px] overflow-auto px-4 py-3 font-mono text-xs leading-relaxed whitespace-pre-wrap">
                   {logContentQuery.data?.content || (logContentQuery.data && !logContentQuery.data.exists ? "该日期没有此日志文件。" : "加载中…")}
                 </pre>
               )}
-              <p className="text-muted-2 border-edge-1 border-t px-4 py-2.5 text-[10.5px] leading-relaxed">
+              <p className="text-muted-2 border-edge-1 border-t px-4 py-2.5 text-xs leading-relaxed">
                 {logContentQuery.data
                   ? `${logContentQuery.data.date} · 返回末尾 ${logContentQuery.data.lines}/${logContentQuery.data.totalLines} 行`
                   : "GET /api/app/logs/content"}
@@ -1095,7 +1095,7 @@ function AdminConsole() {
       <Dialog open={danger !== null} onOpenChange={(open) => !open && setDanger(null)}>
         <DialogContent>
           <DialogHeader>
-            <p className="text-faint text-[9.5px] font-semibold tracking-[0.16em] uppercase">特权操作</p>
+            <p className="text-faint text-2xs font-semibold tracking-[0.16em] uppercase">特权操作</p>
             <DialogTitle>
               {danger === "restart"
                 ? t("admin.confirmRestart")
@@ -1111,7 +1111,7 @@ function AdminConsole() {
                   : "关机将停止 API 进程，本控制台无法再将其拉起——需要进入宿主机执行。"}
             </DialogDescription>
           </DialogHeader>
-          <p className="border-edge-1 bg-ink-850/60 text-muted-2 rounded-md border px-3 py-2 text-[11px]">
+          <p className="border-edge-1 bg-ink-850/60 text-muted-2 rounded-md border px-3 py-2 text-xs">
             操作立即生效并写入审计日志；重启/关机会断开全部会话与 Agent 流。
           </p>
           <DialogFooter>
@@ -1142,7 +1142,7 @@ function Th({ className, children }: { className?: string; children: ReactNode }
   return (
     <th
       className={cn(
-        "text-muted-2 py-2 pr-3 text-left text-[9px] font-semibold tracking-[0.12em] whitespace-nowrap uppercase",
+        "text-muted-2 py-2 pr-3 text-left text-2xs font-semibold tracking-[0.12em] whitespace-nowrap uppercase",
         className,
       )}
     >
@@ -1157,7 +1157,7 @@ function ComponentRows({ group, items }: { group: string; items: ComponentState[
   return (
     <>
       <tr>
-        <td colSpan={6} className="border-edge-1 bg-bone/[0.012] pt-3 pb-1 text-[9.5px] font-semibold tracking-[0.13em] text-muted-2 uppercase">
+        <td colSpan={6} className="border-edge-1 bg-bone/[0.012] pt-3 pb-1 text-2xs font-semibold tracking-[0.13em] text-muted-2 uppercase">
           {group}
           {group === "可选组件" ? <span className="text-faint ml-2 font-normal tracking-normal normal-case">可选栈</span> : null}
         </td>
@@ -1170,15 +1170,15 @@ function ComponentRows({ group, items }: { group: string; items: ComponentState[
               <Lamp tone={lampFor(component)} />
             </td>
             <td className="py-2.5 pr-3">
-              <span className="text-bone-2 font-mono text-[11.5px]">{component.service}</span>
-              <span className="text-muted-2 ml-2 text-[9.5px]">{component.label}</span>
+              <span className="text-bone-2 font-mono text-xs">{component.service}</span>
+              <span className="text-muted-2 ml-2 text-2xs">{component.label}</span>
             </td>
-            <td className="text-muted-2 max-w-[210px] truncate py-2.5 pr-3 font-mono text-[9.5px]">{component.image}</td>
+            <td className="text-muted-2 max-w-[210px] truncate py-2.5 pr-3 font-mono text-2xs">{component.image}</td>
             <td className="py-2.5 pr-3">
               <Tag tone={state.tone}>{state.text}</Tag>
             </td>
-            <td className="text-muted py-2.5 pr-3 font-mono text-[11px]">{component.uptime ?? "—"}</td>
-            <td className="text-muted py-2.5 text-right font-mono text-[11px]">{component.restarts}</td>
+            <td className="text-muted py-2.5 pr-3 font-mono text-xs">{component.uptime ?? "—"}</td>
+            <td className="text-muted py-2.5 text-right font-mono text-xs">{component.restarts}</td>
           </tr>
         );
       })}
@@ -1191,8 +1191,8 @@ function DangerRow({ title, desc, action }: { title: string; desc: string; actio
   return (
     <div className="border-edge-1 flex items-center justify-between gap-4 border-t py-3 first:border-t-0">
       <div className="min-w-0">
-        <strong className="text-bone-2 block text-[12.5px] font-semibold">{title}</strong>
-        <span className="text-muted-2 mt-0.5 block max-w-[70ch] text-[10px] leading-relaxed">{desc}</span>
+        <strong className="text-bone-2 block text-sm font-semibold">{title}</strong>
+        <span className="text-muted-2 mt-0.5 block max-w-[70ch] text-2xs leading-relaxed">{desc}</span>
       </div>
       <div className="flex flex-none items-center gap-2">{action}</div>
     </div>
@@ -1208,19 +1208,19 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
         entry.sensitive && "border-amber/45 border-l-2 pl-2",
       )}
     >
-      <time className="text-muted-2 font-mono text-[10px]">{entry.at}</time>
-      <span className="text-bone-2 truncate text-[11.5px] font-medium">{entry.actor}</span>
+      <time className="text-muted-2 font-mono text-2xs">{entry.at}</time>
+      <span className="text-bone-2 truncate text-xs font-medium">{entry.actor}</span>
       <span className="flex min-w-0 flex-wrap items-baseline gap-x-2">
         {entry.method ? (
-          <span className="text-sky min-w-[34px] font-mono text-[9.5px] tracking-[0.02em]">{entry.method}</span>
+          <span className="text-sky min-w-[34px] font-mono text-2xs tracking-[0.02em]">{entry.method}</span>
         ) : null}
-        <span className="text-muted-2 font-mono text-[10px]">{entry.path}</span>
+        <span className="text-muted-2 font-mono text-2xs">{entry.path}</span>
         {entry.sensitive ? <Tag tone="warn">敏感</Tag> : null}
-        {entry.note ? <span className="text-faint w-full truncate text-[10px] leading-relaxed">{entry.note}</span> : null}
+        {entry.note ? <span className="text-faint w-full truncate text-2xs leading-relaxed">{entry.note}</span> : null}
       </span>
       <span className="flex items-center gap-2 justify-self-end">
         <Tag tone={statusTone(entry.status)}>{entry.status}</Tag>
-        <span className="text-faint font-mono text-[9.5px]">{entry.ip}</span>
+        <span className="text-faint font-mono text-2xs">{entry.ip}</span>
         <Tag tone={entry.source === "http" ? "neutral" : "info"}>{entry.source}</Tag>
       </span>
     </li>

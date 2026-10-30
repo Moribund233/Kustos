@@ -80,17 +80,17 @@ export function CommandPalette({
             value={query}
             onValueChange={onQueryChange}
             placeholder={t("command.placeholder")}
-            className="border-edge-2 text-bone placeholder:text-faint h-11 w-full border-b bg-transparent px-4 text-[13px] outline-none"
+            className="border-edge-2 text-bone placeholder:text-faint h-11 w-full border-b bg-transparent px-4 text-base focus-visible:outline-none"
           />
           <Command.List className="max-h-80 overflow-y-auto p-1.5">
-            <Command.Empty className="text-faint py-6 text-center text-[13px]">
+            <Command.Empty className="text-faint py-6 text-center text-base">
               {t("command.noResults")}
             </Command.Empty>
             {grouped.map(([group, groupItems]) => (
               <Command.Group
                 key={group}
                 heading={group}
-                className="[&_[cmdk-group-heading]]:text-faint [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:tracking-[0.15em] [&_[cmdk-group-heading]]:uppercase"
+                className="[&_[cmdk-group-heading]]:text-faint [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-2xs [&_[cmdk-group-heading]]:tracking-[0.15em] [&_[cmdk-group-heading]]:uppercase"
               >
                 {groupItems.map((item) => (
                   <Command.Item
@@ -101,12 +101,12 @@ export function CommandPalette({
                       onOpenChange(false);
                     }}
                     className={cn(
-                      "text-muted data-[selected=true]:bg-ink-750 data-[selected=true]:text-bone-2 flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[13px]",
+                      "text-muted data-[selected=true]:bg-ink-750 data-[selected=true]:text-bone-2 flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-base",
                     )}
                   >
                     <span className="truncate">{item.label}</span>
                     {item.hint && (
-                      <span className="text-faint ml-auto truncate text-[11px]">{item.hint}</span>
+                      <span className="text-faint ml-auto truncate text-xs">{item.hint}</span>
                     )}
                   </Command.Item>
                 ))}

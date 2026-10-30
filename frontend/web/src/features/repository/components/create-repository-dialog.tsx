@@ -105,10 +105,10 @@ export function CreateRepositoryDialog({
             rows={3}
             placeholder={t("repository.description")}
             aria-label={t("repository.description")}
-            className="border-edge-2 bg-ink-950/60 text-bone placeholder:text-muted-2 focus:border-amber/40 min-h-[70px] w-full resize-none rounded-md border px-2.5 py-2 text-[12px] transition-colors outline-none"
+            className="border-edge-2 bg-ink-950/60 text-bone placeholder:text-muted-2 focus:border-amber/40 min-h-[70px] w-full resize-none rounded-md border px-2.5 py-2 text-sm transition-colors focus-visible:outline-none"
           />
           <div className="flex items-center gap-2">
-            <span className="text-muted-2 text-[10px] font-semibold tracking-[0.13em] uppercase">
+            <span className="text-muted-2 text-2xs font-semibold tracking-[0.13em] uppercase">
               可见性
             </span>
             <Chip active={isPublic} onClick={() => setIsPublic(true)}>
