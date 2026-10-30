@@ -50,7 +50,7 @@ flowchart TB
 docKey = "<repository_id>:<branch>:<path>"
 ```
 
-控制器 `parse_doc_key()` 校验为三段；仓库、分支、路径解析后逐次鉴权。Y.Doc 中唯一共享文本类型为 `getText("content")`，客户端必须同名。
+服务层 `parse_doc_key()` 校验为三段；仓库、分支、路径解析后逐次鉴权。Y.Doc 中唯一共享文本类型为 `getText("content")`，客户端必须同名。
 
 ### 2.2 连接鉴权
 

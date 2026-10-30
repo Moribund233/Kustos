@@ -145,7 +145,7 @@ docker compose up -d
 
 ### 4.1 测试架构
 
-- 181 个测试文件、2140 个测试函数（静态统计）；
+- 188 个测试文件、2164 个测试函数（静态统计）；
 - `pytest-asyncio` 自动模式（`asyncio_mode=auto`）；
 - **统一 PostgreSQL**：每个会话建一次性临时库，结束 `DROP ... FORCE`；
 - 异步引擎测试期强制 `NullPool`，规避跨事件循环连接复用；

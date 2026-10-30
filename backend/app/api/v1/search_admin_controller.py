@@ -15,10 +15,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
-from app.api.v1.app_controller import (
-    check_app_danger_permission,
-    check_app_permission,
-)
+from app.api.guards import check_app_danger_permission, check_app_permission
 from app.models.async_db import get_async_db
 from app.models.user import User
 from app.services.search.search_admin_service import get_search_admin_service

@@ -30,10 +30,10 @@
 | --- | --- |
 | API 控制器 | 39 个 `*_controller.py` |
 | HTTP/WS 路由声明 | 约 250+ 个 |
-| 服务层文件 | 77 个（不含 `__init__.py`，含子包 `agent/`、`indexing/`、`realtime/`、`auth/`）|
+| 服务层文件 | 84 个（不含 `__init__.py`，按 11 个领域子包组织）|
 | ORM 模型文件 | 38 个（不含 `base.py`/`async_db.py`/`uuid7.py` 等基础设施文件）|
 | 迁移建表 | 53 张（`0001_initial` 51 张 + `0002_pr_issue_review_links` 2 张）|
-| 测试文件 / 测试函数 | 181 个 / 2140 个 |
+| 测试文件 / 测试函数 | 188 个 / 2164 个 |
 
 ---
 

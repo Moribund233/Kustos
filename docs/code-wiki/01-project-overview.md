@@ -135,7 +135,7 @@ Kustos/
 │   ├── collab-gateway/            # Hocuspocus/Yjs Node 网关
 │   ├── docker/                    # gateway/git-cgi/ssh/collab/监控/写代理配置
 │   ├── scripts/                   # 安装、运维、初始化、E2E、审计脚本
-│   ├── tests/                     # 181 个测试文件
+│   ├── tests/                     # 188 个测试文件
 │   ├── config.example.toml        # 配置播种模板（运行期不读）
 │   ├── docker-compose*.yml        # 基础设施/业务/开发/监控
 │   ├── Dockerfile                 # 多阶段构建（uv）

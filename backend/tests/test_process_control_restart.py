@@ -14,6 +14,7 @@ from types import SimpleNamespace
 
 import pytest
 
+import app.api.guards as app_guard
 import app.api.v1.app_controller as app_ctl
 import app.services.platform.app_service as app_svc
 from app.utils import process_control
@@ -28,9 +29,9 @@ def _serving_flag():
 
 
 def _debug_on(monkeypatch):
-    """让 app_controller 的权限判定看到 debug=true"""
+    """让应用管理权限判定看到 debug=true"""
     monkeypatch.setattr(
-        app_ctl,
+        app_guard,
         "get_config",
         lambda: SimpleNamespace(app=SimpleNamespace(debug=True)),
     )
@@ -38,7 +39,7 @@ def _debug_on(monkeypatch):
 
 def _debug_off(monkeypatch):
     monkeypatch.setattr(
-        app_ctl,
+        app_guard,
         "get_config",
         lambda: SimpleNamespace(app=SimpleNamespace(debug=False)),
     )
@@ -50,7 +51,7 @@ def _trust_proxy(monkeypatch):
     仅用于隔离「X-Real-IP 回环放行」分支的判断；可信来源裁决本身由
     `test_untrusted_peer_x_real_ip_ignored` 等反向/单元用例覆盖。
     """
-    monkeypatch.setattr(app_ctl, "_is_trusted_proxy", lambda peer: True)
+    monkeypatch.setattr(app_guard, "_is_trusted_proxy", lambda peer: True)
 
 
 class _FakeManager:
@@ -410,11 +411,11 @@ class TestDangerPermission:
         def _resolve(name):
             return fake_gateway if name == "gateway" else "0.0.0.0"
 
-        monkeypatch.setattr(app_ctl.socket, "gethostbyname", _resolve)
-        assert app_ctl._is_trusted_proxy(fake_gateway) is True   # 网关容器
-        assert app_ctl._is_trusted_proxy("172.18.0.7") is False  # 同网络其它容器
-        assert app_ctl._is_trusted_proxy("127.0.0.1") is True    # 回环恒可信
-        assert app_ctl._is_trusted_proxy("testclient") is False  # TestClient 直连 peer
+        monkeypatch.setattr(app_guard.socket, "gethostbyname", _resolve)
+        assert app_guard._is_trusted_proxy(fake_gateway) is True   # 网关容器
+        assert app_guard._is_trusted_proxy("172.18.0.7") is False  # 同网络其它容器
+        assert app_guard._is_trusted_proxy("127.0.0.1") is True    # 回环恒可信
+        assert app_guard._is_trusted_proxy("testclient") is False  # TestClient 直连 peer
 
     def test_gateway_unresolvable_only_loopback_trusted(self, monkeypatch):
         """网关不可解析（单容器部署/无 gateway 服务）→ 仅回环可信"""
@@ -422,7 +423,7 @@ class TestDangerPermission:
         def _no_resolve(name):
             raise OSError("no gateway on network")
 
-        monkeypatch.setattr(app_ctl.socket, "gethostbyname", _no_resolve)
-        assert app_ctl._is_trusted_proxy("172.18.0.2") is False
-        assert app_ctl._is_trusted_proxy("127.0.0.1") is True
-        assert app_ctl._is_trusted_proxy("::1") is True
+        monkeypatch.setattr(app_guard.socket, "gethostbyname", _no_resolve)
+        assert app_guard._is_trusted_proxy("172.18.0.2") is False
+        assert app_guard._is_trusted_proxy("127.0.0.1") is True
+        assert app_guard._is_trusted_proxy("::1") is True

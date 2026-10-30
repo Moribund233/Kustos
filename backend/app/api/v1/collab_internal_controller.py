@@ -16,8 +16,7 @@ import asyncio
 import hmac
 import logging
 import os
-from typing import Optional, Tuple
-from uuid import UUID
+from typing import Optional
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
@@ -27,7 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.services.repository.repository_service import (
     fetch_repository,
 )
-from app.core.exception import AuthenticationException, AuthorizationException, HttpStatusException, NotFoundException, ValidationException
+from app.core.exception import AuthenticationException, AuthorizationException, HttpStatusException, NotFoundException
 from app.core.permissions import Action, has_repo_action
 from app.core.config import get_config_value
 from app.models import Repository, User
@@ -35,6 +34,7 @@ from app.models.async_db import get_async_db
 from app.services.search.search_service import SearchService
 from app.services.collaboration.collab_invite_service import verify_invite_token_active
 from app.services.collaboration.collab_session_service import get_override
+from app.services.collaboration.doc_key import parse_doc_key
 from app.services.auth.token_service import verify_token_active
 
 logger = logging.getLogger(__name__)
@@ -61,32 +61,6 @@ class CollabSaveRequest(BaseModel):
     message: Optional[str] = None
     invite_token: Optional[str] = None
     draft: bool = False
-
-
-def make_doc_key(repository_id: str, branch: str, path: str) -> str:
-    """文档标识: 仓库:分支:路径"""
-    return f"{repository_id}:{branch}:{path}"
-
-
-def parse_doc_key(doc_key: str) -> Tuple[UUID, str, str]:
-    """
-    解析 docKey 为 (repository_id, branch, path)
-
-    Raises:
-        ValidationException: 格式非法
-    """
-    parts = str(doc_key or "").split(":")
-    if len(parts) < 3 or not parts[0].strip() or not parts[1].strip():
-        raise ValidationException(detail="docKey 格式非法, 应为 repository_id:branch:path", error_code="collab_invalid_dockey")
-    try:
-        repository_id = UUID(parts[0].strip())
-    except (ValueError, AttributeError, TypeError):
-        raise ValidationException(detail="docKey 中 repository_id 非法", error_code="collab_invalid_repository_id")
-    branch = parts[1].strip()
-    path = ":".join(parts[2:]).strip().lstrip("/")
-    if not branch or not path:
-        raise ValidationException(detail="docKey 中 branch/path 不能为空", error_code="collab_dockey_missing_parts")
-    return repository_id, branch, path
 
 
 def _require_internal_secret(request: Request) -> None:

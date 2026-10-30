@@ -13,7 +13,7 @@ app/services/<domain>/
 | 包 | 领域 | 覆盖 |
 | --- | --- | --- |
 | `repository/` | 仓库与 Git 对象 | 仓库本体、浏览器、分支、提交、成员、密钥、fork/star/watch、语言统计、活动审计 |
-| `collaboration/` | 协作内容 | Issue、Pull Request（评审/标签/关联/活动子域）、标签、行内评论、Release、协作邀请、统计看板 |
+| `collaboration/` | 协作内容 | Issue、Pull Request（评审/标签/关联/活动子域）、标签、行内评论、Release、协作邀请、docKey 解析、统计看板 |
 | `messaging/` | 消息 | 站内通知、通知偏好、聊天附件 |
 | `lfs/` | Git LFS | 业务逻辑、存储后端、短时效 transfer token |
 | `search/` | 搜索 | 代码检索主服务、搜索/embedding 管理面 |

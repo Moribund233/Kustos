@@ -13,10 +13,10 @@ import pytest
 from app.api.v1.collab_internal_controller import (
     INTERNAL_SECRET_ENV,
     INTERNAL_SECRET_HEADER,
-    make_doc_key,
 )
 from app.models.repository_member import RepositoryMember
 from app.services.collaboration.collab_invite_service import create_invite_token
+from app.services.collaboration.doc_key import make_doc_key
 from app.services.auth.token_service import create_access_token
 from tests.test_helpers import create_test_repo
 
