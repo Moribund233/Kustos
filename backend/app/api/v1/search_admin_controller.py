@@ -21,7 +21,7 @@ from app.api.v1.app_controller import (
 )
 from app.models.async_db import get_async_db
 from app.models.user import User
-from app.services.search_admin_service import get_search_admin_service
+from app.services.search.search_admin_service import get_search_admin_service
 
 router = APIRouter(tags=["app-management"])
 

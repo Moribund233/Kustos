@@ -18,7 +18,7 @@ from app.models.repo_search_chunk import RepoSearchChunk
 from app.models.repo_search_embedding import RepoSearchEmbedding
 from app.services.indexing import embeddings as embeddings_mod
 from app.models.vector_type import VECTOR_DIM
-from app.services.search_service import INDEX_GENERATION, SearchService
+from app.services.search.search_service import INDEX_GENERATION, SearchService
 
 
 class _CountingEmbedProvider:

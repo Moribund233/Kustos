@@ -12,7 +12,7 @@ import uuid as uuid_mod
 
 from fastapi.testclient import TestClient
 
-from app.services.token_service import create_access_token
+from app.services.auth.token_service import create_access_token
 from tests.test_repo_browser_controller import create_repo_with_content, create_commit_in_repo
 
 

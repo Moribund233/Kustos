@@ -156,7 +156,7 @@ flowchart TB
 | `greenlet` | SQLAlchemy async 运行时 | 间接 |
 | `pygit2` | Git 对象操作 | `utils/git_utils.py`、browser/search/index |
 | `passlib[bcrypt]` + `bcrypt==4.0.0` | 密码哈希 | `utils/password_utils.py` |
-| `python-jose[cryptography]` | JWT | `services/token_service.py` |
+| `python-jose[cryptography]` | JWT | `services/auth/token_service.py` |
 | `cryptography` | AES-GCM 配置密钥 | `utils/config_crypto.py` |
 | `redis` | 缓存/pubsub/位图 | `utils/redis_client.py`、token_state、presence、bus |
 | `arq` | Agent 作业队列 | `services/agent/queue.py`、`worker.py` |
@@ -165,7 +165,7 @@ flowchart TB
 | `jinja2` | 邮件模板 | `utils/email_utils.py` |
 | `python-multipart` | 表单/上传 | 附件/头像/Release |
 | `sentry-sdk[fastapi]` | 错误追踪 | `core/sentry.py` |
-| `psutil` | 进程指标 | `services/process_metrics.py` |
+| `psutil` | 进程指标 | `services/platform/process_metrics.py` |
 | `tree-sitter` + 语法包 | 代码切块/符号 | `indexing/chunker.py` |
 
 ### 3.2 开发依赖
@@ -208,7 +208,7 @@ flowchart TB
 | GitHub/GitLab OAuth | HTTPS | `auth/oauth.py` | 登录失败提示 |
 | SMTP | SMTP | `utils/email_utils.py` | 邮件失败仅告警，站内通知仍落库 |
 | Docker Engine | HTTP（socket proxy） | `orchestration_service`、`docker_write_service` | 优雅降级 `available=false` |
-| Grafana | HTTP | `grafana_service.py` | SSO 失败提示 |
+| Grafana | HTTP | `services/platform/grafana_service.py` | SSO 失败提示 |
 | Sentry | HTTPS | `core/sentry.py` | DSN 空则禁用 |
 | Webhook 目标 | HTTP(S) | `webhook_service.py` | 重试 + 投递历史；不阻断主流程 |
 

@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.commit import Commit
 from app.models.branch import Branch
 from app.models.repository import Repository
-from app.services import commit_service
+from app.services.repository import commit_service
 from app.core.exception import NotFoundException, ValidationException, ConflictException
 
 

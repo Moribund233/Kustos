@@ -24,7 +24,7 @@ def create_test_repo(db, name: str = "test-repo") -> Repository:
 def _clean_release_asset_dir():
     """每个用例前清空附件存储目录（data/ 为挂载卷, 跨运行会残留）"""
     import shutil
-    from app.services import release_asset_service
+    from app.services.collaboration import release_asset_service
     shutil.rmtree(release_asset_service.RELEASE_ASSET_UPLOAD_DIR, ignore_errors=True)
     yield
 
@@ -98,7 +98,7 @@ def test_create_release_duplicate_tag(test_client: TestClient, auth_headers: dic
 async def test_list_releases(async_db: AsyncSession, async_test_user):
     """测试获取 Release 列表"""
     from app.models.repository import Repository as RepoModel
-    from app.services import release_service
+    from app.services.collaboration import release_service
 
     repo = RepoModel(
         name="test-repo", path="testuser/test-repo",
@@ -290,7 +290,7 @@ def test_delete_release_asset(test_client: TestClient, auth_headers: dict, db):
 
 def test_upload_release_asset(test_client: TestClient, auth_headers: dict, db):
     """测试 multipart 上传 Release 附件（二进制落盘 + 元数据注册）"""
-    from app.services import release_asset_service
+    from app.services.collaboration import release_asset_service
     repo = create_test_repo(db)
 
     create_resp = test_client.post(
@@ -319,7 +319,7 @@ def test_upload_release_asset(test_client: TestClient, auth_headers: dict, db):
 
 def test_upload_release_asset_too_large(test_client: TestClient, auth_headers: dict, db):
     """测试上传超限附件被拒绝"""
-    from app.services import release_asset_service
+    from app.services.collaboration import release_asset_service
     repo = create_test_repo(db)
 
     create_resp = test_client.post(
@@ -414,7 +414,7 @@ def test_download_release_asset_not_found(test_client: TestClient, auth_headers:
 
 def test_delete_uploaded_release_asset_removes_file(test_client: TestClient, auth_headers: dict, db):
     """测试删除上传的附件会同时清理磁盘文件"""
-    from app.services import release_asset_service
+    from app.services.collaboration import release_asset_service
     repo = create_test_repo(db)
 
     create_resp = test_client.post(
@@ -452,7 +452,7 @@ async def test_release_author_does_not_bypass_matrix(async_db: AsyncSession):
     from app.models.repository import Repository as RepoModel
     from app.models.repository_member import RepositoryMember
     from app.models.user import User
-    from app.services import release_service
+    from app.services.collaboration import release_service
 
     owner = User(
         username="relowner", email="relowner@example.com",

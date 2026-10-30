@@ -8,7 +8,7 @@ import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.repository import Repository
 from app.models.pull_request import PullRequest
-from app.services import pr_activity_service
+from app.services.collaboration import pr_activity_service
 
 
 @pytest_asyncio.fixture

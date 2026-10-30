@@ -9,7 +9,7 @@ import pytest
 
 def _headers_for(user) -> dict:
     """为任意用户生成访问令牌（造第二个用户时用）."""
-    from app.services.token_service import create_access_token
+    from app.services.auth.token_service import create_access_token
 
     token = create_access_token(
         {"sub": str(user.id), "username": user.username, "is_admin": user.is_admin}

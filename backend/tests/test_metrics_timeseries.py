@@ -141,7 +141,7 @@ async def test_get_history_redis_parses_fields(monkeypatch):
 # ---------------- 聚合服务 ----------------
 
 async def test_get_timeseries_shape_and_downsample(monkeypatch):
-    from app.services import metrics_service
+    from app.services.platform import metrics_service
 
     now = metrics_service._now_minute()
 
@@ -196,7 +196,7 @@ def test_process_sampler_reuses_psutil_instance(monkeypatch):
     """psutil.Process 必须复用实例，否则 cpu_percent(interval=None) 恒为 0"""
     import psutil
 
-    from app.services import process_metrics
+    from app.services.platform import process_metrics
 
     created = []
 

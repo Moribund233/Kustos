@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from scripts.migrate_lfs_layout import main as migrate_main
-from app.services.lfs_storage import LocalFSStorage
+from app.services.lfs.lfs_storage import LocalFSStorage
 
 
 @pytest.fixture

@@ -14,7 +14,7 @@ from app.api.prefixes import get_route_prefix
 from app.models.async_db import get_async_db
 from app.models.user import User
 from app.api.deps import get_current_user, get_current_admin_user
-from app.services.user_service import (
+from app.services.auth.user_service import (
     get_users as service_get_users,
     get_user_by_id as service_get_user_by_id,
     create_user as service_create_user,
@@ -26,14 +26,14 @@ from app.services.user_service import (
     get_user_avatar as service_get_user_avatar,
     user_to_dict,
 )
-from app.services.dashboard_service import (
+from app.services.collaboration.dashboard_service import (
     get_user_dashboard as service_get_user_dashboard,
     list_review_requests_for_user as service_list_review_requests_for_user,
     list_recent_builds_for_user as service_list_recent_builds_for_user,
     list_top_contributors_for_user as service_list_top_contributors_for_user,
 )
-from app.services.pull_request_service import list_pull_requests_for_user as service_list_pull_requests_for_user
-from app.services.issue_service import list_issues_for_user as service_list_issues_for_user
+from app.services.collaboration.pull_request_service import list_pull_requests_for_user as service_list_pull_requests_for_user
+from app.services.collaboration.issue_service import list_issues_for_user as service_list_issues_for_user
 import uuid
 
 # 创建路由实例

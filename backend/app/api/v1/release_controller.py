@@ -17,8 +17,8 @@ from app.api.deps import get_current_user
 from app.core.exception import NotFoundException
 from app.core.permissions import Action
 from app.api.guards import require_repo_read, require_repo_permission
-from app.services import release_service
-from app.services import release_asset_service
+from app.services.collaboration import release_service
+from app.services.collaboration import release_asset_service
 import uuid
 
 # 创建路由实例

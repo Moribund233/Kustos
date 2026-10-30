@@ -11,12 +11,12 @@ import time
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from app.services import token_service
+from app.services.auth import token_service
 import pytest
 
 from app.core.exception import AuthenticationException
 from app.models.revoked_token import RevokedToken
-from app.services import token_state
+from app.services.auth import token_state
 from app.utils.degraded import registry as degraded
 
 

@@ -9,7 +9,7 @@
 """
 import os
 
-from app.services import branch_service
+from app.services.repository import branch_service
 import pygit2
 import pytest
 import pytest_asyncio
@@ -19,8 +19,8 @@ from app.core.exception import AuthorizationException, ValidationException
 from app.models import Branch, Repository
 from app.models.pull_request import PullRequest, PRReview
 from app.models.user import User
-from app.services import pull_request_service
-from app.services.pr_activity_service import list_activities
+from app.services.collaboration import pull_request_service
+from app.services.collaboration.pr_activity_service import list_activities
 from app.utils.git_utils import get_repository_storage_path
 
 

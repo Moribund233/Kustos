@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.release import Release, ReleaseAsset
 from app.models.repository import Repository
-from app.services import release_service
+from app.services.collaboration import release_service
 from app.utils.git_utils import (
     create_git_tag as _create_git_tag,
     delete_git_tag as _delete_git_tag,

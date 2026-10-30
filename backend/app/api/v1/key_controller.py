@@ -15,7 +15,7 @@ from app.api.deps import get_current_user
 from app.core.exception import ValidationException, NotFoundException, AuthorizationException
 from app.models.async_db import get_async_db
 from app.models.user import User
-from app.services import key_service
+from app.services.repository import key_service
 import uuid
 
 # 创建路由实例

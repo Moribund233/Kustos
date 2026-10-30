@@ -12,7 +12,7 @@ from app.models.async_db import get_async_db
 from app.models.repository import Repository
 from app.models.user import User
 from app.api.deps import get_current_user
-from app.services import star_service
+from app.services.repository import star_service
 from app.core.exception import NotFoundException
 from app.core.permissions import Action, ensure_repo_action
 import uuid

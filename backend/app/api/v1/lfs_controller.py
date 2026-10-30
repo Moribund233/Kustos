@@ -42,10 +42,10 @@ from app.core.permissions import Action, ensure_repo_action, has_repo_action
 from app.models.async_db import get_async_db
 from app.models.repository import Repository
 from app.models.user import User
-from app.services import token_service
-from app.services.lfs_service import LFSService
-from app.services.lfs_storage import LocalFSStorage
-from app.services.lfs_token import (
+from app.services.auth import token_service
+from app.services.lfs.lfs_service import LFSService
+from app.services.lfs.lfs_storage import LocalFSStorage
+from app.services.lfs.lfs_token import (
     LFSTransferClaims,
     SCOPE_READ,
     SCOPE_WRITE,

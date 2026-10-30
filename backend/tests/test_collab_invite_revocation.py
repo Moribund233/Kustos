@@ -16,8 +16,8 @@ from app.api.v1.collab_internal_controller import (
     make_doc_key,
 )
 from app.models.repository_member import RepositoryMember
-from app.services.collab_invite_service import create_invite_token
-from app.services.token_service import create_access_token
+from app.services.collaboration.collab_invite_service import create_invite_token
+from app.services.auth.token_service import create_access_token
 from tests.test_helpers import create_test_repo
 
 SECRET = "test-internal-secret"
@@ -123,7 +123,7 @@ class TestInviteRevocation:
         doc_key = make_doc_key(str(repo.id), "main", "src/app.py")
         invite = self._invite(doc_key, scope="write")
         monkeypatch.setattr(
-            "app.services.repository_browser_service.commit_file",
+            "app.services.repository.repository_browser_service.commit_file",
             AsyncMock(return_value={"commit_id": "abc1234"}),
         )
 

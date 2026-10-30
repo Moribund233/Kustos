@@ -7,7 +7,7 @@ import asyncio
 
 import pytest
 
-from app.services.database_manager import DatabaseResetManager
+from app.services.platform.database_manager import DatabaseResetManager
 
 
 @pytest.fixture

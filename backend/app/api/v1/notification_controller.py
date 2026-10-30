@@ -6,7 +6,7 @@ from app.api.prefixes import get_route_prefix
 from app.api.deps import get_current_user
 from app.models.async_db import get_async_db
 from app.models.user import User
-from app.services import notification_service, notification_preference_service
+from app.services.messaging import notification_service, notification_preference_service
 import uuid
 
 router = APIRouter(prefix=get_route_prefix("notifications"), tags=["notifications"])

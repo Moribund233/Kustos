@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
 from app.models.repository import Repository
-from app.services.file_comment_service import (
+from app.services.collaboration.file_comment_service import (
     create_file_comment,
     list_file_comments,
     set_file_comment_resolved,

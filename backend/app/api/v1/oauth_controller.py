@@ -7,7 +7,7 @@ from app.core.config import get_config
 from app.core.exception import AuthenticationException, NotFoundException, ValidationException
 from app.models.async_db import get_async_db
 from app.models.user import User
-from app.services.oauth_service import OAuthService
+from app.services.auth.oauth_service import OAuthService
 
 router = APIRouter(prefix=get_route_prefix("auth"), tags=["oauth"])
 

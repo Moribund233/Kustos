@@ -140,7 +140,7 @@ async def test_who_changed_by_path(async_db, async_test_repo, work_repo):
 async def test_who_changed_by_symbol_is_approximate(async_db, async_test_repo, work_repo):
     load_server_tools()
     repo_path, old_sha, _new = work_repo
-    from app.services.search_service import SearchService
+    from app.services.search.search_service import SearchService
 
     await SearchService().rebuild_index(async_db, async_test_repo.id, repo_path)
     out = await tr.get_tool("who_changed").handler(

@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.prefixes import get_route_prefix
 from app.models.async_db import get_async_db
-from app.services import stats_service
+from app.services.collaboration import stats_service
 import uuid
 from app.api.guards import require_repo_read
 

@@ -4,7 +4,7 @@
 import io
 import pytest
 
-from app.services.user_service import AVATAR_UPLOAD_DIR
+from app.services.auth.user_service import AVATAR_UPLOAD_DIR
 
 
 @pytest.fixture(autouse=True)

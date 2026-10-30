@@ -130,7 +130,7 @@ def peer_user(db):
 
 @pytest.fixture
 def peer_headers(peer_user):
-    from app.services.token_service import create_access_token
+    from app.services.auth.token_service import create_access_token
 
     token = create_access_token(
         {"sub": str(peer_user.id), "username": peer_user.username, "is_admin": False}

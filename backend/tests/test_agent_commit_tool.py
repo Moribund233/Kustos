@@ -119,7 +119,7 @@ async def test_commit_file_refused_on_protected_branch(
     assert _branches(path) == ["master"], "拒绝时不得产生写副作用"
 
     from app.core.exception import AuthorizationException
-    from app.services.git_event_service import ensure_local_write
+    from app.services.integration.git_event_service import ensure_local_write
 
     with pytest.raises(AuthorizationException) as ei:
         await ensure_local_write(async_db, async_test_repo.id, "master")

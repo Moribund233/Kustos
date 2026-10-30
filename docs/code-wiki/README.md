@@ -108,10 +108,10 @@ flowchart LR
 | 数据库会话 | `backend/app/models/async_db.py` |
 | 生命周期 | `backend/app/lifespan.py` |
 | Git 封装 | `backend/app/utils/git_utils.py` |
-| 代码浏览 | `backend/app/services/repository_browser_service.py` |
-| 搜索 | `backend/app/services/search_service.py` |
+| 代码浏览 | `backend/app/services/repository/repository_browser_service.py` |
+| 搜索 | `backend/app/services/search/search_service.py` |
 | Agent 执行循环 | `backend/app/services/agent/runtime.py` |
-| Agent 编排 | `backend/app/services/agent_service.py` |
+| Agent 编排 | `backend/app/services/agent/agent_service.py` |
 | 协作网关 | `backend/collab-gateway/server.mjs` |
 | 部署编排 | `backend/docker-compose.yml`、`backend/docker-compose.base.yml` |
 | 不变量测试 | `backend/tests/` |

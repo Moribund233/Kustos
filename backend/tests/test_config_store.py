@@ -200,7 +200,7 @@ class TestNoHalfAppliedUpdate:
         assert manager.config.server.port == before, "写失败时内存配置不得被改动"
 
     def test_config_service_returns_persist_failed(self, monkeypatch):
-        from app.services.config_service import ConfigService
+        from app.services.platform.config_service import ConfigService
 
         self._fresh_manager(monkeypatch)
 
@@ -226,7 +226,7 @@ class TestWriteValidation:
 
     def test_bootstrap_key_returns_4xx_via_service(self, monkeypatch):
         """服务层前置校验即拒绝引导层键；config_store 的拒绝是第二道防线"""
-        from app.services.config_service import ConfigService
+        from app.services.platform.config_service import ConfigService
 
         monkeypatch.delenv("DATABASE_URL", raising=False)
         monkeypatch.delenv("KUSTOS_DATABASE_URL", raising=False)

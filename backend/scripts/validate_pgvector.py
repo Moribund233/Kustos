@@ -74,7 +74,7 @@ async def main() -> None:
     from app.models.repo_search_ref import RepoSearchRef
     from app.models.user import User
     from app.services.indexing import embeddings
-    from app.services.search_service import SearchService
+    from app.services.search.search_service import SearchService
 
     async with get_async_db_context() as db:
         ext = (await db.execute(text(

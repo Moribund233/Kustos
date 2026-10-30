@@ -27,8 +27,8 @@ from app.api.v1.collab_internal_controller import parse_doc_key
 from app.core.permissions import Action, has_repo_action
 from app.models import Repository, User
 from app.models.async_db import get_async_db
-from app.services.collab_session_service import kick as kick_member
-from app.services.collab_session_service import set_permission
+from app.services.collaboration.collab_session_service import kick as kick_member
+from app.services.collaboration.collab_session_service import set_permission
 
 router = APIRouter(prefix=get_route_prefix("repositories"), tags=["collab-sessions"])
 

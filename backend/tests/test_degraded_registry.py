@@ -196,7 +196,7 @@ class TestAdminSurface:
     @pytest.mark.asyncio
     async def test_degradation_block_lists_components(self):
         """Admin「Redis → 降级」面板数据必须带显式清单（非静默）"""
-        from app.services.redis_admin_service import RedisAdminService
+        from app.services.platform.redis_admin_service import RedisAdminService
 
         degraded.set("request_stats", "memory", "Admin 时序为单 worker 视图")
 
@@ -213,7 +213,7 @@ class TestAdminSurface:
 
     @pytest.mark.asyncio
     async def test_degradation_block_clean_when_healthy(self):
-        from app.services.redis_admin_service import RedisAdminService
+        from app.services.platform.redis_admin_service import RedisAdminService
 
         status = await RedisAdminService().get_status()
         degradation = status["degradation"]

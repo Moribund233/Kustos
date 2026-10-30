@@ -155,7 +155,7 @@ async def test_search_code_tool_carries_provenance(async_db, async_test_repo):
     """search_code 工具把结果溯源（source / semantic_used）带进模型上下文"""
     import shutil
 
-    from app.services.search_service import SearchService
+    from app.services.search.search_service import SearchService
     from tests.test_search_service import _make_bare_repo
 
     load_server_tools()

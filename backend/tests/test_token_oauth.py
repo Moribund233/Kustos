@@ -6,7 +6,7 @@ class TestTokenOAuth:
     """JWT 应携带 oauth_provider 信息"""
 
     def test_create_token_pair_with_extra_claims(self):
-        from app.services.token_service import create_token_pair
+        from app.services.auth.token_service import create_token_pair
         from app.models.user import User
 
         user = User(
@@ -25,7 +25,7 @@ class TestTokenOAuth:
         assert decoded["username"] == "oauth_user"
 
     def test_verify_token_returns_oauth_provider(self):
-        from app.services.token_service import create_token_pair, verify_token
+        from app.services.auth.token_service import create_token_pair, verify_token
         from app.models.user import User
 
         user_id = uuid.uuid4()
@@ -44,7 +44,7 @@ class TestTokenOAuth:
         assert token_data.username == "oauth_user2"
 
     def test_verify_token_returns_none_for_non_oauth_token(self):
-        from app.services.token_service import create_token_pair, verify_token
+        from app.services.auth.token_service import create_token_pair, verify_token
         from app.models.user import User
 
         user_id = uuid.uuid4()

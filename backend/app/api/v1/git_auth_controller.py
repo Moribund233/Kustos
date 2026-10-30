@@ -13,7 +13,7 @@ from sqlalchemy import select
 
 from app.models import Repository, User
 from app.models.async_db import get_async_db
-from app.services.token_service import verify_token_active
+from app.services.auth.token_service import verify_token_active
 from app.utils.password_utils import verify_password
 from app.core.permissions import Action, has_repo_action
 

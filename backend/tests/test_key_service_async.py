@@ -13,7 +13,7 @@ import asyncio
 from unittest.mock import patch, MagicMock, mock_open
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.key_service import (
+from app.services.repository.key_service import (
     add_ssh_key,
     list_user_ssh_keys,
     delete_ssh_key,
@@ -209,7 +209,7 @@ async def test_sync_authorized_keys_creates_file(async_db: AsyncSession, async_t
     with tempfile.TemporaryDirectory() as tmpdir:
         auth_keys_path = os.path.join(tmpdir, "authorized_keys")
 
-        with patch('app.services.key_service.get_authorized_keys_path', return_value=auth_keys_path):
+        with patch('app.services.repository.key_service.get_authorized_keys_path', return_value=auth_keys_path):
             await sync_authorized_keys(async_db)
 
             # 验证文件已创建
@@ -236,7 +236,7 @@ async def test_sync_authorized_keys_updates_existing_file(async_db: AsyncSession
         public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC0 test@example.com"
         await add_ssh_key(async_db, async_test_user.id, "Test Key", public_key)
 
-        with patch('app.services.key_service.get_authorized_keys_path', return_value=auth_keys_path):
+        with patch('app.services.repository.key_service.get_authorized_keys_path', return_value=auth_keys_path):
             await sync_authorized_keys(async_db)
 
             # 验证文件内容已更新
@@ -261,7 +261,7 @@ async def test_sync_authorized_keys_multiple_users(async_db: AsyncSession, async
     with tempfile.TemporaryDirectory() as tmpdir:
         auth_keys_path = os.path.join(tmpdir, "authorized_keys")
 
-        with patch('app.services.key_service.get_authorized_keys_path', return_value=auth_keys_path):
+        with patch('app.services.repository.key_service.get_authorized_keys_path', return_value=auth_keys_path):
             await sync_authorized_keys(async_db)
 
             with open(auth_keys_path, 'r') as f:
@@ -285,7 +285,7 @@ async def test_sync_authorized_keys_preserves_non_managed_keys(async_db: AsyncSe
         public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC0 test@example.com"
         await add_ssh_key(async_db, async_test_user.id, "Test Key", public_key)
 
-        with patch('app.services.key_service.get_authorized_keys_path', return_value=auth_keys_path):
+        with patch('app.services.repository.key_service.get_authorized_keys_path', return_value=auth_keys_path):
             await sync_authorized_keys(async_db)
 
             with open(auth_keys_path, 'r') as f:
@@ -302,7 +302,7 @@ async def test_sync_authorized_keys_empty_database(async_db: AsyncSession):
     with tempfile.TemporaryDirectory() as tmpdir:
         auth_keys_path = os.path.join(tmpdir, "authorized_keys")
 
-        with patch('app.services.key_service.get_authorized_keys_path', return_value=auth_keys_path):
+        with patch('app.services.repository.key_service.get_authorized_keys_path', return_value=auth_keys_path):
             await sync_authorized_keys(async_db)
 
             # 验证文件已创建但内容为空（只有头部注释）
@@ -322,7 +322,7 @@ async def test_sync_authorized_keys_creates_ssh_directory(async_db: AsyncSession
         ssh_dir = os.path.join(tmpdir, ".ssh")
         auth_keys_path = os.path.join(ssh_dir, "authorized_keys")
 
-        with patch('app.services.key_service.get_authorized_keys_path', return_value=auth_keys_path):
+        with patch('app.services.repository.key_service.get_authorized_keys_path', return_value=auth_keys_path):
             await sync_authorized_keys(async_db)
 
             # 验证目录已创建
@@ -339,7 +339,7 @@ async def test_sync_authorized_keys_file_permissions(async_db: AsyncSession, asy
     with tempfile.TemporaryDirectory() as tmpdir:
         auth_keys_path = os.path.join(tmpdir, "authorized_keys")
 
-        with patch('app.services.key_service.get_authorized_keys_path', return_value=auth_keys_path):
+        with patch('app.services.repository.key_service.get_authorized_keys_path', return_value=auth_keys_path):
             await sync_authorized_keys(async_db)
 
             # 验证文件权限（在 Unix 系统上）
@@ -355,7 +355,7 @@ async def test_add_ssh_key_triggers_sync(async_db: AsyncSession, async_test_user
     with tempfile.TemporaryDirectory() as tmpdir:
         auth_keys_path = os.path.join(tmpdir, "authorized_keys")
 
-        with patch('app.services.key_service.get_authorized_keys_path', return_value=auth_keys_path):
+        with patch('app.services.repository.key_service.get_authorized_keys_path', return_value=auth_keys_path):
             public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC0 test@example.com"
 
             # 添加 key（应该触发同步）
@@ -373,7 +373,7 @@ async def test_delete_ssh_key_triggers_sync(async_db: AsyncSession, async_test_u
     with tempfile.TemporaryDirectory() as tmpdir:
         auth_keys_path = os.path.join(tmpdir, "authorized_keys")
 
-        with patch('app.services.key_service.get_authorized_keys_path', return_value=auth_keys_path):
+        with patch('app.services.repository.key_service.get_authorized_keys_path', return_value=auth_keys_path):
             # 先添加 key
             public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC0 test@example.com"
             result = await add_ssh_key(async_db, async_test_user.id, "Test Key", public_key)

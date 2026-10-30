@@ -32,16 +32,16 @@ from app.core.constants import (
     AUDIT_DEFAULT_PAGE_SIZE,
     AUDIT_MAX_PAGE_SIZE,
 )
-from app.services.app_service import get_app_service
-from app.services.config_service import get_config_service
-from app.services.grafana_service import get_grafana_service, GrafanaError
-from app.services.monitoring_service import (
+from app.services.platform.app_service import get_app_service
+from app.services.platform.config_service import get_config_service
+from app.services.platform.grafana_service import get_grafana_service, GrafanaError
+from app.services.platform.monitoring_service import (
     get_monitoring_service,
     MonitoringControlError,
     MonitoringNotDeployedError,
 )
-from app.services.orchestration_service import get_orchestration_service
-from app.services.audit_query_service import query_audit
+from app.services.platform.orchestration_service import get_orchestration_service
+from app.services.repository.audit_query_service import query_audit
 from app.api.deps import get_current_user, get_current_admin_user
 from app.models.user import User
 from app.models.async_db import get_async_db
@@ -495,7 +495,7 @@ async def get_platform_stats_endpoint(db: AsyncSession = Depends(get_async_db)):
         dict: 包含 repository_count, commit_count, user_count, uptime_seconds
     """
     from app.utils.request_stats import get_request_stats
-    from app.services import stats_service
+    from app.services.collaboration import stats_service
 
     stats = await stats_service.get_platform_stats(db)
     app_service = get_app_service()
@@ -529,7 +529,7 @@ async def get_metrics_timeseries_endpoint(
     Returns:
         MetricsTimeseriesResponse: 范围、步长、数据来源与点序列
     """
-    from app.services.metrics_service import get_timeseries
+    from app.services.platform.metrics_service import get_timeseries
 
     return await get_timeseries(range_key)
 
@@ -905,7 +905,7 @@ async def get_redis_status_endpoint(
     Returns:
         dict: Redis 连接/worker/订阅/指标/键空间/降级
     """
-    from app.services.redis_admin_service import get_redis_admin_service
+    from app.services.platform.redis_admin_service import get_redis_admin_service
 
     return await get_redis_admin_service().get_status()
 
@@ -920,7 +920,7 @@ async def get_redis_config_endpoint(
     Returns:
         dict: settings（脱敏）/runtime（INFO memory）/editable/source
     """
-    from app.services.redis_admin_service import get_redis_admin_service
+    from app.services.platform.redis_admin_service import get_redis_admin_service
 
     return await get_redis_admin_service().get_config()
 

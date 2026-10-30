@@ -11,8 +11,8 @@ from app.api.v1.collab_internal_controller import (
     make_doc_key,
 )
 from app.models.repository_member import RepositoryMember
-from app.services.collab_invite_service import create_invite_token, verify_invite_token
-from app.services.token_service import create_access_token
+from app.services.collaboration.collab_invite_service import create_invite_token, verify_invite_token
+from app.services.auth.token_service import create_access_token
 from tests.test_helpers import create_test_repo
 
 SECRET = "test-internal-secret"
@@ -151,7 +151,7 @@ class TestInviteTokenVerification:
         assert verify_invite_token(_expired_invite_token(doc_key), doc_key=doc_key) is None
 
     def test_invite_token_wrong_type_rejected(self):
-        from app.services.token_service import create_access_token
+        from app.services.auth.token_service import create_access_token
 
         access = create_access_token({"sub": str(uuid.uuid4()), "username": "x"})
         assert verify_invite_token(access) is None

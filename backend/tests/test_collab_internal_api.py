@@ -12,7 +12,7 @@ from app.api.v1.collab_internal_controller import (
     parse_doc_key,
 )
 from app.models.repository_member import RepositoryMember
-from app.services.token_service import create_access_token
+from app.services.auth.token_service import create_access_token
 from tests.test_helpers import create_test_repo
 
 SECRET = "test-internal-secret"
@@ -212,7 +212,7 @@ class TestCollabDoc:
     def test_load_success(self, test_client, db, test_user, internal_env, monkeypatch):
         repo = create_test_repo(db, name="doc-repo", owner_id=test_user.id)
         mock = AsyncMock(return_value={"is_binary": False, "content": "hello world"})
-        monkeypatch.setattr("app.services.repository_browser_service.get_blob_content", mock)
+        monkeypatch.setattr("app.services.repository.repository_browser_service.get_blob_content", mock)
         resp = test_client.get(
             "/api/v1/collab/doc",
             params={"docKey": make_doc_key(str(repo.id), "main", "src/app.py")},
@@ -226,7 +226,7 @@ class TestCollabDoc:
     def test_binary_file_415(self, test_client, db, test_user, internal_env, monkeypatch):
         repo = create_test_repo(db, name="doc-bin-repo", owner_id=test_user.id)
         monkeypatch.setattr(
-            "app.services.repository_browser_service.get_blob_content",
+            "app.services.repository.repository_browser_service.get_blob_content",
             AsyncMock(return_value={"is_binary": True, "content": ""}),
         )
         resp = test_client.get(
@@ -241,7 +241,7 @@ class TestCollabDoc:
 
         repo = create_test_repo(db, name="doc-missing-repo", owner_id=test_user.id)
         monkeypatch.setattr(
-            "app.services.repository_browser_service.get_blob_content",
+            "app.services.repository.repository_browser_service.get_blob_content",
             AsyncMock(side_effect=NotFoundException(detail="file not found")),
         )
         resp = test_client.get(
@@ -271,7 +271,7 @@ class TestCollabSave:
     def test_save_success(self, test_client, db, test_user, internal_env, monkeypatch):
         repo = create_test_repo(db, name="save-repo", owner_id=test_user.id)
         mock = AsyncMock(return_value={"commit_id": "abc1234"})
-        monkeypatch.setattr("app.services.repository_browser_service.commit_file", mock)
+        monkeypatch.setattr("app.services.repository.repository_browser_service.commit_file", mock)
         resp = self._save(test_client, test_user, repo)
         assert resp.status_code == 200
         data = resp.json()
@@ -297,7 +297,7 @@ class TestCollabSave:
         """collab save 后应增量更新搜索索引（主库持久化）"""
         repo = create_test_repo(db, name="save-index-repo", owner_id=test_user.id)
         monkeypatch.setattr(
-            "app.services.repository_browser_service.commit_file",
+            "app.services.repository.repository_browser_service.commit_file",
             AsyncMock(return_value={"commit_id": "abc123", "branch": "main", "path": "src/app.py"}),
         )
 

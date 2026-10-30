@@ -4,7 +4,7 @@ import uuid
 import pytest
 import tempfile
 import shutil
-from app.services.lfs_storage import LocalFSStorage, LFSStorageBackend
+from app.services.lfs.lfs_storage import LocalFSStorage, LFSStorageBackend
 
 
 @pytest.fixture
@@ -124,7 +124,7 @@ class TestS3KeyLayout:
 
     @pytest.fixture
     def s3_storage(self):
-        from app.services.lfs_storage import S3Storage
+        from app.services.lfs.lfs_storage import S3Storage
         return S3Storage(
             bucket="test-lfs", endpoint="http://localhost:9000",
             access_key="a", secret_key="s", repo_id=uuid.uuid4(),
@@ -137,7 +137,7 @@ class TestS3KeyLayout:
                        f"ab/cd/abcdef")
 
     def test_requires_repo_id(self):
-        from app.services.lfs_storage import S3Storage
+        from app.services.lfs.lfs_storage import S3Storage
         with pytest.raises(ValueError, match="repo_id"):
             S3Storage(bucket="b", endpoint="http://x", access_key="a", secret_key="s")
 
@@ -151,7 +151,7 @@ class TestS3Storage:
 
     @pytest.fixture
     def s3_storage(self):
-        from app.services.lfs_storage import S3Storage
+        from app.services.lfs.lfs_storage import S3Storage
         return S3Storage(
             bucket=os.environ.get("S3_BUCKET", "test-lfs"),
             endpoint=os.environ.get("S3_ENDPOINT"),

@@ -8,8 +8,8 @@ from app.models.async_db import get_async_db
 from app.models.user import User
 from app.api.deps import get_current_user, get_current_admin_user
 from app.services.realtime.room_service import RoomService
-from app.services.repository_service import get_repository_by_id
-from app.services.attachment_service import upload_attachment, get_attachment_file
+from app.services.repository.repository_service import get_repository_by_id
+from app.services.messaging.attachment_service import upload_attachment, get_attachment_file
 from app.core.exception import AuthorizationException, NotFoundException, ValidationException
 import uuid
 from app.core.permissions import Action, has_repo_action
@@ -46,7 +46,7 @@ async def get_repository_room(
     # bot 的频道/仓库成员（helper 内部按 agent.enabled 门禁，未启用零开销）。
     await RoomService.ensure_bot_member(db, room.id)
     if room.repository_id is not None:
-        from app.services.agent_service import AgentService
+        from app.services.agent.agent_service import AgentService
 
         await AgentService().ensure_bot_repo_member(db, room.repository_id)
     return {

@@ -64,7 +64,7 @@ class RoomService:
 
             if not get_config().agent.enabled:
                 return
-            from app.services.agent_service import AgentService
+            from app.services.agent.agent_service import AgentService
 
             bot = await AgentService().ensure_bot_user(db, commit=False)
             existing = (

@@ -11,8 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.models.user import User
-from app.services import token_service
-from app.services.user_service import authenticate_user
+from app.services.auth import token_service
+from app.services.auth.user_service import authenticate_user
 from app.api.deps import get_current_user
 from app.core.exception import AuthenticationException
 

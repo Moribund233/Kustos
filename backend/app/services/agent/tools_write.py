@@ -19,7 +19,7 @@ _LOADED = False
 # --------------------------- 处理器 ---------------------------
 
 async def _create_issue(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]:
-    from app.services.issue_service import create_issue
+    from app.services.collaboration.issue_service import create_issue
 
     title = str(args.get("title") or "").strip()
     if not title:
@@ -31,7 +31,7 @@ async def _create_issue(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any
 
 
 async def _comment_on_issue(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]:
-    from app.services.issue_service import create_issue_comment
+    from app.services.collaboration.issue_service import create_issue_comment
 
     body = str(args.get("body") or "").strip()
     if not body:
@@ -42,7 +42,7 @@ async def _comment_on_issue(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str,
 
 
 async def _set_priority(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]:
-    from app.services.issue_service import update_issue
+    from app.services.collaboration.issue_service import update_issue
 
     number = int(args.get("number") or 0)
     priority = str(args.get("priority") or "").strip()
@@ -59,7 +59,7 @@ async def _apply_label(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]
     from sqlalchemy import select
 
     from app.models.issue import Label
-    from app.services.issue_service import batch_add_labels
+    from app.services.collaboration.issue_service import batch_add_labels
 
     number = int(args.get("number") or 0)
     label = str(args.get("label") or "").strip()
@@ -80,7 +80,7 @@ async def _apply_label(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]
 
 
 async def _comment_on_pull_request(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]:
-    from app.services.pull_request_service import create_pr_comment
+    from app.services.collaboration.pull_request_service import create_pr_comment
 
     body = str(args.get("body") or "").strip()
     if not body:
@@ -91,7 +91,7 @@ async def _comment_on_pull_request(ctx: ToolContext, args: Dict[str, Any]) -> Di
 
 
 async def _create_pull_request(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]:
-    from app.services.pull_request_service import create_pull_request
+    from app.services.collaboration.pull_request_service import create_pull_request
 
     return await create_pull_request(
         ctx.db, ctx.repository_id, ctx.user_id,
@@ -129,7 +129,7 @@ def _branch_state(repo_path: str, branch: str) -> Tuple[bool, Optional[str]]:
 async def _retry_build(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]:
     import uuid as uuid_mod
 
-    from app.services.build_service import BuildService
+    from app.services.integration.build_service import BuildService
 
     try:
         build_id = uuid_mod.UUID(str(args.get("build_id")))
@@ -154,7 +154,7 @@ async def _retry_build(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]
 async def _commit_file(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]:
     from app.models.repository import Repository
     from app.models.user import User
-    from app.services.repository_browser_service import commit_file
+    from app.services.repository.repository_browser_service import commit_file
 
     path = str(args.get("path") or "").strip()
     if not path:
@@ -175,13 +175,13 @@ async def _commit_file(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]
 
     # 作者标记内容产出方（内置 Agent），提交者保留触发本次操作的用户：
     # 一条提交既能看出「是 Agent 写的」，也能追溯「是谁让它写的」
-    from app.services.agent_service import AgentService
+    from app.services.agent.agent_service import AgentService
 
     bot = await AgentService().ensure_bot_user(ctx.db)
 
     # agent 本地写同过保护裁决（拒绝时回灌模型，不产生写副作用）
     from app.core.exception import AuthorizationException
-    from app.services.git_event_service import ensure_local_write
+    from app.services.integration.git_event_service import ensure_local_write
     try:
         await ensure_local_write(ctx.db, ctx.repository_id, branch)
     except AuthorizationException as e:

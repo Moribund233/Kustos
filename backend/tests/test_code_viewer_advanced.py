@@ -10,7 +10,7 @@ import os
 import tempfile
 import pygit2
 
-from app.services.repository_browser_service import (
+from app.services.repository.repository_browser_service import (
     get_blob_content,
     get_tree_entries,
     detect_file_language,

@@ -357,9 +357,9 @@ arq app.services.agent.worker.WorkerSettings
 
 ## 15. 相关源码
 
-- `backend/app/services/agent_service.py`
+- `backend/app/services/agent/agent_service.py`
 - `backend/app/services/agent/runtime.py`、`providers.py`、`provider_catalog.py`、`queue.py`、`quota.py`、`tool_registry.py`、`tools_server.py`、`tools_write.py`、`triggers.py`、`worker.py`、`chat_bridge.py`
-- `backend/app/services/agent_admin_service.py`
+- `backend/app/services/agent/agent_admin_service.py`
 - `backend/app/models/agent.py`、`agent_trigger.py`
 - `backend/app/api/v1/agent_controller.py`、`agent_admin_controller.py`
 - 测试：`test_agent_*.py`、`test_chat_agent_bridge.py`、`test_agent_memory.py`、`test_agent_reclaim.py`

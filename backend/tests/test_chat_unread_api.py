@@ -45,7 +45,7 @@ def test_mark_read_requires_auth(test_client, auth_headers):
 
 def test_mark_read_private_repo_non_member_forbidden(test_client, db, test_user, auth_headers):
     from app.models.user import User
-    from app.services.token_service import create_access_token
+    from app.services.auth.token_service import create_access_token
 
     other = User(
         username="otheruser", email="other@example.com",

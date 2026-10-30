@@ -473,7 +473,7 @@ def _extract_decl_chunks_regex(path: str, content: str, grammar: Optional[str]) 
     if not grammar:
         return []
     try:
-        from app.services.repository_browser_service import _COMMENT_PREFIXES, _SYMBOL_PATTERNS
+        from app.services.repository.repository_browser_service import _COMMENT_PREFIXES, _SYMBOL_PATTERNS
     except Exception:  # noqa: BLE001 - 依赖不可用时退回整文件
         return []
     patterns = _SYMBOL_PATTERNS.get(grammar)

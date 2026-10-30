@@ -183,7 +183,7 @@ class TestRoomReply:
     async def test_reply_posts_as_bot_and_joins_room(
         self, async_db, async_test_user, async_test_repo
     ):
-        from app.services.agent_service import AgentService
+        from app.services.agent.agent_service import AgentService
 
         room = await RoomService.create_room(
             async_db, async_test_repo.id, "general", async_test_user.id
@@ -217,7 +217,7 @@ class TestRoomReply:
     @pytest.mark.asyncio
     async def test_no_room_id_is_noop(self, async_db):
         """panel/API 发起的作业（source_room_id=None）不产生任何聊天消息"""
-        from app.services.agent_service import AgentService
+        from app.services.agent.agent_service import AgentService
 
         before = (
             await async_db.execute(select(ChatMessage.id))
@@ -232,7 +232,7 @@ class TestRoomReply:
 class TestEagerBotIdentity:
     def test_enabling_agent_creates_bot_user(self, test_client, admin_headers, db):
         """启用 Agent 即创建 bot 身份（不再等首次写工具的懒创建）"""
-        from app.services.agent_service import AGENT_BOT_USERNAME
+        from app.services.agent.agent_service import AGENT_BOT_USERNAME
 
         assert _bot_exists(db, AGENT_BOT_USERNAME) is False
 
@@ -261,7 +261,7 @@ class TestEagerBotIdentity:
         """启用即回填存量：bot 入驻所有仓库及其频道（成为两边的常驻成员）"""
         from app.models.repository import Repository
         from app.models.repository_member import RepositoryMember
-        from app.services.agent_service import AGENT_BOT_USERNAME
+        from app.services.agent.agent_service import AGENT_BOT_USERNAME
 
         repo = Repository(
             name="backfill-repo",

@@ -24,7 +24,7 @@ from app.api.v1.app_controller import (
 )
 from app.models.async_db import get_async_db
 from app.models.user import User
-from app.services.agent_admin_service import get_agent_admin_service
+from app.services.agent.agent_admin_service import get_agent_admin_service
 
 router = APIRouter(tags=["app-management"])
 
@@ -106,7 +106,7 @@ async def put_agent_config_endpoint(
     # 启用 Agent 即创建 bot 身份（聊天 @唤醒的目标账号；首次写工具的懒创建保留兜底），
     # 并回填入驻：bot 成为所有仓库及其频道的成员（存量环境一次性补齐）
     if payload.values.get("enabled") is True:
-        from app.services.agent_service import AgentService
+        from app.services.agent.agent_service import AgentService
 
         try:
             bot = await AgentService().ensure_bot_user(db)

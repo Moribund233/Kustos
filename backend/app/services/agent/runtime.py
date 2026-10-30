@@ -477,7 +477,7 @@ class AgentRuntime:
             or ctx.job_id is None
         ):
             return
-        from app.services.activity_service import try_record_activity
+        from app.services.repository.activity_service import try_record_activity
 
         # details 取人类可读的首要参数（标题/路径/编号/分支），兜底截断 JSON
         detail = ""

@@ -9,7 +9,7 @@ from sqlalchemy import func, select
 
 from app.models.repo_search import RepoSearchState
 from app.models.repo_search_chunk import RepoSearchChunk
-from app.services.search_service import SearchResponse, SearchResult, SearchService
+from app.services.search.search_service import SearchResponse, SearchResult, SearchService
 
 
 def _git(*args, cwd=None):
@@ -333,7 +333,7 @@ class TestIndexGuards:
     @pytest.mark.asyncio
     async def test_rebuild_skipped_when_lock_held(self, async_db, async_test_repo, search_service):
         """同一仓库重建锁被占用时，本次重建直接放弃"""
-        from app.services.search_service import _local_rebuild_lock
+        from app.services.search.search_service import _local_rebuild_lock
 
         tmp, bare, _ = _make_bare_repo({"a.py": "def a():\n"})
         try:
@@ -383,7 +383,7 @@ class TestKeywordRanking:
     @pytest.mark.asyncio
     async def test_denser_chunk_ranks_first(self, async_db, async_test_repo, search_service, monkeypatch):
         """命中数多的 chunk 排在前面（截断上限调小以确定性地暴露旧行为）"""
-        monkeypatch.setattr("app.services.search_service.SCAN_FILE_LIMIT", 2)
+        monkeypatch.setattr("app.services.search.search_service.SCAN_FILE_LIMIT", 2)
         tmp, bare, _ = _make_bare_repo({
             "a_sparse.py": "def f():\n    return needle\n",
             "b_dense.py": "".join(f"    x = needle  # {i}\n" for i in range(5)),
@@ -401,7 +401,7 @@ class TestKeywordRanking:
     @pytest.mark.asyncio
     async def test_ranking_is_deterministic(self, async_db, async_test_repo, search_service, monkeypatch):
         """同样查询两次调用必须给出完全一致的顺序"""
-        monkeypatch.setattr("app.services.search_service.SCAN_FILE_LIMIT", 2)
+        monkeypatch.setattr("app.services.search.search_service.SCAN_FILE_LIMIT", 2)
         tmp, bare, _ = _make_bare_repo({
             "a.py": "def f():\n    return needle\n",
             "b.py": "def g():\n    return needle\n",
@@ -418,7 +418,7 @@ class TestKeywordRanking:
     @pytest.mark.asyncio
     async def test_ranking_case_insensitive(self, async_db, async_test_repo, search_service, monkeypatch):
         """大小写不敏感命中同样参与排序（排名表达式两侧都 lower）"""
-        monkeypatch.setattr("app.services.search_service.SCAN_FILE_LIMIT", 1)
+        monkeypatch.setattr("app.services.search.search_service.SCAN_FILE_LIMIT", 1)
         tmp, bare, _ = _make_bare_repo({
             "a_sparse.py": "def f():\n    return NEEDLE\n",
             "b_dense.py": "".join(f"    x = needle  # {i}\n" for i in range(4)),

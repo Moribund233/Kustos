@@ -3,12 +3,12 @@ import shutil
 
 import pytest
 
-import app.services.search_service as ss
+import app.services.search.search_service as ss
 from app.core.config import get_config
 from app.models.repo_search_chunk import RepoSearchChunk
 from app.models.repo_search_embedding import RepoSearchEmbedding
 from app.services.indexing import embeddings
-from app.services.search_service import SearchService
+from app.services.search.search_service import SearchService
 from tests.test_search_service import _make_bare_repo
 
 

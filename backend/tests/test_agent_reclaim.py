@@ -7,8 +7,8 @@ from sqlalchemy import update
 from app.core.config import get_config
 from app.core.exception import RateLimitException
 from app.models.agent import AgentJob, AgentSession
-from app.services.agent_service import AgentService, reclaim_stale_jobs
-from app.services.retention_service import RetentionService
+from app.services.agent.agent_service import AgentService, reclaim_stale_jobs
+from app.services.platform.retention_service import RetentionService
 
 
 async def _add_job(

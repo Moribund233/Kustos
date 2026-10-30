@@ -8,7 +8,7 @@
   * API 删带提交的分支不再 FK 违约（旧 schema 下 500）；
   * 分支重建后再推送同一提交 → 重新挂靠（branch_id 回填）。
 """
-from app.services import branch_service
+from app.services.repository import branch_service
 import pytest
 from sqlalchemy import select
 
@@ -128,7 +128,7 @@ class TestCompositeHashUnique:
     async def test_create_commit_service_scoped_by_repo(self, test_user, async_db):
         """create_commit 的哈希冲突检查按仓库 scope（跨仓同 hash 不再误报 409）"""
         from app.core.exception import ConflictException
-        from app.services import commit_service
+        from app.services.repository import commit_service
 
         sha = "e" * 40
         repo_a = await _arepo(async_db, test_user, "svc-hash-a")
@@ -158,7 +158,7 @@ class TestCompositeHashUnique:
 class TestBranchDeleteKeepsCommits:
     async def test_delete_branch_keeps_commit_rows(self, test_user, async_db):
         """API 删分支：提交行保留（branch_id=NULL），仓库级历史不丢"""
-        from app.services import branch_service
+        from app.services.repository import branch_service
 
         repo = await _arepo(async_db, test_user, "del-keeps")
         branch = await _abranch(async_db, repo, "doomed")
@@ -184,7 +184,7 @@ class TestBranchDeleteKeepsCommits:
         self, test_user, async_db
     ):
         """旧 schema（branch_id NOT NULL）下删已推送分支必 FK 违约 → 应正常完成"""
-        from app.services import branch_service
+        from app.services.repository import branch_service
 
         repo = await _arepo(async_db, test_user, "del-fk")
         branch = await _abranch(async_db, repo, "pushed")
@@ -204,7 +204,7 @@ class TestBranchDeleteKeepsCommits:
 
     async def test_repo_scoped_queries_unaffected(self, test_user, async_db):
         """仓库级查询仍返回孤儿提交；分支级查询不再包含（分支已删）"""
-        from app.services import commit_service
+        from app.services.repository import commit_service
 
         repo = await _arepo(async_db, test_user, "del-queries")
         keep_branch = await _abranch(async_db, repo, "keep")
@@ -227,7 +227,7 @@ class TestBranchDeleteKeepsCommits:
         """HTTP 层：owner 删除带提交的分支 → 200（回归 FK 违约 500）"""
         import pygit2
 
-        from app.services.token_service import create_access_token
+        from app.services.auth.token_service import create_access_token
         from app.utils.git_utils import get_repository_storage_path, init_bare_repo
 
         repo = _srepo(db, test_user, "del-http")

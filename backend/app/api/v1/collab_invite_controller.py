@@ -18,7 +18,7 @@ from app.models import Repository, User
 from app.core.exception import AuthorizationException, NotFoundException, ValidationException
 from app.core.permissions import Action, has_repo_action
 from app.api.v1.collab_internal_controller import parse_doc_key
-from app.services.collab_invite_service import (
+from app.services.collaboration.collab_invite_service import (
     MAX_TTL_MINUTES,
     create_invite_token,
     revoke_invite_token,

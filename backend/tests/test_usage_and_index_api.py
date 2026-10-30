@@ -185,7 +185,7 @@ class TestRepoIndexStatus:
         """
         import asyncio
 
-        from app.services.search_service import SearchService, _local_rebuild_lock
+        from app.services.search.search_service import SearchService, _local_rebuild_lock
 
         key = uuid_lib.uuid4()
 

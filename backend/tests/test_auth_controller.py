@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.main import create_app
 from app.models.user import User
-from app.services import token_service
+from app.services.auth import token_service
 from app.utils.password_utils import get_password_hash
 
 

@@ -5,8 +5,8 @@ import tempfile
 import shutil
 from unittest.mock import AsyncMock, patch
 
-from app.services.lfs_service import LFSService
-from app.services.lfs_storage import LocalFSStorage
+from app.services.lfs.lfs_service import LFSService
+from app.services.lfs.lfs_storage import LocalFSStorage
 
 
 @pytest.fixture

@@ -9,7 +9,7 @@ from app.models.repo_search import RepoSearchState
 from app.models.repo_search_chunk import RepoSearchChunk
 from app.models.repo_search_embedding import RepoSearchEmbedding
 from app.services.indexing import embeddings
-from app.services.search_service import SearchService
+from app.services.search.search_service import SearchService
 from tests.test_search_service import _git, _make_bare_repo
 
 
@@ -64,7 +64,7 @@ async def test_embedding_insert_failure_keeps_keyword_index(
     async_db, async_test_repo, search_service, monkeypatch
 ):
     """embedding 写入异常（如维度不匹配）只回滚该段，关键词索引照常可用"""
-    import app.services.search_service as ss
+    import app.services.search.search_service as ss
 
     real_insert = ss.insert
 
@@ -152,7 +152,7 @@ async def test_update_files_skips_while_rebuild_lock_held(
     async_db, async_test_repo, search_service
 ):
     """增量更新与全量重建共用锁；锁被占用时放弃增量（state 不变，可自愈）"""
-    from app.services.search_service import _local_rebuild_lock
+    from app.services.search.search_service import _local_rebuild_lock
 
     tmp, bare, work = _make_bare_repo({"src/change.py": "def old():\n"})
     try:

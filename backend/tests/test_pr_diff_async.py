@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.pull_request import PullRequest
 from app.models.repository import Repository
 from app.models.user import User
-from app.services import pull_request_service
+from app.services.collaboration import pull_request_service
 from app.utils.git_utils import (
     get_pr_diff, get_pr_files, get_pr_stats, get_file_diff,
     DiffFileStatus, init_bare_repo, GitError

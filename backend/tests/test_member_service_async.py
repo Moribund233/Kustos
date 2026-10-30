@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.repository_member import RepositoryMember
 from app.models.repository import Repository
 from app.models.user import User
-from app.services import member_service
+from app.services.repository import member_service
 from app.core.exception import NotFoundException, ValidationException, ConflictException, AuthorizationException
 
 

@@ -3,7 +3,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.repository import Repository
-from app.services import activity_service
+from app.services.repository import activity_service
 
 
 @pytest_asyncio.fixture

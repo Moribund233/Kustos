@@ -182,7 +182,7 @@ async def test_process_job_trigger_origin_is_readonly(
 ):
     _stub_queue(monkeypatch)
     provider = _ToolsCapturingProvider()
-    monkeypatch.setattr("app.services.agent_service.get_provider", lambda **kw: provider)
+    monkeypatch.setattr("app.services.agent.agent_service.get_provider", lambda **kw: provider)
 
     session = AgentSession(user_id=async_test_user.id, repository_id=async_test_repo.id)
     async_db.add(session)
@@ -202,7 +202,7 @@ async def test_process_job_trigger_origin_is_readonly(
     await async_db.refresh(trig_job)
     await async_db.refresh(user_job)
 
-    from app.services.agent_service import AgentService
+    from app.services.agent.agent_service import AgentService
 
     await AgentService().process_job(trig_job.id)
     trig_names = {t["function"]["name"] for t in provider.tools}

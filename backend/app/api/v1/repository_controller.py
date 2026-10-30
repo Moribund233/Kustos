@@ -16,7 +16,7 @@ from app.core.permissions import Action, ensure_repo_action
 from app.api.guards import require_repo_read
 from app.core.exception import AuthorizationException, HttpStatusException
 
-from app.services.repository_service import (
+from app.services.repository.repository_service import (
     get_repositories as service_get_repositories,
     get_repository_by_id as service_get_repository_by_id,
     get_repository_by_path as service_get_repository_by_path,

@@ -296,10 +296,10 @@ git-lfs 默认端点 `/owner/repo.git/info/lfs/objects/batch` 由 Nginx 单独�
 ## 10. 相关源码
 
 - `backend/app/utils/git_utils.py`
-- `backend/app/services/repository_service.py`、`branch_service.py`、`commit_service.py`、`tag_controller.py`
-- `backend/app/services/repository_browser_service.py`
-- `backend/app/services/pull_request_service.py`
-- `backend/app/services/git_event_service.py`
+- `backend/app/services/repository/repository_service.py`、`branch_service.py`、`commit_service.py`、`tag_controller.py`
+- `backend/app/services/repository/repository_browser_service.py`
+- `backend/app/services/collaboration/pull_request_service.py`
+- `backend/app/services/integration/git_event_service.py`
 - `backend/app/api/v1/git_auth_controller.py`、`git_hook_controller.py`
 - `backend/app/api/v1/lfs_controller.py`、`services/lfs_*.py`
 - `backend/docker/gateway/nginx.conf`

@@ -14,8 +14,8 @@ from app.api.deps import get_current_user, security
 from app.api.prefixes import get_route_prefix
 from app.models.async_db import get_async_db
 from app.models.user import User
-from app.services.user_service import login_user as service_login_user
-from app.services import token_service
+from app.services.auth.user_service import login_user as service_login_user
+from app.services.auth import token_service
 
 # 创建路由实例
 router = APIRouter(prefix=get_route_prefix("auth"), tags=["auth"])

@@ -8,7 +8,7 @@
 
 from fastapi.testclient import TestClient
 
-from app.services.webhook_service import generate_signature
+from app.services.integration.webhook_service import generate_signature
 from tests.test_helpers import create_test_repo
 
 

@@ -15,7 +15,7 @@ from sqlalchemy import select
 
 from app.models.agent import AgentJob, AgentSession
 from app.models.activity import Activity
-from app.services.agent_service import (
+from app.services.agent.agent_service import (
     APPROVAL_APPROVED,
     APPROVAL_REJECTED,
     AgentService,

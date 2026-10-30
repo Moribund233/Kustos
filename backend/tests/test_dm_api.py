@@ -6,7 +6,7 @@ import pytest
 
 def _create_peer_user(test_client, db, test_user, username="peeruser"):
     from app.models.user import User
-    from app.services.token_service import create_access_token
+    from app.services.auth.token_service import create_access_token
 
     user = User(
         username=username,

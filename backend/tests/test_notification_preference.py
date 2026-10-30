@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.notification_preference import NotificationPreference
-from app.services import notification_preference_service
+from app.services.messaging import notification_preference_service
 
 
 @pytest.mark.asyncio

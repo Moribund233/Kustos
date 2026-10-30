@@ -3,8 +3,8 @@ import time
 
 import pytest
 
-from app.services import oauth_service
-from app.services.oauth_service import OAuthStateStore, STATE_TTL
+from app.services.auth import oauth_service
+from app.services.auth.oauth_service import OAuthStateStore, STATE_TTL
 
 
 class _FakeRedis:

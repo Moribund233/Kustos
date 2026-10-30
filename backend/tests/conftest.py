@@ -30,8 +30,8 @@ from app.main import create_app, AppCache
 from app.core.config import get_config, reset_module_config_manager
 from app.core.db_url import canonical_db_url, sync_db_url
 from app.models import Base
-from app.services.token_service import create_access_token
-from app.services.repository_service import _repo_exists_cache
+from app.services.auth.token_service import create_access_token
+from app.services.repository.repository_service import _repo_exists_cache
 
 
 # 统一测试数据库URL（由 test_engine fixture 在运行时填充）。
@@ -362,7 +362,7 @@ def auth_headers(test_user):
     Returns:
         dict: 包含Authorization头的字典
     """
-    from app.services.token_service import create_access_token
+    from app.services.auth.token_service import create_access_token
 
     token = create_access_token({
         "sub": str(test_user.id),
@@ -383,7 +383,7 @@ def admin_headers(admin_user):
     Returns:
         dict: 包含Authorization头的字典
     """
-    from app.services.token_service import create_access_token
+    from app.services.auth.token_service import create_access_token
 
     token = create_access_token({
         "sub": str(admin_user.id),

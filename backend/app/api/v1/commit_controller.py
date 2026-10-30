@@ -10,7 +10,7 @@ from app.api.prefixes import get_route_prefix
 from app.models.async_db import get_async_db
 from app.models.user import User
 from app.api.deps import get_current_user
-from app.services.commit_service import (
+from app.services.repository.commit_service import (
     get_commits_by_branch as service_get_commits_by_branch,
     get_commit_by_hash as service_get_commit_by_hash,
     create_commit as service_create_commit,
@@ -22,7 +22,7 @@ from app.services.commit_service import (
     search_commits as service_search_commits,
     get_commits_by_author as service_get_commits_by_author
 )
-from app.services.branch_service import get_branch as service_get_branch
+from app.services.repository.branch_service import get_branch as service_get_branch
 from app.core.permissions import Action
 from app.api.guards import require_repo_read, require_repo_permission
 from app.core.constants import (

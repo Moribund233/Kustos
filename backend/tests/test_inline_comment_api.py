@@ -14,7 +14,7 @@ def _create_repo(test_client, auth_headers, name, is_public=True):
 
 def _third_user_headers(db, username, test_user):
     from app.models.user import User
-    from app.services.token_service import create_access_token
+    from app.services.auth.token_service import create_access_token
 
     user = User(
         username=username, email=f"{username}@example.com",

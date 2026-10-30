@@ -39,7 +39,7 @@ async def test_list_members_filters_by_role(
 
 @pytest.mark.asyncio
 async def test_list_issues_priority_filter(async_db, async_test_user, async_test_repo):
-    from app.services.issue_service import create_issue
+    from app.services.collaboration.issue_service import create_issue
 
     await create_issue(async_db, async_test_repo.id, async_test_user.id,
                        title="hi", priority="high")
@@ -65,7 +65,7 @@ async def test_list_issues_unknown_assignee_rejected(async_db, async_test_repo):
 async def test_set_priority_and_apply_label(async_db, async_test_user, async_test_repo):
     from app.models.issue import Label
     from app.services.agent.tools_write import load_write_tools
-    from app.services.issue_service import create_issue, get_issue
+    from app.services.collaboration.issue_service import create_issue, get_issue
 
     load_write_tools()
     await create_issue(async_db, async_test_repo.id, async_test_user.id,

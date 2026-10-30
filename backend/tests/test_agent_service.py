@@ -6,7 +6,7 @@ import pytest
 from app.models.agent import AgentJob, AgentSession
 from app.services.agent.providers import ModelReply
 from app.services.agent.runtime import APPROVAL_APPROVED, APPROVAL_REJECTED
-from app.services.agent_service import AgentService
+from app.services.agent.agent_service import AgentService
 
 
 class _FakeProvider:
@@ -66,7 +66,7 @@ async def test_api_key_not_persisted_and_forces_inline(
         return None
 
     monkeypatch.setattr("app.services.agent.queue.InlineJobQueue.enqueue", _noop)
-    monkeypatch.setattr("app.services.agent_service.get_provider", lambda **kw: _FakeProvider())
+    monkeypatch.setattr("app.services.agent.agent_service.get_provider", lambda **kw: _FakeProvider())
 
     job = await AgentService().create_job(
         async_db, async_test_user, async_test_repo.id, "用我的 key 查代码", api_key="sk-super-secret"
@@ -152,7 +152,7 @@ async def test_approval_flow_persists_then_resumes(
     answered = ModelReply(content="创建完成", tool_calls=[])
 
     holder = {"provider": _Scripted([opened])}
-    monkeypatch.setattr("app.services.agent_service.get_provider", lambda: holder["provider"])
+    monkeypatch.setattr("app.services.agent.agent_service.get_provider", lambda: holder["provider"])
 
     recorded = []
 
@@ -206,7 +206,7 @@ async def test_approval_reject_no_write_side_effect(
         content=None, tool_calls=[ToolCallRequest(id="r1", name="create_issue", arguments={"title": "r"})]
     )
     holder = {"provider": _Scripted([opened])}
-    monkeypatch.setattr("app.services.agent_service.get_provider", lambda: holder["provider"])
+    monkeypatch.setattr("app.services.agent.agent_service.get_provider", lambda: holder["provider"])
 
     async def _noop_queue():
         class _Q:
@@ -277,7 +277,7 @@ async def test_cancel_while_awaiting_approval_is_final(
         content=None, tool_calls=[ToolCallRequest(id="x1", name="create_issue", arguments={"title": "x"})]
     )
     holder = {"provider": _Scripted([opened])}
-    monkeypatch.setattr("app.services.agent_service.get_provider", lambda: holder["provider"])
+    monkeypatch.setattr("app.services.agent.agent_service.get_provider", lambda: holder["provider"])
 
     async def _noop_queue():
         class _Q:

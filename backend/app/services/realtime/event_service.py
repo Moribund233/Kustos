@@ -4,7 +4,7 @@ import uuid
 from typing import Optional, Dict, Any
 from datetime import datetime, timezone
 from app.utils.ws_manager import ConnectionManager
-from app.services.search_service import SearchService
+from app.services.search.search_service import SearchService
 import logging
 
 logger = logging.getLogger(__name__)
@@ -211,7 +211,7 @@ async def _create_build_for_push(
 ):
     """将 push 解析到仓库并去重建 build; room 不存在时静默跳过"""
     from app.services.realtime.room_service import RoomService
-    from app.services.build_service import BuildService
+    from app.services.integration.build_service import BuildService
 
     room = await RoomService.get_room(db, room_id)
     if not room:

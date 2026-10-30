@@ -5,7 +5,7 @@
 """
 import pytest
 
-from app.services.app_service import (
+from app.services.platform.app_service import (
     AppService,
     get_app_service,
     _build_restart_command,
@@ -267,7 +267,7 @@ def test_set_debug_mode_writes_db_key(isolated_db_url, monkeypatch):
     from sqlalchemy import create_engine
 
     from app.models.app_config import AppConfig
-    from app.services import config_service as cfg
+    from app.services.platform import config_service as cfg
     from app.core.config import reset_module_config_manager
 
     url = isolated_db_url
@@ -316,7 +316,7 @@ def test_set_debug_mode_writes_db_key(isolated_db_url, monkeypatch):
 
 def test_set_debug_mode_requires_admin():
     """非管理员切换调试模式抛 AuthorizationException"""
-    from app.services.config_service import ConfigService
+    from app.services.platform.config_service import ConfigService
 
     with pytest.raises(AuthorizationException):
         ConfigService().set_debug_mode(True, is_admin=False)

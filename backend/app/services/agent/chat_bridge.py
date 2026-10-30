@@ -56,7 +56,7 @@ async def maybe_enqueue_from_mention(
     if room is None or getattr(room, "repository_id", None) is None:
         return None  # 私聊/无仓库房间不接桥
 
-    from app.services.agent_service import AGENT_BOT_USERNAME, AgentService
+    from app.services.agent.agent_service import AGENT_BOT_USERNAME, AgentService
 
     mention = f"@{AGENT_BOT_USERNAME}"
     text = content or ""
@@ -115,7 +115,7 @@ async def _set_agent_typing(db: Any, room_id: uuid.UUID, is_typing: bool) -> Non
     """向房间广播 bot 的 ``chat_typing``（思考/响应动画信号；best-effort）"""
     try:
         from app.models.user import User
-        from app.services.agent_service import AGENT_BOT_USERNAME
+        from app.services.agent.agent_service import AGENT_BOT_USERNAME
 
         bot = (
             await db.execute(select(User).where(User.username == AGENT_BOT_USERNAME))

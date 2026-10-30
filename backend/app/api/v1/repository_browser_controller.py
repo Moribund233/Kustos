@@ -20,7 +20,7 @@ from app.models.async_db import get_async_db
 from app.models import Repository
 from app.models.user import User
 from app.api.deps import get_current_user
-from app.services.repository_browser_service import (
+from app.services.repository.repository_browser_service import (
     get_tree_entries,
     get_blob_content,
     get_commits,
@@ -155,7 +155,7 @@ async def update_repository_file(
     message = data.message or f"Update {file_path}"
 
     # 本地 pygit2 写统一过保护裁决（与 pre-receive 同一规则）
-    from app.services.git_event_service import ensure_local_write
+    from app.services.integration.git_event_service import ensure_local_write
     await ensure_local_write(db, repo_id, branch)
 
     return await commit_file(
@@ -188,7 +188,7 @@ async def delete_repository_file(
     target_branch = branch or repo.default_branch or "main"
 
     # 本地 pygit2 写统一过保护裁决
-    from app.services.git_event_service import ensure_local_write
+    from app.services.integration.git_event_service import ensure_local_write
     await ensure_local_write(db, repo_id, target_branch)
 
     return await remove_file(
@@ -232,7 +232,7 @@ async def move_repository_file(
     message = data.message or f"Move {data.from_path} -> {data.to_path}"
 
     # 本地 pygit2 写统一过保护裁决
-    from app.services.git_event_service import ensure_local_write
+    from app.services.integration.git_event_service import ensure_local_write
     await ensure_local_write(db, repo_id, branch)
 
     return await move_file(

@@ -12,8 +12,8 @@ from sqlalchemy import select
 import uuid
 import logging
 
-from app.services.token_service import verify_token as jwt_verify_token, is_token_revoked
-from app.services import token_state
+from app.services.auth.token_service import verify_token as jwt_verify_token, is_token_revoked
+from app.services.auth import token_state
 from app.models.async_db import get_async_db_context
 from app.models.user import User
 from app.utils.ws_manager import requested_subprotocols

@@ -7,7 +7,7 @@ from app.core.permissions import Action, ensure_repo_action
 from app.models.async_db import get_async_db
 from app.models.user import User
 from app.api.deps import get_current_user
-from app.services import pr_label_service
+from app.services.collaboration import pr_label_service
 import uuid
 from app.api.guards import require_repo_read
 

@@ -38,7 +38,7 @@ def test_mute_room_success(test_client, auth_headers):
 
 def test_mute_private_repo_non_member_forbidden(test_client, db, auth_headers):
     from app.models.user import User
-    from app.services.token_service import create_access_token
+    from app.services.auth.token_service import create_access_token
 
     other = User(
         username="muteother", email="muteother@example.com",

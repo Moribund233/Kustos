@@ -80,7 +80,7 @@ class AgentTriggerService:
         await db.commit()
         await db.refresh(trig)
         # 触发器作业的执行者（bot）需具备仓库读权限
-        from app.services.agent_service import AgentService
+        from app.services.agent.agent_service import AgentService
 
         await AgentService().ensure_bot_repo_member(db, repository_id, commit=True)
         return trig
@@ -228,7 +228,7 @@ class AgentTriggerService:
         repository_id = trig.repository_id
         target_room_id = trig.target_room_id
 
-        from app.services.agent_service import AgentService
+        from app.services.agent.agent_service import AgentService
 
         service = AgentService()
         bot = await service.ensure_bot_user(db)

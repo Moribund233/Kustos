@@ -41,7 +41,7 @@ class InlineJobQueue:
 
 
 async def _run_inline(job_id, provider: Optional[ModelProvider]) -> None:
-    from app.services.agent_service import AgentService
+    from app.services.agent.agent_service import AgentService
 
     try:
         await AgentService().process_job(job_id, provider_override=provider)

@@ -4,7 +4,7 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.repository import Repository
-from app.services import label_service
+from app.services.collaboration import label_service
 from app.core.exception import NotFoundException, ConflictException
 
 

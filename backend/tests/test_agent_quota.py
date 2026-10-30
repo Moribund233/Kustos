@@ -4,7 +4,7 @@ import pytest
 from app.core.config import get_config
 from app.core.exception import RateLimitException
 from app.models.agent import AgentJob, AgentSession
-from app.services.agent_service import AgentService
+from app.services.agent.agent_service import AgentService
 
 
 async def _add_job(db, user, repo, *, status="queued", tokens=0):

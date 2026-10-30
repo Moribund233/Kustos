@@ -136,7 +136,7 @@ class TestEventService:
     async def test_broadcast_push_rebuilds_index_asynchronously(self, async_db, async_test_repo, monkeypatch):
         """无 old_sha 时 push 触发全量重建（主库持久化，经 to_thread 计算 diff 不阻塞事件循环）"""
         from app.services.realtime import event_service
-        from app.services.search_service import SearchService
+        from app.services.search.search_service import SearchService
         manager = ConnectionManager()
         manager.send_to_room = AsyncMock(return_value=1)
 
@@ -163,7 +163,7 @@ class TestEventService:
     async def test_broadcast_push_incremental_index_when_old_sha_given(self, async_db, async_test_repo, monkeypatch):
         """push 携带 old_sha 时只增量重索引变更文件 (不做全量 rebuild)"""
         from app.services.realtime import event_service
-        from app.services.search_service import SearchService
+        from app.services.search.search_service import SearchService
         manager = ConnectionManager()
         manager.send_to_room = AsyncMock(return_value=1)
 
@@ -201,7 +201,7 @@ class TestEventService:
     async def test_broadcast_push_falls_back_to_rebuild_when_diff_unavailable(self, async_db, async_test_repo, monkeypatch):
         """无法计算变更文件 (diff 返回 None) 时回退全量 rebuild"""
         from app.services.realtime import event_service
-        from app.services.search_service import SearchService
+        from app.services.search.search_service import SearchService
         manager = ConnectionManager()
         manager.send_to_room = AsyncMock(return_value=1)
 
@@ -230,7 +230,7 @@ class TestEventService:
     ):
         """push 携带 commit 信息时应按 (repo, branch, commit) 去重建 pending build"""
         from app.services.realtime.room_service import RoomService
-        from app.services.build_service import BuildService
+        from app.services.integration.build_service import BuildService
         from app.services.realtime.event_service import broadcast_push
         room = await RoomService.create_room(
             async_db, async_test_repo.id, "dev-room", async_test_user.id,
@@ -264,7 +264,7 @@ class TestEventService:
     ):
         """同 commit 已存在 build (如 PR merge 已创建) 时, push 不应重复建 build"""
         from app.services.realtime.room_service import RoomService
-        from app.services.build_service import BuildService
+        from app.services.integration.build_service import BuildService
         from app.services.realtime.event_service import broadcast_push
         room = await RoomService.create_room(
             async_db, async_test_repo.id, "dev-room", async_test_user.id,
@@ -297,7 +297,7 @@ class TestEventService:
     ):
         """未传 db/commit_sha 时保持原行为: 仅广播 push, 不建 build (向后兼容)"""
         from app.services.realtime.event_service import broadcast_push
-        from app.services.build_service import BuildService
+        from app.services.integration.build_service import BuildService
         manager = ConnectionManager()
         manager.send_to_room = AsyncMock(return_value=3)
         with patch("app.services.realtime.event_service.ConnectionManager", return_value=manager):

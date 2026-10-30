@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exception import AuthorizationException, HttpStatusException, NotFoundException
 from app.models import Repository
 from app.models.async_db import get_async_db
-from app.services import git_event_service
+from app.services.integration import git_event_service
 from app.utils.git_utils import get_repository_storage_path
 
 router = APIRouter(tags=["git-internal"])

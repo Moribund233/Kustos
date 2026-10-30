@@ -7,7 +7,7 @@ import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.repository import Repository
-from app.services import repository_service
+from app.services.repository import repository_service
 from app.core.exception import NotFoundException
 
 

@@ -7,7 +7,7 @@ from app.models.pull_request import PullRequest, PRReview
 from app.models.issue import Issue
 from app.models.repository_member import RepositoryMember
 from app.models.stargazer import Stargazer
-from app.services import stats_service
+from app.services.collaboration import stats_service
 from app.core.exception import NotFoundException
 
 

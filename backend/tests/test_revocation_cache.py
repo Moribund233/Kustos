@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from app.services import revocation_cache
+from app.services.auth import revocation_cache
 
 
 class _FakeRedis:
@@ -76,7 +76,7 @@ async def test_set_noop_without_redis(no_redis):
 # ---------------- collab invite 接线 ----------------
 
 async def test_invite_revoked_false_caches_negative(monkeypatch, async_db):
-    from app.services import collab_invite_service as svc
+    from app.services.collaboration import collab_invite_service as svc
 
     monkeypatch.setattr(revocation_cache, "get", AsyncMock(return_value=None))
     set_mock = AsyncMock()

@@ -15,7 +15,7 @@ from app.api.guards import require_repo_permission, require_repo_read
 from app.models.async_db import get_async_db
 from app.models.user import User
 from app.api.deps import get_current_user
-from app.services.issue_service import (
+from app.services.collaboration.issue_service import (
     list_issues as service_list_issues,
     get_issue as service_get_issue,
     create_issue as service_create_issue,
@@ -31,7 +31,7 @@ from app.services.issue_service import (
     batch_add_labels as service_batch_add_labels,
     batch_remove_labels as service_batch_remove_labels,
 )
-from app.services.pr_issue_link_service import (
+from app.services.collaboration.pr_issue_link_service import (
     list_linked_pull_requests as service_list_linked_prs,
     link_pr_to_issue as service_link_pr_to_issue,
     unlink_pr_from_issue as service_unlink_pr_from_issue,

@@ -14,8 +14,8 @@ from app.models.async_db import get_async_db
 from app.models import Repository, Issue, PullRequest
 from app.models.user import User
 from app.api.deps import get_current_user
-from app.services.search_service import SearchService
-from app.services.repository_service import get_accessible_repository_ids
+from app.services.search.search_service import SearchService
+from app.services.repository.repository_service import get_accessible_repository_ids
 from app.utils.git_utils import get_repository_storage_path
 from app.core.exception import NotFoundException
 from app.core.config import get_config_value

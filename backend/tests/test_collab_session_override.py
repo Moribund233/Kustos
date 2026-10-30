@@ -16,7 +16,7 @@ from app.api.v1.collab_internal_controller import (
     make_doc_key,
 )
 from app.models.repository_member import RepositoryMember
-from app.services.token_service import create_access_token
+from app.services.auth.token_service import create_access_token
 from tests.test_helpers import create_test_repo
 
 SECRET = "test-internal-secret"
@@ -146,7 +146,7 @@ class TestCollabSessionOverride:
         _add_member(db, repo, test_user, "developer")
         key = make_doc_key(str(repo.id), "main", "src/app.py")
         monkeypatch.setattr(
-            "app.services.repository_browser_service.commit_file",
+            "app.services.repository.repository_browser_service.commit_file",
             lambda *a, **k: {"commit_id": "abc1234"},
         )
 
@@ -195,7 +195,7 @@ class TestCollabSessionOverride:
 
     def test_kick_overrides_invite_write(self, test_client, db, test_user, internal_env):
         """被踢出后即使持 write 邀请 token 也被拒 (覆盖优先于邀请)"""
-        from app.services.collab_invite_service import create_invite_token
+        from app.services.collaboration.collab_invite_service import create_invite_token
 
         owner = _other_user(db)
         repo = create_test_repo(db, name="sess-kick-invite", owner_id=owner.id, is_public=False)

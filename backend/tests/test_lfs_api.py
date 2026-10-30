@@ -30,7 +30,7 @@ def _oid(content: bytes) -> str:
 
 
 def _headers(user: User) -> dict:
-    from app.services.token_service import create_access_token
+    from app.services.auth.token_service import create_access_token
 
     return {"Authorization": "Bearer " + create_access_token({
         "sub": str(user.id), "username": user.username,

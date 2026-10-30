@@ -20,8 +20,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exception import ValidationException
 from app.models import Branch, Repository
 from app.models.user import User
-from app.services import branch_service
-from app.services.repository_service import sync_repository_default_branch
+from app.services.repository import branch_service
+from app.services.repository.repository_service import sync_repository_default_branch
 from tests.test_git_hook_api import (
     SECRET,
     _headers,
@@ -306,7 +306,7 @@ async def test_default_branch_adopts_physical_branch(async_db, caplog):
     # 物理仓只有 master：模拟用户以非 DB 默认分支首推
     tip = _make_bare_with_commit(repo, branch="master")
 
-    with caplog.at_level(logging.INFO, logger="app.services.repository_service"):
+    with caplog.at_level(logging.INFO, logger="app.services.repository.repository_service"):
         await sync_repository_default_branch(repo, async_db)
     await async_db.commit()
 
@@ -356,7 +356,7 @@ async def test_default_branch_consistent_still_syncs_rows(async_db, caplog):
 
     tip = _make_bare_with_commit(repo, branch="main")
 
-    with caplog.at_level(logging.INFO, logger="app.services.repository_service"):
+    with caplog.at_level(logging.INFO, logger="app.services.repository.repository_service"):
         await sync_repository_default_branch(repo, async_db)
     await async_db.commit()
 

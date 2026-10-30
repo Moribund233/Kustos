@@ -12,7 +12,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import User
-from app.services import user_service
+from app.services.auth import user_service
 from app.core.exception import NotFoundException, ValidationException, AuthorizationException
 
 

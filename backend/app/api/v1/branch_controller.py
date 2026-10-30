@@ -13,7 +13,7 @@ from app.api.guards import require_repo_read, require_repo_permission
 from app.models.async_db import get_async_db
 from app.models.user import User
 from app.api.deps import get_current_user
-from app.services.branch_service import (
+from app.services.repository.branch_service import (
     get_branches as service_get_branches,
     get_branch as service_get_branch,
     create_branch as service_create_branch,

@@ -13,8 +13,8 @@ from app.models.async_db import get_async_db
 from app.models.repository import Repository
 from app.models.user import User
 from app.core.exception import AuthorizationException, NotFoundException
-from app.services.build_service import BuildService
-from app.services.webhook_service import generate_signature
+from app.services.integration.build_service import BuildService
+from app.services.integration.webhook_service import generate_signature
 from app.models.build_status import VALID_STATUSES
 import uuid
 from app.core.permissions import Action, ensure_repo_action

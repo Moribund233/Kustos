@@ -9,8 +9,8 @@ GrafanaService SSO 登录测试。
 import httpx
 import pytest
 
-from app.services import grafana_service
-from app.services.grafana_service import GrafanaError, GrafanaService
+from app.services.platform import grafana_service
+from app.services.platform.grafana_service import GrafanaError, GrafanaService
 
 
 class _FakeAsyncClient:

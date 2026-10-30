@@ -14,7 +14,7 @@ import tempfile
 import pygit2
 from unittest.mock import patch
 
-from app.services.repository_browser_service import (
+from app.services.repository.repository_browser_service import (
     get_tree_entries,
     get_blob_content,
     get_commits,

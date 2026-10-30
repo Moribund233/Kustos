@@ -213,4 +213,4 @@ rollback: restore 最近备份 + 重启
 - `backend/docker-compose.base.yml`、`docker-compose.yml`、`docker-compose.dev.yml`、`docker-compose.monitoring.yml`
 - `backend/Dockerfile`、`backend/docker/**`
 - `backend/scripts/**`
-- `backend/app/middleware/**`、`services/monitoring_service.py`、`orchestration_service.py`、`grafana_service.py`
+- `backend/app/middleware/**`、`services/platform/monitoring_service.py`、`services/platform/orchestration_service.py`、`services/platform/grafana_service.py`

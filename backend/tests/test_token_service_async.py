@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
-from app.services import token_service
+from app.services.auth import token_service
 from app.core.exception import AuthenticationException
 
 
@@ -273,7 +273,7 @@ async def test_login_returns_refresh_token(async_db: AsyncSession, test_user):
     2. refresh_token 是有效的
     3. 可以使用 refresh_token 刷新 access_token
     """
-    from app.services.user_service import login_user
+    from app.services.auth.user_service import login_user
 
     # 执行登录
     result = await login_user({

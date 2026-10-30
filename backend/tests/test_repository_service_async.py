@@ -14,8 +14,8 @@ from app.models.repository import Repository
 from app.models.user import User
 from app.models.branch import Branch
 from app.models.repository_member import RepositoryMember
-from app.services import repository_service
-from app.services import user_service
+from app.services.repository import repository_service
+from app.services.auth import user_service
 from app.core.exception import NotFoundException, ConflictException, ValidationException
 
 
@@ -469,7 +469,7 @@ async def test_create_repo_physical_status_detection(async_db: AsyncSession, tes
 
     # 重新获取仓库信息，验证 physical_exists 为 False
     # 注意：由于缓存机制，可能需要等待缓存过期或清除缓存
-    from app.services.repository_service import _repo_exists_cache
+    from app.services.repository.repository_service import _repo_exists_cache
     _repo_exists_cache.clear()  # 清除缓存
 
     repo = await repository_service.get_repository_by_id(repo_id, async_db)
@@ -513,7 +513,7 @@ async def test_check_repositories_physical_status_batch(async_db: AsyncSession, 
         shutil.rmtree(physical_path)
 
     # 清除缓存
-    from app.services.repository_service import _repo_exists_cache
+    from app.services.repository.repository_service import _repo_exists_cache
     _repo_exists_cache.clear()
 
     # 批量获取仓库列表并检查状态
@@ -547,7 +547,7 @@ async def test_physical_status_cache_works(async_db: AsyncSession, test_user):
     2. 缓存有 TTL（生存时间）
     3. 缓存可以被手动清除
     """
-    from app.services.repository_service import (
+    from app.services.repository.repository_service import (
         _repo_exists_cache, _set_cached_repo_exists, _get_cached_repo_exists
     )
 

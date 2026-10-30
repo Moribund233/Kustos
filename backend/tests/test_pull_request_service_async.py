@@ -9,7 +9,7 @@ from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.pull_request import PullRequest, PRComment, PRReview
-from app.services import pull_request_service
+from app.services.collaboration import pull_request_service
 from app.core.exception import NotFoundException, ValidationException
 from app.utils.git_utils import get_repository_storage_path
 
@@ -337,7 +337,7 @@ async def test_merge_pr_performs_git_merge(async_db: AsyncSession, test_repo_wit
     import os
     import subprocess
 
-    from app.services import pull_request_service
+    from app.services.collaboration import pull_request_service
     from app.utils.git_utils import GitService
 
     repo = test_repo_with_git
@@ -403,7 +403,7 @@ async def test_squash_merge_creates_single_commit(async_db: AsyncSession, test_r
     3. 新的提交只有一个父提交（不是合并提交）
     4. PR 状态正确更新
     """
-    from app.services import pull_request_service
+    from app.services.collaboration import pull_request_service
     from app.utils.git_utils import GitService
 
     repo = test_repo_with_git
@@ -465,7 +465,7 @@ async def test_rebase_merge_replays_commits(async_db: AsyncSession, test_repo_wi
     3. 每个提交的父提交是目标分支的前一个提交
     4. PR 状态正确更新
     """
-    from app.services import pull_request_service
+    from app.services.collaboration import pull_request_service
     from app.utils.git_utils import GitService
 
     repo = test_repo_with_git
@@ -605,7 +605,7 @@ async def test_detect_merge_conflict(async_db: AsyncSession, test_repo_with_conf
     3. 抛出 ValidationException 并提示冲突
     4. PR 状态保持 open
     """
-    from app.services import pull_request_service
+    from app.services.collaboration import pull_request_service
     from app.core.exception import ValidationException
 
     repo = test_repo_with_conflict
@@ -652,8 +652,8 @@ async def test_merge_pr_creates_build_record(async_db: AsyncSession, test_repo_w
     2. 仓库对应的 Build 记录数量从 0 变为 1
     3. Build 状态为 pending
     """
-    from app.services import pull_request_service
-    from app.services.build_service import BuildService
+    from app.services.collaboration import pull_request_service
+    from app.services.integration.build_service import BuildService
 
     repo = test_repo_with_git
 
@@ -697,7 +697,7 @@ async def test_merge_pr_rebuilds_search_index(async_db: AsyncSession, test_repo_
     验证点：PR 合并成功后，块级搜索索引行写入主库（repo_search_chunks）
     """
     from sqlalchemy import func, select
-    from app.services import pull_request_service
+    from app.services.collaboration import pull_request_service
     from app.models.repo_search_chunk import RepoSearchChunk
 
     repo = test_repo_with_git
@@ -735,8 +735,8 @@ async def test_merge_pr_uses_incremental_index_update(
     1. SearchService.diff_changed_files 被执行 (用于计算变更文件)
     2. SearchService.update_files 被调用 (增量更新替代全量重建)
     """
-    from app.services import pull_request_service
-    from app.services.search_service import SearchService
+    from app.services.collaboration import pull_request_service
+    from app.services.search.search_service import SearchService
     from app.utils.git_utils import get_repository_storage_path
 
     diff_calls = []

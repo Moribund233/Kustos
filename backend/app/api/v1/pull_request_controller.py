@@ -15,7 +15,7 @@ from app.api.guards import require_repo_permission, require_repo_read
 from app.models.async_db import get_async_db
 from app.models.user import User
 from app.api.deps import get_current_user
-from app.services.pull_request_service import (
+from app.services.collaboration.pull_request_service import (
     list_pull_requests as service_list_pull_requests,
     get_pull_request as service_get_pull_request,
     create_pull_request as service_create_pull_request,
@@ -28,12 +28,12 @@ from app.services.pull_request_service import (
     get_pr_diff as service_get_pr_diff,
     get_pr_file_diff as service_get_pr_file_diff,
 )
-from app.services.pr_issue_link_service import (
+from app.services.collaboration.pr_issue_link_service import (
     list_linked_issues as service_list_linked_issues,
     link_issue_to_pr as service_link_issue_to_pr,
     unlink_issue_from_pr as service_unlink_issue_from_pr,
 )
-from app.services.pr_review_request_service import (
+from app.services.collaboration.pr_review_request_service import (
     list_review_requests as service_list_review_requests,
     request_reviewers as service_request_reviewers,
     remove_reviewer as service_remove_reviewer,

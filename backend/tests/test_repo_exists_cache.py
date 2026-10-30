@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.services import repository_service
+from app.services.repository import repository_service
 
 
 class _FakeRedis:

@@ -13,7 +13,7 @@ from app.models.user import User
 from app.api.deps import get_current_user
 from app.core.permissions import Action, ensure_repo_action
 from app.core.exception import ValidationException
-from app.services.member_service import (
+from app.services.repository.member_service import (
     get_repository_members as service_get_repository_members,
     get_repository_member as service_get_repository_member,
     add_repository_member as service_add_repository_member,

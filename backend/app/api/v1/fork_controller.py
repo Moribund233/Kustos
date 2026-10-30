@@ -14,7 +14,7 @@ from app.models.repository import Repository
 from app.models.user import User
 from app.api.deps import get_current_user
 from app.core.exception import NotFoundException
-from app.services import fork_service
+from app.services.repository import fork_service
 import uuid
 from app.api.guards import require_repo_read
 from app.core.constants import DEFAULT_PAGE, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE

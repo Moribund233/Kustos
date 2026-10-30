@@ -17,7 +17,7 @@ from app.models.async_db import get_async_db
 from app.models.repository import Repository
 from app.models.user import User
 from app.core.exception import NotFoundException
-from app.services import webhook_service
+from app.services.integration import webhook_service
 import uuid
 
 # 创建路由实例

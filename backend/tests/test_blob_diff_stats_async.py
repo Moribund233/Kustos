@@ -10,7 +10,7 @@ import tempfile
 import os
 import pygit2
 
-from app.services.repository_browser_service import get_blob_content
+from app.services.repository.repository_browser_service import get_blob_content
 
 
 def _create_repo_with_commit(tmpdir: str) -> str:

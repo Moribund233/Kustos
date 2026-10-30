@@ -22,7 +22,7 @@ from app.utils.ws_manager import manager as websocket_manager
 from app.utils import process_control
 from app.utils.realtime_bus import bus as realtime_bus
 from app.services.realtime.presence_service import presence as presence_store
-from app.services.worker_registry import worker_registry
+from app.services.platform.worker_registry import worker_registry
 
 logger = logging.getLogger(__name__)
 
@@ -138,7 +138,7 @@ class AppLifecycleManager:
     async def _backfill_revocations(self) -> None:
         """启动回填撤销位图：未过期的 RevokedToken 审计行 → Redis/内存"""
         from app.models.async_db import get_async_db_context
-        from app.services.token_service import backfill_revocations
+        from app.services.auth.token_service import backfill_revocations
         async with get_async_db_context() as db:
             count = await backfill_revocations(db)
         if count:
@@ -188,14 +188,14 @@ class AppLifecycleManager:
 
     async def _init_process_metrics(self) -> None:
         """启动进程指标后台采样"""
-        from app.services.process_metrics import get_process_metrics
+        from app.services.platform.process_metrics import get_process_metrics
 
         await get_process_metrics().start()
 
     async def _shutdown_process_metrics(self) -> None:
         """停止进程指标后台采样"""
         try:
-            from app.services.process_metrics import get_process_metrics
+            from app.services.platform.process_metrics import get_process_metrics
 
             await get_process_metrics().stop()
         except Exception as e:  # noqa: BLE001
@@ -203,14 +203,14 @@ class AppLifecycleManager:
 
     async def _init_retention(self) -> None:
         """启动自动保留任务：日期日志目录 + Activity 审计表"""
-        from app.services.retention_service import get_retention_service
+        from app.services.platform.retention_service import get_retention_service
 
         await get_retention_service().start()
 
     async def _shutdown_retention(self) -> None:
         """停止自动保留任务"""
         try:
-            from app.services.retention_service import get_retention_service
+            from app.services.platform.retention_service import get_retention_service
 
             await get_retention_service().stop()
         except Exception as e:  # noqa: BLE001
@@ -267,7 +267,7 @@ class AppLifecycleManager:
         投递历史，引擎关闭后它们只会报错并静默丢失。
         """
         try:
-            from app.services.webhook_service import wait_for_pending_deliveries
+            from app.services.integration.webhook_service import wait_for_pending_deliveries
             remaining = await wait_for_pending_deliveries()
             if remaining:
                 logger.warning(f"关闭超时，仍有 {remaining} 个 WebHook 投递未完成")

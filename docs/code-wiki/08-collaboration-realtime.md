@@ -284,7 +284,7 @@ flowchart LR
 
 - `backend/collab-gateway/server.mjs`、`sessionTtl.mjs`、`versionCounter.mjs`、`redisPersistence.mjs`
 - `backend/app/api/v1/collab_internal_controller.py`、`collab_invite_controller.py`、`collab_session_controller.py`
-- `backend/app/services/collab_invite_service.py`、`collab_session_service.py`
+- `backend/app/services/collaboration/collab_invite_service.py`、`services/collaboration/collab_session_service.py`
 - `backend/app/utils/ws_manager.py`、`auth.py`、`router.py`、`handlers/`
 - `backend/app/utils/realtime_bus.py`
 - `backend/app/services/realtime/*`

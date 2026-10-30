@@ -51,21 +51,19 @@ _DEADKEY_ALLOW: dict[tuple[str, str], str] = {
 
 #: 常量扫描白名单：(文件, 常量名) → 放行原因（不走配置的固有值/协议值）。
 _CONST_ALLOW: dict[tuple[str, str], str] = {
-    ("services/agent_admin_service.py", "MODELS_TIMEOUT"):
+    ("services/agent/agent_admin_service.py", "MODELS_TIMEOUT"):
         "provider 模型列表探测超时，未纳入配置范围",
-    ("services/agent_admin_service.py", "PROBE_TIMEOUT"):
+    ("services/agent/agent_admin_service.py", "PROBE_TIMEOUT"):
         "provider 探测超时，未纳入配置范围",
-    ("services/audit_query_service.py", "MAX_SCAN_LINES"):
+    ("services/repository/audit_query_service.py", "MAX_SCAN_LINES"):
         "审计查询扫描护栏，未纳入配置范围",
-    ("services/config_store.py", "_SECRET_TTL"):
-        "播种/写入事务内部 TTL（配置机制自身，不读配置）",
-    ("services/file_comment_service.py", "MAX_COMMENT_LENGTH"):
+    ("services/collaboration/file_comment_service.py", "MAX_COMMENT_LENGTH"):
         "评论长度契约（API 行为值），未纳入配置范围",
     ("services/indexing/chunker.py", "MIN_REF_LEN"):
         "引用最短长度阈值（非大小/TTL/超时/并发类，扫描正则保守命中）",
-    ("services/redis_admin_service.py", "_KEYSPACE_TTL_SECONDS"):
+    ("services/platform/redis_admin_service.py", "_KEYSPACE_TTL_SECONDS"):
         "keyspace 事件订阅 TTL，未纳入配置范围",
-    ("services/worker_registry.py", "DEFAULT_TTL_SECONDS"):
+    ("services/platform/worker_registry.py", "DEFAULT_TTL_SECONDS"):
         "worker 注册表 TTL，未纳入配置范围",
 }
 
@@ -140,7 +138,7 @@ class TestDeadKeyCoverage:
 
 class TestMetadataSingleSource:
     def test_config_service_derives_from_section_meta(self):
-        from app.services.config_service import ConfigService
+        from app.services.platform.config_service import ConfigService
 
         assert ConfigService.ALLOWED_CONFIG_SECTIONS == writable_sections()
         assert ConfigService.PROTECTED_CONFIG_SECTIONS == protected_sections()
@@ -152,7 +150,7 @@ class TestMetadataSingleSource:
         assert config_store.BOOTSTRAP_EXCLUDED_KEYS == bootstrap_excluded_keys()
 
     def test_agent_admin_meta_derives_from_section_meta(self):
-        from app.services import agent_admin_service
+        from app.services.agent import agent_admin_service
         from app.core.config_schema import editable_key_sets
 
         hot, restart = editable_key_sets("agent")

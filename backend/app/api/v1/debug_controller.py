@@ -22,7 +22,7 @@ from app.core.constants import PROJECT_ROOT
 from app.api.deps import get_current_user
 from app.core.exception import AppServiceException, AuthorizationException
 from app.models.user import User
-from app.services.database_manager import DatabaseResetManager
+from app.services.platform.database_manager import DatabaseResetManager
 from app.utils.logging import get_named_logger
 
 router = APIRouter(prefix="/api/v1/debug", tags=["debug"])
@@ -211,7 +211,7 @@ async def init_config(
             error_code="debug_config_template_missing",
         )
 
-    from app.services.config_service import get_config_service
+    from app.services.platform.config_service import get_config_service
 
     ok, errors = get_config_service().reset_config(is_debug=True, is_admin=True)
     if not ok:

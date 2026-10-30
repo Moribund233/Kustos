@@ -27,7 +27,7 @@ from app.api.prefixes import get_route_prefix
 from app.models.async_db import get_async_db
 from app.models.user import User
 from app.services.agent.runtime import APPROVAL_APPROVED, APPROVAL_REJECTED
-from app.services.agent_service import AgentService
+from app.services.agent.agent_service import AgentService
 from app.api.guards import require_repo_read
 from app.core.constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
 from app.core.config import get_config_value

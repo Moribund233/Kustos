@@ -6,7 +6,7 @@
 """
 import httpx
 
-from app.services.agent_admin_service import AgentAdminService, _UpstreamAuthRejected
+from app.services.agent.agent_admin_service import AgentAdminService, _UpstreamAuthRejected
 
 #: 所有可能被解析的 key 候选环境变量（测试内统一清空/注入，保证确定性）
 PROVIDER_ENVS = (

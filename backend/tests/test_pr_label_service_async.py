@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.repository import Repository
 from app.models.pull_request import PullRequest
-from app.services import pr_label_service
+from app.services.collaboration import pr_label_service
 from app.core.exception import ConflictException, NotFoundException
 
 

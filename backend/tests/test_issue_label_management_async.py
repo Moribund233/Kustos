@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.issue import Issue, Label
 from app.models.repository import Repository
-from app.services import issue_service
+from app.services.collaboration import issue_service
 from app.core.exception import NotFoundException, ValidationException
 
 

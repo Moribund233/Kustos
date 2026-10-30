@@ -36,7 +36,7 @@ def test_messages_search_empty_query_bad_request(test_client, auth_headers):
 
 def test_room_messages_search_by_q(test_client, auth_headers, db, test_user):
     from app.models.user import User
-    from app.services.token_service import create_access_token
+    from app.services.auth.token_service import create_access_token
 
     _, room_id = _create_room(test_client, auth_headers, "msg-search-room")
 

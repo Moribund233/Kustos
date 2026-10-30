@@ -11,7 +11,7 @@ from sqlalchemy import select
 from app.core.exception import AuthenticationException, AuthorizationException
 from app.models.async_db import get_async_db
 from app.models.user import User
-from app.services.token_service import verify_token_active
+from app.services.auth.token_service import verify_token_active
 
 # 使用 HTTPBearer 从 Authorization 头中提取 token
 security = HTTPBearer(auto_error=False)

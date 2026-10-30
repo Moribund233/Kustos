@@ -9,7 +9,7 @@ from app.services.agent import tool_registry as tr
 from app.services.agent.tool_registry import ToolContext
 from app.services.agent.tools_server import load_server_tools
 from app.services.agent.tools_write import load_write_tools
-from app.services.build_service import BuildService
+from app.services.integration.build_service import BuildService
 
 
 def _ctx(db, repo_id, user_id=None):

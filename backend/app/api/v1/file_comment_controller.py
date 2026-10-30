@@ -13,7 +13,7 @@ from app.api.prefixes import get_route_prefix
 from app.models.async_db import get_async_db
 from app.models.user import User
 from app.api.deps import get_current_user
-from app.services.file_comment_service import (
+from app.services.collaboration.file_comment_service import (
     create_file_comment,
     list_file_comments,
     set_file_comment_resolved,

@@ -11,9 +11,9 @@
 import pytest
 
 import app.api.v1.app_controller as app_ctl
-import app.services.monitoring_service as mon_svc
+import app.services.platform.monitoring_service as mon_svc
 
-from app.services.grafana_service import GrafanaError
+from app.services.platform.grafana_service import GrafanaError
 
 
 # ---- 端点门控 ----
@@ -215,7 +215,7 @@ class TestMonitoringServiceDetection:
 
 
 def test_orchestration_includes_monitoring_components():
-    from app.services.orchestration_service import COMPONENT_LABELS, COMPONENT_ORDER
+    from app.services.platform.orchestration_service import COMPONENT_LABELS, COMPONENT_ORDER
 
     assert "prometheus" in COMPONENT_ORDER
     assert "grafana" in COMPONENT_ORDER

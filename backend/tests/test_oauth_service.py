@@ -11,7 +11,7 @@ class TestOAuthServiceInitiateLogin:
 
     @pytest.mark.asyncio
     async def test_initiate_login_returns_authorization_url(self):
-        from app.services.oauth_service import OAuthService
+        from app.services.auth.oauth_service import OAuthService
         from app.core.config import Config
 
         config = Config()
@@ -30,7 +30,7 @@ class TestOAuthServiceInitiateLogin:
 
     @pytest.mark.asyncio
     async def test_initiate_login_unknown_provider_raises(self):
-        from app.services.oauth_service import OAuthService
+        from app.services.auth.oauth_service import OAuthService
         from app.core.config import Config
 
         config = Config()
@@ -45,7 +45,7 @@ class TestOAuthServiceHandleCallback:
 
     @pytest.mark.asyncio
     async def test_handle_callback_creates_user_and_returns_tokens(self, async_db):
-        from app.services.oauth_service import OAuthService
+        from app.services.auth.oauth_service import OAuthService
         from app.core.config import Config
         from app.models.user import User
 
@@ -86,7 +86,7 @@ class TestOAuthServiceHandleCallback:
 
     @pytest.mark.asyncio
     async def test_handle_callback_links_existing_user_by_email(self, async_db, async_test_user):
-        from app.services.oauth_service import OAuthService
+        from app.services.auth.oauth_service import OAuthService
         from app.core.config import Config
         from app.models.user_oauth import UserOAuthAccount
 
@@ -126,7 +126,7 @@ class TestOAuthServiceLinkAccount:
 
     @pytest.mark.asyncio
     async def test_list_linked_accounts(self, async_db, async_test_user):
-        from app.services.oauth_service import OAuthService
+        from app.services.auth.oauth_service import OAuthService
         from app.core.config import Config
         from app.models.user_oauth import UserOAuthAccount
 
@@ -148,7 +148,7 @@ class TestOAuthServiceLinkAccount:
 
     @pytest.mark.asyncio
     async def test_unlink_account_success(self, async_db, async_test_user):
-        from app.services.oauth_service import OAuthService
+        from app.services.auth.oauth_service import OAuthService
         from app.core.config import Config
         from app.models.user_oauth import UserOAuthAccount
 
@@ -172,7 +172,7 @@ class TestOAuthServiceLinkAccount:
 
     @pytest.mark.asyncio
     async def test_unlink_account_not_found_raises(self, async_db, async_test_user):
-        from app.services.oauth_service import OAuthService
+        from app.services.auth.oauth_service import OAuthService
         from app.core.config import Config
         from app.core.exception import NotFoundException
 

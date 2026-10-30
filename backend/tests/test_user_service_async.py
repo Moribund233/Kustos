@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 
 from app.models.user import User
-from app.services import user_service
+from app.services.auth import user_service
 from app.core.exception import NotFoundException, ConflictException, AuthenticationException
 
 

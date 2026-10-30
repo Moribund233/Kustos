@@ -3,8 +3,8 @@ import httpx
 import pytest
 import respx
 
-import app.services.docker_write_service as svc
-from app.services.docker_write_service import DockerControlError
+import app.services.platform.docker_write_service as svc
+from app.services.platform.docker_write_service import DockerControlError
 
 
 @pytest.fixture(autouse=True)

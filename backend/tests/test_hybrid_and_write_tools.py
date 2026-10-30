@@ -4,7 +4,7 @@ import shutil
 import pytest
 
 from app.services.indexing import embeddings
-from app.services.search_service import SearchResult, SearchService, _rrf_fuse
+from app.services.search.search_service import SearchResult, SearchService, _rrf_fuse
 
 
 class _FakeEmbedProvider:
@@ -27,7 +27,7 @@ class _FakeEmbedProvider:
 
 
 def _item(file, chunk_index, line=1, symbol=None):
-    from app.services.search_service import ChunkRef
+    from app.services.search.search_service import ChunkRef
 
     return SearchResult(
         file=file, line=line, content="x",

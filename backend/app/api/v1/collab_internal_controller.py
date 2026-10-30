@@ -29,10 +29,10 @@ from app.core.permissions import Action, has_repo_action
 from app.core.config import get_config_value
 from app.models import Repository, User
 from app.models.async_db import get_async_db
-from app.services.search_service import SearchService
-from app.services.collab_invite_service import verify_invite_token_active
-from app.services.collab_session_service import get_override
-from app.services.token_service import verify_token_active
+from app.services.search.search_service import SearchService
+from app.services.collaboration.collab_invite_service import verify_invite_token_active
+from app.services.collaboration.collab_session_service import get_override
+from app.services.auth.token_service import verify_token_active
 
 logger = logging.getLogger(__name__)
 
@@ -187,7 +187,7 @@ async def collab_doc(
     repository_id, branch, path = parse_doc_key(docKey)
     repo = await _get_repo_or_404(db, repository_id)
 
-    from app.services.repository_browser_service import get_blob_content
+    from app.services.repository.repository_browser_service import get_blob_content
     from app.utils.git_utils import get_repository_storage_path
 
     repo_path = get_repository_storage_path(repo.path)
@@ -232,7 +232,7 @@ async def collab_save(
     if not can_write:
         raise AuthorizationException(detail="没有该仓库的写入权限", error_code="collab_repository_write_denied")
 
-    from app.services.repository_browser_service import commit_file
+    from app.services.repository.repository_browser_service import commit_file
     from app.utils.git_utils import get_repository_storage_path
 
     # 自动落盘草稿分支: 会话空闲自动保存时, 不触碰用户工作分支,
@@ -246,7 +246,7 @@ async def collab_save(
 
     # 协作保存同为本地 pygit2 写，过同一保护裁决
     # （草稿分支 collab/draft-* 为新分支，无保护记录 → 自然放行）
-    from app.services.git_event_service import ensure_local_write
+    from app.services.integration.git_event_service import ensure_local_write
     await ensure_local_write(db, repository_id, target_branch)
 
     commit = await commit_file(

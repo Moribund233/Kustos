@@ -7,7 +7,7 @@ import pytest
 from sqlalchemy import func, select
 
 from app.models.repo_commit_file import RepoCommitFile, RepoCommitIndexState
-from app.services.commit_index_service import CommitIndexService
+from app.services.repository.commit_index_service import CommitIndexService
 
 
 async def _count(db, repo_id) -> int:

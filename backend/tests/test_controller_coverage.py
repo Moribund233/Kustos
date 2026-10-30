@@ -143,7 +143,7 @@ class TestGitAuth:
         repo = _repo(db)
         repo.is_public = True
         db.commit()
-        from app.services.token_service import create_access_token
+        from app.services.auth.token_service import create_access_token
         token = create_access_token({"sub": str(admin_user.id),
                                      "username": admin_user.username,
                                      "is_admin": True})
@@ -200,7 +200,7 @@ class TestSearch:
                                 path=f"{test_user.username}/mycovsearchrepo")
         repo.is_public = True
         db.commit()
-        from app.services.token_service import create_access_token
+        from app.services.auth.token_service import create_access_token
         token = create_access_token({
             "sub": str(test_user.id), "username": test_user.username,
             "is_admin": test_user.is_admin,
@@ -229,7 +229,7 @@ class TestSearch:
                            description="marker", source_branch="f",
                            target_branch="master"))
         db.commit()
-        from app.services.token_service import create_access_token
+        from app.services.auth.token_service import create_access_token
         token = create_access_token({
             "sub": str(test_user.id), "username": test_user.username,
             "is_admin": test_user.is_admin,
@@ -247,7 +247,7 @@ class TestSearch:
         repo, path = create_repo_with_content(db, "codesearch", owner_id=test_user.id)
         create_commit_in_repo(path, "a.py", b"markerfrobnicate = 1\nprint(markerfrobnicate)\n")
         create_commit_in_repo(path, "b.py", b"markerfrobnicate = 1\n")
-        from app.services.token_service import create_access_token
+        from app.services.auth.token_service import create_access_token
         token = create_access_token({
             "sub": str(test_user.id), "username": test_user.username,
             "is_admin": test_user.is_admin,
@@ -266,7 +266,7 @@ class TestSearch:
         repo, path = create_repo_with_content(db, "codesearchtrunc", owner_id=test_user.id)
         for fname in ("f1.py", "f2.py", "f3.py"):
             create_commit_in_repo(path, fname, b"filternical line\n")
-        from app.services.token_service import create_access_token
+        from app.services.auth.token_service import create_access_token
         token = create_access_token({
             "sub": str(test_user.id), "username": test_user.username,
             "is_admin": test_user.is_admin,
@@ -290,7 +290,7 @@ class TestSearch:
         repo.is_public = True
         db.commit()
         init_bare_repo(get_repository_storage_path(repo.path))
-        from app.services.token_service import create_access_token
+        from app.services.auth.token_service import create_access_token
         token = create_access_token({
             "sub": str(test_user.id), "username": test_user.username,
             "is_admin": test_user.is_admin,
@@ -377,7 +377,7 @@ class TestMemberSuccess:
 
     def test_member_lifecycle(self, test_client, db, test_user):
         """仓库所有者成员 CRUD：获取/更新/角色/激活/权限/移除 成功路径"""
-        from app.services.token_service import create_access_token
+        from app.services.auth.token_service import create_access_token
         from app.models.user import User
         user2 = User(username="member2", email="member2@example.com",
                      password=get_password_hash("pw"), full_name="M2",
@@ -489,7 +489,7 @@ class TestBrowserSuccess:
 
     def test_commit_file_and_delete(self, test_client, db, test_user):
         from tests.test_repo_browser_controller import create_repo_with_content
-        from app.services.token_service import create_access_token
+        from app.services.auth.token_service import create_access_token
         repo, path = create_repo_with_content(db, "browser-succ-commit",
                                               owner_id=test_user.id)
         headers = {"Authorization": "Bearer " + create_access_token({
@@ -508,7 +508,7 @@ class TestBrowserSuccess:
 
 class TestRoomSuccess:
     def test_room_created_for_repo(self, test_client, db, test_user, admin_user):
-        from app.services.token_service import create_access_token
+        from app.services.auth.token_service import create_access_token
 
         def _headers(u):
             return {"Authorization": "Bearer " + create_access_token({
@@ -535,7 +535,7 @@ class TestRoomSuccess:
 
 class TestAppAdminCoverage:
     def _admin(self, db, admin_user):
-        from app.services.token_service import create_access_token
+        from app.services.auth.token_service import create_access_token
         return {"Authorization": "Bearer " + create_access_token({
             "sub": str(admin_user.id), "username": admin_user.username,
             "is_admin": True})}
@@ -913,7 +913,7 @@ class TestAppDebugCoverage:
 
         monkeypatch.setattr(dc, "get_config", lambda: _Cfg())
         monkeypatch.setenv("KUSTOS_STRESS_TEST", "true")
-        from app.services.token_service import create_access_token
+        from app.services.auth.token_service import create_access_token
         headers = {"Authorization": "Bearer " + create_access_token({
             "sub": str(admin_user.id), "username": admin_user.username,
             "is_admin": True})}
@@ -964,7 +964,7 @@ class TestCollabInternal:
     SECRET = "cov-internal-secret-zz"
 
     def _hdr(self, test_user):
-        from app.services.token_service import create_access_token
+        from app.services.auth.token_service import create_access_token
         return {"Authorization": "Bearer " + create_access_token({
             "sub": str(test_user.id), "username": test_user.username,
             "is_admin": test_user.is_admin})}
@@ -1078,7 +1078,7 @@ class TestLfsSuccess:
     """
 
     def _headers(self, test_user):
-        from app.services.token_service import create_access_token
+        from app.services.auth.token_service import create_access_token
         return {"Authorization": "Bearer " + create_access_token({
             "sub": str(test_user.id), "username": test_user.username,
             "is_admin": test_user.is_admin})}
@@ -1125,7 +1125,7 @@ class TestGitAuthMemberBranches:
     URL = "/api/v1/git-auth"
 
     def _bearer(self, token_user):
-        from app.services.token_service import create_access_token
+        from app.services.auth.token_service import create_access_token
         return {"Authorization": "Bearer " + create_access_token({
             "sub": str(token_user.id), "username": token_user.username,
             "is_admin": token_user.is_admin})}
@@ -1184,7 +1184,7 @@ class TestGitAuthMemberBranches:
         assert r.status_code == 200
 
     def test_bearer_user_not_found(self, test_client, db):
-        from app.services.token_service import create_access_token
+        from app.services.auth.token_service import create_access_token
         repo = _repo(db)
         db.commit()
         token = create_access_token({"sub": str(uuid.uuid4()),
@@ -1367,7 +1367,7 @@ class TestGitAuthDirect:
 
 class TestRoomAttachment:
     def test_upload_and_download(self, test_client, db, test_user):
-        from app.services.token_service import create_access_token
+        from app.services.auth.token_service import create_access_token
         import io
         headers = {"Authorization": "Bearer " + create_access_token({
             "sub": str(test_user.id), "username": test_user.username,
@@ -1394,7 +1394,7 @@ class TestRoomAttachment:
         assert dl.content == b"attachment body"
 
     def test_upload_not_member_403(self, test_client, db, test_user, admin_user):
-        from app.services.token_service import create_access_token
+        from app.services.auth.token_service import create_access_token
         import io
         headers = {"Authorization": "Bearer " + create_access_token({
             "sub": str(admin_user.id), "username": admin_user.username,
@@ -1417,7 +1417,7 @@ class TestRoomAttachment:
 
 class TestSearchGlobalContent:
     def test_global_search_repo_issue_pr(self, test_client, db, test_user):
-        from app.services.token_service import create_access_token
+        from app.services.auth.token_service import create_access_token
         from app.models.issue import Issue
         from app.models.pull_request import PullRequest
 
@@ -1451,7 +1451,7 @@ class TestSearchGlobalContent:
         assert r.json()["repositories"] == []
 
     def test_global_search_no_accessible(self, test_client, db):
-        from app.services.token_service import create_access_token
+        from app.services.auth.token_service import create_access_token
         from app.models.user import User
         user2 = User(username="searchlone", email="searchlone@example.com",
                      password=get_password_hash("pw"), is_active=True)

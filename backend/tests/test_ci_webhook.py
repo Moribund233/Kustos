@@ -6,13 +6,13 @@ Tests for trigger_push_event in utils/webhook_trigger.py
 import pytest
 from unittest.mock import AsyncMock, patch
 
-from app.services.webhook_trigger import trigger_push_event
+from app.services.integration.webhook_trigger import trigger_push_event
 
 
 @pytest.mark.asyncio
 async def test_ci_webhook_triggered_on_push(async_db, async_test_user, async_test_repo):
     """Push event should trigger webhooks if configured."""
-    from app.services import webhook_service
+    from app.services.integration import webhook_service
 
     await webhook_service.create_webhook(
         db=async_db,
@@ -23,7 +23,7 @@ async def test_ci_webhook_triggered_on_push(async_db, async_test_user, async_tes
         secret="ci-secret",
     )
 
-    with patch("app.services.webhook_trigger.webhook_service.trigger_webhooks", new_callable=AsyncMock) as mock_trigger:
+    with patch("app.services.integration.webhook_trigger.webhook_service.trigger_webhooks", new_callable=AsyncMock) as mock_trigger:
         await trigger_push_event(
             db=async_db,
             repository_id=async_test_repo.id,
@@ -42,7 +42,7 @@ async def test_ci_webhook_triggered_on_push(async_db, async_test_user, async_tes
 @pytest.mark.asyncio
 async def test_ci_webhook_not_triggered_for_other_events(async_db, async_test_user, async_test_repo):
     """Push event should not trigger webhooks configured for other events."""
-    from app.services import webhook_service
+    from app.services.integration import webhook_service
 
     await webhook_service.create_webhook(
         db=async_db,
@@ -53,7 +53,7 @@ async def test_ci_webhook_not_triggered_for_other_events(async_db, async_test_us
         secret="ci-secret",
     )
 
-    with patch("app.services.webhook_service._deliver_webhook_async", new_callable=AsyncMock) as mock_deliver:
+    with patch("app.services.integration.webhook_service._deliver_webhook_async", new_callable=AsyncMock) as mock_deliver:
         await trigger_push_event(
             db=async_db,
             repository_id=async_test_repo.id,

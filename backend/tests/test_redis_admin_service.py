@@ -1,8 +1,8 @@
 """Redis 运维状态服务（services/redis_admin_service）测试"""
 import pytest
 
-from app.services import redis_admin_service as svc
-from app.services.redis_admin_service import RedisAdminService, _redact_url
+from app.services.platform import redis_admin_service as svc
+from app.services.platform.redis_admin_service import RedisAdminService, _redact_url
 
 
 class _FakeRedis:

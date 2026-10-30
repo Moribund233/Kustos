@@ -19,12 +19,12 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import func, select, update
 
-import app.services.audit_query_service as audit_qs
+import app.services.repository.audit_query_service as audit_qs
 from app.middleware.audit_logger import AuditLoggerMiddleware
 from app.models.activity import Activity
-from app.services import activity_service
-from app.services.audit_query_service import parse_audit_line, query_audit
-from app.services.retention_service import RetentionService
+from app.services.repository import activity_service
+from app.services.repository.audit_query_service import parse_audit_line, query_audit
+from app.services.platform.retention_service import RetentionService
 from app.utils.logging import LogManager, cleanup_old_logs
 
 

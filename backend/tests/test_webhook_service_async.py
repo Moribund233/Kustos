@@ -14,7 +14,7 @@ from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.webhook import WebHook, WebHookDelivery, WEBHOOK_EVENTS
-from app.services import webhook_service
+from app.services.integration import webhook_service
 from app.core.exception import NotFoundException, ValidationException, AuthorizationException
 
 

@@ -21,7 +21,7 @@ from app.models.stargazer import Stargazer
 from app.models.user import User
 from app.models.watcher import Watcher
 from app.models.webhook import WebHook, WebHookDelivery
-from app.services import repository_service
+from app.services.repository import repository_service
 
 
 async def _count(db, model, *conditions) -> int:

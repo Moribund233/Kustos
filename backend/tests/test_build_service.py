@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.build_service import BuildService
+from app.services.integration.build_service import BuildService
 from app.core.exception import NotFoundException
 from tests.test_helpers import create_test_repo
 
@@ -333,7 +333,7 @@ class TestBuildController:
 
     def test_update_build_via_signature(self, test_client: TestClient, auth_headers: dict, db):
         """外部 CI runner 可用 X-Kustos-Signature (HMAC-SHA256) 回调, 无需用户 token"""
-        from app.services.webhook_service import generate_signature
+        from app.services.integration.webhook_service import generate_signature
         repo = create_test_repo(db)
         repo.ci_secret = "test-ci-secret"
         db.commit()
@@ -357,7 +357,7 @@ class TestBuildController:
 
     def test_update_build_signature_rejected_when_wrong(self, test_client: TestClient, auth_headers: dict, db):
         """签名错误时外部回调应被拒绝"""
-        from app.services.webhook_service import generate_signature
+        from app.services.integration.webhook_service import generate_signature
         repo = create_test_repo(db)
         repo.ci_secret = "test-ci-secret"
         db.commit()
@@ -380,7 +380,7 @@ class TestBuildController:
 
     def test_update_build_signature_rejected_when_no_secret(self, test_client: TestClient, auth_headers: dict, db):
         """仓库未配置 ci_secret 时, 即使带签名头也应拒绝外部回调"""
-        from app.services.webhook_service import generate_signature
+        from app.services.integration.webhook_service import generate_signature
         repo = create_test_repo(db)
         create_resp = test_client.post(
             f"/api/v1/repositories/{repo.id}/builds",

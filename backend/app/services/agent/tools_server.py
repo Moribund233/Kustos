@@ -9,14 +9,14 @@ import json
 from typing import Any, Dict, List
 
 from app.services.agent.tool_registry import ToolContext, ToolSpec, register_tool
-from app.services.repository_browser_service import get_blob_content, get_tree_entries
+from app.services.repository.repository_browser_service import get_blob_content, get_tree_entries
 
 
 # --------------------------- 读码 / 搜索 ---------------------------
 
 async def _search_code(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]:
     from app.core.config import get_config
-    from app.services.search_service import SearchService, search_results_cap
+    from app.services.search.search_service import SearchService, search_results_cap
 
     query = str(args.get("query") or "").strip()
     if not query:
@@ -50,7 +50,7 @@ async def _search_code(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]
 
 async def _find_definition(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]:
     from app.core.config import get_config
-    from app.services.search_service import SearchService
+    from app.services.search.search_service import SearchService
 
     name = str(args.get("name") or "").strip()
     if not name:
@@ -77,7 +77,7 @@ async def _find_definition(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, 
 
 async def _find_usages(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]:
     from app.core.config import get_config
-    from app.services.search_service import SearchService, search_results_cap
+    from app.services.search.search_service import SearchService, search_results_cap
 
     name = str(args.get("name") or "").strip()
     if not name:
@@ -150,7 +150,7 @@ async def _list_tree(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]:
 
 async def _list_pull_requests(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]:
     from app.core.config import get_config
-    from app.services.pull_request_service import list_pull_requests
+    from app.services.collaboration.pull_request_service import list_pull_requests
 
     data = await list_pull_requests(
         ctx.db, ctx.repository_id,
@@ -161,7 +161,7 @@ async def _list_pull_requests(ctx: ToolContext, args: Dict[str, Any]) -> Dict[st
 
 
 async def _get_pull_request(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]:
-    from app.services.pull_request_service import get_pull_request
+    from app.services.collaboration.pull_request_service import get_pull_request
 
     number = int(args.get("number") or 0)
     if number <= 0:
@@ -171,7 +171,7 @@ async def _get_pull_request(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str,
 
 async def _list_issues(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]:
     from app.core.config import get_config
-    from app.services.issue_service import list_issues
+    from app.services.collaboration.issue_service import list_issues
 
     assignee_id = None
     assignee = str(args.get("assignee") or "").strip()
@@ -354,7 +354,7 @@ async def _search_chat_decisions(ctx: ToolContext, args: Dict[str, Any]) -> Dict
 
 
 async def _get_issue(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]:
-    from app.services.issue_service import get_issue
+    from app.services.collaboration.issue_service import get_issue
 
     number = int(args.get("number") or 0)
     if number <= 0:
@@ -366,7 +366,7 @@ async def _get_issue(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]:
 
 async def _list_commits(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]:
     from app.core.config import get_config
-    from app.services.repository_browser_service import get_commits
+    from app.services.repository.repository_browser_service import get_commits
 
     data = await get_commits(
         ctx.repo_path,
@@ -393,7 +393,7 @@ async def _list_commits(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any
 
 async def _get_commit(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]:
     from app.core.config import get_config
-    from app.services.repository_browser_service import get_commits, get_diff
+    from app.services.repository.repository_browser_service import get_commits, get_diff
 
     ref = str(args.get("ref") or "").strip()
     if not ref:
@@ -427,7 +427,7 @@ async def _get_commit(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]:
 
 async def _get_diff(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]:
     from app.core.config import get_config
-    from app.services.repository_browser_service import get_diff
+    from app.services.repository.repository_browser_service import get_diff
 
     head = str(args.get("head") or "").strip()
     if not head:
@@ -448,7 +448,7 @@ async def _get_diff(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]:
 
 
 async def _blame_file(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]:
-    from app.services.repository_browser_service import get_blame
+    from app.services.repository.repository_browser_service import get_blame
 
     path = str(args.get("path") or "").strip()
     if not path:
@@ -479,7 +479,7 @@ async def _blame_file(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]:
 
 async def _compare_refs(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]:
     from app.core.config import get_config
-    from app.services.repository_browser_service import compare
+    from app.services.repository.repository_browser_service import compare
 
     base = str(args.get("base") or "").strip()
     head = str(args.get("head") or "").strip()
@@ -521,7 +521,7 @@ def _build_row(build) -> Dict[str, Any]:
 
 async def _get_build_status(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]:
     from app.core.config import get_config
-    from app.services.build_service import BuildService
+    from app.services.integration.build_service import BuildService
 
     builds = await BuildService.get_builds_for_repository(
         ctx.db, ctx.repository_id,
@@ -537,7 +537,7 @@ async def _get_build_logs(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, A
     from sqlalchemy import func, select
 
     from app.models.build_log_entry import BuildLogEntry
-    from app.services.build_service import BuildService
+    from app.services.integration.build_service import BuildService
 
     if not ctx.repository_id:
         return {"error": "缺少仓库上下文"}
@@ -589,7 +589,7 @@ async def _ensure_commit_index(ctx: ToolContext) -> None:
         return
     try:
         from app.models.async_db import get_async_db_context
-        from app.services.commit_index_service import CommitIndexService
+        from app.services.repository.commit_index_service import CommitIndexService
 
         async with get_async_db_context() as idb:
             await CommitIndexService().ensure(idb, ctx.repository_id, ctx.repo_path)
@@ -599,7 +599,7 @@ async def _ensure_commit_index(ctx: ToolContext) -> None:
 
 async def _review_recent_changes(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]:
     from app.core.config import get_config
-    from app.services.repository_browser_service import get_commits, get_diff
+    from app.services.repository.repository_browser_service import get_commits, get_diff
 
     n = min(max(1, int(args.get("n_commits") or 5)), get_config().agent.list_items_max)
     ref = str(args.get("ref") or "HEAD")
@@ -669,7 +669,7 @@ async def _who_changed(ctx: ToolContext, args: Dict[str, Any]) -> Dict[str, Any]
     end = int(args.get("end_line") or 0)
     approximate = False
     if symbol:
-        from app.services.search_service import SearchService
+        from app.services.search.search_service import SearchService
 
         result = await SearchService().find_definition(
             ctx.db, ctx.repository_id, symbol, repo_path=ctx.repo_path

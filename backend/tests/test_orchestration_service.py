@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 import httpx
 import pytest
 
-from app.services import orchestration_service as orch
+from app.services.platform import orchestration_service as orch
 
 
 def _client(handler) -> httpx.AsyncClient:

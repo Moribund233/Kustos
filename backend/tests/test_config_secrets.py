@@ -310,7 +310,7 @@ class AgentAdminServiceShim:
 
     @staticmethod
     def update_as_non_admin():
-        from app.services.agent_admin_service import AgentAdminService
+        from app.services.agent.agent_admin_service import AgentAdminService
 
         return AgentAdminService().update_config(
             values={}, version=0, api_key="sk-x", is_admin=False

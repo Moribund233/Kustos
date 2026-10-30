@@ -16,7 +16,7 @@ from sqlalchemy import func, select
 from statistics import median
 
 from app.models.repo_search_chunk import RepoSearchChunk
-from app.services.search_service import SearchService
+from app.services.search.search_service import SearchService
 
 
 def _gen_module(base: str, nfuncs: int, marker: str, marker_at: int = 0) -> str:

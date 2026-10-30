@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 async def process_agent_job(ctx, job_id: str) -> str:
     """arq 任务：执行一个 Agent 作业"""
-    from app.services.agent_service import AgentService
+    from app.services.agent.agent_service import AgentService
 
     await AgentService().process_job(uuid.UUID(str(job_id)))
     return str(job_id)

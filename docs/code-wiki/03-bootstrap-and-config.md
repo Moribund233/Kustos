@@ -255,7 +255,7 @@ logs/
 - `backend/app/lifespan.py`
 - `backend/app/core/init.py`（`AppInitializer`）
 - `backend/app/core/config_store.py`
-- `backend/app/services/config_service.py`
+- `backend/app/services/platform/config_service.py`
 - `backend/app/utils/init_database.py`、`db_migrate.py`
 - `backend/app/utils/logging.py`
 - `backend/alembic/versions/0001_initial.py`

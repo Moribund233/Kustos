@@ -5,7 +5,7 @@ from datetime import datetime
 from unittest.mock import AsyncMock, patch
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.notification import Notification
-from app.services import notification_service
+from app.services.messaging import notification_service
 from app.core.exception import NotFoundException
 
 
@@ -149,13 +149,13 @@ async def test_get_notifications_unread_only(async_db: AsyncSession, async_test_
 
 @pytest.mark.asyncio
 async def test_create_notification_sends_email(async_db: AsyncSession, async_test_user):
-    from app.services import notification_preference_service
+    from app.services.messaging import notification_preference_service
     await notification_preference_service.update_preferences(
         db=async_db, user_id=async_test_user.id, email_on_mention=True
     )
     async_test_user.email = "test@example.com"
 
-    with patch("app.services.notification_service.send_notification_email", new_callable=AsyncMock) as mock_email:
+    with patch("app.services.messaging.notification_service.send_notification_email", new_callable=AsyncMock) as mock_email:
         mock_email.return_value = True
         notif = await notification_service.create_notification(
             db=async_db,
@@ -176,12 +176,12 @@ async def test_create_notification_sends_email(async_db: AsyncSession, async_tes
 
 @pytest.mark.asyncio
 async def test_create_notification_no_email_when_disabled(async_db: AsyncSession, async_test_user):
-    from app.services import notification_preference_service
+    from app.services.messaging import notification_preference_service
     await notification_preference_service.update_preferences(
         db=async_db, user_id=async_test_user.id, email_on_mention=False
     )
 
-    with patch("app.services.notification_service.send_notification_email", new_callable=AsyncMock) as mock_email:
+    with patch("app.services.messaging.notification_service.send_notification_email", new_callable=AsyncMock) as mock_email:
         await notification_service.create_notification(
             db=async_db,
             user_id=async_test_user.id,
@@ -195,13 +195,13 @@ async def test_create_notification_no_email_when_disabled(async_db: AsyncSession
 
 @pytest.mark.asyncio
 async def test_create_notification_email_failure(async_db: AsyncSession, async_test_user):
-    from app.services import notification_preference_service
+    from app.services.messaging import notification_preference_service
     await notification_preference_service.update_preferences(
         db=async_db, user_id=async_test_user.id, email_on_mention=True
     )
     async_test_user.email = "test@example.com"
 
-    with patch("app.services.notification_service.send_notification_email", new_callable=AsyncMock) as mock_email:
+    with patch("app.services.messaging.notification_service.send_notification_email", new_callable=AsyncMock) as mock_email:
         mock_email.return_value = False
         notif = await notification_service.create_notification(
             db=async_db,
@@ -225,7 +225,7 @@ async def test_create_notification_sends_ws_push(async_db: AsyncSession, async_t
     """创建通知后自动推送 WebSocket 通知（携带未读数）"""
     mock_notify = AsyncMock(return_value=1)
 
-    with patch("app.services.notification_service.notify_user", mock_notify):
+    with patch("app.services.messaging.notification_service.notify_user", mock_notify):
         notif = await notification_service.create_notification(
             db=async_db,
             user_id=async_test_user.id,

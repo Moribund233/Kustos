@@ -5,8 +5,8 @@ import time
 
 import pytest
 
-from app.services import worker_registry as wr
-from app.services.worker_registry import WorkerRegistry, _worker_key
+from app.services.platform import worker_registry as wr
+from app.services.platform.worker_registry import WorkerRegistry, _worker_key
 from app.utils.realtime_bus import WORKER_ID
 
 

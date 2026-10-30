@@ -28,9 +28,9 @@ from fastapi.testclient import TestClient
 import app.api.v1.app_controller as app_ctl
 from app.core.config_store import update_sections
 from app.core.exception import ValidationException
-from app.services.config_service import get_config_service
-from app.services.retention_service import get_retention_service
-from app.services.token_service import create_access_token, create_token_pair, verify_token
+from app.services.platform.config_service import get_config_service
+from app.services.platform.retention_service import get_retention_service
+from app.services.auth.token_service import create_access_token, create_token_pair, verify_token
 from tests.test_helpers import create_test_repo
 
 #: 仓库根（测试容器 cwd=/app，但显式定位更稳）

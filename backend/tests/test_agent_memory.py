@@ -11,7 +11,7 @@ from app.models.agent import AgentJob, AgentSession
 from app.services.agent.providers import ModelReply, ToolCallRequest
 from app.services.agent.runtime import AgentRuntime, RunStatus
 from app.services.agent.tool_registry import ToolContext
-from app.services.agent_service import AgentService
+from app.services.agent.agent_service import AgentService
 
 
 class _CapturingProvider:

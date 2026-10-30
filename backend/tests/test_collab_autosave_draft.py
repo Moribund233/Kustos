@@ -14,7 +14,7 @@ from app.api.v1.collab_internal_controller import (
     INTERNAL_SECRET_HEADER,
     make_doc_key,
 )
-from app.services.token_service import create_access_token
+from app.services.auth.token_service import create_access_token
 from tests.test_helpers import create_test_repo
 
 SECRET = "test-internal-secret"
@@ -54,7 +54,7 @@ class TestCollabAutosaveDraft:
                 "path": "src/app.py",
             }
         )
-        monkeypatch.setattr("app.services.repository_browser_service.commit_file", mock)
+        monkeypatch.setattr("app.services.repository.repository_browser_service.commit_file", mock)
 
         resp = test_client.post(
             "/api/v1/collab/save",

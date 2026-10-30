@@ -237,10 +237,10 @@ flowchart TD
 
 ## 10. 相关源码
 
-- `backend/app/services/search_service.py`
-- `backend/app/services/search_admin_service.py`
+- `backend/app/services/search/search_service.py`
+- `backend/app/services/search/search_admin_service.py`
 - `backend/app/services/indexing/chunker.py`、`embeddings.py`、`vector_type.py`
-- `backend/app/services/commit_index_service.py`
+- `backend/app/services/repository/commit_index_service.py`
 - `backend/app/models/repo_search*.py`、`repo_commit_file.py`
 - `backend/app/api/v1/search_controller.py`、`search_admin_controller.py`
 - 测试：`test_search_service.py`、`test_search_semantic_tuning.py`、`test_chunk_*.py`、`test_embeddings.py`、`test_commit_index_service.py`、`test_index_debt.py`

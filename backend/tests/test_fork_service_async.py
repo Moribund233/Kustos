@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.repository import Repository
 from app.models.user import User
-from app.services import fork_service
+from app.services.repository import fork_service
 from app.core.exception import NotFoundException, ValidationException, AuthorizationException
 
 

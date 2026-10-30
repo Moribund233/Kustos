@@ -15,7 +15,7 @@ from types import SimpleNamespace
 import pytest
 
 import app.api.v1.app_controller as app_ctl
-import app.services.app_service as app_svc
+import app.services.platform.app_service as app_svc
 from app.utils import process_control
 
 

@@ -60,14 +60,14 @@ class TestWebhookDefaults:
         assert Config().webhook.delivery_timeout_seconds == 30.0
 
     def test_delivery_helper_fallback_is_30s(self):
-        from app.services.webhook_service import _delivery_timeout
+        from app.services.integration.webhook_service import _delivery_timeout
 
         assert _delivery_timeout() == 30.0
 
 
 class TestSearchResultsCap:
     def test_cap_reads_config(self):
-        from app.services.search_service import search_results_cap
+        from app.services.search.search_service import search_results_cap
 
         assert search_results_cap() == int(
             get_config_value("search", "max_results", 100) or 100
@@ -75,7 +75,7 @@ class TestSearchResultsCap:
 
     def test_clamp_semantics(self):
         """显式传参夹取到上限；None 取方法缺省（仍受上限约束）"""
-        from app.services.search_service import _clamp_results, search_results_cap
+        from app.services.search.search_service import _clamp_results, search_results_cap
 
         cap = search_results_cap()
         assert _clamp_results(None, default=20) == 20
@@ -91,7 +91,7 @@ class TestSearchKillSwitch:
         import uuid as uuid_mod
 
         from app.core.config import get_config
-        from app.services.search_service import SearchService
+        from app.services.search.search_service import SearchService
 
         monkeypatch.setattr(get_config().search, "enabled", False, raising=False)
         res = await SearchService().search_code(
@@ -163,7 +163,7 @@ class TestPushedBlobTooLarge:
         回归背景：``Tree.diff_to_tree`` 的 **self 是旧侧**——曾按「提交树→父」方向
         构造，根提交出 DELETED 漏判（本测试首跑即抓到该方向 bug）。
         """
-        from app.services.git_event_service import _pushed_blob_too_large
+        from app.services.integration.git_event_service import _pushed_blob_too_large
 
         work, commits = self._repo_with(tmp_path, [{"big.bin": b"a" * 4096}])
         zero = "0" * 40
@@ -178,7 +178,7 @@ class TestPushedBlobTooLarge:
 
     def test_parent_commit_growth_detected(self, tmp_path):
         """非根提交：同一文件由小变大（父树旧、本提交新）必须命中新增侧大小。"""
-        from app.services.git_event_service import _pushed_blob_too_large
+        from app.services.integration.git_event_service import _pushed_blob_too_large
 
         work, commits = self._repo_with(
             tmp_path, [{"f.bin": b"a" * 64}, {"f.bin": b"b" * 4096}]
@@ -188,7 +188,7 @@ class TestPushedBlobTooLarge:
 
     def test_deleted_large_file_not_flagged(self, tmp_path):
         """推送**删除**超限文件是修复行为，不得反被 ADDED 方向误伤拒绝。"""
-        from app.services.git_event_service import _pushed_blob_too_large
+        from app.services.integration.git_event_service import _pushed_blob_too_large
 
         work, commits = self._repo_with(
             tmp_path, [{"big.bin": b"a" * 4096}, {"big.bin": None}]

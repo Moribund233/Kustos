@@ -12,9 +12,9 @@ from sqlalchemy import select
 from app.models.branch import Branch
 from app.models.repository import Repository
 from app.models.user import User
-from app.services import branch_service
-from app.services import repository_service
-from app.services import user_service
+from app.services.repository import branch_service
+from app.services.repository import repository_service
+from app.services.auth import user_service
 from app.core.exception import NotFoundException, ConflictException, ValidationException, AuthorizationException
 
 

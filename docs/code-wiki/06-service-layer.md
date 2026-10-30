@@ -1,6 +1,29 @@
 # 06 · 服务层
 
-> 目标：按领域梳理 77 个服务文件的职责、关键函数与依赖，作为“改需求时该动哪里”的地图。
+> 目标：按领域梳理服务文件的职责、关键函数与依赖，作为“改需求时该动哪里”的地图。
+
+---
+
+## 0. 目录组织
+
+服务层按**领域**分包，与前端 `src/features/` 的切分口径一致：
+
+| 包 | 领域 | 覆盖 |
+| --- | --- | --- |
+| `services/repository/` | 仓库与 Git 对象 | 仓库本体、浏览器、分支、提交、成员、密钥、fork/star/watch、语言统计、活动审计 |
+| `services/collaboration/` | 协作内容 | Issue、Pull Request（评审/标签/关联/活动子域）、标签、行内评论、Release、协作邀请、统计看板 |
+| `services/messaging/` | 消息 | 站内通知、通知偏好、聊天附件 |
+| `services/lfs/` | Git LFS | 业务逻辑、存储后端、短时效 transfer token |
+| `services/search/` | 搜索 | 代码检索主服务、搜索/embedding 管理面 |
+| `services/integration/` | 外部集成 | Git hooks 回调、Webhook 投递与签名、CI 构建记录 |
+| `services/platform/` | 平台运维 | 应用控制、配置管理、数据库重置、指标与监控栈、容器编排、保留策略、worker 注册表 |
+| `services/agent/` | 内置 Agent | 会话编排、工具执行、provider 适配、配额 |
+| `services/auth/` | 认证与用户 | 令牌生命周期、撤销位图、OAuth 适配器、用户账号 |
+| `services/indexing/` | 索引 | 源码切块、embedding provider |
+| `services/realtime/` | 实时 | 事件总线、presence、房间、聊天、WS 出站推送 |
+
+约定与命名规范见 `backend/app/services/README.md`。子包 `__init__` 保持轻量
+（不 re-export），跨领域调用写全路径——让依赖方向在 import 语句里看得见。
 
 ---
 
