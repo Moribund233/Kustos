@@ -181,6 +181,38 @@ def test_deferred_imports_do_not_grow():
     )
 
 
+def test_controllers_do_not_import_each_other():
+    """控制器之间不得互相 import。
+
+    控制器是平级的：共享逻辑要么下沉到 ``api/guards.py``（FastAPI 依赖接线），
+    要么属于领域逻辑、下沉到 ``services/``。互相 import 会让「拆一个控制器」
+    变成跨文件手术，并让 ``api/v1`` 内部形成隐形依赖图。
+    """
+    violations = []
+    for path in sorted((APP_DIR / "api" / "v1").glob("*_controller.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in _iter_imports(tree):
+            if isinstance(node, ast.ImportFrom) and node.module:
+                if node.module.startswith("app.api.v1.") and node.module.endswith(
+                    "_controller"
+                ):
+                    violations.append(
+                        f"{path.name}:{node.lineno} → {node.module}"
+                    )
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name.startswith(
+                        "app.api.v1."
+                    ) and alias.name.endswith("_controller"):
+                        violations.append(
+                            f"{path.name}:{node.lineno} → {alias.name}"
+                        )
+    assert not violations, (
+        "控制器之间出现互相 import（共享逻辑应下沉到 guards 或 services）：\n  "
+        + "\n  ".join(violations)
+    )
+
+
 def test_models_package_does_not_hold_a_sync_engine():
     """``models`` 包只声明 Base 与导入模型——不得再持有同步引擎。
 

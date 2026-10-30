@@ -45,6 +45,15 @@ ROUTES = {
 
 39 个控制器、约 250+ 条路由声明。完整 OpenAPI 以运行实例 `/docs` / `/openapi.json` 为准。
 
+### 1.4 控制器契约（防回潮）
+
+- **控制器之间不互相 import**：共享的 FastAPI 依赖放 `api/guards.py`，领域逻辑放
+  `services/`。`tests/test_layer_boundary.py::test_controllers_do_not_import_each_other`
+  断言，违规直接变红。
+- **路由必须声明 `response_model`**：没有声明时 OpenAPI 只能生成 `unknown` 响应体，
+  前端 `pnpm api:generate` 拿到的类型随之退化为 `unknown`。存量按模块计数冻结在
+  `tests/test_response_model_contract.py`，只降不升；新增控制器默认必须全量声明。
+
 ---
 
 ## 2. 认证与权限
