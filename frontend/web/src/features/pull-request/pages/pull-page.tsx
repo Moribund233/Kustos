@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
+
+import i18n from "@/lib/i18n";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Check, Clock3, Eye, GitMerge, Link2, ShieldCheck, Users } from "lucide-react";
@@ -55,7 +57,9 @@ const AVATAR_TONES: AvatarTone[] = ["amber", "sage", "sky", "rose", "slate"];
 /** 后端错误信封 → 可展示的 Error；带上 HTTP 状态供 hooks 决定是否重试。 */
 function toApiError(body: unknown, status: number): Error & { status?: number } {
   const detail = (body as { detail?: string } | null | undefined)?.detail;
-  const error = new Error(detail || `请求失败（${status}）`) as Error & { status?: number };
+  const error = new Error(detail || i18n.t("pullRequest.requestFailed", { status })) as Error & {
+    status?: number;
+  };
   error.status = status;
   return error;
 }
@@ -67,7 +71,7 @@ function assertOk(res: { error?: unknown; response: { status: number } }): void 
 
 /** 用户显示名：全名优先，其次用户名。 */
 function displayName(user: { full_name?: string | null; username?: string } | null | undefined): string {
-  return user?.full_name || user?.username || "未知用户";
+  return user?.full_name || user?.username || i18n.t("pullRequest.unknownUser");
 }
 
 /** 头像字母：取名字前两个词的首字母。 */
@@ -118,7 +122,7 @@ export function PullPage() {
     queryKey: ["pull-requests", repoId],
     enabled: !!repoId && prNumber === null,
     queryFn: async () => {
-      if (!repoId) throw new Error("未选择仓库");
+      if (!repoId) throw new Error(i18n.t("pullRequest.noRepo"));
       const res = await api.GET("/api/v1/repositories/{repo_id}/pull-requests", {
         params: { path: { repo_id: repoId }, query: { page: 1, limit: 20 } },
       });
@@ -185,7 +189,7 @@ export function PullPage() {
     queryKey: ["branches", repoId],
     enabled: !!repoId,
     queryFn: async () => {
-      if (!repoId) throw new Error("未选择仓库");
+      if (!repoId) throw new Error(i18n.t("pullRequest.noRepo"));
       const res = await api.GET("/api/v1/repositories/{repo_id}/branches", {
         params: { path: { repo_id: repoId } },
       });
@@ -228,8 +232,11 @@ export function PullPage() {
         initials: initialsOf(review.reviewer),
         tone: toneFor(review.reviewer?.id),
         name: displayName(review.reviewer),
-        badge: "评审",
-        action: review.status === "approved" ? "刚刚批准了这些改动" : "刚刚请求修改",
+        badge: i18n.t("pullRequest.reviewBadge"),
+        action:
+          review.status === "approved"
+            ? i18n.t("pullRequest.justApproved")
+            : i18n.t("pullRequest.justRequestedChanges"),
         body: review.comment ?? undefined,
         at: review.created_at,
       });
@@ -240,7 +247,7 @@ export function PullPage() {
         initials: initialsOf(comment.author),
         tone: toneFor(comment.author?.id),
         name: displayName(comment.author),
-        action: "评论了该 PR",
+        action: i18n.t("pullRequest.commented"),
         body: comment.content,
         at: comment.created_at,
       });
@@ -262,13 +269,15 @@ export function PullPage() {
     if (protection?.require_code_review) {
       conditions.push({
         done: hasApproval,
-        label: hasApproval ? "已获 1 个非作者批准" : "等待 1 个非作者批准",
+        label: hasApproval
+            ? i18n.t("pullRequest.approvedOnce")
+            : i18n.t("pullRequest.awaitingOne"),
       });
     }
     // shortcut: 后端 strict_status_checks 开关无接口可读，这里按「无 CI 即通过」渲染；
     // 真正裁决以服务端合并请求为准，失败 detail 会经 toast 展示
     if (protection?.require_status_checks) {
-      conditions.push({ done: true, label: "状态检查通过（当前无 CI 检查记录）" });
+      conditions.push({ done: true, label: i18n.t("pullRequest.checksPassed") });
     }
     return conditions;
   }, [protection, hasApproval]);
@@ -296,7 +305,11 @@ export function PullPage() {
     {
       onSuccess: (_data, status) => {
         invalidatePr();
-        toast.success(status === "approved" ? "评审已提交，已记录 1 个批准。" : "已请求修改，作者会收到通知。");
+        toast.success(
+          status === "approved"
+            ? t("pullRequest.reviewSubmitted")
+            : t("pullRequest.changesRequestedToast"),
+        );
       },
       onError: (error) => toast.error(error.message),
     },
@@ -316,7 +329,7 @@ export function PullPage() {
     {
       onSuccess: () => {
         invalidatePr();
-        toast.success("Pull Request 已合并。");
+        toast.success(t("pullRequest.mergedToast"));
       },
       onError: (error) => toast.error(error.message),
     },
@@ -354,12 +367,12 @@ export function PullPage() {
   }, [setCrumbs, t, prLabel]);
 
   if (!repo) {
-    return <PullEmpty title="未选择仓库" hint="在侧栏选择一个仓库后，即可查看它的 Pull Request。" />;
+    return <PullEmpty title={t("pullRequest.noRepo")} hint={t("pullRequest.noRepoHint")} />;
   }
 
   if (prNumber === null) {
     const items = listQuery.data?.items ?? [];
-    if (listQuery.isPending) return <PullEmpty title="正在加载 Pull Request…" />;
+    if (listQuery.isPending) return <PullEmpty title={t("pullRequest.loadingPr")} />;
     if (items.length === 0) {
       return (
         <PullEmpty title={t("pullRequest.noPrTitle")} hint={t("pullRequest.noPrHint")}>
@@ -367,12 +380,12 @@ export function PullPage() {
         </PullEmpty>
       );
     }
-    return <PullEmpty title="正在打开 Pull Request…" />;
+    return <PullEmpty title={t("pullRequest.openingPr")} />;
   }
 
-  if (detailQuery.isPending) return <PullEmpty title="正在加载 Pull Request…" />;
+  if (detailQuery.isPending) return <PullEmpty title={t("pullRequest.loadingPr")} />;
   if (!pr) {
-    return <PullEmpty title="Pull Request 不存在" hint={detailQuery.error?.message ?? "请检查编号后重试。"} />;
+    return <PullEmpty title={t("pullRequest.prNotFound")} hint={detailQuery.error?.message ?? t("pullRequest.checkNumber")} />;
   }
 
   // 提前收窄：面板闭包里只认这两个确定值
@@ -383,7 +396,11 @@ export function PullPage() {
   const stateLabel = STATUS_LABEL[pr.status] ?? pr.status;
   const changesRequested = reviews.some((review) => review.status === "changes_requested");
   const approvals = reviews.filter((review) => review.status === "approved").length;
-  const reviewLabel = changesRequested ? "请求修改" : approvals > 0 ? "已批准" : "待评审";
+  const reviewLabel = changesRequested
+    ? t("pullRequest.requestChangesLabel")
+    : approvals > 0
+      ? t("pullRequest.approvedLabel")
+      : t("pullRequest.awaitingReviewLabel");
   const canReview = pr.status === "open" && !reviewMutation.isPending;
 
   const dock: DockTab[] = [
@@ -413,14 +430,14 @@ export function PullPage() {
             <span className="text-muted font-mono">{pr.target_branch}</span>
             <span className="text-faint">·</span>
             <span>
-              {formatRelative(pr.created_at)}由 <span className="text-muted">{authorName}</span> 发起
+              {t("pullRequest.byAuthor", { time: formatRelative(pr.created_at), author: authorName })}
             </span>
             {/* 后端没有 PR 提交数字段，提交数展示待 commits 接口对接 */}
             {diffPayload ? (
               <>
                 <span className="text-faint">·</span>
                 <span className="font-mono">{diffPayload.stats.files_changed}</span>
-                <span>个文件</span>
+                <span>{t("pullRequest.filesUnit")}</span>
                 <span className="text-sage font-mono">+{diffPayload.stats.additions}</span>
                 <span className="text-rose font-mono">−{diffPayload.stats.deletions}</span>
               </>
@@ -435,7 +452,7 @@ export function PullPage() {
             className={`${DECISION_BTN} bg-amber border-amber hover:bg-amber-2 hover:border-amber-2 text-ink-950`}
           >
             <Check className="size-[15px]" aria-hidden="true" />
-            {myState === "approved" ? "已批准" : t("pullRequest.approve")}
+            {myState === "approved" ? t("pullRequest.approvedLabel") : t("pullRequest.approve")}
           </button>
           <button
             type="button"
@@ -443,7 +460,7 @@ export function PullPage() {
             disabled={!canReview || myState === "changes_requested"}
             className={`${DECISION_BTN} border-rose/30 bg-rose/5 text-rose-2 hover:bg-rose/12 hover:border-rose/40`}
           >
-            {myState === "changes_requested" ? "已请求修改" : t("pullRequest.requestChanges")}
+            {myState === "changes_requested" ? t("pullRequest.requestChangesLabel") : t("pullRequest.requestChanges")}
           </button>
           <button
             type="button"
@@ -465,7 +482,7 @@ export function PullPage() {
         />
         <TabButton
           active={tab === "files"}
-          label="文件变更"
+          label={t("pullRequest.tabFiles")}
           count={diffPayload?.stats.files_changed}
           onClick={() => setTab("files")}
         />
@@ -501,14 +518,14 @@ export function PullPage() {
               <ToneAvatar initials={initialsOf(pr.author)} tone={toneFor(pr.author?.id)} />
               <div className="min-w-0">
                 <strong className="text-bone block text-sm font-semibold">{authorName}</strong>
-                <span className="text-muted-2 block text-2xs">{formatRelative(pr.created_at)}发起</span>
+                <span className="text-muted-2 block text-2xs">{t("pullRequest.startedAt", { time: formatRelative(pr.created_at) })}</span>
               </div>
-              <StatusPill className="ml-auto h-[19px] px-2 text-2xs">作者</StatusPill>
+              <StatusPill className="ml-auto h-[19px] px-2 text-2xs">{t("pullRequest.authorChip")}</StatusPill>
             </div>
             {pr.description ? (
               <Markdown content={pr.description} className="pt-3.5" />
             ) : (
-              <p className="text-faint pt-3.5 text-xs">（没有描述）</p>
+              <p className="text-faint pt-3.5 text-xs">{t("pullRequest.noDescription")}</p>
             )}
           </article>
 
@@ -517,7 +534,7 @@ export function PullPage() {
           {/* 评审时间线（详情里的评审 + 评论） */}
           <ol aria-label={t("pullRequest.timeline")} className="mt-[22px]">
             {timeline.length === 0 ? (
-              <li className="text-faint py-2 text-xs">还没有评审或评论。</li>
+              <li className="text-faint py-2 text-xs">{t("pullRequest.noReviewsYet")}</li>
             ) : (
               timeline.map((event, index, all) => (
                 <li key={event.id} className="relative grid grid-cols-[30px_minmax(0,1fr)] gap-[11px] pb-[18px] last:pb-0">
@@ -587,16 +604,16 @@ export function PullPage() {
         <div className="min-w-0">
           <div className="text-muted-2 border-edge-1 flex items-center gap-2.5 border-b pb-2.5 text-xs">
             <span>
-              <span className="font-mono">{diffPayload?.stats.files_changed ?? "—"}</span> 个文件变更
+              <span className="font-mono">{diffPayload?.stats.files_changed ?? "—"}</span> {t("pullRequest.filesChangedUnit")}
             </span>
             <span className="text-sage font-mono">+{diffPayload?.stats.additions ?? 0}</span>
             <span className="text-rose font-mono">−{diffPayload?.stats.deletions ?? 0}</span>
-            <span className="text-faint ml-auto">文件头可展开/收起，点击行可锚定评论</span>
+            <span className="text-faint ml-auto">{t("pullRequest.diffHint")}</span>
           </div>
           {diffQuery.isPending ? (
-            <p className="text-faint py-6 text-center text-base">正在加载 diff…</p>
+            <p className="text-faint py-6 text-center text-base">{t("pullRequest.loadingDiff")}</p>
           ) : diffQuery.isError ? (
-            <p className="text-rose-2 py-6 text-center text-base">{diffQuery.error?.message ?? "diff 加载失败"}</p>
+            <p className="text-rose-2 py-6 text-center text-base">{diffQuery.error?.message ?? t("pullRequest.diffLoadFailed")}</p>
           ) : diffPayload ? (
             <DiffViewer payload={diffPayload} className="pt-3" />
           ) : null}
@@ -685,9 +702,9 @@ interface PullPanelProps {
 
 /** 评审状态 → 胶囊色与文案。 */
 function reviewStateStyle(state: string): { tone: "good" | "bad" | "warn"; label: string } {
-  if (state === "approved") return { tone: "good", label: "已批准" };
-  if (state === "changes_requested") return { tone: "bad", label: "已请求修改" };
-  return { tone: "warn", label: "等待评审" };
+  if (state === "approved") return { tone: "good", label: i18n.t("pullRequest.approvedLabel") };
+  if (state === "changes_requested") return { tone: "bad", label: i18n.t("pullRequest.requestChangesLabel") };
+  return { tone: "warn", label: i18n.t("pullRequest.waitingReview") };
 }
 
 /** 右缘悬浮面板：评审人 / 关联 Issue / 合并控件三个 pane。 */
@@ -739,7 +756,7 @@ function PullPanel({
         void queryClient.invalidateQueries({ queryKey: ["pull-request-reviewers", repoId, prNumber] });
         void queryClient.invalidateQueries({ queryKey: ["pull-request", repoId, prNumber] });
         setInviteOpen(false);
-        toast.success("已发出评审请求。");
+        toast.success(t("pullRequest.reviewRequestedToast"));
       },
       onError: (error) => toast.error(error.message),
     },
@@ -756,7 +773,7 @@ function PullPanel({
     return (
       <RailBlock title={t("pullRequest.linkedIssues")}>
         {issues.length === 0 ? (
-          <p className="text-faint py-2.5 text-xs">还没有关联的 Issue。</p>
+          <p className="text-faint py-2.5 text-xs">{t("pullRequest.noLinkedIssue")}</p>
         ) : (
           issues.map((issue) => (
             <div key={issue.id} className="border-edge-1 flex items-start gap-2 border-t py-2.5 first:border-t-0">
@@ -765,7 +782,7 @@ function PullPanel({
                 <span className="text-bone-2 text-xs leading-snug">{issue.title}</span>
                 <span className="text-faint text-2xs">
                   <span className="font-mono">#{issue.issue_number}</span> · {issue.status}
-                  {issue.closes_on_merge ? " · 合并时关闭" : ""}
+                  {issue.closes_on_merge ? t("pullRequest.closesOnMergeShort") : ""}
                 </span>
               </div>
             </div>
@@ -773,10 +790,10 @@ function PullPanel({
         )}
         <button
           type="button"
-          onClick={() => toast.info("在 PR 描述里写「Fixes #123」即可自动关联同仓库 Issue。")}
+          onClick={() => toast.info(t("pullRequest.linkIssueInfo"))}
           className="text-amber-2 hover:text-amber mt-2.5 text-xs transition-colors"
         >
-          关联 Issue
+          {t("pullRequest.linkIssue")}
         </button>
       </RailBlock>
     );
@@ -787,21 +804,21 @@ function PullPanel({
     const closed = pr.status === "closed";
     const ready = !mergeBlocked;
     const conditions: MergeCond[] =
-      mergeConditions.length > 0 ? mergeConditions : [{ done: true, label: "目标分支无保护要求" }];
+      mergeConditions.length > 0 ? mergeConditions : [{ done: true, label: t("pullRequest.noProtection") }];
     const mergeTitle = merged
-      ? "已合并"
+      ? t("pullRequest.mergedState")
       : closed
-        ? "已关闭"
+        ? t("pullRequest.closedState")
         : ready
-          ? "可以合并"
+          ? t("pullRequest.canMerge")
           : t("pullRequest.mergeBlocked");
     const mergeDesc = merged
-      ? `${displayName(pr.merged_by)} 合并到了 ${pr.target_branch}。`
+      ? t("pullRequest.mergedBy", { user: displayName(pr.merged_by), branch: pr.target_branch })
       : closed
-        ? "该 PR 已关闭，不能继续合并。"
+        ? t("pullRequest.closedCannotMerge")
         : ready
-          ? "分支保护条件已全部满足。"
-          : "以下合并条件尚未满足：";
+          ? t("pullRequest.conditionsMet")
+          : t("pullRequest.conditionsPending");
 
     return (
       <RailBlock title={t("pullRequest.merge")}>
@@ -825,12 +842,12 @@ function PullPanel({
             className="bg-amber border-amber text-ink-950 inline-flex h-8 w-full items-center justify-center gap-[7px] rounded-md border text-sm font-semibold opacity-50 disabled:pointer-events-none"
           >
             <GitMerge className="size-[15px]" aria-hidden="true" />
-            {merged ? "已合并" : "合并"}
+            {merged ? t("pullRequest.mergedState") : t("pullRequest.mergeAction")}
           </button>
           <p className="text-faint mt-2.5 flex items-start gap-[5px] text-2xs leading-[1.45]">
             <ShieldCheck className="mt-px size-[11px] shrink-0" aria-hidden="true" />
             <span>
-              <span className="font-mono">{pr.target_branch}</span> 的合并条件由服务端分支保护裁决；仓库所有者可带原因覆写，覆写会被审计。
+              <span className="font-mono">{pr.target_branch}</span> {t("pullRequest.mergePolicyHint", { branch: "" })}
             </span>
           </p>
         </div>
@@ -851,9 +868,9 @@ function PullPanel({
             <ToneAvatar initials={initialsOf(pr.author)} tone={toneFor(pr.author.id)} size="sm" />
             <span className="text-bone-2 truncate text-xs">
               {displayName(pr.author)}
-              {pr.author.id === me?.id ? <span className="text-faint">（你）</span> : null}
+              {pr.author.id === me?.id ? <span className="text-faint">{t("pullRequest.youSuffix")}</span> : null}
             </span>
-            <StatusPill className="ml-auto h-[19px] flex-none px-2 text-2xs">作者</StatusPill>
+            <StatusPill className="ml-auto h-[19px] flex-none px-2 text-2xs">{t("pullRequest.authorChip")}</StatusPill>
           </li>
         ) : null}
         {reviewerRows.map((row) => {
@@ -870,7 +887,7 @@ function PullPanel({
               <ToneAvatar initials={initialsOf(row.user)} tone={toneFor(row.user.id)} size="sm" />
               <span className="text-bone-2 truncate text-xs">
                 {displayName(row.user)}
-                {isYou ? <span className="text-faint">（你）</span> : null}
+                {isYou ? <span className="text-faint">{t("pullRequest.youSuffix")}</span> : null}
               </span>
               <StatusPill tone={style.tone} className="ml-auto h-[19px] flex-none px-2 text-2xs">
                 {style.label}
@@ -879,7 +896,7 @@ function PullPanel({
           );
         })}
         {reviewerRows.length === 0 ? (
-          <li className="text-faint py-2 text-xs">还没有人被请求评审。</li>
+          <li className="text-faint py-2 text-xs">{t("pullRequest.noReviewersYet")}</li>
         ) : null}
       </ul>
       <button
@@ -887,13 +904,13 @@ function PullPanel({
         onClick={() => setInviteOpen((open) => !open)}
         className="text-amber-2 hover:text-amber mt-2.5 text-xs transition-colors"
       >
-        {inviteOpen ? "收起候选" : "邀请评审"}
+        {inviteOpen ? t("pullRequest.collapseCandidates") : t("pullRequest.inviteReviewer")}
       </button>
       {inviteOpen ? (
         <ul className="border-edge-1 mt-1.5 flex flex-col gap-1 border-t pt-2">
-          {membersQuery.isPending ? <li className="text-faint text-xs">正在加载成员…</li> : null}
+          {membersQuery.isPending ? <li className="text-faint text-xs">{t("pullRequest.loadingMembers")}</li> : null}
           {membersQuery.isError ? (
-            <li className="text-rose-2 text-xs">成员列表加载失败：{membersQuery.error?.message}</li>
+            <li className="text-rose-2 text-xs">{t("pullRequest.membersLoadFailed", { error: membersQuery.error?.message ?? "" })}</li>
           ) : null}
           {inviteCandidates.map((member) => (
             <li key={member.id}>
@@ -904,12 +921,12 @@ function PullPanel({
                 className="text-muted-2 hover:text-bone-2 flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs transition-colors disabled:pointer-events-none disabled:opacity-50"
               >
                 <span className="truncate">{member.name}</span>
-                <span className="text-amber-2 ml-auto flex-none text-2xs">请求评审</span>
+                <span className="text-amber-2 ml-auto flex-none text-2xs">{t("pullRequest.requestReview")}</span>
               </button>
             </li>
           ))}
           {membersQuery.isSuccess && inviteCandidates.length === 0 ? (
-            <li className="text-faint text-xs">没有可邀请的仓库成员。</li>
+            <li className="text-faint text-xs">{t("pullRequest.noInvitable")}</li>
           ) : null}
         </ul>
       ) : null}
@@ -921,7 +938,7 @@ function PullPanel({
           className="border-edge-2 text-bone-2 hover:border-edge-3 hover:bg-ink-750 inline-flex h-8 items-center justify-start gap-[7px] rounded-md border px-2.5 text-xs font-medium transition-colors disabled:pointer-events-none disabled:opacity-50"
         >
           <Check className="size-[14px]" aria-hidden="true" />
-          {myState === "approved" ? "已批准" : t("pullRequest.approve")}
+          {myState === "approved" ? t("pullRequest.approvedLabel") : t("pullRequest.approve")}
         </button>
         <button
           type="button"
@@ -929,7 +946,7 @@ function PullPanel({
           disabled={pr.status !== "open" || reviewPending || myState === "changes_requested"}
           className="border-rose/25 bg-rose/5 text-rose-2 hover:bg-rose/12 hover:border-rose/40 inline-flex h-8 items-center justify-start rounded-md border px-2.5 text-xs font-medium transition-colors disabled:pointer-events-none disabled:opacity-50"
         >
-          {myState === "changes_requested" ? "已请求修改" : t("pullRequest.requestChanges")}
+          {myState === "changes_requested" ? t("pullRequest.requestChangesLabel") : t("pullRequest.requestChanges")}
         </button>
       </div>
     </RailBlock>
