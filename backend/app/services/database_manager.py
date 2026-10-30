@@ -4,15 +4,14 @@
 提供统一的数据库重置、初始化和清理功能，
 用于调试接口和测试场景。
 """
+import asyncio
 import gc
 import logging
 from typing import Optional
-from sqlalchemy import create_engine, text
-from sqlalchemy.engine import Engine
+from sqlalchemy import text
 
 from app.core.config import get_config
-from app.core.db_url import sync_db_url
-from app.models import get_engine, init_engine
+from app.models.async_db import close_async_engine, get_async_db_context
 from app.utils.init_database import DatabaseInitializer
 
 logger = logging.getLogger(__name__)
@@ -85,22 +84,12 @@ class DatabaseResetManager:
 
     async def _close_connections(self) -> None:
         """关闭所有现有数据库连接"""
-        # 关闭异步引擎
+        # 关闭异步引擎（应用唯一的运行时引擎）
         try:
-            from app.models.async_db import close_async_engine
             await close_async_engine()
             logger.debug("异步引擎已关闭")
         except Exception as e:
             logger.warning(f"关闭异步引擎时出错: {e}")
-
-        # 关闭同步引擎
-        try:
-            sync_engine = get_engine()
-            if sync_engine:
-                sync_engine.dispose()
-                logger.debug("同步引擎已关闭")
-        except Exception as e:
-            logger.warning(f"关闭同步引擎时出错: {e}")
 
         # 强制垃圾回收
         gc.collect()
@@ -113,59 +102,48 @@ class DatabaseResetManager:
 
     async def _drop_postgresql_data(self) -> None:
         """删除 PostgreSQL 所有表"""
-        temp_engine = self._create_temp_engine()
-        try:
-            with temp_engine.connect() as conn:
-                # 获取所有表
-                result = conn.execute(text("""
-                    SELECT tablename FROM pg_tables
-                    WHERE schemaname = 'public'
-                """))
-                tables = [row[0] for row in result.fetchall()]
+        # 用异步引擎（应用的运行时引擎）执行 DDL，避免在事件循环里跑同步 IO
+        async with get_async_db_context() as db:
+            result = await db.execute(text("""
+                SELECT tablename FROM pg_tables
+                WHERE schemaname = 'public'
+            """))
+            tables = [row[0] for row in result.fetchall()]
 
-                # 删除每个表
-                dropped_count = 0
-                for table in tables:
-                    if self._is_valid_table_name(table):
-                        conn.execute(text(f'DROP TABLE IF EXISTS "{table}" CASCADE'))
-                        dropped_count += 1
-                    else:
-                        logger.warning(f"跳过非法表名: {table}")
+            dropped_count = 0
+            for table in tables:
+                if self._is_valid_table_name(table):
+                    await db.execute(text(f'DROP TABLE IF EXISTS "{table}" CASCADE'))
+                    dropped_count += 1
+                else:
+                    logger.warning(f"跳过非法表名: {table}")
 
-                conn.commit()
-                logger.info(f"已删除 PostgreSQL 数据库中的 {dropped_count} 个表")
-        finally:
-            temp_engine.dispose()
+            await db.commit()
+            logger.info(f"已删除 PostgreSQL 数据库中的 {dropped_count} 个表")
 
-    def _create_tables(self) -> None:
+    async def _create_tables(self) -> None:
         """重新创建数据库表（通过 Alembic 迁移）"""
-        # 重新初始化引擎
-        init_engine()
+        # Alembic 需要同步驱动，只能同步执行——放到线程池，别阻塞事件循环
+        def _migrate() -> bool:
+            initializer = DatabaseInitializer()
+            return initializer.run_migrations()["success"]
 
-        # 重建表结构（走 Alembic 迁移，含历史库 stamp 认领）
-        initializer = DatabaseInitializer()
-        success = initializer.run_migrations()["success"]
+        success = await asyncio.to_thread(_migrate)
 
         if not success:
             raise RuntimeError("创建表失败")
 
         logger.info("数据库表已通过 Alembic 迁移重建")
 
-    def _bootstrap_admin(self) -> bool:
+    async def _bootstrap_admin(self) -> bool:
         """重置后自动引导管理员用户"""
         initializer = DatabaseInitializer()
-        result = initializer.autobootstrap_admin()
+        # 管理员引导走一次性同步会话（见 utils/init_database 的「同步引擎的边界」），
+        # 放到线程池执行，别阻塞事件循环
+        result = await asyncio.to_thread(initializer.autobootstrap_admin)
         if result:
             logger.info("管理员用户引导完成")
         return result
-
-    def _create_temp_engine(self) -> Engine:
-        """创建临时引擎用于删除操作"""
-        return create_engine(
-            sync_db_url(self.db_url),
-            connect_args={"connect_timeout": 10},
-            pool_pre_ping=True
-        )
 
     @staticmethod
     def _is_valid_table_name(table_name: str) -> bool:

@@ -4,16 +4,29 @@
 提供数据库迁移、首次运行管理员引导等功能。
 schema 演进统一走 Alembic 迁移（utils/db_migrate），不再使用 create_all。
 管理员凭据通过环境变量注入，不在代码中硬编码。
+
+**同步引擎的边界**
+--------------------
+应用运行时的数据库引擎是**异步**的（:mod:`app.models.async_db`）。
+本模块里的同步引擎只服务于两类「一次性运维动作」，且都是**用完即弃**的
+（创建 → 执行 → ``dispose``），不留全局状态：
+
+- Alembic 迁移（迁移框架本身要求同步驱动）；
+- 管理员引导 / 重设密码（启动期或 CLI 执行，此时没有运行中的事件循环）。
+
+之所以不用异步引擎做引导：异步引擎一旦创建就绑定在当时的事件循环上，
+而启动期的 ``asyncio.run`` 用的是临时循环——用它建好的引擎留给后续
+uvicorn 事件循环会直接报「attached to a different loop」。
 """
 import os
 from typing import Optional
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker
 
+from app.core.config import get_config
 from app.core.db_url import sync_db_url
-from app.models import Base
 from app.utils.logging import get_named_logger
 
 logger = get_named_logger("database")
@@ -22,11 +35,6 @@ logger = get_named_logger("database")
 ENV_ADMIN_USERNAME = "KUSTOS_ADMIN_USERNAME"
 ENV_ADMIN_PASSWORD = "KUSTOS_ADMIN_PASSWORD"
 ENV_ADMIN_EMAIL = "KUSTOS_ADMIN_EMAIL"
-
-
-def _to_sync_db_url(url: str) -> str:
-    """归一化为同步 URL（用于迁移和命令行工具），实现见 :mod:`app.core.db_url`"""
-    return sync_db_url(url)
 
 
 class DatabaseInitializer:
@@ -38,20 +46,21 @@ class DatabaseInitializer:
 
     def __init__(self, db_url: Optional[str] = None):
         self.db_url = db_url
-        self._engine = None
-        self._SessionLocal: sessionmaker | None = None
 
-    def _get_sync_engine(self):
-        """获取同步引擎（bootstrap 等操作需要同步连接）"""
-        if self._engine is None:
-            if self.db_url:
-                sync_url = _to_sync_db_url(self.db_url)
-            else:
-                from app.core.config import get_config
-                config = get_config()
-                sync_url = _to_sync_db_url(config.database.url)
-            self._engine = create_engine(sync_url)
-        return self._engine
+    def _resolve_sync_url(self) -> str:
+        """解析同步连接串：显式传入优先，否则读配置。"""
+        if self.db_url:
+            return sync_db_url(self.db_url)
+        return sync_db_url(get_config().database.url)
+
+    def _open_session(self):
+        """打开一个**一次性**同步会话（调用方负责关闭与释放引擎）。
+
+        用完即弃是刻意的：同步引擎不进全局状态，避免与应用内的异步引擎
+        形成两套并行的连接池。
+        """
+        engine = create_engine(self._resolve_sync_url())
+        return engine, sessionmaker(bind=engine)()
 
     def run_migrations(self, db_url: Optional[str] = None) -> dict:
         """
@@ -91,21 +100,23 @@ class DatabaseInitializer:
         from app.models.user import User
         from app.utils.password_utils import get_password_hash
 
-        session = self._get_session()
+        username = os.environ.get(ENV_ADMIN_USERNAME, "admin")
+        password = os.environ.get(ENV_ADMIN_PASSWORD)
+        email = os.environ.get(ENV_ADMIN_EMAIL, "admin@example.com")
+
+        if not password:
+            logger.warning(
+                f"{ENV_ADMIN_PASSWORD} 未设置，跳过管理员自动创建。"
+                f"请通过注册接口或设置 {ENV_ADMIN_PASSWORD} 环境变量创建管理员。"
+            )
+            return True
+
+        engine, session = self._open_session()
         try:
-            admin_exists = session.query(User).filter(User.is_admin == True).first()
+            admin_exists = session.execute(
+                select(User).where(User.is_admin == True).limit(1)
+            ).scalars().first()
             if admin_exists:
-                return True
-
-            username = os.environ.get(ENV_ADMIN_USERNAME, "admin")
-            password = os.environ.get(ENV_ADMIN_PASSWORD)
-            email = os.environ.get(ENV_ADMIN_EMAIL, "admin@example.com")
-
-            if not password:
-                logger.warning(
-                    f"{ENV_ADMIN_PASSWORD} 未设置，跳过管理员自动创建。"
-                    f"请通过注册接口或设置 {ENV_ADMIN_PASSWORD} 环境变量创建管理员。"
-                )
                 return True
 
             admin = User(
@@ -134,6 +145,7 @@ class DatabaseInitializer:
             return False
         finally:
             session.close()
+            engine.dispose()
 
     def reset_admin_password(self, new_password: str) -> bool:
         """
@@ -151,10 +163,13 @@ class DatabaseInitializer:
         from app.models.user import User
         from app.utils.password_utils import get_password_hash
 
-        session = self._get_session()
+        username = os.environ.get(ENV_ADMIN_USERNAME, "admin")
+
+        engine, session = self._open_session()
         try:
-            username = os.environ.get(ENV_ADMIN_USERNAME, "admin")
-            admin = session.query(User).filter(User.username == username).first()
+            admin = session.execute(
+                select(User).where(User.username == username).limit(1)
+            ).scalars().first()
             if admin is None:
                 logger.error(f"管理员用户不存在: {username}")
                 return False
@@ -168,13 +183,7 @@ class DatabaseInitializer:
             return False
         finally:
             session.close()
-
-    def _get_session(self) -> Session:
-        """获取数据库会话"""
-        if self._SessionLocal is None:
-            engine = self._get_sync_engine()
-            self._SessionLocal = sessionmaker(bind=engine)
-        return self._SessionLocal()
+            engine.dispose()
 
 
 def init_database(db_url: Optional[str] = None) -> bool:
@@ -186,7 +195,7 @@ def init_database(db_url: Optional[str] = None) -> bool:
     2. 首次运行自动创建管理员用户（由 autobootstrap_admin 控制）
 
     Args:
-        db_url: 数据库连接URL，默认使用models中定义的URL
+        db_url: 数据库连接URL，默认使用配置中的 URL
 
     Returns:
         bool: 初始化是否成功

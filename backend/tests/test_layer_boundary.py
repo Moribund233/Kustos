@@ -42,7 +42,8 @@ LAYER_RULES: dict = {
 ROOT_LAYER = "root"
 
 #: 全仓函数体内 import 的数量上限（棘轮）。每清理一批就下调。
-_DEFERRED_BASELINE = 479
+#: 2026-10-30：479 → 477（清理 config.toml 参数链时顺带提升了两处模块级导入）。
+_DEFERRED_BASELINE = 477
 
 
 def _layer_of(path: pathlib.Path) -> str:
@@ -177,4 +178,40 @@ def test_deferred_imports_do_not_grow():
         f"函数体内 import 数量上升到 {total}（基线 {_DEFERRED_BASELINE}）。"
         "新增延迟导入前请先确认它不违反分层；"
         "若确实清理了一批旧债，请同步下调 _DEFERRED_BASELINE。"
+    )
+
+
+def test_models_package_does_not_hold_a_sync_engine():
+    """``models`` 包只声明 Base 与导入模型——不得再持有同步引擎。
+
+    应用的运行时引擎是**异步**的（:mod:`app.models.async_db`）。同步驱动只允许
+    出现在 Alembic 迁移工具链与一次性运维动作里；一旦在包入口重新长出
+    ``create_engine`` / ``SessionLocal``，就等于复活了「同步/异步双引擎」，
+    连接池会变成两套并行状态。
+    """
+    forbidden = {
+        "create_engine",
+        "sessionmaker",
+        "SessionLocal",
+        "init_engine",
+        "get_engine",
+    }
+    src = (APP_DIR / "models" / "__init__.py").read_text(encoding="utf-8")
+    tree = ast.parse(src)
+    hits = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                if alias.name in forbidden:
+                    hits.append(f"from {node.module} import {alias.name}")
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name.split(".")[-1] in forbidden:
+                    hits.append(f"import {alias.name}")
+        elif isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id in forbidden:
+                    hits.append(f"赋值 {target.id}")
+    assert not hits, (
+        "models/__init__.py 不应再持有同步引擎：" + "、".join(hits)
     )

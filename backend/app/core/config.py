@@ -427,6 +427,31 @@ class DatabaseSettings(SectionSettings):
             return self.stress_pool_size + self.stress_max_overflow
         return self.pool_size + self.max_overflow
 
+    def resolve_pool_params(self) -> dict:
+        """解析出可直接喂给 SQLAlchemy ``create_engine`` 的连接池参数。
+
+        压力测试模式取 ``stress_*`` 对应值，其余取常规值。
+
+        Returns:
+            dict: ``pool_size`` / ``max_overflow`` / ``pool_timeout`` /
+            ``pool_recycle`` / ``echo``
+        """
+        if self.is_stress_test:
+            return {
+                "pool_size": self.stress_pool_size,
+                "max_overflow": self.stress_max_overflow,
+                "pool_timeout": self.stress_pool_timeout,
+                "pool_recycle": self.stress_pool_recycle,
+                "echo": self.stress_echo,
+            }
+        return {
+            "pool_size": self.pool_size,
+            "max_overflow": self.max_overflow,
+            "pool_timeout": self.pool_timeout,
+            "pool_recycle": self.pool_recycle,
+            "echo": self.echo,
+        }
+
     @staticmethod
     def _mask_url(url: str) -> str:
         """掩码数据库 URL，隐藏敏感信息"""

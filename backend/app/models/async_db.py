@@ -20,7 +20,6 @@ from sqlalchemy.pool import NullPool
 from app.core.config import get_config
 from app.core.db_url import async_db_url
 from app.core.exception import is_client_error
-from app.models import _resolve_pool_config
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +67,7 @@ def _create_async_engine_with_config() -> AsyncEngine:
 
     async_url = _get_async_url(db_config.url)
 
-    pool_config = _resolve_pool_config(db_config)
+    pool_config = db_config.resolve_pool_params()
     engine = create_async_engine(
         async_url,
         pool_pre_ping=True,

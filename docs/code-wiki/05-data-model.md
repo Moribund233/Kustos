@@ -21,8 +21,9 @@
 ### 1.2 数据库
 
 - **仅 PostgreSQL**（`core/db_url.py` 校验），迁移启用 `vector` 扩展。
-- 同步引擎 `psycopg2`（`models/__init__.py`），异步引擎 `asyncpg`（`models/async_db.py`）。
-- 连接池参数按 `database.is_stress_test` 在普通/压力两套配置间切换。
+- **运行时只有一个引擎**：异步 `asyncpg`（`models/async_db.py`）。`models/__init__.py` 不再持有引擎——它只声明 declarative `Base` 与导入全部模型（Alembic 的 `target_metadata` 依赖于此）。
+- **同步驱动只用于一次性运维动作**：Alembic 迁移（框架要求同步驱动）与管理员引导/改密（`utils/init_database.py`，引擎用完即弃、不留全局状态）。
+- 连接池参数由 `DatabaseSettings.resolve_pool_params()` 按 `database.is_stress_test` 在普通/压力两套配置间切换。
 - 外键策略混合：多数为默认 `NO ACTION`；聊天/文件评论/协作覆盖等使用 `CASCADE`；撤销记录用户删除时 `SET NULL`。
 
 ### 1.3 关系总览
