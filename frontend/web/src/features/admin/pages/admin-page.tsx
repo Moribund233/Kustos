@@ -2,6 +2,8 @@ import { Activity, Lock, RefreshCw, XCircle } from "lucide-react";
 import { Link, Navigate } from "react-router";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+
+import i18n from "@/lib/i18n";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -52,9 +54,6 @@ type ComponentsResponse = components["schemas"]["ComponentsResponse"];
 type ComponentInfo = components["schemas"]["ComponentInfo"];
 type MonitoringResponse = components["schemas"]["MonitoringResponse"];
 
-/** 行内 code 样式：原型 admin-gate / sec-lede 内的等宽代码片段。 */
-const CODE_CLS = "rounded bg-bone/[0.055] px-1 font-mono text-[0.94em] text-bone-2";
-
 const TAG_TONE: Record<Tone, string> = {
   neutral: "border-edge-2 text-muted-2",
   good: "border-sage/25 bg-sage/10 text-sage-2",
@@ -65,7 +64,7 @@ const TAG_TONE: Record<Tone, string> = {
 
 /** 日志级别选项（values 与后端 logs/content 的 level 参数一致）。 */
 const LOG_LEVELS = [
-  { value: "", label: "全部级别" },
+  { value: "", label: i18n.t("admin.levelAll") },
   { value: "debug", label: "debug" },
   { value: "info", label: "info" },
   { value: "warning", label: "warning" },
@@ -73,13 +72,18 @@ const LOG_LEVELS = [
 ] as const;
 
 /** 组件分组顺序（按职责）；后端 components 不带分组，按服务名就近归类。 */
-const COMPONENT_GROUPS = ["核心服务", "网关", "数据", "可选组件"] as const;
+const COMPONENT_GROUPS = [
+  i18n.t("admin.groupCore"),
+  i18n.t("admin.groupGateway"),
+  i18n.t("admin.groupData"),
+  i18n.t("admin.groupOptional"),
+] as const;
 
 function groupFor(service: string): string {
-  if (service === "gateway") return "网关";
-  if (service === "postgres" || service === "redis") return "数据";
-  if (service === "prometheus" || service === "grafana") return "可选组件";
-  return "核心服务";
+  if (service === "gateway") return i18n.t("admin.groupGateway");
+  if (service === "postgres" || service === "redis") return i18n.t("admin.groupData");
+  if (service === "prometheus" || service === "grafana") return i18n.t("admin.groupOptional");
+  return i18n.t("admin.groupCore");
 }
 
 /** 秒 → 人读时长。 */
@@ -87,10 +91,10 @@ function formatUptime(seconds: number): string {
   const days = Math.floor(seconds / 86400);
   const hours = Math.floor((seconds % 86400) / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
-  if (days > 0) return `${days}天${hours}小时`;
-  if (hours > 0) return `${hours}小时${minutes}分`;
-  if (minutes > 0) return `${minutes}分`;
-  return `${seconds}秒`;
+  if (days > 0) return i18n.t("admin.uptimeDH", { days, hours });
+  if (hours > 0) return i18n.t("admin.uptimeHM", { hours, minutes });
+  if (minutes > 0) return i18n.t("admin.uptimeM", { minutes });
+  return i18n.t("admin.uptimeS", { seconds });
 }
 
 /** 后端 ComponentInfo → 页面视图状态。 */
@@ -132,11 +136,12 @@ function Tag({ tone, children }: { tone: Tone; children: ReactNode }) {
 
 /** 查询失败的行内提示：403 走页面级受限块，其余错误就地展示并可重试。 */
 function LoadError({ error, onRetry }: { error: Error; onRetry: () => void }) {
+  const { t } = useTranslation();
   return (
     <p className="text-rose flex items-center gap-2 text-xs">
-      加载失败：{error.message}
+      {t("admin.loadFailedMsg", { error: error.message })}
       <Button variant="ghost" size="sm" type="button" onClick={onRetry}>
-        重试
+        {t("common.retry")}
       </Button>
     </p>
   );
@@ -155,12 +160,15 @@ function stateOf(component: ComponentState): { tone: Tone; text: string } {
   if (!component.running) {
     return {
       tone: component.exitCode === 0 ? "neutral" : "bad",
-      text: component.exitCode === null ? "已停止" : `已退出 (${component.exitCode})`,
+      text:
+        component.exitCode === null
+          ? i18n.t("admin.stoppedState")
+          : i18n.t("admin.exitedState", { code: component.exitCode }),
     };
   }
-  if (component.health === "starting") return { tone: "warn", text: "启动中" };
-  if (component.health === "unhealthy") return { tone: "bad", text: "异常" };
-  return { tone: "good", text: "正常" };
+  if (component.health === "starting") return { tone: "warn", text: i18n.t("admin.healthStarting") };
+  if (component.health === "unhealthy") return { tone: "bad", text: i18n.t("admin.healthUnhealthy") };
+  return { tone: "good", text: i18n.t("admin.healthOk") };
 }
 
 /** 配置值来源徽标文案（与 i18n admin.source* 键同源）。 */
@@ -251,8 +259,8 @@ function AdminConsole() {
   const requests = status?.requests;
   const processInfo = status?.process;
   const components = (componentsQuery.data?.components ?? []).map(toComponentState);
-  const coreComponents = components.filter((component) => groupFor(component.service) !== "可选组件");
-  const optionalComponents = components.filter((component) => groupFor(component.service) === "可选组件");
+  const coreComponents = components.filter((component) => groupFor(component.service) !== i18n.t("admin.groupOptional"));
+  const optionalComponents = components.filter((component) => groupFor(component.service) === i18n.t("admin.groupOptional"));
   const monitoring = monitoringQuery.data ?? null;
   const section = sections.find((item) => item.name === cfgSection) ?? sections[0] ?? null;
 
@@ -260,30 +268,33 @@ function AdminConsole() {
   const errRate = windowTotal ? (((requests?.failed ?? 0) / windowTotal) * 100).toFixed(2) : "0.00";
   const kpis: AdminKpi[] = [
     {
-      label: "请求 / 分",
+      label: t("admin.rpmLabel"),
       value: fmtNum(requests?.requests_per_minute),
-      meta: `最近 ${requests?.window_minutes ?? "—"} 分钟窗口`,
+      meta: t("admin.windowMeta", { minutes: requests?.window_minutes ?? "—" }),
       tone: "good",
     },
     {
-      label: "错误率",
+      label: t("admin.errorRateLabel"),
       value: errRate,
       unit: "%",
-      meta: `${fmtNum(requests?.failed)} 次失败`,
+      meta: t("admin.failedCount", { count: fmtNum(requests?.failed) }),
       tone: requests?.failed ? "warn" : "good",
     },
     {
-      label: "平均延迟",
+      label: t("admin.avgLatencyLabel"),
       value: fmtNum(requests?.avg_response_time_ms),
       unit: "ms",
-      meta: `${fmtNum(requests?.success)} 次成功`,
+      meta: t("admin.successCount", { count: fmtNum(requests?.success) }),
       tone: "good",
     },
     {
-      label: "内存",
+      label: t("admin.memoryLabel"),
       value: fmtNum(processInfo?.memory_mb),
       unit: "MB",
-      meta: `${processInfo?.threads ?? "—"} 线程 · ${processInfo?.connections ?? "—"} 连接`,
+      meta: t("admin.threadsConn", {
+        threads: processInfo?.threads ?? "—",
+        conn: processInfo?.connections ?? "—",
+      }),
       tone: "info",
     },
   ];
@@ -291,25 +302,25 @@ function AdminConsole() {
   const schema = status?.schema_state ?? null;
   const schemaText = schema?.applied
     ? schema.applied === schema.head
-      ? `${schema.applied} · 与 head 一致`
+      ? t("admin.schemaConsistent", { applied: schema.applied })
       : `${schema.applied} / ${schema.head ?? "?"}`
     : "—";
   const facts: { key: string; value: ReactNode }[] = status
     ? [
-        { key: "版本", value: <span className="font-mono">kustos {status.version}</span> },
-        { key: "运行时长", value: <span className="font-mono">{status.uptime_formatted}</span> },
+        { key: t("admin.fieldVersion"), value: <span className="font-mono">kustos {status.version}</span> },
+        { key: t("admin.fieldUptime"), value: <span className="font-mono">{status.uptime_formatted}</span> },
         { key: "PID", value: <span className="font-mono">{processInfo?.pid ?? "—"}</span> },
-        { key: "调试模式", value: status.debug_mode ? "开启" : "关闭" },
+        { key: t("admin.fieldDebug"), value: status.debug_mode ? t("admin.toggledOn") : t("admin.toggledOff") },
         { key: "Schema", value: <span className="font-mono">{schemaText}</span> },
         {
-          key: "Git 操作",
+          key: t("admin.fieldGitOps"),
           value: (
             <span className="font-mono">
               {status.git_operations.active_clones ?? 0} clone · {status.git_operations.active_pushes ?? 0} push
             </span>
           ),
         },
-        { key: "请求总数", value: <span className="font-mono">{fmtNum(requests?.total)}</span> },
+        { key: t("admin.fieldRequests"), value: <span className="font-mono">{fmtNum(requests?.total)}</span> },
       ]
     : [];
 
@@ -332,12 +343,12 @@ function AdminConsole() {
   const restartApp = useApiMutation(
     async () => {
       const body = unwrap(await api.POST("/api/app/restart", {}));
-      if (!body.success) throw new AdminApiError(400, body.message || "重启失败");
+      if (!body.success) throw new AdminApiError(400, body.message || t("admin.restartFailed"));
       return body;
     },
     {
       onSuccess: (body) => {
-        toast.success(body.message || "应用将在稍后重启。");
+        toast.success(body.message || t("admin.restartSoon"));
         setDanger(null);
         void queryClient.invalidateQueries({ queryKey: ["admin", "status"] });
         void queryClient.invalidateQueries({ queryKey: ["admin", "components"] });
@@ -349,12 +360,12 @@ function AdminConsole() {
   const shutdownApp = useApiMutation(
     async () => {
       const body = unwrap(await api.POST("/api/app/shutdown", {}));
-      if (!body.success) throw new AdminApiError(400, body.message || "关闭失败");
+      if (!body.success) throw new AdminApiError(400, body.message || t("admin.shutdownFailed"));
       return body;
     },
     {
       onSuccess: (body) => {
-        toast.success(body.message || "应用将在稍后关闭。");
+        toast.success(body.message || t("admin.shutdownSoon"));
         setDanger(null);
       },
       onError: (error) => toast.error(error.message),
@@ -364,13 +375,17 @@ function AdminConsole() {
   const saveConfig = useApiMutation(
     async () => {
       const body = unwrap(await api.POST("/api/app/config", { body: { config: pendingPatch } }));
-      if (!body.success) throw new AdminApiError(400, body.errors?.map(String).join("；") || "保存失败");
+      if (!body.success) throw new AdminApiError(400, body.errors?.map(String).join("；") || t("admin.saveFailedMsg"));
       return body;
     },
     {
       onSuccess: (body) => {
         const hints = (body.hints ?? []).map(String);
-        toast.success(hints.length ? `配置已保存：${hints.join("；")}` : "配置已保存。");
+        toast.success(
+          hints.length
+            ? t("admin.configSavedHints", { hints: hints.join("; ") })
+            : t("admin.configSavedPlain"),
+        );
         setCfgDraft({});
         void queryClient.invalidateQueries({ queryKey: ["admin", "config"] });
       },
@@ -387,8 +402,12 @@ function AdminConsole() {
     },
     {
       onSuccess: (body) => {
-        if (body.success) toast.success("配置校验通过。");
-        else toast.error(`校验未通过：${body.errors?.map(String).join("；") || "未知错误"}`);
+        if (body.success) toast.success(t("admin.configValid"));
+        else toast.error(
+          t("admin.validationFailed", {
+            errors: body.errors?.map(String).join("; ") || t("admin.unknownReasonText"),
+          }),
+        );
       },
       onError: (error) => toast.error(error.message),
     },
@@ -397,12 +416,12 @@ function AdminConsole() {
   const resetConfig = useApiMutation(
     async () => {
       const body = unwrap(await api.POST("/api/app/config/reset", {}));
-      if (!body.success) throw new AdminApiError(400, body.errors?.map(String).join("；") || "重置失败");
+      if (!body.success) throw new AdminApiError(400, body.errors?.map(String).join("；") || t("admin.resetFailedMsg"));
       return body;
     },
     {
       onSuccess: () => {
-        toast.success("配置已重置为种子默认值。");
+        toast.success(t("admin.configReset"));
         setCfgDraft({});
         setDanger(null);
         void queryClient.invalidateQueries({ queryKey: ["admin", "config"] });
@@ -415,7 +434,7 @@ function AdminConsole() {
     async (enabled: boolean) => unwrap(await api.POST("/api/app/monitoring/enabled", { body: { enabled } })),
     {
       onSuccess: () => {
-        toast.success("监控栈状态已更新。");
+        toast.success(t("admin.monitoringUpdated"));
         void queryClient.invalidateQueries({ queryKey: ["admin", "monitoring"] });
         void queryClient.invalidateQueries({ queryKey: ["admin", "components"] });
       },
@@ -428,7 +447,7 @@ function AdminConsole() {
       // Cookie 已随 SSO 响应下发，直接跳转网关反代的 /grafana 入口
       if (body.ok) window.location.assign(body.entry);
     },
-    onError: (error) => toast.error(`Grafana 暂不可用：${error.message}`),
+    onError: (error) => toast.error(t("admin.grafanaUnavailable", { error: error.message })),
   });
 
   // 管理员但来源被网关拦截：给中性提示，不暴露门禁细节
@@ -466,7 +485,7 @@ function AdminConsole() {
             {t("admin.title")}
           </h1>
           <p className="text-muted mt-2.5 max-w-[78ch] text-base leading-relaxed">
-            本实例的运行时、访问与配置——这里的每一项操作都会写入审计日志。
+            {t("admin.pageIntro")}
           </p>
         </div>
         <div className="flex flex-none items-center gap-2 pb-0.5">
@@ -480,14 +499,14 @@ function AdminConsole() {
             type="button"
             onClick={() => {
               if (!monitoring?.grafana.running) {
-                toast.info("监控栈未运行——可在运行时页启动监控栈后重试。");
+                toast.info(t("admin.monitoringNotRunning"));
                 return;
               }
               grafanaSso.mutate();
             }}
           >
             <Activity className="size-4" aria-hidden="true" />
-            打开 Grafana
+            {t("admin.openGrafana")}
           </Button>
         </div>
       </header>
@@ -524,7 +543,7 @@ function AdminConsole() {
 
           {/* ---------------------------------------------- 概览 */}
           <TabsContent value="overview">
-            <dl aria-label="实例指标" className="border-edge-2 border-y grid grid-cols-4">
+            <dl aria-label={t("admin.instanceMetricsAria")} className="border-edge-2 border-y grid grid-cols-4">
               {statusQuery.error ? (
                 <div className="col-span-4 py-4">
                   <LoadError error={statusQuery.error} onRetry={() => void statusQuery.refetch()} />
@@ -557,7 +576,7 @@ function AdminConsole() {
 
             <div className="mt-6 grid grid-cols-2 gap-3.5">
               <section className="border-edge-1 bg-ink-850/40 rounded-[10px] border p-4 shadow-[inset_0_1px_0_rgba(240,231,216,0.04)]">
-                <SectionHead title="进程与 Schema" meta="GET /api/app/status" className="mb-3" />
+                <SectionHead title={t("admin.processSchema")} meta="GET /api/app/status" className="mb-3" />
                 {statusQuery.error ? (
                   <LoadError error={statusQuery.error} onRetry={() => void statusQuery.refetch()} />
                 ) : (
@@ -567,12 +586,15 @@ function AdminConsole() {
 
               <section className="border-edge-1 bg-ink-850/40 rounded-[10px] border p-4 shadow-[inset_0_1px_0_rgba(240,231,216,0.04)]">
                 <SectionHead
-                  title="组件"
+                  title={t("admin.componentsTitle")}
                   count={components.length}
                   meta={
                     componentsQuery.data && !componentsQuery.data.available
-                      ? "编排不可用"
-                      : `${components.filter((component) => component.running).length}/${components.length} 运行中`
+                      ? t("admin.orchestratorUnavailable")
+                      : t("admin.runningCount", {
+                          running: components.filter((c) => c.running).length,
+                          total: components.length,
+                        })
                   }
                   className="mb-3"
                 />
@@ -580,7 +602,9 @@ function AdminConsole() {
                   <LoadError error={componentsQuery.error} onRetry={() => void componentsQuery.refetch()} />
                 ) : componentsQuery.data && !componentsQuery.data.available ? (
                   <p className="text-muted-2 text-xs leading-relaxed">
-                    Docker 编排状态不可用：{componentsQuery.data.reason ?? "未知原因"}——指标仍在进程内记录。
+                    {t("admin.dockerUnavailable", {
+                      reason: componentsQuery.data.reason ?? t("admin.unknownReasonText"),
+                    })}
                   </p>
                 ) : (
                   <div>
@@ -588,7 +612,7 @@ function AdminConsole() {
                       const items = components.filter((component) => groupFor(component.service) === group);
                       if (!items.length) return null;
                       const down = items.filter((component) => !component.running && component.exitCode !== 0);
-                      const optionalStopped = group === "可选组件" && items.every((component) => !component.running);
+                      const optionalStopped = group === i18n.t("admin.groupOptional") && items.every((component) => !component.running);
                       return (
                         <div key={group} className="border-edge-1 flex items-center gap-2.5 border-b py-[7px] last:border-b-0">
                           <span className="text-muted-2 w-[68px] shrink-0 text-xs">{group}</span>
@@ -604,10 +628,10 @@ function AdminConsole() {
                             )}
                           >
                             {optionalStopped
-                              ? "可选 · 已停止"
+                              ? t("admin.optionalStoppedText")
                               : down.length
-                                ? `${down.length} 个异常`
-                                : `${items.length} 个运行中`}
+                                ? t("admin.downCount", { count: down.length })
+                                : t("admin.itemsRunning", { count: items.length })}
                           </span>
                         </div>
                       );
@@ -618,8 +642,8 @@ function AdminConsole() {
                   <p className="text-muted-2 mt-3 flex items-center gap-1.5 text-xs leading-relaxed">
                     <Lamp tone={monitoring.grafana.running ? "good" : "warn"} />
                     {monitoring.grafana.running
-                      ? "监控栈运行中——Grafana / Prometheus 容器在线。"
-                      : "监控栈当前已停止——指标仍在进程内记录。"}
+                      ? t("admin.monitoringRunningMsg")
+                      : t("admin.monitoringStoppedMsg")}
                   </p>
                 ) : null}
               </section>
@@ -629,12 +653,12 @@ function AdminConsole() {
           {/* ---------------------------------------------- 运行时 */}
           <TabsContent value="runtime">
             <div className="border-edge-2 bg-ink-900/55 mb-3.5 flex flex-wrap items-center gap-2.5 rounded-lg border px-3.5 py-2.5 text-xs text-muted-2">
-              <span className="text-faint text-2xs font-semibold tracking-[0.12em] uppercase">核心</span>
+              <span className="text-faint text-2xs font-semibold tracking-[0.12em] uppercase">{t("admin.coreLabel")}</span>
               <strong className="text-bone font-mono text-xs font-medium">
                 {coreComponents.filter((component) => component.running).length}/{coreComponents.length}
               </strong>
               <span aria-hidden="true" className="bg-edge-2 h-3.5 w-px" />
-              <span className="text-faint text-2xs font-semibold tracking-[0.12em] uppercase">可选</span>
+              <span className="text-faint text-2xs font-semibold tracking-[0.12em] uppercase">{t("admin.optionalLabel")}</span>
               <strong className="text-bone font-mono text-xs font-medium">
                 {optionalComponents.filter((component) => component.running).length}/{optionalComponents.length}
               </strong>
@@ -643,14 +667,14 @@ function AdminConsole() {
               </span>
               <Button variant="ghost" size="sm" type="button" onClick={() => void componentsQuery.refetch()}>
                 <RefreshCw className="size-4" aria-hidden="true" />
-                刷新
+                {t("admin.refresh")}
               </Button>
             </div>
 
             <section className="border-edge-1 bg-ink-850/40 rounded-[10px] border shadow-[inset_0_1px_0_rgba(240,231,216,0.04)]">
               <div className="border-edge-1 flex items-center gap-3 border-b px-4 py-3">
                 <h3 className="text-bone text-sm font-semibold">{t("admin.components")}</h3>
-                <span className="text-faint text-2xs">按职责分组 · 健康来自只读 Docker socket 代理</span>
+                <span className="text-faint text-2xs">{t("admin.groupedByDuty")}</span>
               </div>
               {componentsQuery.error ? (
                 <div className="px-4 py-3">
@@ -662,11 +686,11 @@ function AdminConsole() {
                     <thead>
                       <tr className="border-edge-2 border-b">
                         <th className="w-6" />
-                        <Th>服务</Th>
-                        <Th>镜像</Th>
-                        <Th>状态</Th>
-                        <Th>运行时长</Th>
-                        <Th className="text-right">重启次数</Th>
+                        <Th>{t("admin.colService")}</Th>
+                        <Th>{t("admin.colImage")}</Th>
+                        <Th>{t("admin.colStatus")}</Th>
+                        <Th>{t("admin.colUptimeCol")}</Th>
+                        <Th className="text-right">{t("admin.colRestarts")}</Th>
                       </tr>
                     </thead>
                     <tbody>
@@ -682,15 +706,15 @@ function AdminConsole() {
                 </div>
               )}
               <p className="text-muted-2 border-edge-1 border-t px-4 py-2.5 text-xs leading-relaxed">
-                <code className={CODE_CLS}>init</code> 是迁移 + 管理员引导任务，退出码 0 即成功——监控栈停止不影响指标记录。
+                {t("admin.initHint")}
               </p>
             </section>
 
             {/* 监控栈（Prometheus / Grafana） */}
             <section className="border-edge-1 bg-ink-850/40 mt-3.5 rounded-[10px] border p-4 shadow-[inset_0_1px_0_rgba(240,231,216,0.04)]">
               <SectionHead
-                title="监控栈"
-                meta={monitoring?.available === false ? "编排不可用" : "GET /api/app/monitoring"}
+                title={t("admin.monitoringTitle")}
+                meta={monitoring?.available === false ? t("admin.orchestratorUnavailable") : "GET /api/app/monitoring"}
                 className="mb-3"
               />
               {monitoringQuery.error ? (
@@ -704,7 +728,13 @@ function AdminConsole() {
                         <Lamp tone={service.ready ? "good" : service.running ? "warn" : "neutral"} />
                         <span className="text-bone-2 font-mono text-xs">{name}</span>
                         <span className="text-muted-2">
-                          {service.ready ? "就绪" : service.running ? "运行中（未就绪）" : service.configured ? "已停止" : "未部署"}
+                          {service.ready
+                            ? t("admin.readyState")
+                            : service.running
+                              ? t("admin.runningNotReady")
+                              : service.configured
+                                ? t("admin.configuredStopped")
+                                : t("admin.notDeployed")}
                         </span>
                       </span>
                     );
@@ -717,24 +747,26 @@ function AdminConsole() {
                       disabled={toggleMonitoring.isPending}
                       onClick={() => toggleMonitoring.mutate(!(monitoring.grafana.running || monitoring.prometheus.running))}
                     >
-                      {monitoring.grafana.running || monitoring.prometheus.running ? "停止监控栈" : "启动监控栈"}
+                      {monitoring.grafana.running || monitoring.prometheus.running
+                      ? t("admin.stopMonitoring")
+                      : t("admin.startMonitoring")}
                     </Button>
                   </span>
                   <p className="text-muted-2 w-full text-xs leading-relaxed">
-                    启停经窄写 docker 代理对监控容器做 start/stop；从未部署过会返回 409 并给出拉起命令。
+                    {t("admin.monitoringToggleHint")}
                   </p>
                 </div>
               ) : (
-                <p className="text-muted-2 text-xs">加载中…</p>
+                <p className="text-muted-2 text-xs">{t("common.loading")}</p>
               )}
             </section>
 
             {/* 危险操作区 */}
             <section className="border-edge-1 bg-ink-850/40 mt-3.5 rounded-[10px] border p-4 shadow-[inset_0_1px_0_rgba(240,231,216,0.04)]">
-              <SectionHead title="实例控制" meta="危险操作 · 全部记入审计" className="mb-1" />
+              <SectionHead title={t("admin.instanceControl")} meta={t("admin.dangerMeta")} className="mb-1" />
               <DangerRow
-                title="重启应用"
-                desc="信号交给进程管理器做滚动重启（新 worker 就绪后才退役旧 worker）；在途请求可能出现短暂 503，会话与 Agent 流会断开。"
+                title={t("admin.restartTitle")}
+                desc={t("admin.restartDesc")}
                 action={
                   <Button variant="outline" size="sm" type="button" onClick={() => setDanger("restart")}>
                     <RefreshCw className="size-4" aria-hidden="true" />
@@ -743,8 +775,8 @@ function AdminConsole() {
                 }
               />
               <DangerRow
-                title="关闭实例"
-                desc="停止 API 进程。本控制台无法再将其拉起——需要进入宿主机操作。"
+                title={t("admin.shutdownTitle")}
+                desc={t("admin.shutdownDescText")}
                 action={
                   <Button variant="danger" size="sm" type="button" onClick={() => setDanger("shutdown")}>
                     <XCircle className="size-4" aria-hidden="true" />
@@ -753,7 +785,7 @@ function AdminConsole() {
                 }
               />
               <p className="text-muted-2 mt-3 text-xs leading-relaxed">
-                两个接口都只接受管理员（或回环地址上的调试模式）；都不是软重置——会话与 Agent 流都会断开。
+                {t("admin.adminOnlyHint")}
               </p>
             </section>
           </TabsContent>
@@ -767,7 +799,9 @@ function AdminConsole() {
             <section className="border-edge-1 bg-ink-850/40 rounded-[10px] border shadow-[inset_0_1px_0_rgba(240,231,216,0.04)]">
               <div className="border-edge-1 flex items-center gap-3 border-b px-4 py-3">
                 <h3 className="text-bone text-sm font-semibold">{t("admin.users")}</h3>
-                <span className="text-faint text-2xs">{usersQuery.data?.length ?? 0} 个账号 · 全局角色</span>
+                <span className="text-faint text-2xs">
+                  {t("admin.accountsMeta", { count: usersQuery.data?.length ?? 0 })}
+                </span>
                 <span className="ml-auto">
                   <CreateUserDialog />
                 </span>
@@ -781,11 +815,11 @@ function AdminConsole() {
                   <table className="w-full min-w-[640px] border-collapse text-sm">
                     <thead>
                       <tr className="border-edge-2 border-b">
-                        <Th>账号</Th>
-                        <Th>全局角色</Th>
-                        <Th>状态</Th>
-                        <Th className="text-right">注册时间</Th>
-                        <Th className="text-right">操作</Th>
+                        <Th>{t("admin.colAccount")}</Th>
+                        <Th>{t("admin.colGlobalRole")}</Th>
+                        <Th>{t("admin.colUserStatus")}</Th>
+                        <Th className="text-right">{t("admin.colRegistered")}</Th>
+                        <Th className="text-right">{t("admin.colOps")}</Th>
                       </tr>
                     </thead>
                     <tbody>
@@ -801,12 +835,12 @@ function AdminConsole() {
                             </span>
                           </td>
                           <td>
-                            {user.isAdmin ? <Tag tone="warn">管理员</Tag> : <Tag tone="neutral">成员</Tag>}
+                            {user.isAdmin ? <Tag tone="warn">{t("admin.roleAdmin")}</Tag> : <Tag tone="neutral">{t("admin.member")}</Tag>}
                           </td>
                           <td>
                             <span className={cn("inline-flex items-center gap-1.5 text-xs", user.isActive ? "text-sage" : "text-muted-2")}>
                               <Lamp tone={user.isActive ? "good" : "neutral"} />
-                              {user.isActive ? "活跃" : "已停用"}
+                              {user.isActive ? t("admin.activeStatus") : t("admin.disabledStatus")}
                             </span>
                           </td>
                           <td className="text-muted text-right font-mono text-xs">{formatDate(user.createdAt)}</td>
@@ -828,7 +862,7 @@ function AdminConsole() {
                 </div>
               )}
               <p className="text-muted-2 border-edge-1 border-t px-4 py-2.5 text-xs leading-relaxed">
-                全局管理员是用户记录上的一位标记；仓库角色（owner/admin/developer/readonly）挂在成员关系上，在各仓库内管理，两者互不推导。
+                {t("admin.roleNote")}
               </p>
             </section>
           </TabsContent>
@@ -838,11 +872,11 @@ function AdminConsole() {
             {configQuery.error ? (
               <LoadError error={configQuery.error} onRetry={() => void configQuery.refetch()} />
             ) : !section ? (
-              <p className="text-muted-2 text-xs">加载中…</p>
+              <p className="text-muted-2 text-xs">{t("common.loading")}</p>
             ) : (
               <div className="grid grid-cols-[192px_minmax(0,1fr)] items-start gap-3.5">
                 <nav
-                  aria-label="配置分节"
+                  aria-label={t("admin.configSectionAria")}
                   className="border-edge-2 bg-ink-900/60 flex max-h-[560px] flex-col gap-px overflow-y-auto rounded-[10px] border p-1.5"
                 >
                   {sections.map((item) => (
@@ -874,8 +908,11 @@ function AdminConsole() {
                   <div className="border-edge-1 flex items-center gap-3 border-b px-4 py-3">
                     <h3 className="text-bone font-mono text-sm font-semibold">{section.name}</h3>
                     <span className="text-faint text-2xs">
-                      {section.keys.length} 个键 · {section.writable ? "可写" : "受保护"}
-                      {section.hot ? " · 热重载" : ""}
+                      {t("admin.keysWritable", {
+                        count: section.keys.length,
+                        mode: section.writable ? t("admin.writableMode") : t("admin.protectedMode"),
+                      })}
+                      {section.hot ? t("admin.hotReloadSuffix") : ""}
                     </span>
                   </div>
 
@@ -886,17 +923,17 @@ function AdminConsole() {
                     <Tag tone="warn">{t("admin.sourceDb")}</Tag>
                     <span className="text-faint">›</span>
                     <Tag tone="neutral">{t("admin.sourceDefault")}</Tag>
-                    <span className="text-faint ml-auto">有效值 = 最高存在的层</span>
+                    <span className="text-faint ml-auto">{t("admin.effectiveHint")}</span>
                   </div>
 
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[560px] border-collapse">
                       <thead>
                         <tr className="border-edge-2 border-b">
-                          <Th className="w-[36%]">键</Th>
-                          <Th>当前值</Th>
-                          <Th>来源</Th>
-                          <Th>生效方式</Th>
+                          <Th className="w-[36%]">{t("admin.colKey")}</Th>
+                          <Th>{t("admin.colValueNow")}</Th>
+                          <Th>{t("admin.colSource")}</Th>
+                          <Th>{t("admin.colEffect")}</Th>
                         </tr>
                       </thead>
                       <tbody>
@@ -912,7 +949,7 @@ function AdminConsole() {
                                 {pinned ? (
                                   <Lock
                                     className="ml-1.5 inline size-2.5 text-faint align-middle"
-                                    aria-label={row.source === "env" ? "环境变量钉死" : t("admin.protectedKey")}
+                                    aria-label={row.source === "env" ? t("admin.pinnedByEnv") : t("admin.protectedKey")}
                                   />
                                 ) : null}
                               </td>
@@ -924,7 +961,7 @@ function AdminConsole() {
                                     value={cfgDraft[draftKey] ?? row.value}
                                     onChange={(event) => setCfgDraft((prev) => ({ ...prev, [draftKey]: event.target.value }))}
                                     className="h-6 w-full min-w-[160px] px-1.5 font-mono text-xs"
-                                    aria-label={`${row.key} 的值`}
+                                    aria-label={t("admin.valueOfKey", { key: row.key })}
                                   />
                                 )}
                               </td>
@@ -948,14 +985,16 @@ function AdminConsole() {
                   <div className="border-edge-2 bg-ink-850/80 flex flex-wrap items-center gap-2.5 border-t px-4 py-2.5">
                     <span className="inline-flex items-center gap-1.5 text-xs text-muted-2">
                       <Lamp tone={pendingCount ? "warn" : "good"} />
-                      {pendingCount ? `有 ${pendingCount} 项未保存的修改` : "无未保存的修改"}
+                      {pendingCount
+                        ? t("admin.pendingChanges", { count: pendingCount })
+                        : t("admin.noPendingChanges")}
                     </span>
-                    <span className="text-muted-2 ml-auto text-2xs">密钥不会回显</span>
+                    <span className="text-muted-2 ml-auto text-2xs">{t("admin.secretsHidden")}</span>
                     <Button variant="ghost" size="sm" type="button" onClick={() => validateConfig.mutate()}>
-                      校验
+                      {t("admin.validate")}
                     </Button>
                     <Button variant="ghost" size="sm" type="button" onClick={() => setDanger("reset")}>
-                      重置为默认
+                      {t("admin.resetDefaults")}
                     </Button>
                     <Button
                       size="sm"
@@ -963,7 +1002,7 @@ function AdminConsole() {
                       disabled={!pendingCount || saveConfig.isPending}
                       onClick={() => saveConfig.mutate()}
                     >
-                      保存并应用
+                      {t("admin.saveApply")}
                     </Button>
                   </div>
                 </section>
@@ -981,11 +1020,11 @@ function AdminConsole() {
               <div className="border-edge-1 flex flex-wrap items-center gap-3 border-b px-4 py-3">
                 <h3 className="text-bone text-sm font-semibold">{t("admin.audit")}</h3>
                 <span className="text-faint text-2xs">
-                  {auditQuery.data?.total ?? 0} 条 · 最近 7 天 · 最新在前
+                  {t("admin.auditMeta", { count: auditQuery.data?.total ?? 0 })}
                 </span>
-                <Tag tone="warn">仅管理员</Tag>
+                <Tag tone="warn">{t("admin.adminOnlyTag")}</Tag>
                 {auditQuery.data?.truncated ? (
-                  <span className="text-amber-2 text-2xs">已达扫描上限，更早记录未纳入</span>
+                  <span className="text-amber-2 text-2xs">{t("admin.auditCapped")}</span>
                 ) : null}
               </div>
               {auditQuery.error ? (
@@ -993,9 +1032,9 @@ function AdminConsole() {
                   <LoadError error={auditQuery.error} onRetry={() => void auditQuery.refetch()} />
                 </div>
               ) : auditQuery.isPending ? (
-                <p className="text-muted-2 px-4 py-3 text-xs">加载中…</p>
+                <p className="text-muted-2 px-4 py-3 text-xs">{t("common.loading")}</p>
               ) : auditQuery.data.items.length === 0 ? (
-                <p className="text-muted-2 px-4 py-3 text-xs">窗口内暂无审计条目。</p>
+                <p className="text-muted-2 px-4 py-3 text-xs">{t("admin.noAuditEntries")}</p>
               ) : (
                 <ol className="px-4 py-1">
                   {auditQuery.data.items.map((entry) => (
@@ -1005,7 +1044,10 @@ function AdminConsole() {
               )}
               <div className="border-edge-1 flex items-center gap-2 border-t px-4 py-2.5">
                 <span className="text-muted-2 text-xs">
-                  第 {auditQuery.data?.page ?? 1} / {Math.max(auditQuery.data?.pages ?? 1, 1)} 页
+                  {t("admin.pageOf", {
+                    page: auditQuery.data?.page ?? 1,
+                    pages: Math.max(auditQuery.data?.pages ?? 1, 1),
+                  })}
                 </span>
                 <div className="ml-auto flex gap-2">
                   <Button
@@ -1015,7 +1057,7 @@ function AdminConsole() {
                     disabled={!auditQuery.data?.hasPrev || auditQuery.isFetching}
                     onClick={() => setAuditPage((page) => Math.max(1, page - 1))}
                   >
-                    上一页
+                    {t("admin.prevPageLabel")}
                   </Button>
                   <Button
                     variant="ghost"
@@ -1024,26 +1066,25 @@ function AdminConsole() {
                     disabled={!auditQuery.data?.hasNext || auditQuery.isFetching}
                     onClick={() => setAuditPage((page) => page + 1)}
                   >
-                    下一页
+                    {t("admin.nextPageLabel")}
                   </Button>
                 </div>
               </div>
               <p className="text-muted-2 border-edge-1 border-t px-4 py-2.5 text-xs leading-relaxed">
-                HTTP 请求审计（<code className={CODE_CLS}>audit.log</code>）与业务事件（
-                <code className={CODE_CLS}>activities</code> 表）两条轨迹合并展示。
+                {t("admin.auditTrailNote")}
               </p>
             </section>
 
             {/* 日志视图（/api/app/logs/content） */}
             <section className="border-edge-1 bg-ink-850/40 mt-3.5 rounded-[10px] border shadow-[inset_0_1px_0_rgba(240,231,216,0.04)]">
               <div className="border-edge-1 flex flex-wrap items-center gap-3 border-b px-4 py-3">
-                <h3 className="text-bone text-sm font-semibold">日志视图</h3>
+                <h3 className="text-bone text-sm font-semibold">{t("admin.logsTitle")}</h3>
                 <span className="text-faint font-mono text-2xs">logs/{activeLogName}</span>
                 <div className="ml-auto flex items-center gap-2">
                   <select
                     value={activeLogName}
                     onChange={(event) => setLogName(event.target.value)}
-                    aria-label="日志文件"
+                    aria-label={t("admin.logFileAria")}
                     className="border-edge-2 bg-ink-900/60 text-bone-2 h-6 rounded-md border px-1.5 font-mono text-xs"
                   >
                     {logFiles.length === 0 ? <option value="app">app</option> : null}
@@ -1057,7 +1098,7 @@ function AdminConsole() {
                   <select
                     value={logLevel}
                     onChange={(event) => setLogLevel(event.target.value)}
-                    aria-label="日志级别"
+                    aria-label={t("admin.logLevelAria")}
                     className="border-edge-2 bg-ink-900/60 text-bone-2 h-6 rounded-md border px-1.5 text-xs"
                   >
                     {LOG_LEVELS.map((level) => (
@@ -1068,7 +1109,7 @@ function AdminConsole() {
                   </select>
                   <Button variant="ghost" size="sm" type="button" onClick={() => void logContentQuery.refetch()}>
                     <RefreshCw className="size-4" aria-hidden="true" />
-                    刷新
+                    {t("admin.refresh")}
                   </Button>
                 </div>
               </div>
@@ -1078,14 +1119,18 @@ function AdminConsole() {
                 </div>
               ) : (
                 <pre className="text-muted bg-ink-900/40 max-h-[320px] overflow-auto px-4 py-3 font-mono text-xs leading-relaxed whitespace-pre-wrap">
-                  {logContentQuery.data?.content || (logContentQuery.data && !logContentQuery.data.exists ? "该日期没有此日志文件。" : "加载中…")}
+                  {logContentQuery.data?.content || (logContentQuery.data && !logContentQuery.data.exists ? t("admin.noLogForDate") : t("common.loading"))}
                 </pre>
               )}
               <p className="text-muted-2 border-edge-1 border-t px-4 py-2.5 text-xs leading-relaxed">
                 {logContentQuery.data
-                  ? `${logContentQuery.data.date} · 返回末尾 ${logContentQuery.data.lines}/${logContentQuery.data.totalLines} 行`
+                  ? t("admin.logTailInfo", {
+                    date: logContentQuery.data.date,
+                    lines: logContentQuery.data.lines,
+                    total: logContentQuery.data.totalLines,
+                  })
                   : "GET /api/app/logs/content"}
-                {logContentQuery.data?.truncated ? " · 已达保留上限，更早分片可能已丢弃" : ""}
+                {logContentQuery.data?.truncated ? t("admin.logTruncated") : ""}
               </p>
             </section>
           </TabsContent>
@@ -1095,28 +1140,28 @@ function AdminConsole() {
       <Dialog open={danger !== null} onOpenChange={(open) => !open && setDanger(null)}>
         <DialogContent>
           <DialogHeader>
-            <p className="text-faint text-2xs font-semibold tracking-[0.16em] uppercase">特权操作</p>
+            <p className="text-faint text-2xs font-semibold tracking-[0.16em] uppercase">{t("admin.privilegedOps")}</p>
             <DialogTitle>
               {danger === "restart"
                 ? t("admin.confirmRestart")
                 : danger === "reset"
-                  ? "确认重置全部配置？"
-                  : "确认关闭实例？"}
+                  ? t("admin.confirmResetAll")
+                  : t("admin.confirmShutdownInstance")}
             </DialogTitle>
             <DialogDescription>
               {danger === "restart"
                 ? t("admin.restartImpact")
                 : danger === "reset"
-                  ? "重置会把数据库里的动态配置覆盖回种子默认值（config.example.toml）；环境变量注入的引导层键不受影响，当前自定义值将全部丢失。"
-                  : "关机将停止 API 进程，本控制台无法再将其拉起——需要进入宿主机执行。"}
+                  ? t("admin.resetDescText")
+                  : t("admin.shutdownDescLong")}
             </DialogDescription>
           </DialogHeader>
           <p className="border-edge-1 bg-ink-850/60 text-muted-2 rounded-md border px-3 py-2 text-xs">
-            操作立即生效并写入审计日志；重启/关机会断开全部会话与 Agent 流。
+            {t("admin.immediateEffect")}
           </p>
           <DialogFooter>
             <Button variant="outline" type="button" onClick={() => setDanger(null)}>
-              取消
+              {t("common.cancel")}
             </Button>
             <Button
               variant={danger === "shutdown" || danger === "reset" ? "danger" : "default"}
@@ -1128,7 +1173,7 @@ function AdminConsole() {
                 else resetConfig.mutate();
               }}
             >
-              {danger === "restart" ? t("admin.restart") : danger === "reset" ? "重置" : t("admin.shutdown")}
+              {danger === "restart" ? t("admin.restart") : danger === "reset" ? t("admin.resetAction") : t("admin.shutdown")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1159,7 +1204,11 @@ function ComponentRows({ group, items }: { group: string; items: ComponentState[
       <tr>
         <td colSpan={6} className="border-edge-1 bg-bone/[0.012] pt-3 pb-1 text-2xs font-semibold tracking-[0.13em] text-muted-2 uppercase">
           {group}
-          {group === "可选组件" ? <span className="text-faint ml-2 font-normal tracking-normal normal-case">可选栈</span> : null}
+          {group === i18n.t("admin.groupOptional") ? (
+            <span className="text-faint ml-2 font-normal tracking-normal normal-case">
+              {i18n.t("admin.optionalStackTag")}
+            </span>
+          ) : null}
         </td>
       </tr>
       {items.map((component) => {
@@ -1215,7 +1264,7 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
           <span className="text-sky min-w-[34px] font-mono text-2xs tracking-[0.02em]">{entry.method}</span>
         ) : null}
         <span className="text-muted-2 font-mono text-2xs">{entry.path}</span>
-        {entry.sensitive ? <Tag tone="warn">敏感</Tag> : null}
+        {entry.sensitive ? <Tag tone="warn">{i18n.t("admin.sensitiveTag")}</Tag> : null}
         {entry.note ? <span className="text-faint w-full truncate text-2xs leading-relaxed">{entry.note}</span> : null}
       </span>
       <span className="flex items-center gap-2 justify-self-end">
