@@ -42,8 +42,8 @@ LAYER_RULES: dict = {
 ROOT_LAYER = "root"
 
 #: 全仓函数体内 import 的数量上限（棘轮）。每清理一批就下调。
-#: 2026-10-30：479 → 477（清理 config.toml 参数链时顺带提升了两处模块级导入）。
-_DEFERRED_BASELINE = 477
+#: 2026-10-30：479 → 474（清理 config.toml 参数链 + 控制器 SQL 下沉时提升的模块级导入）。
+_DEFERRED_BASELINE = 474
 
 
 def _layer_of(path: pathlib.Path) -> str:
