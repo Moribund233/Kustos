@@ -92,6 +92,9 @@ export function Chip({ active = false, className, children, ...props }: ChipProp
   return (
     <button
       type="button"
+      /* 激活态原先只改样式，屏幕阅读器听不出选中与否。aria-pressed 把
+         「这是个开关」的语义补上；放在 ...props 之前，调用方仍可覆盖。 */
+      aria-pressed={active}
       className={cn(
         "inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-full border px-2 text-xs transition-colors",
         active
