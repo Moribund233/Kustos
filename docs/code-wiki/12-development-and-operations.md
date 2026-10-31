@@ -40,8 +40,9 @@ docker compose -p kustos-dev -f docker-compose.dev.yml up -d --build
 
 开发 compose 特点：
 
-- 独立 PostgreSQL（`kustos-postgres-dev`）与数据卷，避免与生产冲突；
-- app 挂载源码热重载，暴露 `127.0.0.1:8002:8000`；
+- 独立 PostgreSQL 与数据卷，避免与同机其它 compose 项目冲突；
+- app 挂载源码热重载，暴露 `127.0.0.1:18002:8000`（网关 `18088`、git-cgi `19002`，均可由 `KUSTOS_DEV_*_PORT` 覆盖）；
+- 容器名与网络名不写死，由 compose 按项目名派生，多个项目名可并存；
 - `KUSTOS_INIT_DATABASE=true`，启动自动迁移 + 管理员引导；
 - git-cgi/collab/gateway 一并启动；
 - 前端在 `frontend/web`，开发时单独 `pnpm dev`（Vite 默认 `5173`，dev 网关回源到 `host.docker.internal:5173`）。

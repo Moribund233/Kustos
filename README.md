@@ -101,7 +101,7 @@ pnpm api:generate   # 后端契约变了就重新生成类型
 docker compose -f docker-compose.dev.yml -p kustos-dev up -d --build
 ```
 
-源码挂载热重载；网关在 `127.0.0.1:8080`，API 直连 `127.0.0.1:8002`（避免与生产网关 8000 冲突）。改完代码跑测试：
+源码挂载热重载；网关在 `127.0.0.1:18088`，API 直连 `127.0.0.1:18002`（都取冷门端口，避开本机常见的 8000 段服务）。改完代码跑测试：
 
 ```bash
 docker compose -f docker-compose.dev.yml -p kustos-dev run --rm test

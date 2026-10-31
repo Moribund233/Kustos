@@ -52,7 +52,7 @@ docker compose -p kustos up -d --build
 
 ```bash
 docker compose -f docker-compose.dev.yml -p kustos-dev up -d --build
-# 网关 http://127.0.0.1:8080 · API 直连 http://127.0.0.1:8002
+# 网关 http://127.0.0.1:18088 · API 直连 http://127.0.0.1:18002
 ```
 
 **裸进程**

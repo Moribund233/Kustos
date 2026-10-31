@@ -2,14 +2,19 @@
 # Kustos 开发环境 Docker Compose 配置（精简版）
 #
 # 适用场景：
-#   开发环境（自包含）：内置 PostgreSQL（容器 kustos-postgres-dev，独立数据卷）；
+#   开发环境（自包含）：内置 PostgreSQL（独立数据卷）；
 #   前端本地 Vite、网关容器内置 Nginx 反代。
 #
 # 架构:
 #   本地 Vite (localhost:5173) → 前端开发服务器
-#   网关容器 (localhost:8080) → git-http-backend (CGI) — Git HTTP Smart Protocol
-#   网关容器 (localhost:8080) → FastAPI (proxy)        — API / WebSocket
+#   网关容器 (localhost:18088) → git-http-backend (CGI) — Git HTTP Smart Protocol
+#   网关容器 (localhost:18088) → FastAPI (proxy)        — API / WebSocket
 #   FastAPI → PostgreSQL（compose 内置 postgres 服务）  — 数据库
+#
+# 宿主端口刻意选冷门值（18088 / 18002 / 19002），避免与本机常见的 8000/8080/9000
+# 段服务撞车；三者都可用环境变量覆盖（KUSTOS_DEV_GATEWAY_PORT / KUSTOS_DEV_API_PORT /
+# KUSTOS_DEV_GIT_HTTP_PORT）。容器名与网络名不写死，由 compose 按项目名派生，
+# 这样同一份配置可以在多个项目名下并存而不互相抢名字。
 #
 # 前置条件:
 #   1. .env 已设置 POSTGRES_PASSWORD（与生产共用 .env）
@@ -17,19 +22,17 @@
 # 使用方式:
 #   1. 复制环境变量模板: cp .env.dev .env
 #   2. 修改 .env 中的配置（特别是 JWT 密钥和数据库连接）
-#   3. 启动服务: docker compose -f docker-compose.dev.yml up -d
+#   3. 启动服务: docker compose -f docker-compose.dev.yml -p kustos-dev up -d
 #
 # 服务访问地址:
 #   - 前端: http://localhost:5173
-#   - API: 通过外部 Nginx 代理（如 http://localhost:8080/api）
-#   - WebSocket: 通过外部 Nginx 代理（如 ws://localhost:8080/ws）
-#   - Git HTTP: 通过外部 Nginx 代理（如 http://localhost:8080/username/repo.git）
+#   - 统一入口（前端 / API / WebSocket / Git HTTP）: http://localhost:18088
 #
 # 常用命令:
-#   docker compose -f docker-compose.dev.yml logs -f app      # 查看后端日志
-#   docker compose -f docker-compose.dev.yml exec app bash    # 进入后端容器
-#   docker compose -f docker-compose.dev.yml down             # 停止服务
-#   docker compose -f docker-compose.dev.yml down -v          # 停止并清除数据
+#   docker compose -f docker-compose.dev.yml -p kustos-dev logs -f app      # 后端日志
+#   docker compose -f docker-compose.dev.yml -p kustos-dev exec app bash    # 进入容器
+#   docker compose -f docker-compose.dev.yml -p kustos-dev down             # 停止服务
+#   docker compose -f docker-compose.dev.yml -p kustos-dev down -v          # 停止并清数据
 # =============================================================================
 
 services:
@@ -38,7 +41,6 @@ services:
   # =============================================
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: kustos-postgres-dev
     environment:
       POSTGRES_USER: kustos
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?错误：请设置 POSTGRES_PASSWORD 到 .env 文件}
@@ -65,7 +67,6 @@ services:
     build:
       context: ./backend
       dockerfile: ../docker/dev/Dockerfile.backend
-    container_name: kustos-backend-dev
     environment:
       # 数据库连接（compose 内置 PostgreSQL）
       DATABASE_URL: postgresql://kustos:${POSTGRES_PASSWORD:?错误：请设置 POSTGRES_PASSWORD 到 .env 文件}@postgres:5432/kustos
@@ -110,9 +111,8 @@ services:
       # 日志目录
       - ./backend/logs:/app/logs
     ports:
-      # 暴露后端端口（供外部 Nginx 反向代理 / 前端直连）
-      # 宿主 8002 避免与生产网关 8000 冲突
-      - "127.0.0.1:8002:8000"
+      # 后端直连端口（调试时绕过网关用）。宿主口取冷门值，避开 8000 段的常见占用。
+      - "127.0.0.1:${KUSTOS_DEV_API_PORT:-18002}:8000"
     # 使用 unless-stopped 而非 "no"，确保 reloader 崩溃后自动重启
     restart: unless-stopped
     # 资源限制
@@ -140,7 +140,6 @@ services:
       # dockerfile 相对构建上下文解析：services/collab → services → 仓库根 → docker/
       context: ./services/collab
       dockerfile: ../../docker/collab/Dockerfile
-    container_name: kustos-collab-dev
     command: ["node", "--watch", "server.mjs"]
     environment:
       KUSTOS_APP_URL: http://app:8000
@@ -165,7 +164,6 @@ services:
   # =============================================
   docker-socket-proxy:
     image: tecnativa/docker-socket-proxy:0.2.0
-    container_name: kustos-docker-proxy-dev
     environment:
       CONTAINERS: "1"   # 允许 GET /containers/*
       POST: "0"         # 禁止写操作
@@ -186,7 +184,6 @@ services:
   # =============================================
   docker-write-proxy:
     image: openresty/openresty:1.31.1.1-0-bookworm-fat
-    container_name: kustos-docker-write-proxy-dev
     volumes:
       - ./docker/docker-write-proxy/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro
       - ./docker/docker-write-proxy/docker_write_acl.lua:/etc/nginx/docker_write_acl.lua:ro
@@ -205,10 +202,12 @@ services:
   # 下的所有内容, 因此必须用独立的仓库根目录, 严禁挂载 repos_dev 卷
   # =============================================
   test:
+    # 一次性测试容器，不参与 `up -d`：只有显式 `run --rm test` 才会启动，
+    # 否则每次拉起开发栈都会顺带把整套 pytest 跑一遍。
+    profiles: ["test"]
     build:
       context: ./backend
       dockerfile: ../docker/dev/Dockerfile.backend
-    container_name: kustos-test-runner
     environment:
       DATABASE_URL: postgresql://kustos:${POSTGRES_PASSWORD:?错误：请设置 POSTGRES_PASSWORD 到 .env 文件}@postgres:5432/kustos
       KUSTOS_SECURITY_SECRET_KEY: test-secret-key-for-testing
@@ -248,7 +247,6 @@ services:
       # 针对国内网络环境优化
       args:
         - ALPINE_MIRROR=mirrors.aliyun.com
-    container_name: kustos-git-cgi-dev
     volumes:
       - repos_dev:/data/repositories
     environment:
@@ -259,9 +257,8 @@ services:
       KUSTOS_APP_URL: http://app:8000
       KUSTOS_GIT_HOOK_SECRET: ${KUSTOS_GIT_HOOK_SECRET:-dev-git-hook-secret}
     ports:
-      # 暴露 FCGI 端口（供外部 Nginx 连接）
-      # 宿主 9001 避免与生产 git-cgi 9000 冲突
-      - "127.0.0.1:9001:9000"
+      # 暴露 FCGI 端口（仅供直连调试，正常流量走网关）
+      - "127.0.0.1:${KUSTOS_DEV_GIT_HTTP_PORT:-19002}:9000"
     restart: unless-stopped
     deploy:
       resources:
@@ -275,13 +272,12 @@ services:
   # =============================================
   gateway:
     image: nginx:1.27-alpine
-    container_name: kustos-gateway-dev
     volumes:
       - ./docker/dev/nginx.dev.conf:/etc/nginx/conf.d/default.conf:ro
       - repos_dev:/data/repositories
     ports:
-      # 统一入口: http://localhost:8080 (API / WebSocket / Git HTTP)
-      - "127.0.0.1:8080:80"
+      # 统一入口: http://localhost:18088 （前端 / API / WebSocket / Git HTTP）
+      - "127.0.0.1:${KUSTOS_DEV_GATEWAY_PORT:-18088}:80"
     extra_hosts:
       # 访问宿主机上的 Vite 开发服务器 (localhost:5173)
       - "host.docker.internal:host-gateway"
@@ -310,8 +306,9 @@ volumes:
 
 # =============================================
 # 网络配置
+# 不指定 name：由 compose 按项目名派生（<project>_default），
+# 同一份配置在不同 -p 下并存时不会抢同一个网络名。
 # =============================================
 networks:
   default:
-    name: kustos-dev-network
     driver: bridge

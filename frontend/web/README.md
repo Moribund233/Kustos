@@ -89,8 +89,8 @@ pnpm api:generate     # 从后端 OpenAPI 重新生成类型
 | 变量                  | 作用                                                                          |
 | --------------------- | ----------------------------------------------------------------------------- |
 | `VITE_API_URL`        | API 基址；**留空 = 与页面同源**（生产经网关访问 `/api/v1`），构建时注入       |
-| `VITE_DEV_API_ORIGIN` | 仅开发期：vite 把 `/api` 与 `/ws` 转发到的后端地址（默认 `http://127.0.0.1:8001` 即 `docker-compose.yml` 的 API 直连端口；跑 `docker-compose.dev.yml` 时改为 `8002`） |
-| `VITE_DEV_COLLAB_ORIGIN` | 仅开发期：`/ws/collab` 的转发目标，指向 dev nginx（默认 `http://127.0.0.1:8080`） |
+| `VITE_DEV_API_ORIGIN` | 仅开发期：vite 把 `/api` 与 `/ws` 转发到的后端地址（默认 `http://127.0.0.1:18002`，即 `docker-compose.dev.yml` 的 app 直连端口；要走网关联调就设成 `18088`） |
+| `VITE_DEV_COLLAB_ORIGIN` | 仅开发期：`/ws/collab` 的转发目标，指向 dev nginx（默认 `http://127.0.0.1:18088`） |
 
 ## 接口类型
 
@@ -127,9 +127,9 @@ const { data } = await api.GET("/api/v1/repositories/{repo_id}/pull-requests", {
 ## 与后端联调
 
 - 开发：`pnpm dev` 时 `/api` 与 `/ws` 都由 vite 代理到 `VITE_DEV_API_ORIGIN`
-  （默认后端 dev compose 的 `127.0.0.1:8001`）；`/ws` 必须单独代理，实时通道不走 `/api` 前缀。
+  （默认后端 dev compose 的 `127.0.0.1:18002`）；`/ws` 必须单独代理，实时通道不走 `/api` 前缀。
 - 协作编辑走独立网关：`/ws/collab` 由 `VITE_DEV_COLLAB_ORIGIN` 指向 dev nginx
-  （默认 `127.0.0.1:8080`），再转发到 collab 容器；这条规则必须排在 `/ws` 之前。
+  （默认 `127.0.0.1:18088`），再转发到 collab 容器；这条规则必须排在 `/ws` 之前。
 - 生产：与网关同源，浏览器直接请求 `/api/v1/...`；WebSocket 走同源的 `/ws/`，协作走 `/ws/collab`。
 
 ## 网关构建的硬约束
