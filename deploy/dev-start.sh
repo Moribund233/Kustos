@@ -8,15 +8,18 @@
 #   - 提供常用命令快捷方式
 #
 # 使用方法:
-#   ./scripts/dev-start.sh          # 启动所有服务
-#   ./scripts/dev-start.sh build    # 强制重新构建镜像
-#   ./scripts/dev-start.sh stop     # 停止服务
-#   ./scripts/dev-start.sh logs     # 查看日志
-#   ./scripts/dev-start.sh shell    # 进入后端容器
-#   ./scripts/dev-start.sh clean    # 停止并清除所有数据
+#   ./deploy/dev-start.sh          # 启动所有服务
+#   ./deploy/dev-start.sh build    # 强制重新构建镜像
+#   ./deploy/dev-start.sh stop     # 停止服务
+#   ./deploy/dev-start.sh logs     # 查看日志
+#   ./deploy/dev-start.sh shell    # 进入后端容器
+#   ./deploy/dev-start.sh clean    # 停止并清除所有数据
 # =============================================================================
 
 set -e
+
+# compose 文件与 .env 都在仓库根：从任意位置调用都先切到根
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 COMPOSE_FILE="docker-compose.dev.yml"
 
@@ -46,10 +49,14 @@ error() {
 check_env() {
     if [ ! -f ".env" ]; then
         warn ".env 文件不存在"
-        info "正在从 .env.dev 创建 .env..."
-        cp .env.dev .env
-        success ".env 文件已创建"
-        warn "请编辑 .env 文件，设置 KUSTOS_SECURITY_SECRET_KEY 密钥后再启动"
+        info "正在生成 .env（随机密钥）..."
+        if python3 deploy/generate_env.py; then
+            success ".env 文件已生成"
+        else
+            error ".env 生成失败，请检查 python 是否可用"
+            exit 1
+        fi
+        warn "请检查 .env 中的密钥后再启动"
         exit 1
     fi
 
@@ -86,9 +93,9 @@ start() {
     echo "  - git-cgi:    localhost:9001"
     echo ""
     echo "常用命令:"
-    echo "  - 查看日志:   ./scripts/dev-start.sh logs"
-    echo "  - 进入容器:   ./scripts/dev-start.sh shell"
-    echo "  - 停止服务:   ./scripts/dev-start.sh stop"
+    echo "  - 查看日志:   ./deploy/dev-start.sh logs"
+    echo "  - 进入容器:   ./deploy/dev-start.sh shell"
+    echo "  - 停止服务:   ./deploy/dev-start.sh stop"
     echo ""
     info "正在显示日志..."
     docker compose -p kustos-dev -f $COMPOSE_FILE logs -f
@@ -152,7 +159,7 @@ case "${1:-start}" in
     *)
         echo "Kustos 开发环境管理脚本"
         echo ""
-        echo "用法: ./scripts/dev-start.sh [命令]"
+        echo "用法: ./deploy/dev-start.sh [命令]"
         echo ""
         echo "命令:"
         echo "  start  - 启动开发环境 (默认)"

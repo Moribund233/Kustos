@@ -237,7 +237,7 @@ logs/
 
 | 现象 | 可能原因 | 处理 |
 | --- | --- | --- |
-| `KUSTOS_SECURITY_SECRET_KEY 未设置` | 生产未注入密钥 | 设置 env / 运行 `scripts/generate_env.py --prod` |
+| `KUSTOS_SECURITY_SECRET_KEY 未设置` | 生产未注入密钥 | 设置 env / 运行 `deploy/generate_env.py --prod` |
 | `数据库 schema 未就绪，拒绝启动` | `KUSTOS_INIT_DATABASE=false` 且未跑 init | `docker compose --profile init run --rm init` |
 | `配置完整性校验失败` | repo_root 不可写 / secret 为空 / 维度不匹配 | 查看启动报告中的 errors |
 | `创建异步数据库引擎失败` | DATABASE_URL 错误/驱动缺失 | 校验 URL 与 `asyncpg` 安装 |

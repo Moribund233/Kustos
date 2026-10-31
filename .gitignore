@@ -16,6 +16,8 @@ eggs/
 .eggs/
 lib/
 lib64/
+# 部署脚本的公共库是 shell 源码，不是 Python 构建产物
+!deploy/lib/
 parts/
 sdist/
 var/
@@ -170,6 +172,8 @@ node_modules/
 # Lock files
 yarn.lock
 package-lock.json
+# 例外：协作网关是应用（不是库），镜像里的 npm ci 必须有一份可复现的锁文件
+!services/collab/package-lock.json
 temp/
 
 # 本地运维产物

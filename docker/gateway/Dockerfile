@@ -13,6 +13,9 @@
 
 FROM node:22-alpine AS web-builder
 WORKDIR /app
+# 国内网络：pnpm 会按 package.json 的 packageManager 字段自取指定版本，
+# 默认指向 npmjs.org 会直接失败；与其他镜像一致统一走镜像源
+ENV NPM_CONFIG_REGISTRY=https://registry.npmmirror.com
 RUN npm install -g pnpm@11
 # pnpm-workspace.yaml 里放着 allowBuilds（pnpm 11 的构建脚本放行名单），
 # 缺了它 `pnpm install` 会因 esbuild 安装脚本被忽略而退出 1

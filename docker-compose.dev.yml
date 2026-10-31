@@ -63,8 +63,8 @@ services:
   # =============================================
   app:
     build:
-      context: .
-      dockerfile: docker/dev/Dockerfile.backend
+      context: ./backend
+      dockerfile: ../docker/dev/Dockerfile.backend
     container_name: kustos-backend-dev
     environment:
       # 数据库连接（compose 内置 PostgreSQL）
@@ -102,13 +102,13 @@ services:
       KUSTOS_GRAFANA_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:-}"
     volumes:
       # 代码挂载（支持热重载）
-      - .:/app
+      - ./backend:/app
       # 仓库数据持久化
       - repos_dev:/data/repositories
       # LFS 对象存储持久化
       - lfs_dev:/data/lfs
       # 日志目录
-      - ./logs:/app/logs
+      - ./backend/logs:/app/logs
     ports:
       # 暴露后端端口（供外部 Nginx 反向代理 / 前端直连）
       # 宿主 8002 避免与生产网关 8000 冲突
@@ -137,8 +137,9 @@ services:
   # =============================================
   collab:
     build:
-      context: .
-      dockerfile: docker/collab/Dockerfile
+      # dockerfile 相对构建上下文解析：services/collab → services → 仓库根 → docker/
+      context: ./services/collab
+      dockerfile: ../../docker/collab/Dockerfile
     container_name: kustos-collab-dev
     command: ["node", "--watch", "server.mjs"]
     environment:
@@ -147,7 +148,7 @@ services:
       TZ: Asia/Shanghai
     volumes:
       # 源码挂载 (支持热重载)
-      - ./collab-gateway:/app/gateway
+      - ./services/collab:/app/gateway
       # 屏蔽宿主 node_modules (Windows 二进制与 Linux 容器不兼容), 使用镜像内依赖
       - collab_gateway_node_modules:/app/gateway/node_modules
     depends_on:
@@ -205,19 +206,22 @@ services:
   # =============================================
   test:
     build:
-      context: .
-      dockerfile: docker/dev/Dockerfile.backend
+      context: ./backend
+      dockerfile: ../docker/dev/Dockerfile.backend
     container_name: kustos-test-runner
     environment:
       DATABASE_URL: postgresql://kustos:${POSTGRES_PASSWORD:?错误：请设置 POSTGRES_PASSWORD 到 .env 文件}@postgres:5432/kustos
       KUSTOS_SECURITY_SECRET_KEY: test-secret-key-for-testing
-      KUSTOS_APP_DEBUG: "true"
+      # 调试模式会放开 admin 接口的鉴权，admin 门禁用例要求关闭
+      KUSTOS_APP_DEBUG: "false"
       KUSTOS_STRESS_TEST: "false"
       KUSTOS_STORAGE_REPO_ROOT: /tmp/kustos-test-repositories
       LOG_LEVEL: error
       TZ: Asia/Shanghai
     volumes:
-      - .:/app
+      - ./backend:/app
+      # 网关/nginx 与监控配置的静态断言读仓库实况（docker/ 不在应用镜像内）
+      - ./docker:/app/docker:ro
     # 直接执行 pytest，跳过 Dockerfile.backend 的 entrypoint（其 init_app 会作用到
     # 共享的 dev 库；测试用 conftest 自建的临时库，无需也不应触碰 dev 库）
     entrypoint: []

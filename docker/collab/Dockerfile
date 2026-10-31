@@ -18,11 +18,12 @@ ENV NPM_CONFIG_REGISTRY=https://registry.npmmirror.com
 WORKDIR /app/gateway
 
 # 先装依赖 (利用层缓存)
-COPY collab-gateway/package.json collab-gateway/package-lock.json ./
+# 构建上下文是 services/collab（见 docker-compose.yml 的 collab.build.context）
+COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 # 复制网关源码 (TTL 会话保留 / Redis 多副本 + 会话持久化 / 协作版本计数)
-COPY collab-gateway/server.mjs collab-gateway/sessionTtl.mjs collab-gateway/redisPersistence.mjs collab-gateway/versionCounter.mjs ./
+COPY server.mjs sessionTtl.mjs redisPersistence.mjs versionCounter.mjs ./
 
 # 非 root 运行
 USER node

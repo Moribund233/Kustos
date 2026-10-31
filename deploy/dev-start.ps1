@@ -21,6 +21,10 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+# compose 文件与 .env 都在仓库根：从任意位置调用都先切到根
+Set-Location (Split-Path $PSScriptRoot -Parent)
+
 $ComposeFile = "docker-compose.dev.yml"
 
 # 颜色定义
@@ -49,10 +53,14 @@ function Write-Error($message) {
 function Test-EnvFile {
     if (-not (Test-Path ".env")) {
         Write-Warning ".env 文件不存在"
-        Write-Info "正在从 .env.dev 创建 .env..."
-        Copy-Item ".env.dev" ".env"
-        Write-Success ".env 文件已创建"
-        Write-Warning "请编辑 .env 文件，设置 KUSTOS_SECURITY_SECRET_KEY 密钥后再启动"
+        Write-Info "正在生成 .env（随机密钥）..."
+        python deploy/generate_env.py
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error ".env 生成失败，请检查 python 是否可用"
+            exit 1
+        }
+        Write-Success ".env 文件已生成"
+        Write-Warning "请检查 .env 中的密钥后再启动"
         exit 1
     }
 
@@ -88,7 +96,7 @@ function Start-DevEnvironment {
         Write-Success "服务启动成功！"
         Write-Host ""
         Write-Host "访问地址:"
-        Write-Host "  - 前端:       http://localhost:5173 (请在 client/web 目录运行 pnpm dev)"
+        Write-Host "  - 前端:       http://localhost:5173 (请在 frontend/web 目录运行 pnpm dev)"
         Write-Host "  - 后端直连:   http://localhost:8002 (API 文档 /docs)"
         Write-Host "  - 网关:       http://localhost:8080"
         Write-Host "  - git-cgi:    localhost:9001"

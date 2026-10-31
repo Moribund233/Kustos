@@ -1,0 +1,19 @@
+# 网关镜像的构建上下文就是本目录（见 docker-compose.yml 的 gateway.build.context）。
+#
+# node_modules 必须排除：它来自宿主，pnpm 在容器内会因依赖状态不一致要求
+# 清空重装，而无 TTY 的构建环境会直接以 ERR_PNPM_ABORTED_REMOVE_MODULES_DIR 中止。
+# 容器内会用 lockfile 重新安装，不需要宿主目录。
+
+node_modules
+**/node_modules
+
+# 构建产物与本地报告：镜像内自行执行 pnpm build 生成
+dist
+coverage
+playwright-report
+test-results
+
+# 本地环境变量不进镜像；构建期由 Dockerfile 显式指定 VITE_API_URL
+.env
+.env.local
+.env.*.local

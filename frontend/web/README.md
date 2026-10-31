@@ -2,7 +2,7 @@
 
 Kustos 的前端。仓库是 bare repo，前端只负责界面与交互，全部业务能力来自后端 API。
 
-它同时是网关镜像的构建输入：`backend/docker-compose.yml` 里 `gateway.build.context`
+它同时是网关镜像的构建输入：仓库根 `docker-compose.yml` 里 `gateway.build.context`
 指向本目录，镜像内用 Node 22 + pnpm 11 构建 `dist`，再交给 OpenResty 托管。
 
 ## 技术栈
@@ -18,7 +18,7 @@ Kustos 的前端。仓库是 bare repo，前端只负责界面与交互，全部
 | 客户端状态  | Zustand（仅主题、侧栏折叠这类纯偏好）                                     |
 | 国际化      | i18next + react-i18next（zh / en，与后端 `core/i18n.py` 对齐）            |
 | 编辑器      | CodeMirror 6（只读浏览、Markdown 编辑、diff），语言包按需加载             |
-| 协作        | Yjs + Hocuspocus Provider（对接 `backend/collab-gateway`）                |
+| 协作        | Yjs + Hocuspocus Provider（对接 `services/collab`）                |
 | Markdown    | react-markdown + remark-gfm + rehype-sanitize + rehype-highlight          |
 | 命令面板    | cmdk（`Ctrl/⌘ + K`）                                                      |
 | 表单        | react-hook-form + zod                                                     |
@@ -134,7 +134,7 @@ const { data } = await api.GET("/api/v1/repositories/{repo_id}/pull-requests", {
 
 ## 网关构建的硬约束
 
-改构建配置前先看 `backend/docker/gateway/Dockerfile`，它对工程有三个硬要求：
+改构建配置前先看 `docker/gateway/Dockerfile`，它对工程有三个硬要求：
 
 1. 产物目录必须是 **`dist`**（镜像里 `COPY --from=web-builder /app/dist`）。
 2. 根目录必须同时有 **`package.json`、`pnpm-lock.yaml`、`pnpm-workspace.yaml`**；
@@ -176,7 +176,7 @@ SVG（复制到 `public/brand/`），由 `components/brand/brand-mark.tsx` 统�
 ## 约定
 
 - **路由**：数据路由的子路由由 `<Outlet/>` 承载，`AppShell` 不接 `children`。
-- **编辑器**：用 CodeMirror 6 而不是 Monaco——后端 `collab-gateway` 已约定
+- **编辑器**：用 CodeMirror 6 而不是 Monaco——后端 `services/collab` 已约定
   `yCollab(ydoc.getText("content"), provider.awareness)`，与 `y-codemirror.next` 对得上。
   共享文本名必须与网关一致（见 `src/lib/collab/client.ts`）。
 - **鉴权**：WebSocket 的 token 走 `Sec-WebSocket-Protocol` 握手头，不放 URL query

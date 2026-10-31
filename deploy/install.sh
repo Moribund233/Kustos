@@ -3,13 +3,13 @@
 # Kustos 一键安装 / 升级脚本（Linux, Docker Compose V2）
 #
 # 用法:
-#   bash scripts/install.sh                 # 交互式（5s 内按 Enter 进入自定义配置）
-#   bash scripts/install.sh -d              # 默认部署（非交互，使用 .env 默认值）
-#   bash scripts/install.sh --upgrade       # 升级已有安装（自动备份 → 迁移 → 重启）
-#   bash scripts/install.sh --tag v0.2.0    # 安装/升级到指定镜像 tag（默认 latest）
-#   bash scripts/install.sh --no-build      # 跳过构建/pull, 使用已存在镜像
-#   bash scripts/install.sh --with-monitoring   # 部署后启用监控栈
-#   bash scripts/install.sh --no-cli        # 不安装全局 kustos 命令
+#   bash deploy/install.sh                 # 交互式（5s 内按 Enter 进入自定义配置）
+#   bash deploy/install.sh -d              # 默认部署（非交互，使用 .env 默认值）
+#   bash deploy/install.sh --upgrade       # 升级已有安装（自动备份 → 迁移 → 重启）
+#   bash deploy/install.sh --tag v0.2.0    # 安装/升级到指定镜像 tag（默认 latest）
+#   bash deploy/install.sh --no-build      # 跳过构建/pull, 使用已存在镜像
+#   bash deploy/install.sh --with-monitoring   # 部署后启用监控栈
+#   bash deploy/install.sh --no-cli        # 不安装全局 kustos 命令
 #
 # 交互式配置项（直接回车取方括号默认值）:
 #   网关对外端口 / 管理员用户名 / 管理员邮箱 / 镜像 tag
@@ -24,13 +24,16 @@
 # 部署完成后统一使用 `kustos` 命令运维:
 #   kustos update | doctor | uninstall | status | logs | backup ...
 #
-# 升级等价命令:  kustos update   （或 bash scripts/mgt.sh upgrade）
+# 升级等价命令:  kustos update   （或 bash deploy/mgt.sh upgrade）
 # =============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
 source "$SCRIPT_DIR/lib/common.sh"
+# 部署脚本与 compose 文件同在仓库根，仓库根 = deploy/ 的上一级。
+# 显式覆盖：lib 里的 PROJECT_ROOT 是按旧布局（脚本嵌在 backend/ 下）算的。
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
 UPGRADE=false
@@ -45,7 +48,7 @@ INTERACTIVE=false
 
 usage() {
   cat <<'EOF'
-用法: bash scripts/install.sh [选项]
+用法: bash deploy/install.sh [选项]
 
 选项:
   -d, --default       默认部署（非交互，使用 .env 默认值）
@@ -71,7 +74,7 @@ while [[ $# -gt 0 ]]; do
     --with-monitoring) ENABLE_MONITORING=true; MONITORING_FLAG_SET=true ;;
     --no-cli) NO_CLI=true; INSTALL_CLI=false ;;
     -h|--help) usage; exit 0 ;;
-    *) die "未知参数: $1 (bash scripts/install.sh --help)" ;;
+    *) die "未知参数: $1 (bash deploy/install.sh --help)" ;;
   esac
   shift
 done
@@ -99,7 +102,7 @@ print_credentials() {
     echo "                 admin 控制台「打开 Grafana」自动登录; 凭据 .env GRAFANA_ADMIN_PASSWORD"
   fi
   log_warn "管理员密码请妥善保存；若遗忘执行: kustos reset-admin"
-  echo "  运维命令:      kustos help   (bash scripts/mgt.sh help)"
+  echo "  运维命令:      kustos help   (bash deploy/mgt.sh help)"
   echo "================================================================"
   echo ""
 }
@@ -206,7 +209,7 @@ main() {
   local existing
   existing="$(compose ps -q 2>/dev/null | tr -d '\n' | wc -c || true)"
   if [[ "${existing:-0}" != "0" && "$UPGRADE" != true ]]; then
-    die "检测到已有服务正在运行, 升级请使用: bash scripts/install.sh --upgrade（或 kustos update）"
+    die "检测到已有服务正在运行, 升级请使用: bash deploy/install.sh --upgrade（或 kustos update）"
   fi
 
   if [[ "$UPGRADE" == true ]]; then
@@ -254,7 +257,7 @@ main() {
   # ---------- 9. 可选全局命令 ----------
   if [[ "$INSTALL_CLI" == true ]]; then
     install_global_cli \
-      || log_warn "全局命令安装失败, 可手动: sudo ln -sf $PROJECT_ROOT/scripts/kustos.sh /usr/local/bin/kustos"
+      || log_warn "全局命令安装失败, 可手动: sudo ln -sf $PROJECT_ROOT/deploy/kustos.sh /usr/local/bin/kustos"
   fi
 
   log_ok "全部服务已就绪"

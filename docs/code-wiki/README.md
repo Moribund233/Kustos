@@ -18,7 +18,7 @@
 | 缓存/消息 | Redis（可选，缺失时多处自动降级为进程内）|
 | Git 引擎 | `pygit2`（libgit2）操作 bare 仓库；`git-http-backend` + `sshd` 提供协议接入 |
 | 异步任务 | `arq`（Agent 作业 worker），无 Redis 时内联执行 |
-| 协作编辑 | Node.js + Hocuspocus/Yjs 网关（`backend/collab-gateway`）|
+| 协作编辑 | Node.js + Hocuspocus/Yjs 网关（`services/collab`）|
 | 网关 | OpenResty/Nginx（同源反代、Git 鉴权子请求、Admin IP 白名单）|
 | 可观测性 | 自研请求统计 + Prometheus `/metrics` + Grafana + Sentry |
 | 前端 | `frontend/web`（Vite + React + TS），同时是 `gateway` 镜像的构建上下文 |
@@ -92,7 +92,7 @@ flowchart LR
    - **物理路径**：`<storage.repo_root>/<owner>/<repo>.git`。
    - **docKey**：协作文档标识 `repository_id:branch:path`。
 3. **「降级」**：本项目大量组件在 Redis/DB/外部服务不可用时采用显式降级（进程内回退、Git tree 全扫、关键词检索等），文档会逐处标注。
-4. **构建上下文**：`docker-compose.yml` 的 `gateway` 服务构建上下文为 `../frontend/web`，镜像内用 Node 22 + pnpm 11 执行 `pnpm build`，宿主机无需 Node/pnpm。
+4. **构建上下文**：`docker-compose.yml` 的 `gateway` 服务构建上下文为 `frontend/web`，镜像内用 Node 22 + pnpm 11 执行 `pnpm build`，宿主机无需 Node/pnpm。
 
 ---
 
@@ -112,6 +112,6 @@ flowchart LR
 | 搜索 | `backend/app/services/search/search_service.py` |
 | Agent 执行循环 | `backend/app/services/agent/runtime.py` |
 | Agent 编排 | `backend/app/services/agent/agent_service.py` |
-| 协作网关 | `backend/collab-gateway/server.mjs` |
-| 部署编排 | `backend/docker-compose.yml`、`backend/docker-compose.base.yml` |
+| 协作网关 | `services/collab/server.mjs` |
+| 部署编排 | `docker-compose.yml`、`docker-compose.base.yml` |
 | 不变量测试 | `backend/tests/` |

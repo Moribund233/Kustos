@@ -87,7 +87,7 @@
 - `client_max_body_size`：LFS/Git 2g；其余默认 1m。
 - Admin ACL（`admin_acl.lua`）：`KUSTOS_ADMIN_ALLOWED_SOURCES` 支持 IP/IPv4 CIDR，**留空=拒绝一切**。
 
-> 现状提示：gateway 镜像构建上下文为 `../frontend/web`（相对 `backend/`），Dockerfile 位于 `backend/docker/gateway/Dockerfile`；镜像内用 Node 22 + pnpm 11 构建 `dist`，宿主机无需 Node/pnpm。
+> 现状提示：gateway 镜像构建上下文为 `frontend/web`（相对仓库根），Dockerfile 位于 `docker/gateway/Dockerfile`；镜像内用 Node 22 + pnpm 11 构建 `dist`，宿主机无需 Node/pnpm。
 
 ---
 
@@ -164,11 +164,11 @@ Sentry（`KUSTOS_SENTRY_DSN`）：未配置零开销；ASGI 中间件包最外�
 
 | 脚本 | 用途 |
 | --- | --- |
-| `scripts/install.sh` | 一键安装/升级：preflight → `.env` → 镜像 → 基础设施 → init → 业务层 → 可选监控 → 全局 CLI |
-| `scripts/mgt.sh` | `start/stop/restart/status/logs/init/backup/restore/upgrade/rollback/reset-admin/doctor/uninstall` |
-| `scripts/kustos.sh` | 全局 `kustos` 命令包装（指向 mgt.sh） |
-| `scripts/dev-start.sh/.ps1` | 开发环境启动（Docker Compose dev） |
-| `scripts/generate_env.py` | 生成/补全 `.env`，随机密钥（URL/shell 安全字符集） |
+| `deploy/install.sh` | 一键安装/升级：preflight → `.env` → 镜像 → 基础设施 → init → 业务层 → 可选监控 → 全局 CLI |
+| `deploy/mgt.sh` | `start/stop/restart/status/logs/init/backup/restore/upgrade/rollback/reset-admin/doctor/uninstall` |
+| `deploy/kustos.sh` | 全局 `kustos` 命令包装（指向 mgt.sh） |
+| `deploy/dev-start.sh/.ps1` | 开发环境启动（Docker Compose dev） |
+| `deploy/generate_env.py` | 生成/补全 `.env`，随机密钥（URL/shell 安全字符集） |
 | `scripts/init_db.py` | 迁移 + 管理员引导（`--check-only` 只读） |
 | `scripts/reset_admin.py` | 重设管理员密码 |
 | `scripts/security_audit.py` | 安全巡检（依赖/配置/端点） |
@@ -210,7 +210,7 @@ rollback: restore 最近备份 + 重启
 
 ## 8. 相关文件
 
-- `backend/docker-compose.base.yml`、`docker-compose.yml`、`docker-compose.dev.yml`、`docker-compose.monitoring.yml`
-- `backend/Dockerfile`、`backend/docker/**`
-- `backend/scripts/**`
+- `docker-compose.base.yml`、`docker-compose.yml`、`docker-compose.dev.yml`、`docker-compose.monitoring.yml`
+- `backend/Dockerfile`、`docker/**`
+- `deploy/**`（宿主机部署入口）、`backend/scripts/**`（容器内脚本）
 - `backend/app/middleware/**`、`services/platform/monitoring_service.py`、`services/platform/orchestration_service.py`、`services/platform/grafana_service.py`

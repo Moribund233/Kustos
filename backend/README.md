@@ -22,19 +22,20 @@ backend/               # 本 Python 项目的根（pyproject / uv.lock / Dockerf
     middleware/        # 并发、审计、可观测、指标
     utils/             # Git 封装、Redis、安全、响应构造、邮件、Webhook
   alembic/             # 数据库迁移
-  collab-gateway/      # Hocuspocus / Yjs 协作网关（Node）
-  docker/              # Dockerfile 与网关 / git-cgi / sshd / 监控配置
-  scripts/             # 初始化、运维、审计、E2E 脚本
+  scripts/             # 容器内脚本：初始化、迁移、审计、E2E（随镜像发布）
   tests/               # pytest（含 api 契约、路由顺序、schema 漂移等护栏）
 ```
+
+> 编排文件 `docker-compose*.yml`、镜像构建资料 `docker/`、宿主机部署入口 `deploy/`
+> 与协作网关 `services/collab` 都在仓库根，不在此目录下。
 
 ## 运行
 
 **整栈（推荐）**
 
 ```bash
-cd backend
-python3 scripts/generate_env.py          # 生成 .env（密钥类变量，幂等，可重复执行）
+# 在仓库根执行（compose 与 .env 都在这层）
+python3 deploy/generate_env.py          # 生成 .env（密钥类变量，幂等，可重复执行）
 docker compose -p kustos up -d --build
 ```
 
@@ -66,7 +67,7 @@ uv run uvicorn app.main:app --reload --port 8000
 
 ## 环境变量
 
-`.env` 由 `python3 scripts/generate_env.py` 生成或补全。
+`.env` 由 `python3 deploy/generate_env.py` 生成或补全。
 
 | 变量 | 用途 |
 | --- | --- |

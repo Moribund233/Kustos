@@ -1,0 +1,112 @@
+# =============================================================================
+# Kustos 持续集成
+#
+# 两条流水线：
+#   web     — 前端类型检查 / lint / 单测 / 构建（与网关镜像内的构建同源）
+#   backend — 后端 pytest，在容器内跑，用例自建临时 PostgreSQL 库后回收
+#
+# 后端测试不复用任何已部署的数据库：conftest 每个会话建唯一命名的临时库，
+# 结束时 DROP，绝不指向共享库。
+# =============================================================================
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: 前端 typecheck / lint / test / build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend/web
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      # 版本取自 package.json 的 packageManager 字段，与本地、网关镜像一致
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: 安装 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/web/pnpm-lock.yaml
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 类型检查
+        run: pnpm typecheck
+
+      - name: 代码检查
+        run: pnpm lint
+
+      - name: 单元测试
+        run: pnpm test
+
+      - name: 构建产物
+        run: pnpm build
+
+  backend:
+    name: 后端容器内 pytest
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # compose 的变量插值需要 .env；测试用的密码与密钥在 CI 内临时生成
+      - name: 生成 .env
+        run: python deploy/generate_env.py
+
+      # 测试镜像基于应用镜像（kustos-app:latest），必须先构建应用镜像
+      - name: 构建应用镜像
+        run: docker compose -p kustos-ci build app
+
+      - name: 构建测试镜像
+        run: docker compose -p kustos-ci --profile test build test
+
+      - name: 运行测试
+        run: docker compose -p kustos-ci --profile test run --rm test
+
+  collab:
+    name: 协作网关测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: services/collab
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: services/collab/package-lock.json
+
+      - name: 安装依赖
+        run: npm ci
+
+      # Redis 集成用例需要 TEST_REDIS_URL，未设置时自动跳过
+      - name: 单元测试
+        run: npm test

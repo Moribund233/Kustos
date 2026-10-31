@@ -6,10 +6,10 @@ Kustos .env 生成脚本
 已存在的变量保留原值，只补全缺失项，可重复执行（幂等）。
 
 用法:
-    python scripts/generate_env.py            # 生成/补全 .env
-    python scripts/generate_env.py --prod     # 生产模式：重新生成全部密钥 + 生产默认值
-    python scripts/generate_env.py --show     # 生成后打印（密钥脱敏）
-    python scripts/generate_env.py --force    # 重新生成所有密钥类变量
+    python deploy/generate_env.py            # 生成/补全 .env
+    python deploy/generate_env.py --prod     # 生产模式：重新生成全部密钥 + 生产默认值
+    python deploy/generate_env.py --show     # 生成后打印（密钥脱敏）
+    python deploy/generate_env.py --force    # 重新生成所有密钥类变量
 
 生成项:
     KUSTOS_SECURITY_SECRET_KEY     JWT 签名密钥（必需）
@@ -113,7 +113,7 @@ def parse_env(text: str) -> dict[str, str]:
 def serialize_env(env: dict[str, str], comments: dict[str, str] | None = None) -> str:
     comments = comments or {}
     lines = [
-        "# Kustos 环境变量（由 scripts/generate_env.py 生成）",
+        "# Kustos 环境变量（由 deploy/generate_env.py 生成）",
         "# 密钥类变量缺失时自动生成；已存在的值不会被覆盖。",
         "",
     ]
@@ -165,6 +165,10 @@ def main() -> int:
 
     for key, value in DEFAULT_VARS.items():
         env[key] = existing.get(key, value)
+
+    # 保留本脚本未管理的自定义键（如 KUSTOS_GIT_HTTP_PORT），避免重复执行时丢失
+    for key, value in existing.items():
+        env.setdefault(key, value)
 
     # 非密钥项的 .env 注释
     comments["KUSTOS_ADMIN_ALLOWED_SOURCES"] = (

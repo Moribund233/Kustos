@@ -14,7 +14,7 @@
 | Redis | 可选；缺失时多处降级 |
 | Docker | 生产/开发 Compose 方式需要 Docker + Compose V2 |
 | 系统库 | `libgit2`、`libpq`、`gcc/g++`、`pkg-config`（构建 pygit2/psycopg2）|
-| Node | 22（协作网关 `collab-gateway`；前端 `frontend/web` 构建；两者都在容器内完成，宿主机可不装）|
+| Node | 22（协作网关 `services/collab`；前端 `frontend/web` 构建；两者都在容器内完成，宿主机可不装）|
 
 ---
 
@@ -23,10 +23,8 @@
 ### 2.1 方式 A：Docker Compose Dev（推荐）
 
 ```bash
-cd backend
-# 仓库未提供 .env.dev；请按 compose 变量清单创建 .env
-# （或运行 python scripts/generate_env.py 生成密钥类变量）
-cp .env.dev .env          # 若文件存在
+# 在仓库根执行（compose 与 .env 都在这层）
+python3 deploy/generate_env.py          # 生成 .env（密钥类变量，幂等）
 # 编辑 .env：KUSTOS_SECURITY_SECRET_KEY、POSTGRES_PASSWORD、管理员账号
 docker compose -p kustos-dev -f docker-compose.dev.yml up -d --build
 ```
@@ -34,7 +32,7 @@ docker compose -p kustos-dev -f docker-compose.dev.yml up -d --build
 或在 Windows：
 
 ```powershell
-cd backend
+# 在仓库根执行
 .\scripts\dev-start.ps1 start
 .\scripts\dev-start.ps1 logs
 .\scripts\dev-start.ps1 shell
@@ -98,10 +96,10 @@ uv run uvicorn app.main:app --reload --port 8000
 ### 3.1 一键安装
 
 ```bash
-cd backend
-bash scripts/install.sh                 # 交互式（5s 内按 Enter 进入自定义）
-bash scripts/install.sh -d              # 默认部署
-bash scripts/install.sh --with-monitoring
+# 在仓库根执行
+bash deploy/install.sh                 # 交互式（5s 内按 Enter 进入自定义）
+bash deploy/install.sh -d              # 默认部署
+bash deploy/install.sh --with-monitoring
 ```
 
 流程：preflight → `.env` 生成 → 镜像准备 → PG/Redis 就绪 → init（迁移+管理员）→ 业务层启动 → 网关健康 → 可选监控 → 全局 `kustos` 命令。
@@ -118,16 +116,16 @@ docker compose up -d
 
 | 操作 | 命令 |
 | --- | --- |
-| 启停 | `bash scripts/mgt.sh start/stop/restart` |
-| 状态 | `bash scripts/mgt.sh status` |
-| 日志 | `bash scripts/mgt.sh logs [svc]` |
-| 备份 | `bash scripts/mgt.sh backup [--with-data]` |
-| 恢复 | `bash scripts/mgt.sh restore <file> [--with-data]` |
-| 升级 | `bash scripts/mgt.sh upgrade [--tag vX]` |
-| 回滚 | `bash scripts/mgt.sh rollback` |
-| 重设管理员 | `bash scripts/mgt.sh reset-admin` |
-| 体检 | `bash scripts/mgt.sh doctor` |
-| 卸载 | `bash scripts/mgt.sh uninstall`（删卷，二次确认） |
+| 启停 | `bash deploy/mgt.sh start/stop/restart` |
+| 状态 | `bash deploy/mgt.sh status` |
+| 日志 | `bash deploy/mgt.sh logs [svc]` |
+| 备份 | `bash deploy/mgt.sh backup [--with-data]` |
+| 恢复 | `bash deploy/mgt.sh restore <file> [--with-data]` |
+| 升级 | `bash deploy/mgt.sh upgrade [--tag vX]` |
+| 回滚 | `bash deploy/mgt.sh rollback` |
+| 重设管理员 | `bash deploy/mgt.sh reset-admin` |
+| 体检 | `bash deploy/mgt.sh doctor` |
+| 卸载 | `bash deploy/mgt.sh uninstall`（删卷，二次确认） |
 
 > 升级前务必 `backup`；仓库数据（`repos` 卷）与数据库必须成对备份，否则恢复后 Git/DB 不一致。
 
@@ -157,7 +155,7 @@ docker compose up -d
 **容器（推荐，环境一致）**：
 
 ```bash
-cd backend
+# 在仓库根执行
 docker compose --profile test build test
 docker compose --profile test run --rm test
 docker compose --profile test run --rm test tests/test_search_service.py -q
@@ -188,7 +186,7 @@ pytest tests/test_agent_api.py -q
 | API 契约 | `test_api_contract.py`、`test_error_contract.py`、`test_controller_*` |
 | 安全 | `test_permission_matrix.py`、`test_authz_probe.py`、`test_security_audit.py`、`test_lfs_acl.py` |
 | 一致性 | `test_schema_drift.py`、`test_index_debt.py`、`test_route_order_guard.py` |
-| 实时/协作 | `test_chat_*`、`test_room_*`、`test_presence_*`、`test_collab_*`、`collab-gateway/tests/*` |
+| 实时/协作 | `test_chat_*`、`test_room_*`、`test_presence_*`、`test_collab_*`、`services/collab/tests/*` |
 | 回归/并发 | `test_bug_regression.py`、`test_hardening_regression.py`、`test_concurrency_pool_alignment.py` |
 | 冒烟/压测 | `smoke_test.py`、`stress_test.py`、`scripts/e2e_*.sh` |
 
@@ -285,7 +283,8 @@ docker compose exec app python -c "from app.utils.db_migrate import get_applied_
 ## 8. 相关文件
 
 - `backend/pyproject.toml`、`uv.lock`、`config.example.toml`
-- `backend/scripts/install.sh`、`mgt.sh`、`dev-start.*`、`init_db.py`、`generate_env.py`
+- `deploy/install.sh`、`mgt.sh`、`dev-start.*`、`generate_env.py`（宿主机部署入口）
+- `backend/scripts/init_db.py`（容器内初始化）
 - `backend/tests/conftest.py`
-- `backend/docker-compose*.yml`
-- `backend/docker/test/Dockerfile.test`
+- `docker-compose*.yml`（仓库根）
+- `docker/test/Dockerfile.test`

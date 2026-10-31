@@ -2,7 +2,7 @@
 # =============================================================================
 # Kustos 运维命令（Linux, Docker Compose V2）
 #
-# 用法: bash scripts/mgt.sh <command> [参数]
+# 用法: bash deploy/mgt.sh <command> [参数]
 #
 # 命令:
 #   start                    启动全部服务（若 schema 未就绪会提醒先 init）
@@ -24,6 +24,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
 source "$SCRIPT_DIR/lib/common.sh"
+# 部署脚本与 compose 文件同在仓库根，仓库根 = deploy/ 的上一级。
+# 显式覆盖：lib 里的 PROJECT_ROOT 是按旧布局（脚本嵌在 backend/ 下）算的。
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
 BACKUP_ROOT="backups"
@@ -61,7 +64,7 @@ cmd_status() {
   require_docker
   compose ps
   echo ""
-  log_info "常规校验: bash scripts/mgt.sh doctor"
+  log_info "常规校验: bash deploy/mgt.sh doctor"
 }
 
 cmd_logs() {
@@ -155,7 +158,7 @@ cmd_restore() {
   local archive="${args[0]:-}"
   if [[ -z "$archive" ]]; then
     archive="$(ls -1t "$BACKUP_ROOT"/kustos-backup-*.tar.gz 2>/dev/null | head -n1 || true)"
-    [[ -z "$archive" ]] && die "未找到备份文件, 请指定: bash scripts/mgt.sh restore <文件>"
+    [[ -z "$archive" ]] && die "未找到备份文件, 请指定: bash deploy/mgt.sh restore <文件>"
     log_info "使用最近备份: $archive"
   fi
   [[ -f "$archive" ]] || die "备份文件不存在: $archive"
@@ -262,14 +265,14 @@ cmd_upgrade() {
   [[ "$no_build" != true ]] && build_images
 
   log_info "步骤 3/4: 数据库增量迁移..."
-  compose --profile init run --rm init || die "数据库迁移失败, 回滚命令: bash scripts/mgt.sh rollback"
+  compose --profile init run --rm init || die "数据库迁移失败, 回滚命令: bash deploy/mgt.sh rollback"
   wait_healthy kustos-postgres 180
 
   log_info "步骤 4/4: 重启业务层..."
   compose up -d
   wait_healthy kustos-gateway 240
   log_ok "升级完成 (镜像 tag=$(env_get KUSTOS_IMAGE_TAG))"
-  log_warn "如需回滚: bash scripts/mgt.sh rollback"
+  log_warn "如需回滚: bash deploy/mgt.sh rollback"
 }
 
 cmd_rollback() {
@@ -323,7 +326,7 @@ cmd_doctor() {
       fi
     done
   else
-    log_error ".env 不存在 (python3 scripts/generate_env.py --prod)"
+    log_error ".env 不存在 (python3 deploy/generate_env.py --prod)"
   fi
 
   echo ""
@@ -343,7 +346,7 @@ cmd_doctor() {
   if compose run --rm --no-deps init python scripts/init_db.py --check-only >/dev/null 2>&1; then
     log_ok "数据库 schema 已就绪"
   else
-    log_error "数据库 schema 未就绪: bash scripts/mgt.sh init"
+    log_error "数据库 schema 未就绪: bash deploy/mgt.sh init"
   fi
 
   echo ""
@@ -375,7 +378,7 @@ usage() {
   cat <<'EOF'
 Kustos 运维命令
 
-用法: bash scripts/mgt.sh <command> [参数]
+用法: bash deploy/mgt.sh <command> [参数]
 
 命令:
   start                 启动全部服务（缺失 schema 时自动初始化）
@@ -412,5 +415,5 @@ case "$CMD" in
   reset-admin) cmd_reset_admin "$@" ;;
   doctor|check) cmd_doctor ;;
   uninstall) cmd_uninstall ;;
-  *) die "未知命令: $CMD (bash scripts/mgt.sh help)" ;;
+  *) die "未知命令: $CMD (bash deploy/mgt.sh help)" ;;
 esac

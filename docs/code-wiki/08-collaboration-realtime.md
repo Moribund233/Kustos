@@ -284,11 +284,11 @@ flowchart LR
 
 ## 8. 相关源码
 
-- `backend/collab-gateway/server.mjs`、`sessionTtl.mjs`、`versionCounter.mjs`、`redisPersistence.mjs`
+- `services/collab/server.mjs`、`sessionTtl.mjs`、`versionCounter.mjs`、`redisPersistence.mjs`
 - `backend/app/api/v1/collab_internal_controller.py`、`collab_invite_controller.py`、`collab_session_controller.py`
 - `backend/app/services/collaboration/collab_invite_service.py`、`services/collaboration/collab_session_service.py`
 - `backend/app/utils/ws_manager.py`、`auth.py`、`router.py`、`handlers/`
 - `backend/app/utils/realtime_bus.py`
 - `backend/app/services/realtime/*`
 - `backend/app/services/agent/chat_bridge.py`
-- 测试：`collab-gateway/tests/*`、`test_chat_*`、`test_presence_*`、`test_room_*`、`test_realtime_bus.py`、`test_collab_*`
+- 测试：`services/collab/tests/*`、`test_chat_*`、`test_presence_*`、`test_room_*`、`test_realtime_bus.py`、`test_collab_*`

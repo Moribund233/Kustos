@@ -132,16 +132,18 @@ Kustos/
 │   │   ├── services/              # 业务服务（含 agent/indexing/realtime/auth 子包）
 │   │   └── utils/                 # Git、日志、Redis、安全、响应、邮件、Webhook 等
 │   ├── alembic/                   # 数据库迁移（0001_initial 51 张 + 0002 补 2 张）
-│   ├── collab-gateway/            # Hocuspocus/Yjs Node 网关
-│   ├── docker/                    # gateway/git-cgi/ssh/collab/监控/写代理配置
-│   ├── scripts/                   # 安装、运维、初始化、E2E、审计脚本
+│   ├── scripts/                   # 初始化、迁移、E2E、审计脚本（容器内）
 │   ├── tests/                     # 188 个测试文件
 │   ├── config.example.toml        # 配置播种模板（运行期不读）
-│   ├── docker-compose*.yml        # 基础设施/业务/开发/监控
 │   ├── Dockerfile                 # 多阶段构建（uv）
 │   └── pyproject.toml / uv.lock
 ├── frontend/
 │   └── web/                       # Vite + React + TS 前端（gateway 镜像构建上下文）
+├── services/
+│   └── collab/                    # Hocuspocus/Yjs Node 网关
+├── docker/                        # gateway/git-cgi/ssh/collab/监控/写代理配置
+├── deploy/                        # 宿主机部署入口（install / mgt / kustos / dev-start / generate_env）
+├── docker-compose*.yml            # 基础设施/业务/开发/监控
 ├── docs/
 │   ├── code-wiki/                 # 本文档集
 │   └── prototype/                 # 静态 Web 原型（设计稿）

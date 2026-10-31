@@ -26,7 +26,7 @@ Kustos 不是对 GitHub API 的封装：仓库是 bare repo，代码浏览、搜
 ## 目录结构
 
 ```text
-backend/
+backend/                  # FastAPI 应用，后端镜像的构建上下文
 ├── app/
 │   ├── api/          # 路由装配 + v1 控制器 + WebSocket
 │   ├── core/         # 配置、初始化、生命周期、权限、异常
@@ -35,13 +35,15 @@ backend/
 │   ├── services/     # 业务逻辑（含 agent / indexing / realtime）
 │   └── utils/        # Git、Redis、安全、响应、邮件、Webhook
 ├── alembic/          # 数据库迁移
-├── collab-gateway/   # Hocuspocus / Yjs 网关
-├── docker/           # 网关、git-cgi、sshd、监控等配置
-├── scripts/          # 安装、初始化、运维、审计脚本
-├── tests/            # pytest
-└── docker-compose*.yml
+├── scripts/          # 容器内脚本：初始化、迁移、审计（随镜像发布）
+└── tests/            # pytest
 frontend/
 └── web/              # Web 前端（Vite + React + TS），网关镜像的构建输入
+services/
+└── collab/           # Hocuspocus / Yjs 协作网关
+docker/                   # 镜像构建资料与运行时配置（gateway / git-cgi / sshd / 监控）
+deploy/                   # 宿主机部署入口：install / mgt / kustos / dev-start / generate_env
+docker-compose*.yml       # 生产 / 开发 / 监控编排（与 docker/ 同级）
 docs/
 ├── code-wiki/        # 架构与实现文档（见下方索引）
 └── prototype/        # 静态 Web 原型（设计说明与交互稿）
@@ -52,8 +54,7 @@ docs/
 前置：Docker + Compose V2、Python 3.12（`uv`）、PostgreSQL 16 + pgvector。数据库与 Redis 默认由 Compose 提供，宿主机不必单独安装。
 
 ```bash
-cd backend
-python3 scripts/generate_env.py          # 生成 compose 需要的密钥类变量（幂等，可重复执行）
+python3 deploy/generate_env.py          # 生成 compose 需要的密钥类变量（幂等，可重复执行）
 docker compose -p kustos up -d --build   # 构建并启动整套服务
 ```
 
@@ -66,7 +67,7 @@ docker compose -p kustos up -d --build   # 构建并启动整套服务
 | Git HTTP | http://127.0.0.1:9000 |
 | Git SSH | `ssh://git@127.0.0.1:2222/<owner>/<repo>.git` |
 
-初始管理员账号在 `backend/.env`（`KUSTOS_ADMIN_USERNAME` / `KUSTOS_ADMIN_PASSWORD`），首次登录后请立即修改密码。生产部署前请阅读 `docs/code-wiki/11-infrastructure.md` 的网关、Admin ACL（`KUSTOS_ADMIN_ALLOWED_SOURCES`，留空即拒绝全部来源）与备份升级说明。
+初始管理员账号在仓库根的 `.env`（`KUSTOS_ADMIN_USERNAME` / `KUSTOS_ADMIN_PASSWORD`），首次登录后请立即修改密码。生产部署前请阅读 `docs/code-wiki/11-infrastructure.md` 的网关、Admin ACL（`KUSTOS_ADMIN_ALLOWED_SOURCES`，留空即拒绝全部来源）与备份升级说明。
 
 ### 常用 profile
 
@@ -97,7 +98,6 @@ pnpm api:generate   # 后端契约变了就重新生成类型
 **方式 A：Compose（推荐，环境一致）**
 
 ```bash
-cd backend
 docker compose -f docker-compose.dev.yml -p kustos-dev up -d --build
 ```
 
@@ -105,7 +105,7 @@ docker compose -f docker-compose.dev.yml -p kustos-dev up -d --build
 
 ```bash
 docker compose -f docker-compose.dev.yml -p kustos-dev run --rm test
-docker compose -f docker-compose.dev.yml -p kustos-dev run --rm test tests/test_pull_request_service_async.py -q
+docker compose -f docker-compose.dev.yml -p kustos-dev run --rm test python -m pytest tests/test_pull_request_service_async.py -q
 ```
 
 **方式 B：裸进程 + 外部依赖**

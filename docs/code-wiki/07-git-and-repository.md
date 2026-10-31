@@ -302,6 +302,6 @@ git-lfs 默认端点 `/owner/repo.git/info/lfs/objects/batch` 由 Nginx 单独�
 - `backend/app/services/integration/git_event_service.py`
 - `backend/app/api/v1/git_auth_controller.py`、`git_hook_controller.py`
 - `backend/app/api/v1/lfs_controller.py`、`services/lfs_*.py`
-- `backend/docker/gateway/nginx.conf`
-- `backend/docker/git-cgi/`、`docker/ssh/`、`docker/git-hooks/`
+- `docker/gateway/nginx.conf`
+- `docker/git-cgi/`、`docker/ssh/`、`docker/git-hooks/`
 - 测试：`test_branch_protection_merge.py`、`test_git_hook_api.py`、`test_lfs_*.py`、`test_repository_browser_service_async.py`

@@ -2,11 +2,11 @@
 # Kustos 业务层编排（基础设施见 docker-compose.base.yml，通过 include 合并）
 #
 # 部署 & 运维（推荐）:
-#   bash scripts/install.sh                 # 一键安装（含初始化）
-#   bash scripts/mgt.sh start|stop|status   # 生命周期
-#   bash scripts/mgt.sh upgrade             # 升级（自动备份+迁移）
-#   bash scripts/mgt.sh backup / restore    # 备份 / 恢复
-#   bash scripts/mgt.sh reset-admin         # 重设管理员密码
+#   bash deploy/install.sh                 # 一键安装（含初始化）
+#   bash deploy/mgt.sh start|stop|status   # 生命周期
+#   bash deploy/mgt.sh upgrade             # 升级（自动备份+迁移）
+#   bash deploy/mgt.sh backup / restore    # 备份 / 恢复
+#   bash deploy/mgt.sh reset-admin         # 重设管理员密码
 #
 # 手工流程（与 install.sh 等价）:
 #   docker compose up -d postgres redis
@@ -27,7 +27,8 @@ services:
   app:
     image: ${KUSTOS_IMAGE_PREFIX:-kustos}-app:${KUSTOS_IMAGE_TAG:-latest}
     build:
-      context: .
+      # 后端源码在 ./backend，Dockerfile 随其项目走；构建文件无关的资料统一放 ./docker
+      context: ./backend
       dockerfile: Dockerfile
     container_name: kustos-app
     environment:
@@ -44,10 +45,10 @@ services:
       KUSTOS_ADMIN_USERNAME: ${KUSTOS_ADMIN_USERNAME:-admin}
       KUSTOS_ADMIN_PASSWORD: ${KUSTOS_ADMIN_PASSWORD:?必需设置管理员初始密码}
       KUSTOS_ADMIN_EMAIL: ${KUSTOS_ADMIN_EMAIL:-admin@kustos.local}
-      KUSTOS_COLLAB_INTERNAL_SECRET: ${KUSTOS_COLLAB_INTERNAL_SECRET:?必需设置协作网关内部密钥 (scripts/generate_env.py)}
+      KUSTOS_COLLAB_INTERNAL_SECRET: ${KUSTOS_COLLAB_INTERNAL_SECRET:?必需设置协作网关内部密钥 (deploy/generate_env.py)}
       # 编排组件状态：经只读 docker-socket-proxy 查询容器状态（admin 控制台）
       # Git hook 内部密钥（git-cgi/sshd 的 pre/post-receive 回调校验，与两者共享）
-      KUSTOS_GIT_HOOK_SECRET: ${KUSTOS_GIT_HOOK_SECRET:?必需设置 Git hook 内部密钥 (scripts/generate_env.py)}
+      KUSTOS_GIT_HOOK_SECRET: ${KUSTOS_GIT_HOOK_SECRET:?必需设置 Git hook 内部密钥 (deploy/generate_env.py)}
       KUSTOS_DOCKER_HOST: "http://docker-socket-proxy:2375"
       # 窄写 Docker 代理：admin 控制台开关可选服务栈（启停容器，仅 start/stop/restart）
       KUSTOS_DOCKER_WRITE_HOST: "http://docker-write-proxy:2376"
@@ -147,11 +148,13 @@ services:
   collab:
     image: ${KUSTOS_IMAGE_PREFIX:-kustos}-collab:${KUSTOS_IMAGE_TAG:-latest}
     build:
-      context: .
-      dockerfile: docker/collab/Dockerfile
+      # 协作网关是独立的 Node 服务（services/collab），构建文件在 ./docker 下。
+      # dockerfile 相对构建上下文解析：services/collab → services → 仓库根 → docker/
+      context: ./services/collab
+      dockerfile: ../../docker/collab/Dockerfile
     environment:
       KUSTOS_APP_URL: http://app:8000
-      KUSTOS_COLLAB_INTERNAL_SECRET: ${KUSTOS_COLLAB_INTERNAL_SECRET:?必需设置协作网关内部密钥 (scripts/generate_env.py)}
+      KUSTOS_COLLAB_INTERNAL_SECRET: ${KUSTOS_COLLAB_INTERNAL_SECRET:?必需设置协作网关内部密钥 (deploy/generate_env.py)}
       # 配置后启用: 跨副本即时同步 (pub/sub) + 会话快照持久化
       REDIS_URL: redis://redis:6379/0
       KUSTOS_COLLAB_SESSION_TTL_MS: "${KUSTOS_COLLAB_TTL_MS:-600000}"
@@ -200,9 +203,11 @@ services:
       GIT_HTTP_EXPORT_ALL: "1"
       # Git hook 回调应用（pre/post-receive；密钥与 app 共享，未配置则 hook fail-closed）
       KUSTOS_APP_URL: http://app:8000
-      KUSTOS_GIT_HOOK_SECRET: ${KUSTOS_GIT_HOOK_SECRET:?必需设置 Git hook 内部密钥 (scripts/generate_env.py)}
+      KUSTOS_GIT_HOOK_SECRET: ${KUSTOS_GIT_HOOK_SECRET:?必需设置 Git hook 内部密钥 (deploy/generate_env.py)}
     ports:
-      - "127.0.0.1:9000:9000"
+      # 容器内 FCGI 端口固定 9000；宿主端口可覆盖，因为 9000 常被 MinIO 等占用。
+      # 网关走内网 git-cgi:9000 代理 Git HTTP，此映射仅用于直连调试。
+      - "127.0.0.1:${KUSTOS_GIT_HTTP_PORT:-9000}:9000"
     restart: unless-stopped
     networks:
       - default
@@ -219,11 +224,10 @@ services:
   gateway:
     image: ${KUSTOS_IMAGE_PREFIX:-kustos}-gateway:${KUSTOS_IMAGE_TAG:-latest}
     build:
-      # 上下文为仓库根下的 frontend/web：容器内完成 pnpm build，宿主机无需 Node/pnpm
-      context: ../frontend/web
-      # dockerfile 相对构建上下文解析：frontend/web → 仓库根的 backend/docker/gateway
-      # 上下文是 frontend/web，回退两级才是仓库根
-      dockerfile: ../../backend/docker/gateway/Dockerfile
+      # 上下文为 frontend/web：容器内完成 pnpm build，宿主机无需 Node/pnpm
+      context: ./frontend/web
+      # dockerfile 相对构建上下文解析：frontend/web → 仓库根的 docker/gateway
+      dockerfile: ../../docker/gateway/Dockerfile
     container_name: kustos-gateway
     ports:
       - "${KUSTOS_GATEWAY_PORT:-8000}:8000"
@@ -234,7 +238,7 @@ services:
       - /etc/localtime:/etc/localtime:ro
     environment:
       # Admin 控制台来源白名单 (IP / IPv4 CIDR，逗号分号或空格分隔)。
-      # 由 scripts/generate_env.py 写入 .env；留空 = 网关拒绝一切 admin API。
+      # 由 deploy/generate_env.py 写入 .env；留空 = 网关拒绝一切 admin API。
       KUSTOS_ADMIN_ALLOWED_SOURCES: "${KUSTOS_ADMIN_ALLOWED_SOURCES:-}"
     networks:
       - default
@@ -273,7 +277,7 @@ services:
     environment:
       # Git hook 回调应用（SSH push 的 pre/post-receive）
       KUSTOS_APP_URL: http://app:8000
-      KUSTOS_GIT_HOOK_SECRET: ${KUSTOS_GIT_HOOK_SECRET:?必需设置 Git hook 内部密钥 (scripts/generate_env.py)}
+      KUSTOS_GIT_HOOK_SECRET: ${KUSTOS_GIT_HOOK_SECRET:?必需设置 Git hook 内部密钥 (deploy/generate_env.py)}
       KUSTOS_DB_URL: "host=postgres dbname=kustos user=kustos password=${POSTGRES_PASSWORD:?必需设置数据库密码}"
     networks:
       - default
@@ -336,7 +340,7 @@ services:
   init:
     image: ${KUSTOS_IMAGE_PREFIX:-kustos}-app:${KUSTOS_IMAGE_TAG:-latest}
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     container_name: kustos-init
     command: ["python", "scripts/init_db.py"]
@@ -369,8 +373,8 @@ services:
   # 测试容器（专用 profile: docker compose --profile test run --rm test [pytest 参数]）
   test:
     build:
-      context: .
-      dockerfile: docker/test/Dockerfile.test
+      context: ./backend
+      dockerfile: ../docker/test/Dockerfile.test
     profiles: ["test"]
     environment:
       DATABASE_URL: postgresql://kustos:${POSTGRES_PASSWORD:?必需设置数据库密码}@postgres:5432/kustos
@@ -380,19 +384,19 @@ services:
       TZ: Asia/Shanghai
     volumes:
       # 挂载源码, 测试始终运行最新代码, 无需重建镜像
-      - ./tests:/app/tests
+      - ./backend/tests:/app/tests
       # docker/ 也需挂载：nginx/compose 等静态配置的回归断言（网关封禁
       # git-internal）读的是仓库实况，否则是镜像构建时烤入的副本
       - ./docker:/app/docker:ro
       # 应用代码整包挂载（app/ 是唯一的导入根，controller 与 api 已并入）
-      - ./app:/app/app
-      - ./alembic:/app/alembic
+      - ./backend/app:/app/app
+      - ./backend/alembic:/app/alembic
       # config.example.toml 也需挂载：播种与模板护栏断言读的是仓库实况，
       # 否则容器内是镜像构建时烤入的副本，模板改动不生效
-      - ./config.example.toml:/app/config.example.toml
-      # scripts 也需挂载：部分用例直接覆盖运维脚本逻辑（如 migrate_lfs_layout），
-      # 否则容器内是镜像构建时烤入的副本，改动不生效
-      - ./scripts:/app/scripts
+      - ./backend/config.example.toml:/app/config.example.toml
+      # 镜像内脚本（init_db / migrate_lfs_layout 等）：宿主机上位于 backend/scripts，
+      # 部署脚本已独立到仓库根的 deploy/，不在此挂载范围内
+      - ./backend/scripts:/app/scripts
     depends_on:
       postgres:
         condition: service_healthy

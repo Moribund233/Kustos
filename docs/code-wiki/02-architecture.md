@@ -52,7 +52,7 @@ flowchart TB
 
 | 层 | 目录 | 职责 | 禁止 |
 | --- | --- | --- | --- |
-| 接入层 | `docker/`、`collab-gateway/` | 协议、TLS/CORS、静态资源、Git Smart HTTP、SSH、CRDT | 不承载业务规则 |
+| 接入层 | `docker/`、`services/collab/` | 协议、TLS/CORS、静态资源、Git Smart HTTP、SSH、CRDT | 不承载业务规则 |
 | 控制器层 | `app/api/v1` | HTTP 参数解析、依赖注入、调用服务、构造响应 | 不直接写 SQL / 不嵌套事务逻辑 |
 | 服务层 | `app/services` | 业务规则、事务、权限调用、跨领域编排 | 不解析 HTTP 请求 |
 | 领域基础层 | `app/core`、`app/utils`、`app/models` | 配置、权限、异常、Git、日志、ORM | 不反向依赖控制器 |

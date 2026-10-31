@@ -4,7 +4,7 @@
 #
 # 用法: kustos <command> [参数]
 #
-#   install                 一键安装 / 升级（透传 scripts/install.sh 参数）
+#   install                 一键安装 / 升级（透传 deploy/install.sh 参数）
 #   update                  升级到最新镜像（等价 install --upgrade / mgt upgrade）
 #   doctor                  环境体检（依赖/配置/schema/健康/磁盘）
 #   uninstall               彻底卸载（删除数据卷，二次确认）
@@ -18,7 +18,7 @@
 #   reset-admin [新密码]    重设管理员密码
 #
 # 本脚本通过软链安装为 /usr/local/bin/kustos（见 install.sh）。
-# 直接调用: bash scripts/kustos.sh <command>
+# 直接调用: bash deploy/kustos.sh <command>
 # =============================================================================
 set -euo pipefail
 

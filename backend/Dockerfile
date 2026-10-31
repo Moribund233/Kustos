@@ -17,7 +17,7 @@
 #   docker compose -f docker-compose.yml up -d
 #
 # 注意:
-#   - 前端目录 client/ 已被 .dockerignore 排除
+#   - 前端目录 frontend/ 与 docker/、deploy/ 均在构建上下文之外
 #   - 需要 pyproject.toml 和 README.md 来安装依赖
 # =============================================================================
 

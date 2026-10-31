@@ -256,6 +256,6 @@ flowchart TB
 
 - `backend/pyproject.toml`、`uv.lock`
 - `backend/app/**`（依赖方向见上图）
-- `backend/collab-gateway/package.json`
-- `backend/docker-compose*.yml`
+- `services/collab/package.json`
+- `docker-compose*.yml`
 - `backend/tests/test_async_blocking_guard.py`（同步阻塞守卫）、`test_config_constants_wiring.py`（配置接线）
