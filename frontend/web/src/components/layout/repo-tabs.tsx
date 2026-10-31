@@ -1,4 +1,5 @@
 import { Code2, History, Package, PlayCircle, Settings } from "lucide-react";
+import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { NavLink } from "react-router";
 
@@ -12,6 +13,10 @@ const TAB_BASE =
  *
  * 只在仓库内容页出现：代码 / 提交 / Actions / Releases / 设置。
  * PR、Issue、聊天由侧栏进入，不在这排 tab 里重复。
+ *
+ * 下划线由激活项自己画：该栏随页面重挂载，跨页时整条 bar 会跟着淡出再淡入，
+ * 下划线做「滑动」既看不见也会与页面过渡打架，因此只做 160ms 的生长动画，
+ * 让落点有一个短促的确认感。
  */
 export function RepoTabs() {
   const { t } = useTranslation();
@@ -33,9 +38,7 @@ export function RepoTabs() {
           className={({ isActive }) =>
             cn(
               TAB_BASE,
-              isActive
-                ? "text-bone after:absolute after:right-2 after:bottom-[-1px] after:left-2 after:h-0.5 after:rounded-full after:bg-amber after:shadow-[0_0_10px_rgba(242,174,91,0.35)]"
-                : "text-muted hover:bg-ink-800/35 hover:text-bone",
+              isActive ? "text-bone" : "text-muted hover:bg-ink-800/35 hover:text-bone",
             )
           }
         >
@@ -43,6 +46,15 @@ export function RepoTabs() {
             <>
               <tab.icon className={cn("size-[13px]", isActive ? "text-amber" : "text-muted-2")} aria-hidden="true" />
               {tab.label}
+              {isActive ? (
+                <motion.span
+                  aria-hidden="true"
+                  initial={{ opacity: 0, scaleX: 0.35 }}
+                  animate={{ opacity: 1, scaleX: 1 }}
+                  transition={{ duration: 0.16, ease: "easeOut" }}
+                  className="bg-amber absolute inset-x-2 -bottom-px h-0.5 origin-center rounded-full shadow-[0_0_10px_rgba(242,174,91,0.35)]"
+                />
+              ) : null}
             </>
           )}
         </NavLink>

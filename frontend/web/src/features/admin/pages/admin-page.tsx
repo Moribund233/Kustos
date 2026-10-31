@@ -8,6 +8,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { FactList, Lamp, SectionHead, StatusPill, ToneAvatar, type Tone } from "@/components/kit/kit";
+import { SkeletonRows, SkeletonText } from "@/components/kit/skeletons";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -548,6 +550,21 @@ function AdminConsole() {
                 <div className="col-span-4 py-4">
                   <LoadError error={statusQuery.error} onRetry={() => void statusQuery.refetch()} />
                 </div>
+              ) : statusQuery.isPending ? (
+                [0, 1, 2, 3].map((index) => (
+                  <div
+                    key={index}
+                    className={cn(
+                      "min-w-0 py-4 pr-[22px]",
+                      index < 3 ? "border-edge-1 border-r" : "pr-0",
+                      index > 0 && "pl-[22px]",
+                    )}
+                  >
+                    <Skeleton className="h-2 w-16" />
+                    <Skeleton className="mt-3 h-7 w-14" />
+                    <Skeleton className="mt-2.5 h-2 w-24" />
+                  </div>
+                ))
               ) : (
                 kpis.map((kpi, index) => (
                   <div
@@ -579,6 +596,8 @@ function AdminConsole() {
                 <SectionHead title={t("admin.processSchema")} meta="GET /api/app/status" className="mb-3" />
                 {statusQuery.error ? (
                   <LoadError error={statusQuery.error} onRetry={() => void statusQuery.refetch()} />
+                ) : statusQuery.isPending ? (
+                  <SkeletonRows rows={6} leading="none" meta={false} rowClassName="px-0 py-2" />
                 ) : (
                   <FactList items={facts} />
                 )}
@@ -606,6 +625,8 @@ function AdminConsole() {
                       reason: componentsQuery.data.reason ?? t("admin.unknownReasonText"),
                     })}
                   </p>
+                ) : componentsQuery.isPending ? (
+                  <SkeletonRows rows={3} leading="dot" meta={false} rowClassName="px-0 py-2" />
                 ) : (
                   <div>
                     {COMPONENT_GROUPS.map((group) => {
@@ -679,6 +700,10 @@ function AdminConsole() {
               {componentsQuery.error ? (
                 <div className="px-4 py-3">
                   <LoadError error={componentsQuery.error} onRetry={() => void componentsQuery.refetch()} />
+                </div>
+              ) : componentsQuery.isPending ? (
+                <div className="px-4 py-2">
+                  <SkeletonRows rows={6} leading="dot" rowClassName="px-0 py-2.5" />
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -757,7 +782,7 @@ function AdminConsole() {
                   </p>
                 </div>
               ) : (
-                <p className="text-muted-2 text-xs">{t("common.loading")}</p>
+                <SkeletonRows rows={3} leading="dot" meta={false} rowClassName="px-0 py-2.5" />
               )}
             </section>
 
@@ -809,6 +834,10 @@ function AdminConsole() {
               {usersQuery.error ? (
                 <div className="px-4 py-3">
                   <LoadError error={usersQuery.error} onRetry={() => void usersQuery.refetch()} />
+                </div>
+              ) : usersQuery.isPending ? (
+                <div className="px-4 py-2">
+                  <SkeletonRows rows={5} leading="avatar" rowClassName="px-0 py-2.5" />
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -872,7 +901,14 @@ function AdminConsole() {
             {configQuery.error ? (
               <LoadError error={configQuery.error} onRetry={() => void configQuery.refetch()} />
             ) : !section ? (
-              <p className="text-muted-2 text-xs">{t("common.loading")}</p>
+              <div className="grid grid-cols-[192px_minmax(0,1fr)] items-start gap-3.5">
+                <div className="border-edge-2 bg-ink-900/60 rounded-[10px] border p-3">
+                  <SkeletonText lines={7} />
+                </div>
+                <div className="border-edge-2 bg-ink-900/60 rounded-[10px] border p-4">
+                  <SkeletonText lines={8} />
+                </div>
+              </div>
             ) : (
               <div className="grid grid-cols-[192px_minmax(0,1fr)] items-start gap-3.5">
                 <nav
@@ -1032,7 +1068,9 @@ function AdminConsole() {
                   <LoadError error={auditQuery.error} onRetry={() => void auditQuery.refetch()} />
                 </div>
               ) : auditQuery.isPending ? (
-                <p className="text-muted-2 px-4 py-3 text-xs">{t("common.loading")}</p>
+                <div className="px-4 py-1">
+                  <SkeletonRows rows={5} leading="dot" meta={false} rowClassName="px-0 py-2.5" />
+                </div>
               ) : auditQuery.data.items.length === 0 ? (
                 <p className="text-muted-2 px-4 py-3 text-xs">{t("admin.noAuditEntries")}</p>
               ) : (

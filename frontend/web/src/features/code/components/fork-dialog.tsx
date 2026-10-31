@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { SkeletonRows } from "@/components/kit/skeletons";
 import { Input } from "@/components/ui/input";
 import { useTranslation } from "react-i18next";
 
@@ -158,7 +159,13 @@ export function ForkDialog({
 
         <div className="border-edge-1 max-h-[240px] min-h-[80px] overflow-auto rounded-md border">
           {forksQuery.isLoading ? (
-            <p className="text-muted-2 p-3 text-xs">{t("common.loading")}</p>
+            <SkeletonRows
+              rows={3}
+              leading="glyph"
+              meta={false}
+              className="p-3"
+              rowClassName="px-0 py-2.5"
+            />
           ) : forks.length === 0 ? (
             <p className="text-muted-2 p-3 text-xs">{t("code.noForks")}</p>
           ) : (

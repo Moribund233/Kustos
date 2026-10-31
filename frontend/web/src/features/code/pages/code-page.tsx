@@ -33,6 +33,7 @@ import { CollabEditor } from "@/components/editor/collab-editor";
 import { DiffViewer, type DiffPayload } from "@/components/editor/diff-viewer";
 import { Lamp, Chip, RailBlock, Stage, type DockTab } from "@/components/kit/kit";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -588,7 +589,11 @@ export function CodePage({ path, content, diff }: CodePageProps) {
               <div role="menu" className="border-edge-2 bg-ink-850 absolute top-[calc(100%+7px)] left-0 z-50 w-[238px] rounded-[10px] border p-[5px] shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
                 <p className="text-muted-2 px-2 pt-1.5 pb-1 text-2xs font-semibold tracking-[0.13em] uppercase">{t("code.branches")}</p>
                 {branchesQuery.isPending ? (
-                  <p className="text-muted-2 px-2 py-1.5 text-xs">{t("common.loading")}</p>
+                  <div aria-hidden="true" className="flex flex-col gap-1.5 px-2 py-1.5">
+                    {[0, 1, 2].map((index) => (
+                      <Skeleton key={index} className="h-2.5" style={{ width: `${52 + index * 12}%` }} />
+                    ))}
+                  </div>
                 ) : branchesQuery.error ? (
                   <button
                     type="button"
@@ -662,6 +667,7 @@ export function CodePage({ path, content, diff }: CodePageProps) {
             tab={tab}
             file={file}
             lastCommit={lastCommit}
+            lastCommitLoading={lastCommitQuery.isPending}
             symbolsQuery={symbolsQuery}
             onJumpToLine={setRevealLine}
             onLookup={setLookupName}
@@ -689,7 +695,7 @@ export function CodePage({ path, content, diff }: CodePageProps) {
           </div>
           <div className="flex-1 px-[5px] pt-[7px] pb-3">
             {treeQuery.isPending ? (
-              <p className="text-muted-2 px-[7px] py-1 text-xs">{t("common.loading")}</p>
+              <FileTreeSkeleton />
             ) : treeQuery.error || !treeQuery.data ? (
               <button
                 type="button"
@@ -846,7 +852,7 @@ export function CodePage({ path, content, diff }: CodePageProps) {
           ) : !selectedPath ? (
             <p className="text-muted-2 grid min-h-0 flex-1 place-items-center text-sm">{t("code.selectFileHint")}</p>
           ) : blobQuery.isPending ? (
-            <p className="text-muted-2 grid min-h-0 flex-1 place-items-center text-sm">{t("code.loadingFile")}</p>
+            <BlobSkeleton />
           ) : blobQuery.error || !blob ? (
             <div role="alert" className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
               <p className="text-muted text-sm">{t("code.blobFailedMsg", { error: blobQuery.error?.message ?? "" })}</p>
@@ -1031,6 +1037,65 @@ function RepoStat({ icon: Icon, value, label, onClick }: { icon: LucideIcon; val
   );
 }
 
+/**
+ * 文件树骨架：行高与真实条目一致，缩进按层级循环。
+ *
+ * 取的是「目录 + 文件」混排的观感：缩进与图标槽都留出来，
+ * 数据到达时整列不会因为行高变化而上下抖。
+ */
+function FileTreeSkeleton({ rows = 7 }: { rows?: number }) {
+  return (
+    <div aria-hidden="true" className="flex flex-col gap-[3px] px-[7px]">
+      {Array.from({ length: rows }).map((_, index) => (
+        <div
+          key={index}
+          className="flex h-[22px] items-center gap-1.5"
+          style={{ paddingLeft: `${(index % 3) * 9}px` }}
+        >
+          <Skeleton className="size-3 flex-none rounded-sm" />
+          <Skeleton className="h-2.5" style={{ width: `${46 + ((index * 13) % 40)}%` }} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * 代码骨架：行号槽 + 参差的代码行。
+ *
+ * 行宽用取模序列生成：既不整齐划一（像个表格），也不完全随机（显得脏）。
+ */
+function BlobSkeleton() {
+  return (
+    <div aria-hidden="true" className="min-h-0 flex-1 overflow-hidden px-3 py-3">
+      {Array.from({ length: 18 }).map((_, index) => (
+        <div key={index} className="flex items-center gap-4 py-[5px]">
+          <Skeleton className="h-2 w-5 flex-none opacity-60" />
+          <Skeleton className="h-2" style={{ width: `${22 + ((index * 37) % 56)}%` }} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** 符号大纲骨架：按层级缩进，行数与常见文件导出的符号数相当。 */
+function SymbolsSkeleton() {
+  return (
+    <div aria-hidden="true" className="flex flex-col gap-[7px]">
+      {[0, 1, 2, 3, 4].map((index) => (
+        <div
+          key={index}
+          className="flex items-center gap-2"
+          style={{ paddingLeft: `${(index % 3) * 10}px` }}
+        >
+          <Skeleton className="size-2.5 flex-none rounded-sm" />
+          <Skeleton className="h-2.5" style={{ width: `${40 + ((index * 11) % 34)}%` }} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 interface FileTreeRowsProps {
   entries: TreeEntry[];
   repoId: string;
@@ -1126,7 +1191,7 @@ function FolderChildren({
     queryFn: () => fetchTree(repoId, branch, dirPath),
   });
 
-  if (dirQuery.isPending) return <p className="text-muted-2 px-[7px] py-1 text-xs">{t("common.loading")}</p>;
+  if (dirQuery.isPending) return <FileTreeSkeleton rows={4} />;
   if (dirQuery.error || !dirQuery.data) {
     return (
       <button
@@ -1157,6 +1222,8 @@ interface CodePanelProps {
   tab: DockTab;
   file: CodeFile;
   lastCommit: CommitInfo | null;
+  /** 最近提交仍在取数：事实面板显示占位，而不是「—」。 */
+  lastCommitLoading: boolean;
   symbolsQuery: ReturnType<typeof useApiQuery<SymbolsResponse>>;
   /** 符号点击后滚动到对应行。 */
   onJumpToLine: (line: number) => void;
@@ -1165,8 +1232,17 @@ interface CodePanelProps {
 }
 
 /** Stage 右缘面板：符号大纲 / 文件事实 / Agent 提问。 */
-function CodePanel({ tab, file, lastCommit, symbolsQuery, onJumpToLine, onLookup }: CodePanelProps) {
-  if (tab.id === "facts") return <FactsPane file={file} lastCommit={lastCommit} />;
+function CodePanel({
+  tab,
+  file,
+  lastCommit,
+  lastCommitLoading,
+  symbolsQuery,
+  onJumpToLine,
+  onLookup,
+}: CodePanelProps) {
+  if (tab.id === "facts")
+    return <FactsPane file={file} lastCommit={lastCommit} lastCommitLoading={lastCommitLoading} />;
   if (tab.id === "agent") return <AgentPane path={file.path} />;
   return (
     <SymbolsPane
@@ -1202,7 +1278,7 @@ function SymbolsPane({
       {!file.path ? (
         <p className="text-muted-2 text-xs">{t("code.selectFileFirst")}</p>
       ) : symbolsQuery.isPending ? (
-        <p className="text-muted-2 text-xs">{t("code.extractingSymbols")}</p>
+        <SymbolsSkeleton />
       ) : symbolsQuery.error ? (
         <button
           type="button"
@@ -1286,12 +1362,25 @@ function SymbolNodeRow({
 }
 
 /** 文件事实面板：最近提交（commits?path=）+ 语言/大小（blob）。 */
-function FactsPane({ file, lastCommit }: { file: CodeFile; lastCommit: CommitInfo | null }) {
+function FactsPane({
+  file,
+  lastCommit,
+  lastCommitLoading,
+}: {
+  file: CodeFile;
+  lastCommit: CommitInfo | null;
+  lastCommitLoading: boolean;
+}) {
   const { t } = useTranslation();
   const provenance = [
     {
       key: t("code.recentChanges"),
-      value: lastCommit ? (
+      value: lastCommitLoading ? (
+        <>
+          <Skeleton className="h-2.5 w-24" />
+          <Skeleton className="mt-1.5 h-2.5 w-40" />
+        </>
+      ) : lastCommit ? (
         <>
           <span className="font-mono">{lastCommit.sha.slice(0, 7)}</span> · {formatRelative(lastCommit.author?.date)}
           <br />
@@ -1301,7 +1390,10 @@ function FactsPane({ file, lastCommit }: { file: CodeFile; lastCommit: CommitInf
         "—"
       ),
     },
-    { key: t("code.authorLabel"), value: lastCommit?.author?.name ?? "—" },
+    {
+      key: t("code.authorLabel"),
+      value: lastCommitLoading ? <Skeleton className="h-2.5 w-20" /> : (lastCommit?.author?.name ?? "—"),
+    },
     { key: t("code.languageLabel"), value: file.lang || "—" },
     { key: t("code.sizeLabel"), value: file.size || "—" },
   ];

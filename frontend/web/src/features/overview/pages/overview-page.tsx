@@ -15,6 +15,8 @@ import {
   type DockTab,
   type Tone,
 } from "@/components/kit/kit";
+import { SkeletonRows } from "@/components/kit/skeletons";
+import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api/client";
 import { formatRelative } from "@/lib/datetime/format";
 import { useApiQuery } from "@/lib/api/hooks";
@@ -242,6 +244,39 @@ function panelDock(): DockTab[] {
 }
 
 /**
+ * 仪表盘骨架。
+ *
+ * 版式对齐真实内容：四栏统计条 → 待办队列 → 活跃仓库。
+ * 每块只画到首屏能看到的行数，占位比真实内容还长会显得页面更空。
+ */
+function OverviewSkeleton() {
+  return (
+    <div aria-hidden="true" className="flex flex-col gap-10">
+      <div className="border-edge-2 grid grid-cols-4 border-y">
+        {[0, 1, 2, 3].map((index) => (
+          <div
+            key={index}
+            className={"min-w-0 py-4 " + (index > 0 ? "border-edge-1 border-l pl-[22px]" : "pr-[22px]")}
+          >
+            <Skeleton className="h-2 w-16" />
+            <Skeleton className="mt-3 h-7 w-12" />
+            <Skeleton className="mt-2.5 h-2 w-24" />
+          </div>
+        ))}
+      </div>
+      <div>
+        <Skeleton className="mb-3.5 h-2.5 w-28" />
+        <SkeletonRows rows={3} leading="avatar" />
+      </div>
+      <div>
+        <Skeleton className="mb-3.5 h-2.5 w-24" />
+        <SkeletonRows rows={3} leading="glyph" />
+      </div>
+    </div>
+  );
+}
+
+/**
  * 值守工作台。
  *
  * 队列是页面本体；动态流、在线状态与账号事实浮在画布右缘的面板里，
@@ -324,7 +359,7 @@ export function OverviewPage() {
       </header>
 
       {isPending ? (
-        <p className="text-muted-2 border-edge-2 border-y py-10 text-center text-sm">{t("overview.loadingWatch")}</p>
+        <OverviewSkeleton />
       ) : error ? (
         <div role="alert" className="border-edge-2 border-y flex flex-col items-center gap-3 py-10">
           <p className="text-muted text-sm">{t("overview.watchFailed", { error: error.message })}</p>

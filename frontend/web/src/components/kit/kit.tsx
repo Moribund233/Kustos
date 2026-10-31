@@ -43,7 +43,7 @@ export function Lamp({ tone = "neutral", live = false, size = "sm", className }:
         "inline-block shrink-0 rounded-full",
         size === "lg" ? "size-2" : "size-1.5",
         LAMP_TONE[tone],
-        live && "animate-pulse",
+        live && "animate-lamp-breathe",
         className,
       )}
     />

@@ -4,6 +4,7 @@ import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Lamp, ToneAvatar } from "@/components/kit/kit";
+import { SkeletonText } from "@/components/kit/skeletons";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 
@@ -137,7 +138,7 @@ export function MembersSection({ repoId }: { repoId: string }) {
 
       <div className="mt-4 flex flex-col gap-2">
         {membersQuery.isLoading ? (
-          <p className="text-muted-2 text-xs">{t("common.loading")}</p>
+          <SkeletonText lines={3} />
         ) : members.length === 0 ? (
           <p className="text-muted-2 text-xs">{t("settings.noMembers")}</p>
         ) : (

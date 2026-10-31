@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { DiffViewer, type DiffPayload } from "@/components/editor/diff-viewer";
 import { RailBlock, Stage, type DockTab } from "@/components/kit/kit";
+import { SkeletonCodeLines, SkeletonRows } from "@/components/kit/skeletons";
 import { RepoTabs } from "@/components/layout/repo-tabs";
 import { Button } from "@/components/ui/button";
 import {
@@ -143,7 +144,7 @@ export function CommitsPage() {
       >
       <div className="border-edge-2 bg-ink-900/55 overflow-hidden rounded-[10px] border">
         {commitsQuery.isLoading ? (
-          <p className="text-muted-2 p-4 text-xs">{t("common.loading")}</p>
+          <SkeletonRows rows={8} leading="none" meta={false} rowClassName="px-3 py-2.5" />
         ) : commitsQuery.error ? (
           <button
             type="button"
@@ -358,7 +359,7 @@ function CommitDialog({ repoId, commit, onClose }: { repoId: string; commit: Com
         </DialogHeader>
         <div className="max-h-[62vh] overflow-auto">
           {diffQuery.isLoading ? (
-            <p className="text-muted-2 text-xs">{t("common.loading")}</p>
+            <SkeletonCodeLines lines={8} className="p-3" />
           ) : diffQuery.error ? (
             <p className="text-rose text-xs">{t("code.diffLoadFailed")}</p>
           ) : diffQuery.data ? (

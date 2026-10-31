@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { StatusPill } from "@/components/kit/kit";
+import { SkeletonText } from "@/components/kit/skeletons";
 import {
   Dialog,
   DialogContent,
@@ -80,7 +81,7 @@ export function BuildsSection({ repoId }: { repoId: string }) {
 
       <div className="mt-4 flex flex-col gap-1">
         {buildsQuery.isLoading ? (
-          <p className="text-muted-2 text-xs">{t("common.loading")}</p>
+          <SkeletonText lines={3} />
         ) : builds.length === 0 ? (
           <p className="text-muted-2 text-xs">{t("settings.noBuilds")}</p>
         ) : (

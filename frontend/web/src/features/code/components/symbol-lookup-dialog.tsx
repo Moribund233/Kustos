@@ -1,3 +1,4 @@
+import { SkeletonCodeLines } from "@/components/kit/skeletons";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -102,7 +103,7 @@ export function SymbolLookupDialog({
               {t("code.definition")} · {definitions.length}
             </h3>
             {definitionQuery.isLoading ? (
-              <p className="text-muted-2 p-3 text-xs">{t("common.loading")}</p>
+              <SkeletonCodeLines lines={3} className="p-3" />
             ) : definitions.length === 0 ? (
               <p className="text-muted-2 p-3 text-xs">{t("code.noDefinition")}</p>
             ) : (
@@ -130,7 +131,7 @@ export function SymbolLookupDialog({
               {t("code.usages")} · {usages.length}
             </h3>
             {usageQuery.isLoading ? (
-              <p className="text-muted-2 p-3 text-xs">{t("common.loading")}</p>
+              <SkeletonCodeLines lines={5} className="p-3" />
             ) : usages.length === 0 ? (
               <p className="text-muted-2 p-3 text-xs">{t("code.noUsages")}</p>
             ) : (

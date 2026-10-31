@@ -1,6 +1,8 @@
 @import "tailwindcss";
 /* Radix 弹层的进出场动画（popover / select / dialog 等组件用到 animate-in） */
 @import "tw-animate-css";
+/* 常驻循环动效（呼吸灯 / 骨架流光 / 光标闪烁） */
+@import "./motion.css";
 /* 西文 webfont（自托管，仅 latin 片段） */
 @import "./fonts.css";
 /* Markdown 正文排版与代码高亮（Issue / PR / 评论 / 聊天 / Agent 回答共用） */
@@ -86,6 +88,12 @@
   --text-3xl--line-height: 1.2;
   --text-4xl: 2.25rem; /* 36px —— 统计数字、登录页标题 */
   --text-4xl--line-height: 1.15;
+
+  /* 常驻循环动效的类名映射，keyframes 定义在 motion.css。
+     抽成 token 是为了让 `animate-lamp-breathe` 这类名字和颜色、字号一样
+     成为设计词汇的一部分，而不是散落在组件里的任意值。 */
+  --animate-lamp-breathe: lamp-breathe 2.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  --animate-caret-blink: caret-blink 1.1s steps(1, end) infinite;
 }
 
 @layer base {

@@ -15,7 +15,12 @@ const DialogOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Overlay
     ref={ref}
-    className={cn("bg-ink-1000/70 fixed inset-0 z-50 backdrop-blur-sm", className)}
+    /* 与 alert-dialog / select / popover 同一套进出场：遮罩只做淡入淡出，
+       内容再做一档缩放，两层的节奏差让弹层显得是「浮上来」而非「贴上来」。 */
+    className={cn(
+      "bg-ink-1000/70 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 fixed inset-0 z-50 backdrop-blur-sm duration-150",
+      className,
+    )}
     {...props}
   />
 ));
@@ -37,6 +42,9 @@ const DialogContent = React.forwardRef<
         className={cn(
           "fixed top-1/2 left-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2",
           "rounded-panel border-edge-2 bg-ink-900 border p-5 shadow-2xl",
+          "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
+          "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
+          "duration-150",
           className,
         )}
         {...props}

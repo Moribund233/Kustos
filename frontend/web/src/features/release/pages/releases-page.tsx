@@ -7,7 +7,9 @@ import { toast } from "sonner";
 
 import { MarkdownEditor } from "@/components/editor/markdown-editor";
 import { Chip, Lamp } from "@/components/kit/kit";
+import { SkeletonText } from "@/components/kit/skeletons";
 import { RepoTabs } from "@/components/layout/repo-tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -113,6 +115,32 @@ async function createRelease(
     throw new Error(detail ?? i18n.t("release.createFailed"));
   }
   return res.data as ReleaseDto;
+}
+
+/**
+ * 发布列表骨架：标签 + 标题 + 右侧元信息、描述段、附件胶囊。
+ *
+ * 与真实条目同高同缩进，数据到达时列表不会整体上移。
+ */
+function ReleaseRowsSkeleton() {
+  return (
+    <div aria-hidden="true">
+      {[0, 1, 2].map((row) => (
+        <div key={row} className="border-edge-1 border-b px-4 py-3.5 last:border-b-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <Skeleton className="h-3.5 w-20" />
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="ml-auto h-2 w-28" />
+          </div>
+          <SkeletonText lines={2} className="mt-2.5 max-w-[80ch]" />
+          <div className="mt-2 flex items-center gap-1.5">
+            <Skeleton className="h-5 w-16 rounded-full" />
+            <Skeleton className="h-5 w-20 rounded-full" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export function ReleasesPage() {
@@ -272,7 +300,9 @@ export function ReleasesPage() {
               {t("common.retry")}
             </Button>
           </div>
-        ) : releases.length === 0 && !listQuery.isLoading ? (
+        ) : listQuery.isLoading ? (
+          <ReleaseRowsSkeleton />
+        ) : releases.length === 0 ? (
           <p className="text-muted-2 px-4 py-12 text-center text-xs">
             {t("release.empty")}
           </p>

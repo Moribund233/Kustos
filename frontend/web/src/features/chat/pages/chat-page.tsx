@@ -8,6 +8,7 @@ import { useSearchParams } from "react-router";
 import { toast } from "sonner";
 
 import { Lamp, RailBlock, Stage, ToneAvatar, type AvatarTone } from "@/components/kit/kit";
+import { Skeleton } from "@/components/ui/skeleton";
 import { StartDmButton } from "@/features/chat/components/start-dm-dialog";
 import { RoomSettingsDialog } from "@/features/chat/components/room-settings-dialog";
 import { mergeMessage } from "@/features/chat/lib/messages";
@@ -125,7 +126,7 @@ export function ChatPage() {
   }, [rooms, repoRoom]);
 
   // 私聊会话是 room_type=dm 的房间，不在 /rooms 列表里，需单独取一次
-  const { data: dms } = useApiQuery<DmRoomDto[]>({
+  const { data: dms, isLoading: loadingDms } = useApiQuery<DmRoomDto[]>({
     queryKey: ["dm"],
     queryFn: async () => {
       const res = await api.GET("/api/v1/dm");
@@ -184,7 +185,7 @@ export function ChatPage() {
   });
 
   // 房间成员：右栏列表 + bot 消息的机器人身份判定
-  const { data: members } = useApiQuery<RoomMemberDto[]>({
+  const { data: members, isLoading: membersLoading } = useApiQuery<RoomMemberDto[]>({
     queryKey: ["members", roomId ?? ""],
     enabled: Boolean(roomId),
     queryFn: async () => {
@@ -345,6 +346,7 @@ export function ChatPage() {
           tab.id === "people" ? (
             <MembersPanel
               members={sortedMembers}
+              loading={membersLoading}
               online={channel.online}
               currentUserId={user?.id ?? null}
             />
@@ -357,6 +359,7 @@ export function ChatPage() {
         <ChannelsColumn
           groups={groups}
           dms={dms ?? []}
+          dmsLoading={loadingDms}
           unreadMap={unreadMap}
           status={channel.status}
           activeRoomId={roomId}
@@ -424,6 +427,9 @@ export function ChatPage() {
                   })}
                   <span className="bg-edge-1 h-px flex-1" />
                 </div>
+                {loadingMessages && messages.length === 0 ? (
+                  <MessageBubblesSkeleton rows={4} className="pt-1" />
+                ) : null}
                 {!loadingMessages && messages.length === 0 ? (
                   <p className="text-muted-2 py-6 text-center text-xs">
                     {search ? t("chat.noSearchResults", { q: search }) : t("chat.noMessagesYet")}
@@ -485,16 +491,66 @@ export function ChatPage() {
                 }}
               />
             </>
+          ) : loadingRooms ? (
+            <ConversationSkeleton />
           ) : (
             <div className="flex flex-1 items-center justify-center">
-              <p className="text-muted-2 text-sm">
-                {loadingRooms ? t("chat.loadingRooms") : t("chat.noAccessibleChannels")}
-              </p>
+              <p className="text-muted-2 text-sm">{t("chat.noAccessibleChannels")}</p>
             </div>
           )}
         </section>
       </div>
       </Stage>
+    </div>
+  );
+}
+
+/**
+ * 消息气泡骨架：头像 + 两行正文，左右交替。
+ *
+ * 房间首屏取数时用。左右错落是为了让「一半是我说的」这层结构先立起来，
+ * 数据到达后气泡落到各自的一侧，观感上只是显影而不是重排。
+ */
+function MessageBubblesSkeleton({ rows = 4, className }: { rows?: number; className?: string }) {
+  return (
+    <div aria-hidden="true" className={cn("flex flex-col gap-4", className)}>
+      {Array.from({ length: rows }).map((_, row) => (
+        <div key={row} className={cn("flex items-start gap-2.5", row % 2 === 1 && "flex-row-reverse")}>
+          <Skeleton className="size-7 flex-none rounded-full" />
+          <div
+            className="flex min-w-0 flex-col gap-1.5"
+            style={{ width: `${40 + ((row * 13) % 34)}%` }}
+          >
+            <Skeleton className="h-2 w-16" />
+            <Skeleton className="h-2.5" />
+            <Skeleton className="h-2.5" style={{ width: "76%" }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * 会话骨架：房间头 + 气泡 + 输入条。
+ *
+ * 房间列表还在加载、尚未选中任何房间时占位。画成「已有对话在进行」的样子，
+ * 数据到达后版式不发生位移，也不会先闪一句空态文案。
+ */
+function ConversationSkeleton() {
+  return (
+    <div aria-hidden="true" className="flex min-h-0 flex-1 flex-col">
+      <div className="border-edge-2 flex items-center gap-2.5 border-b px-[18px] py-3">
+        <Skeleton className="size-7 flex-none rounded-md" />
+        <Skeleton className="h-3 w-28" />
+        <Skeleton className="ml-auto h-2 w-16" />
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col px-[18px] py-4">
+        <MessageBubblesSkeleton />
+      </div>
+      <div className="border-edge-1 border-t p-[18px]">
+        <Skeleton className="h-9 rounded-md" />
+      </div>
     </div>
   );
 }
@@ -507,6 +563,7 @@ export function ChatPage() {
 function ChannelsColumn({
   groups,
   dms,
+  dmsLoading,
   unreadMap,
   status,
   activeRoomId,
@@ -514,6 +571,8 @@ function ChannelsColumn({
 }: {
   groups: ChatRoomGroup[];
   dms: DmRoomDto[];
+  /** 私聊单独取数，未就绪时不能渲染成「暂无私聊」。 */
+  dmsLoading: boolean;
   unreadMap: Map<string, number>;
   status: RoomChannelStatus;
   activeRoomId: string | null;
@@ -597,9 +656,20 @@ function ChannelsColumn({
             </span>
           </p>
           {visibleDms.length === 0 ? (
-            <p className="text-muted-2 px-2 py-1 text-xs">
-              {dms.length === 0 ? t("chat.noDms") : t("chat.noDmMatch")}
-            </p>
+            dmsLoading ? (
+              <div className="flex flex-col gap-1 px-2 py-1">
+                {[0, 1].map((row) => (
+                  <div key={row} className="flex items-center gap-2 py-1">
+                    <Skeleton className="size-[18px] flex-none rounded-md" />
+                    <Skeleton className="h-2.5" style={{ width: `${44 + row * 16}%` }} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted-2 px-2 py-1 text-xs">
+                {dms.length === 0 ? t("chat.noDms") : t("chat.noDmMatch")}
+              </p>
+            )
           ) : (
             visibleDms.map((dm) => (
               <ChannelItem
@@ -1006,10 +1076,13 @@ function Composer({
 /** 房间成员面板（右缘浮窗）。 */
 function MembersPanel({
   members,
+  loading,
   online,
   currentUserId,
 }: {
   members: RoomMemberDto[];
+  /** 成员仍在取数：面板显示占位，而不是「暂无成员」。 */
+  loading: boolean;
   online: PresenceUser[];
   currentUserId: string | null;
 }) {
@@ -1018,7 +1091,18 @@ function MembersPanel({
   return (
     <RailBlock title={`${t("chat.members")} · ${members.length}`}>
       {members.length === 0 ? (
-        <p className="text-muted-2 text-xs">{t("chat.noMembers")}</p>
+        loading ? (
+          <div aria-hidden="true" className="flex flex-col gap-2">
+            {[0, 1, 2].map((row) => (
+              <div key={row} className="flex items-center gap-[9px] py-1">
+                <Skeleton className="size-[23px] flex-none rounded-full" />
+                <Skeleton className="h-2.5" style={{ width: `${46 + row * 12}%` }} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-muted-2 text-xs">{t("chat.noMembers")}</p>
+        )
       ) : (
         <ul>
           {members.map((member) => {

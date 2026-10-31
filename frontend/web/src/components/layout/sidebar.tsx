@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Link, NavLink, useLocation, useNavigate } from "react-router";
 
 import { ToneAvatar } from "@/components/kit/kit";
+import { SkeletonText } from "@/components/kit/skeletons";
 import { BrandMark } from "@/components/brand/brand-mark";
 import { CreateRepositoryDialog } from "@/features/repository/components/create-repository-dialog";
 import { INSTANCE_SECTION, NAV_SECTIONS, type NavSection } from "@/components/layout/nav-sections";
@@ -276,9 +277,11 @@ export function Sidebar() {
             }
           >
             {repos.length === 0 ? (
-              <p className="text-faint px-2.5 py-1 text-xs">
-                {useRepoStore.getState().loading ? t("common.loading") : t("nav.noRepositories")}
-              </p>
+              useRepoStore.getState().loading ? (
+                <SkeletonText lines={3} widths={["72%", "88%", "64%"]} className="px-2.5 py-1" />
+              ) : (
+                <p className="text-faint px-2.5 py-1 text-xs">{t("nav.noRepositories")}</p>
+              )
             ) : (
               repos.map((repo) => {
                 const isActive = repo.id === current?.id;

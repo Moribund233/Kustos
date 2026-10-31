@@ -8,7 +8,9 @@ import { toast } from "sonner";
 import { Check, Clock3, Eye, GitMerge, Link2, ShieldCheck, Users } from "lucide-react";
 
 import { DiffViewer } from "@/components/editor/diff-viewer";
+import { SkeletonCodeLines, SkeletonText } from "@/components/kit/skeletons";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { NewPullRequestButton } from "@/features/pull-request/components/new-pull-request";
 import { SocialDialog } from "@/features/code/components/social-dialog";
 import {
@@ -383,7 +385,7 @@ export function PullPage() {
     return <PullEmpty title={t("pullRequest.openingPr")} />;
   }
 
-  if (detailQuery.isPending) return <PullEmpty title={t("pullRequest.loadingPr")} />;
+  if (detailQuery.isPending) return <PullDetailSkeleton />;
   if (!pr) {
     return <PullEmpty title={t("pullRequest.prNotFound")} hint={detailQuery.error?.message ?? t("pullRequest.checkNumber")} />;
   }
@@ -497,6 +499,8 @@ export function PullPage() {
             pr={pr}
             reviewerRows={reviewerRows}
             issues={issuesQuery.data ?? []}
+            reviewersLoading={reviewersQuery.isPending}
+            issuesLoading={issuesQuery.isPending}
             myState={myState}
             mergeConditions={mergeConditions}
             mergeBlocked={mergeBlocked}
@@ -611,7 +615,14 @@ export function PullPage() {
             <span className="text-faint ml-auto">{t("pullRequest.diffHint")}</span>
           </div>
           {diffQuery.isPending ? (
-            <p className="text-faint py-6 text-center text-base">{t("pullRequest.loadingDiff")}</p>
+            <div aria-hidden="true" className="flex flex-col gap-3 pt-4">
+              {[0, 1, 2].map((block) => (
+                <div key={block} className="border-edge-1 rounded-md border p-3">
+                  <Skeleton className="h-2.5 w-40" />
+                  <SkeletonCodeLines lines={4} className="mt-3" />
+                </div>
+              ))}
+            </div>
           ) : diffQuery.isError ? (
             <p className="text-rose-2 py-6 text-center text-base">{diffQuery.error?.message ?? t("pullRequest.diffLoadFailed")}</p>
           ) : diffPayload ? (
@@ -662,6 +673,53 @@ function TabButton({
   );
 }
 
+/**
+ * 详情骨架：页头徽标与决策按钮 + 页签 + 描述卡。
+ *
+ * 宽度对齐真实页头（决策按钮右对齐、标题约 62% 宽），
+ * 让「骨架 → 内容」的切换只发生在内容层，不牵动整页布局。
+ */
+function PullDetailSkeleton() {
+  return (
+    <div aria-hidden="true" className="mx-auto w-full max-w-[1560px] px-[34px] pt-[30px] pb-20">
+      <div className="mb-[22px] flex items-end justify-between gap-7">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-7 w-[66px] rounded-full" />
+            <Skeleton className="h-3 w-16" />
+            <Skeleton className="h-7 w-[88px] rounded-full" />
+          </div>
+          <Skeleton className="mt-3 h-8 w-[62%]" />
+          <div className="mt-3 flex items-center gap-2">
+            <Skeleton className="h-2.5 w-20" />
+            <Skeleton className="h-2.5 w-16" />
+            <Skeleton className="h-2.5 w-28" />
+          </div>
+        </div>
+        <div className="flex flex-none items-center gap-2 pb-0.5">
+          <Skeleton className="h-8 w-[84px] rounded-md" />
+          <Skeleton className="h-8 w-[92px] rounded-md" />
+          <Skeleton className="h-8 w-[80px] rounded-md" />
+        </div>
+      </div>
+      <div className="border-edge-2 mb-[18px] flex items-end gap-5 border-b pb-2.5">
+        <Skeleton className="h-3 w-16" />
+        <Skeleton className="h-3 w-14" />
+      </div>
+      <div className="border-edge-2 bg-ink-850/50 rounded-[10px] border px-[17px] pt-4 pb-[17px]">
+        <div className="border-edge-1 flex items-center gap-2.5 border-b pb-3">
+          <Skeleton className="size-7 rounded-full" />
+          <div className="flex flex-col gap-1.5">
+            <Skeleton className="h-2.5 w-20" />
+            <Skeleton className="h-2 w-28" />
+          </div>
+        </div>
+        <SkeletonText lines={4} className="pt-4" />
+      </div>
+    </div>
+  );
+}
+
 /** 页面空态：无当前仓库 / 暂无 PR / 加载中 / 详情缺失。 */
 function PullEmpty({
   title,
@@ -687,6 +745,9 @@ interface PullPanelProps {
   pr: PrDetail;
   reviewerRows: ReviewerRow[];
   issues: PrLinkedIssue[];
+  /** 评审人 / 关联 Issue 仍在取数：面板渲染占位，而不是「暂无」。 */
+  reviewersLoading: boolean;
+  issuesLoading: boolean;
   /** 当前用户的评审状态（approved / changes_requested / null）。 */
   myState: string | null;
   mergeConditions: MergeCond[];
@@ -713,6 +774,8 @@ function PullPanel({
   pr,
   reviewerRows,
   issues,
+  reviewersLoading,
+  issuesLoading,
   myState,
   mergeConditions,
   mergeBlocked,
@@ -772,7 +835,16 @@ function PullPanel({
   if (pane.id === "issues") {
     return (
       <RailBlock title={t("pullRequest.linkedIssues")}>
-        {issues.length === 0 ? (
+        {issuesLoading ? (
+          <div className="flex flex-col gap-2 py-1">
+            {[0, 1].map((row) => (
+              <div key={row} className="flex flex-col gap-1.5">
+                <Skeleton className="h-2.5" style={{ width: `${62 - row * 14}%` }} />
+                <Skeleton className="h-2 w-16" />
+              </div>
+            ))}
+          </div>
+        ) : issues.length === 0 ? (
           <p className="text-faint py-2.5 text-xs">{t("pullRequest.noLinkedIssue")}</p>
         ) : (
           issues.map((issue) => (
@@ -896,7 +968,19 @@ function PullPanel({
           );
         })}
         {reviewerRows.length === 0 ? (
-          <li className="text-faint py-2 text-xs">{t("pullRequest.noReviewersYet")}</li>
+          reviewersLoading ? (
+            <li className="flex flex-col gap-2 py-2">
+              {[0, 1].map((row) => (
+                <span key={row} className="flex items-center gap-2">
+                  <Skeleton className="size-[23px] flex-none rounded-full" />
+                  <Skeleton className="h-2.5" style={{ width: `${52 - row * 12}%` }} />
+                  <Skeleton className="ml-auto h-[19px] w-[54px] rounded-full" />
+                </span>
+              ))}
+            </li>
+          ) : (
+            <li className="text-faint py-2 text-xs">{t("pullRequest.noReviewersYet")}</li>
+          )
         ) : null}
       </ul>
       <button
@@ -908,7 +992,13 @@ function PullPanel({
       </button>
       {inviteOpen ? (
         <ul className="border-edge-1 mt-1.5 flex flex-col gap-1 border-t pt-2">
-          {membersQuery.isPending ? <li className="text-faint text-xs">{t("pullRequest.loadingMembers")}</li> : null}
+          {membersQuery.isPending
+            ? [0, 1, 2].map((row) => (
+                <li key={row} className="px-1.5 py-1">
+                  <Skeleton className="h-2.5" style={{ width: `${52 + row * 12}%` }} />
+                </li>
+              ))
+            : null}
           {membersQuery.isError ? (
             <li className="text-rose-2 text-xs">{t("pullRequest.membersLoadFailed", { error: membersQuery.error?.message ?? "" })}</li>
           ) : null}

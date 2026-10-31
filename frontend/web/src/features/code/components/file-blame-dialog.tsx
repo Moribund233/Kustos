@@ -1,3 +1,4 @@
+import { SkeletonCodeLines } from "@/components/kit/skeletons";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -77,7 +78,9 @@ export function FileBlameDialog({
 
         <div className="border-edge-1 max-h-[62vh] min-h-[240px] overflow-auto rounded-md border">
           {blameQuery.isLoading ? (
-            <p className="text-muted-2 p-3 text-xs">{t("common.loading")}</p>
+            <div className="p-3">
+              <SkeletonCodeLines lines={14} />
+            </div>
           ) : blameQuery.error ? (
             <button
               type="button"

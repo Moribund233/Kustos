@@ -3,6 +3,7 @@ import { Command } from "cmdk";
 import { useTranslation } from "react-i18next";
 
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 export interface CommandItem {
@@ -27,6 +28,8 @@ interface CommandPaletteProps {
   /** 搜索词由调用方持有：远程检索（全局搜索）需要它。 */
   query: string;
   onQueryChange: (query: string) => void;
+  /** 远程检索中：列表显示占位，避免先闪一句「无匹配」。 */
+  loading?: boolean;
 }
 
 /**
@@ -41,6 +44,7 @@ export function CommandPalette({
   items,
   query,
   onQueryChange,
+  loading = false,
 }: CommandPaletteProps) {
   const { t } = useTranslation();
 
@@ -83,10 +87,23 @@ export function CommandPalette({
             className="border-edge-2 text-bone placeholder:text-faint h-11 w-full border-b bg-transparent px-4 text-base focus-visible:outline-none"
           />
           <Command.List className="max-h-80 overflow-y-auto p-1.5">
-            <Command.Empty className="text-faint py-6 text-center text-base">
-              {t("command.noResults")}
-            </Command.Empty>
-            {grouped.map(([group, groupItems]) => (
+            {loading ? (
+              <div aria-hidden="true" className="flex flex-col gap-1 px-2 py-1">
+                {[0, 1, 2].map((row) => (
+                  <div key={row} className="flex items-center gap-2 py-1.5">
+                    <Skeleton className="size-3.5 flex-none rounded-sm" />
+                    <Skeleton className="h-2.5" style={{ width: `${46 + row * 12}%` }} />
+                    <Skeleton className="ml-auto h-2 w-10 flex-none" />
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {loading ? null : (
+              <Command.Empty className="text-faint py-6 text-center text-base">
+                {t("command.noResults")}
+              </Command.Empty>
+            )}
+            {loading ? null : grouped.map(([group, groupItems]) => (
               <Command.Group
                 key={group}
                 heading={group}

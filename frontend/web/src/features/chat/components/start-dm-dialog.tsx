@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
+import { SkeletonRows } from "@/components/kit/skeletons";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -106,7 +107,13 @@ export function StartDmDialog({
 
         <div className="border-edge-1 max-h-[280px] min-h-[120px] overflow-auto rounded-md border">
           {usersQuery.isLoading ? (
-            <p className="text-muted-2 p-3 text-xs">{t("common.loading")}</p>
+            <SkeletonRows
+              rows={3}
+              leading="avatar"
+              meta={false}
+              className="p-3"
+              rowClassName="px-0 py-2.5"
+            />
           ) : candidates.length === 0 ? (
             <p className="text-muted-2 p-3 text-xs">{t("chat.noCandidates")}</p>
           ) : (

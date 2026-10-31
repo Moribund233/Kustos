@@ -19,6 +19,8 @@ import { useSearchParams } from "react-router";
 import { toast } from "sonner";
 
 import { Chip, Lamp, SectionHead, StatusPill, ToneAvatar, type Tone } from "@/components/kit/kit";
+import { SkeletonRows } from "@/components/kit/skeletons";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { AgentRun, RunStatus, RunStep, ToolStep } from "@/features/agent/types";
 import { api } from "@/lib/api/client";
 import { useApiMutation, useApiQuery } from "@/lib/api/hooks";
@@ -477,9 +479,13 @@ export function AgentPage() {
             </section>
           ))}
           {!groups.length ? (
-            <p className="text-muted-2 px-3 py-6 text-center text-xs">
-              {jobsQuery.isLoading ? t("common.loading") : filter === "active" ? t("agent.noActiveRuns") : t("agent.noHistoryRuns")}
-            </p>
+            jobsQuery.isLoading ? (
+              <SkeletonRows rows={4} leading="dot" meta={false} rowClassName="px-3 py-3" />
+            ) : (
+              <p className="text-muted-2 px-3 py-6 text-center text-xs">
+                {filter === "active" ? t("agent.noActiveRuns") : t("agent.noHistoryRuns")}
+              </p>
+            )
           ) : null}
         </div>
 
@@ -503,6 +509,7 @@ export function AgentPage() {
       ) : current ? (
         <RunDetail
           run={current}
+          stepsLoading={stepsQuery.isPending}
           onApprove={() => decide.mutate("approve")}
           onReject={() => decide.mutate("reject")}
           onCancel={() => cancel.mutate()}
@@ -556,6 +563,7 @@ function RunItem({ run, active, onSelect }: { run: AgentRun; active: boolean; on
 /** 运行详情：头部 + 滚动区（提问 / 用量 / 轨迹 / 回答）+ 底部审批区。 */
 function RunDetail({
   run,
+  stepsLoading,
   onApprove,
   onReject,
   onCancel,
@@ -563,6 +571,8 @@ function RunDetail({
   cancelling,
 }: {
   run: AgentRun;
+  /** 轨迹仍在取数：渲染占位而不是空轨迹。 */
+  stepsLoading: boolean;
   onApprove: () => void;
   onReject: () => void;
   onCancel: () => void;
@@ -640,9 +650,23 @@ function RunDetail({
           <SectionHead title={t("agent.toolTrace")} count={toolSteps.length} meta={run.model} />
           <div className="relative pt-2.5">
             <span aria-hidden="true" className="bg-edge-1 absolute top-4 bottom-2 left-[13px] w-px" />
-            {run.steps.map((step, index) => (
-              <StepRow key={index} step={step} />
-            ))}
+            {stepsLoading && !run.steps.length ? (
+              <div aria-hidden="true" className="flex flex-col gap-3 pt-1">
+                {[0, 1, 2].map((row) => (
+                  <div key={row} className="flex items-start gap-2.5">
+                    <Skeleton className="mt-0.5 size-[19px] flex-none rounded-full" />
+                    <div className="min-w-0 flex-1">
+                      <Skeleton className="h-2.5" style={{ width: `${44 + row * 12}%` }} />
+                      <Skeleton className="mt-1.5 h-2 w-20" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              run.steps.map((step, index) => (
+                <StepRow key={index} step={step} />
+              ))
+            )}
           </div>
         </section>
 
@@ -665,7 +689,7 @@ function RunDetail({
             <div className="border-amber/[0.18] bg-amber/[0.045] mt-2.5 rounded-[10px] border px-3.5 py-3">
               <Markdown content={run.answer} />
               {run.streaming ? (
-                <span aria-hidden="true" className="bg-amber ml-0.5 inline-block h-[13px] w-[6px] animate-pulse align-middle" />
+                <span aria-hidden="true" className="bg-amber animate-caret-blink ml-0.5 inline-block h-[13px] w-[6px] align-middle" />
               ) : null}
             </div>
           </section>

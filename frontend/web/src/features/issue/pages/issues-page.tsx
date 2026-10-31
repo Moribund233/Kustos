@@ -9,6 +9,7 @@ import { MarkdownEditor } from "@/components/editor/markdown-editor";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Chip, Lamp, RailBlock, Stage, StatusPill, ToneAvatar, type DockTab } from "@/components/kit/kit";
 import {
   closeIssue,
@@ -289,15 +290,25 @@ export function IssuesPage() {
           </h1>
           <p className="text-muted-2 mt-2 flex flex-wrap items-center gap-[7px] text-xs">
             <span>
-              <strong className="text-bone-2 font-mono text-xs font-medium">{openCount}</strong> {t("issue.openCountLabel")}
+              <strong className="text-bone-2 font-mono text-xs font-medium">
+                {openCountQuery.isPending ? <Skeleton className="inline-block h-2.5 w-4 align-middle" /> : openCount}
+              </strong>{" "}
+              {t("issue.openCountLabel")}
             </span>
             <span className="text-faint">·</span>
             <span>
-              <strong className="text-bone-2 font-mono text-xs font-medium">{closedCount}</strong> {t("issue.closed")}
+              <strong className="text-bone-2 font-mono text-xs font-medium">
+                {closedCountQuery.isPending ? <Skeleton className="inline-block h-2.5 w-4 align-middle" /> : closedCount}
+              </strong>{" "}
+              {t("issue.closed")}
             </span>
             <span className="text-faint">·</span>
             <span className="border-amber/30 bg-amber/10 text-amber-2 inline-flex h-[19px] items-center rounded-full border px-[7px] text-2xs font-medium">
-              {t("issue.assignedCount", { count: assignedCount })}
+              {assignedCountQuery.isPending ? (
+                <Skeleton className="h-2 w-16" />
+              ) : (
+                t("issue.assignedCount", { count: assignedCount })
+              )}
             </span>
           </p>
         </div>
@@ -332,7 +343,13 @@ export function IssuesPage() {
                 >
                   {status === "open" ? t("issue.open") : t("issue.closed")}{" "}
                   <span className="font-mono text-2xs opacity-80">
-                    {status === "open" ? openCount : closedCount}
+                    {(status === "open" ? openCountQuery : closedCountQuery).isPending ? (
+                      <Skeleton className="inline-block h-2 w-3 align-middle" />
+                    ) : status === "open" ? (
+                      openCount
+                    ) : (
+                      closedCount
+                    )}
                   </span>
                 </button>
               ))}
@@ -365,6 +382,9 @@ export function IssuesPage() {
               <Chip active={!labelFilter} onClick={() => setLabelFilter("")}>
                 {t("common.all")}
               </Chip>
+              {labelsQuery.isPending
+                ? [0, 1, 2].map((row) => <Skeleton key={row} className="h-6 w-14 rounded-full" />)
+                : null}
               {(labelsQuery.data ?? []).map((label) => (
                 <Chip key={label.id} active={labelFilter === label.name} onClick={() => setLabelFilter(label.name)}>
                   {label.name}
@@ -384,7 +404,7 @@ export function IssuesPage() {
                 </Button>
               </div>
             ) : listQuery.isLoading ? (
-              <p className="text-muted-2 px-4 py-7 text-center text-xs">{t("common.loading")}</p>
+              <IssueListSkeleton />
             ) : items.length ? (
               PRIORITY_GROUPS.map((group) => {
                 const groupItems = items.filter((issue) => group.match(issue.priority));
@@ -445,6 +465,7 @@ export function IssuesPage() {
         <IssueDetail
           issue={detailQuery.data ?? active}
           comments={commentsQuery.data}
+          commentsLoading={commentsQuery.isPending}
           error={detailQuery.error?.message ?? commentsQuery.error?.message ?? null}
           onRetry={() => {
             void detailQuery.refetch();
@@ -481,6 +502,46 @@ export function IssuesPage() {
           editMutation.mutate({ issueNumber: editTarget.id, ...input });
         }}
       />
+    </div>
+  );
+}
+
+/**
+ * 列表骨架：两组吸顶组头 + 三行占位。
+ *
+ * 行版式与 `IssueRow` 一致（15px 状态圈 / 标题 / 元信息 / 标签 / 右侧头像），
+ * 数据到达时不会出现宽度与高度上的跳动。
+ */
+function IssueListSkeleton() {
+  return (
+    <div aria-hidden="true">
+      {[0, 1].map((group) => (
+        <section key={group}>
+          <div className="border-edge-1 bg-ink-950/94 flex items-center gap-[7px] border-b px-3 pt-2 pb-[7px]">
+            <Skeleton className="h-2 w-16" />
+            <Skeleton className="h-[14px] w-5 rounded-full" />
+          </div>
+          {[0, 1, 2].map((row) => (
+            <div
+              key={row}
+              className="border-edge-1 grid grid-cols-[17px_minmax(0,1fr)_auto] gap-2.5 border-b px-3 py-3"
+            >
+              <Skeleton className="mt-0.5 size-[15px] rounded-full" />
+              <div className="min-w-0">
+                <Skeleton className="h-2.5" style={{ width: `${54 + ((row * 19 + group * 7) % 32)}%` }} />
+                <div className="mt-2 flex items-center gap-[5px]">
+                  <Skeleton className="h-2 w-8" />
+                  <Skeleton className="h-2 w-14" />
+                </div>
+                <div className="mt-2 flex gap-1">
+                  <Skeleton className="h-[15px] w-12 rounded-sm" />
+                </div>
+              </div>
+              <Skeleton className="size-[23px] rounded-full" />
+            </div>
+          ))}
+        </section>
+      ))}
     </div>
   );
 }

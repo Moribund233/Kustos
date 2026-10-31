@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getAccessToken } from "@/lib/api/client";
 import { useApiMutation, useApiQuery } from "@/lib/api/hooks";
 
@@ -110,7 +111,13 @@ function LabelEditor({ repoId, kind, title }: { repoId: string; kind: "issue" | 
     <div className="border-edge-1 rounded-md border p-3">
       <h3 className="text-muted text-xs font-semibold tracking-[0.08em] uppercase">{title}</h3>
       <ul className="mt-2 flex flex-wrap gap-1.5">
-        {(listQuery.data ?? []).length === 0 ? (
+        {listQuery.isPending ? (
+          [0, 1, 2].map((row) => (
+            <li key={row}>
+              <Skeleton className="h-[22px] rounded-full" style={{ width: `${56 + row * 14}px` }} />
+            </li>
+          ))
+        ) : (listQuery.data ?? []).length === 0 ? (
           <li className="text-muted-2 text-xs">{t("settings.noLabels")}</li>
         ) : (
           (listQuery.data ?? []).map((label) => (

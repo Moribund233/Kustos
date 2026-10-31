@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Lamp } from "@/components/kit/kit";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useTranslation } from "react-i18next";
 
 import { api } from "@/lib/api/client";
@@ -59,6 +60,25 @@ function errorText(error: Error | null, t: TFunction): string | null {
   if (!error) return null;
   const status = (error as { status?: number }).status;
   return status === 403 ? t("admin.noPermission") : error.message;
+}
+
+/**
+ * 能力面卡片的占位：字段名 + 值条。
+ *
+ * 这几张卡的值都是 `?? 0` 兜底的数字，pending 时画 0 会被读成真实统计
+ * （「没有作业」「索引为空」「Redis 不可达」），所以整卡换成占位。
+ */
+function CapabilitySkeleton({ rows }: { rows: number }) {
+  return (
+    <div aria-hidden="true" className="mt-2 flex flex-col gap-2">
+      {Array.from({ length: rows }).map((_, row) => (
+        <div key={row} className="flex items-center gap-2">
+          <Skeleton className="h-2.5 w-14" />
+          <Skeleton className="h-2.5" style={{ width: `${40 + ((row * 17) % 34)}%` }} />
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export function CapabilitiesPanel() {
@@ -121,6 +141,8 @@ export function CapabilitiesPanel() {
         <h3 className="text-bone text-sm font-semibold">{t("admin.capAgent")}</h3>
         {errorText(keyQuery.error, t) ? (
           <p className="text-muted-2 mt-2 text-xs">{errorText(keyQuery.error, t)}</p>
+        ) : keyQuery.isPending || usageQuery.isPending ? (
+          <CapabilitySkeleton rows={2} />
         ) : (
           <div className="mt-2 flex flex-col gap-1.5 text-xs">
             <p className="text-muted-2">
@@ -152,6 +174,8 @@ export function CapabilitiesPanel() {
         <h3 className="text-bone text-sm font-semibold">{t("admin.capSearch")}</h3>
         {errorText(indexQuery.error, t) ? (
           <p className="text-muted-2 mt-2 text-xs">{errorText(indexQuery.error, t)}</p>
+        ) : indexQuery.isPending ? (
+          <CapabilitySkeleton rows={3} />
         ) : (
           <div className="mt-2 flex flex-col gap-1.5 text-xs text-muted-2">
             <p>
@@ -174,6 +198,12 @@ export function CapabilitiesPanel() {
         <h3 className="text-bone text-sm font-semibold">{t("admin.capRedis")}</h3>
         {errorText(redisQuery.error, t) ? (
           <p className="text-muted-2 mt-2 text-xs">{errorText(redisQuery.error, t)}</p>
+        ) : redisQuery.isPending ? (
+          <div aria-hidden="true" className="mt-2 flex items-center gap-2">
+            <Skeleton className="size-1.5 flex-none rounded-full" />
+            <Skeleton className="h-2.5 w-20" />
+            <Skeleton className="h-[18px] w-14 rounded-full" />
+          </div>
         ) : (
           <div className="mt-2 flex items-center gap-2 text-xs text-muted-2">
             <Lamp tone={redisQuery.data?.reachable ? "good" : "bad"} />
@@ -190,6 +220,11 @@ export function CapabilitiesPanel() {
         <h3 className="text-bone text-sm font-semibold">{t("admin.capMetrics")}</h3>
         {errorText(metricsQuery.error, t) ? (
           <p className="text-muted-2 mt-2 text-xs">{errorText(metricsQuery.error, t)}</p>
+        ) : metricsQuery.isPending ? (
+          <div aria-hidden="true">
+            <Skeleton className="mt-2 h-[72px] w-full rounded-md" />
+            <Skeleton className="mt-2 h-2 w-44" />
+          </div>
         ) : (
           <>
             <Sparkline points={points} />

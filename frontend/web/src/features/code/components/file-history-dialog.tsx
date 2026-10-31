@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { DiffViewer, type DiffPayload } from "@/components/editor/diff-viewer";
+import { SkeletonCodeLines, SkeletonRows } from "@/components/kit/skeletons";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -107,7 +108,7 @@ export function FileHistoryDialog({
             aria-label={t("code.historyTitle")}
           >
             {historyQuery.isLoading ? (
-              <p className="text-muted-2 p-3 text-xs">{t("common.loading")}</p>
+              <SkeletonRows rows={5} meta={false} className="p-3" rowClassName="px-0 py-2.5" />
             ) : historyQuery.error ? (
               <button
                 type="button"
@@ -161,7 +162,7 @@ export function FileHistoryDialog({
                   </p>
                 </header>
                 {diffQuery.isLoading ? (
-                  <p className="text-muted-2 text-xs">{t("common.loading")}</p>
+                  <SkeletonCodeLines lines={10} className="p-3" />
                 ) : diffQuery.error ? (
                   <button
                     type="button"

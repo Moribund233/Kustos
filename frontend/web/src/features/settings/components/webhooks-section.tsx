@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Chip } from "@/components/kit/kit";
+import { SkeletonText } from "@/components/kit/skeletons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useTranslation } from "react-i18next";
@@ -163,7 +164,7 @@ export function WebhooksSection({ repoId }: { repoId: string }) {
 
       <div className="mt-4 flex flex-col gap-2">
         {listQuery.isLoading ? (
-          <p className="text-muted-2 text-xs">{t("common.loading")}</p>
+          <SkeletonText lines={3} />
         ) : webhooks.length === 0 ? (
           <p className="text-muted-2 text-xs">{t("settings.noWebhooks")}</p>
         ) : (
@@ -267,7 +268,7 @@ function Deliveries({ repoId, webhookId }: { repoId: string; webhookId: string }
   return (
     <div className="border-edge-1 mt-2 border-t pt-2">
       {query.isLoading ? (
-        <p className="text-muted-2 text-xs">{t("common.loading")}</p>
+        <SkeletonText lines={2} />
       ) : deliveries.length === 0 ? (
         <p className="text-muted-2 text-xs">{t("settings.noDeliveries")}</p>
       ) : (

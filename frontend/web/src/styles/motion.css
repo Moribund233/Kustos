@@ -1,0 +1,90 @@
+/**
+ * 动效词汇。
+ *
+ * 原型 `docs/prototype/assets/css/*` 里的 keyframes 只存在于静态页面，
+ * React 端此前仅落地了 Radix 弹层的 tw-animate-css 版本。这里把「与状态无关」
+ * 的常驻动画收敛到一处：
+ *
+ * - 循环类偏慢（1.1–2.8s），交互类偏快（0.16s），避免界面整体呼吸过度；
+ * - 由交互驱动的进出场交给 motion 组件，CSS 只负责循环播放；
+ * - `prefers-reduced-motion` 的全局降级在 globals.css，此处不重复处理。
+ */
+
+/* 状态灯呼吸：表示「正在发生」（在线、执行中、加载中）。 */
+@keyframes lamp-breathe {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.82);
+  }
+}
+
+/* 终端光标闪烁。用 steps 而非线性淡入，接近真实光标的硬切换。 */
+@keyframes caret-blink {
+  0%,
+  46% {
+    opacity: 1;
+  }
+  50%,
+  96% {
+    opacity: 0.15;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* 骨架屏微光扫过。 */
+@keyframes skeleton-sheen {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/**
+ * sonner toast 的节奏。
+ *
+ * 组件默认是 400ms 的整高滑入/滑出（`[data-sonner-toast]` 上的 transition），
+ * 比站内 160–240ms 的语汇慢一档。这里只压缩时长：位移方向、堆叠收拢、
+ * 滑动关闭仍由组件自己负责。选择器压一层 `[data-sonner-toaster]`，
+ * 是为了盖过 sonner 运行时注入的同等优先级样式。
+ */
+[data-sonner-toaster] [data-sonner-toast] {
+  transition-duration: 240ms;
+}
+
+/**
+ * 骨架块。
+ *
+ * 底色与圆角留给调用方的 Tailwind 类（`.skeleton` 只负责定位与裁切），
+ * 这样同一原语既能当文本行也能当头像圆点。流光用伪元素位移实现：
+ * 位移量按容器自身宽度计算，长短不一的占位块上扫过速度才一致。
+ */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: rgba(240, 231, 216, 0.055);
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    100deg,
+    transparent 12%,
+    rgba(240, 231, 216, 0.085) 40%,
+    rgba(242, 174, 91, 0.07) 51%,
+    rgba(240, 231, 216, 0.05) 62%,
+    transparent 86%
+  );
+  animation: skeleton-sheen 1.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}

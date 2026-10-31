@@ -3,7 +3,9 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { MarkdownEditor } from "@/components/editor/markdown-editor";
+import { SkeletonText } from "@/components/kit/skeletons";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SectionHead, StatusPill, ToneAvatar } from "@/components/kit/kit";
 import { toPerson } from "@/features/issue/api";
 import type { Issue, IssueComment } from "@/features/issue/types";
@@ -16,6 +18,8 @@ interface IssueDetailProps {
   issue: Issue | null;
   /** 评论时间线，来自评论接口。 */
   comments?: IssueComment[];
+  /** 评论仍在取数：时间线显示占位，而不是「暂无评论」。 */
+  commentsLoading?: boolean;
   /** 详情/评论加载失败的错误信息；有值时渲染错误态与重试。 */
   error?: string | null;
   /** 加载失败后的重试回调。 */
@@ -37,13 +41,23 @@ interface IssueDetailProps {
  * Args:
  *   issue: 当前选中的 Issue，null 表示尚未选择。
  *   comments: 评论时间线数据。
+ *   commentsLoading: 评论仍在取数，时间线显示占位。
  *   error: 加载失败的错误信息，有值时整块切换为错误态。
  *   onRetry: 错误态下的重试回调。
  *   onToggleStatus: 关闭/重新打开回调。
  *   onComment: 评论提交回调。
  *   onEdit: 打开编辑弹窗的回调。
  */
-export function IssueDetail({ issue, comments, error, onRetry, onToggleStatus, onComment, onEdit }: IssueDetailProps) {
+export function IssueDetail({
+  issue,
+  comments,
+  commentsLoading = false,
+  error,
+  onRetry,
+  onToggleStatus,
+  onComment,
+  onEdit,
+}: IssueDetailProps) {
   const { t } = useTranslation();
   const [draft, setDraft] = useState("");
   const me = useAuthStore((state) => state.user);
@@ -173,6 +187,21 @@ export function IssueDetail({ issue, comments, error, onRetry, onToggleStatus, o
                   </div>
                 </article>
               ))
+            ) : commentsLoading ? (
+              <div aria-hidden="true">
+                {[0, 1].map((row) => (
+                  <div
+                    key={row}
+                    className="border-edge-1 grid grid-cols-[27px_minmax(0,1fr)] gap-[9px] border-b py-[11px] last:border-b-0"
+                  >
+                    <Skeleton className="mt-0.5 size-[23px] rounded-full" />
+                    <div className="min-w-0">
+                      <Skeleton className="h-2.5 w-20" />
+                      <SkeletonText lines={3} className="mt-2" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : (
               <p className="text-muted-2 py-6 text-center text-xs">{t("issue.noComments")}</p>
             )}

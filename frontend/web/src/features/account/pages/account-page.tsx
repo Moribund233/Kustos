@@ -5,6 +5,7 @@ import { KeyRound, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { ToneAvatar } from "@/components/kit/kit";
+import { SkeletonText } from "@/components/kit/skeletons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -355,7 +356,7 @@ function SshKeySection() {
   return (
     <Section title={t("account.sshKeys")} hint={t("account.sshHint")}>
       {listQuery.isLoading ? (
-        <p className="text-muted-2 text-xs">{t("common.loading")}</p>
+        <SkeletonText lines={2} />
       ) : (listQuery.data ?? []).length === 0 ? (
         <p className="text-muted-2 text-xs">{t("account.noKeys")}</p>
       ) : (
@@ -448,9 +449,11 @@ function NotificationSection() {
   return (
     <Section title={t("account.notifications")} hint={t("account.notificationsHint")}>
       {!prefs ? (
-        <p className="text-muted-2 text-xs">
-          {prefsQuery.isLoading ? t("common.loading") : t("account.readFailed")}
-        </p>
+        prefsQuery.isLoading ? (
+          <SkeletonText lines={3} />
+        ) : (
+          <p className="text-muted-2 text-xs">{t("account.readFailed")}</p>
+        )
       ) : (
         <div className="grid gap-2 sm:grid-cols-2">
           {PREF_LABELS.map(({ key, labelKey }) => (
@@ -511,9 +514,11 @@ function OAuthSection() {
       hint={t("account.oauthHint")}
     >
       {accounts.length === 0 ? (
-        <p className="text-muted-2 text-xs">
-          {accountsQuery.isLoading ? t("common.loading") : t("account.noOauth")}
-        </p>
+        accountsQuery.isLoading ? (
+          <SkeletonText lines={2} />
+        ) : (
+          <p className="text-muted-2 text-xs">{t("account.noOauth")}</p>
+        )
       ) : (
         <ul className="flex flex-col gap-2">
           {accounts.map((account) => (

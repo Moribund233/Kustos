@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { SkeletonText } from "@/components/kit/skeletons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useTranslation } from "react-i18next";
@@ -93,7 +94,7 @@ export function TagsSection({ repoId }: { repoId: string }) {
 
       <div className="mt-4 flex flex-col gap-2">
         {tagsQuery.isLoading ? (
-          <p className="text-muted-2 text-xs">{t("common.loading")}</p>
+          <SkeletonText lines={3} />
         ) : tags.length === 0 ? (
           <p className="text-muted-2 text-xs">{t("settings.noTags")}</p>
         ) : (

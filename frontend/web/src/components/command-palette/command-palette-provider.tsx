@@ -140,6 +140,7 @@ export function CommandPaletteProvider() {
       items={items}
       query={query}
       onQueryChange={setQuery}
+      loading={searchQuery.isPending && trimmed.length > 0}
     />
   );
 }

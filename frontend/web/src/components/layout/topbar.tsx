@@ -6,6 +6,7 @@ import { Link } from "react-router";
 import { toast } from "sonner";
 
 import { Lamp } from "@/components/kit/kit";
+import { SkeletonRows } from "@/components/kit/skeletons";
 import { CreateRepositoryDialog } from "@/features/repository/components/create-repository-dialog";
 import { api } from "@/lib/api/client";
 import { formatRelative } from "@/lib/datetime/format";
@@ -66,7 +67,7 @@ export function Topbar() {
   const queryClient = useQueryClient();
   const [createRepoOpen, setCreateRepoOpen] = useState(false);
 
-  const { data: notifications } = useApiQuery<NotificationItem[]>({
+  const { data: notifications, isPending: notificationsPending } = useApiQuery<NotificationItem[]>({
     queryKey: ["notifications"],
     queryFn: async () => {
       const res = await api.GET("/api/v1/notifications", { params: { query: { page: 1, limit: 20 } } });
@@ -180,7 +181,13 @@ export function Topbar() {
               ) : null}
             </div>
             <div className="max-h-[380px] overflow-y-auto">
-              {(notifications ?? []).length === 0 ? (
+              {/* 通知尚未到达时不能先说「暂无通知」：弹层一开一合就落在空态上，
+                  用户会以为真的没有新消息 */}
+              {notificationsPending ? (
+                <div className="px-[13px] py-2">
+                  <SkeletonRows rows={3} leading="glyph" meta={false} rowClassName="px-0 py-2.5" />
+                </div>
+              ) : (notifications ?? []).length === 0 ? (
                 <p className="text-muted-2 px-[13px] py-8 text-center text-xs">{t("common.noNotifications")}</p>
               ) : (
                 (notifications ?? []).map((notif) => {

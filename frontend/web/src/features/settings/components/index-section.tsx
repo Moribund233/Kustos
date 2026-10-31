@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useTranslation } from "react-i18next";
 
 import { api } from "@/lib/api/client";
@@ -70,24 +71,41 @@ export function IndexSection({ repoId }: { repoId: string }) {
       </p>
 
       <div className="mt-4 grid gap-2 text-xs sm:grid-cols-2">
-        <p className="text-muted-2">
-          {t("settings.indexStatus")}
-          <span className={status?.in_sync ? "text-sage" : "text-amber-2"}>
-            {status ? (status.in_sync ? t("settings.indexInSync") : t("settings.indexBehind")) : "—"}
-          </span>
-        </p>
-        <p className="text-muted-2">
-          {t("settings.indexCounts")}
-          <span className="text-bone-2 font-mono">
-            {status?.chunks ?? 0} / {status?.refs ?? 0} / {status?.embeddings ?? 0}
-          </span>
-        </p>
-        <p className="text-muted-2">
-          {t("settings.indexLast")}<span className="text-bone-2">{formatRelative(status?.last_indexed_at ?? "") || "—"}</span>
-        </p>
-        <p className="text-muted-2">
-          {t("settings.indexSemantic")}<span className="text-bone-2">{status?.semantic_enabled ? t("settings.enabled") : t("settings.disabled")}</span>
-        </p>
+        {/* pending 时四个字段都会渲染 0 / 「已禁用」，语义是反的（看起来像索引没开），
+            因此整块换成占位，只保留字段名 */}
+        {statusQuery.isPending ? (
+          [0, 1, 2, 3].map((row) => (
+            <div key={row} className="flex items-center gap-2">
+              <Skeleton className="h-2.5 w-16" />
+              <Skeleton className="h-2.5 w-24" />
+            </div>
+          ))
+        ) : (
+          <>
+            <p className="text-muted-2">
+              {t("settings.indexStatus")}
+              <span className={status?.in_sync ? "text-sage" : "text-amber-2"}>
+                {status ? (status.in_sync ? t("settings.indexInSync") : t("settings.indexBehind")) : "—"}
+              </span>
+            </p>
+            <p className="text-muted-2">
+              {t("settings.indexCounts")}
+              <span className="text-bone-2 font-mono">
+                {status?.chunks ?? 0} / {status?.refs ?? 0} / {status?.embeddings ?? 0}
+              </span>
+            </p>
+            <p className="text-muted-2">
+              {t("settings.indexLast")}
+              <span className="text-bone-2">{formatRelative(status?.last_indexed_at ?? "") || "—"}</span>
+            </p>
+            <p className="text-muted-2">
+              {t("settings.indexSemantic")}
+              <span className="text-bone-2">
+                {status?.semantic_enabled ? t("settings.enabled") : t("settings.disabled")}
+              </span>
+            </p>
+          </>
+        )}
       </div>
 
       <Button

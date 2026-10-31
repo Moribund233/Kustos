@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
+import { SkeletonRows } from "@/components/kit/skeletons";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -103,7 +104,13 @@ export function SocialDialog({
 
         <div className="border-edge-1 max-h-[280px] min-h-[100px] overflow-auto rounded-md border">
           {listQuery.isLoading ? (
-            <p className="text-muted-2 p-3 text-xs">{t("common.loading")}</p>
+            <SkeletonRows
+              rows={4}
+              leading="avatar"
+              meta={false}
+              className="p-3"
+              rowClassName="px-0 py-2.5"
+            />
           ) : people.length === 0 ? (
             <p className="text-muted-2 p-3 text-xs">{t("code.noPeople")}</p>
           ) : (

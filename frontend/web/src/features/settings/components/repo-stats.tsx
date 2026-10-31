@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api/client";
 import { useApiQuery } from "@/lib/api/hooks";
 
@@ -41,7 +42,12 @@ export function RepoStatsRow({ repoId }: { repoId: string }) {
         {items.map((item) => (
           <div key={item.label}>
             <p className="text-muted-2 text-2xs font-semibold tracking-[0.13em] uppercase">{item.label}</p>
-            <p className="text-bone mt-1 font-mono text-2xl leading-none">{item.value}</p>
+            {/* pending 时不能画 0：零值会被读成「这个仓库还没有 PR / Issue」 */}
+            {statsQuery.isPending ? (
+              <Skeleton className="mt-2 h-6 w-8" />
+            ) : (
+              <p className="text-bone mt-1 font-mono text-2xl leading-none">{item.value}</p>
+            )}
           </div>
         ))}
       </div>
