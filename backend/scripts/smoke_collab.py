@@ -16,7 +16,7 @@ import urllib.request
 import httpx
 import websockets
 
-BASE = "http://localhost:8000"
+BASE = "http://localhost:18090"
 API = f"{BASE}/api/v1"
 
 
@@ -82,7 +82,7 @@ async def main() -> int:
         print("[2] file committed")
 
         doc_key = f"{repo_id}:{branch}:smoke.txt"
-        uri = f"ws://localhost:8000/ws/collab?token={token}"
+        uri = f"ws://localhost:18090/ws/collab?token={token}"
 
         async with websockets.connect(uri) as ws1, websockets.connect(uri) as ws2:
             for ws, cid in ((ws1, "cli-a"), (ws2, "cli-b")):

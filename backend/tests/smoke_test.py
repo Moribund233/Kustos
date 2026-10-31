@@ -15,7 +15,7 @@ import sys
 import json
 import httpx
 
-BASE_URL = "http://127.0.0.1:8000"
+BASE_URL = "http://127.0.0.1:18090"
 TIMEOUT = 15.0
 
 PASS = 0

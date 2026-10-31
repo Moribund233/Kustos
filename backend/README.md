@@ -41,10 +41,10 @@ docker compose -p kustos up -d --build
 
 | 入口 | 地址 |
 | --- | --- |
-| 网关（统一入口：API / WebSocket / Git HTTP） | http://127.0.0.1:8000 |
-| API 直连 | http://127.0.0.1:8001 |
-| Git HTTP | http://127.0.0.1:9000 |
-| Git SSH | `ssh://git@127.0.0.1:2222/<owner>/<repo>.git` |
+| 网关（统一入口：API / WebSocket / Git HTTP） | http://127.0.0.1:18090 |
+| API 直连 | http://127.0.0.1:18091 |
+| Git HTTP | http://127.0.0.1:19010 |
+| Git SSH | `ssh://git@127.0.0.1:19222/<owner>/<repo>.git` |
 
 初始管理员账号在 `.env`（`KUSTOS_ADMIN_USERNAME` / `KUSTOS_ADMIN_PASSWORD`），首次登录后请立即修改。
 

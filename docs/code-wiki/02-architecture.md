@@ -145,9 +145,9 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-    Browser[浏览器] -->|:8000| GW[gateway<br/>OpenResty]
-    GitClient[git CLI] -->|:8000| GW
-    SSHClient[ssh] -->|:2222| SSHD[sshd]
+    Browser[浏览器] -->|:18090| GW[gateway<br/>OpenResty]
+    GitClient[git CLI] -->|:18090| GW
+    SSHClient[ssh] -->|:19222| SSHD[sshd]
     GW -->|/api /ws| APP[app<br/>uvicorn x4 :8000]
     GW -->|"/{owner}/{repo}.git"| CGI[git-cgi<br/>fcgi :9000]
     GW -->|/ws/collab| CB[collab :4444]
@@ -169,12 +169,12 @@ flowchart LR
 | --- | --- | --- | --- | --- |
 | `postgres` | `pgvector/pgvector:pg16` | 5432（内网） | `postgres-data` | 主库 + 向量 |
 | `redis` | `redis:7-alpine` | 6379（内网） | 无持久化 | 缓存/pubsub/队列 |
-| `app` | `kustos-app`（`backend/Dockerfile`） | `127.0.0.1:8001→8000` | repos/lfs/app-logs | FastAPI 业务 |
+| `app` | `kustos-app`（`backend/Dockerfile`） | `127.0.0.1:${KUSTOS_API_PORT:-18091}→8000` | repos/lfs/app-logs | FastAPI 业务 |
 | `agent-worker` | 同 app 镜像 | 无 | repos/app-logs | arq Agent 作业 |
 | `collab` | `docker/collab/Dockerfile` | 4444/4445（内网） | 无 | Hocuspocus Yjs |
-| `git-cgi` | `docker/git-cgi/Dockerfile` | `127.0.0.1:9000` | repos | Git HTTP |
-| `sshd` | `docker/ssh/Dockerfile` | `127.0.0.1:2222` | repos | Git over SSH |
-| `gateway` | `docker/gateway/Dockerfile` | `${KUSTOS_GATEWAY_PORT:-8000}` | 配置只读 | 统一入口 |
+| `git-cgi` | `docker/git-cgi/Dockerfile` | `127.0.0.1:${KUSTOS_GIT_HTTP_PORT:-19010}` | repos | Git HTTP |
+| `sshd` | `docker/ssh/Dockerfile` | `127.0.0.1:${KUSTOS_SSH_PORT:-19222}` | repos | Git over SSH |
+| `gateway` | `docker/gateway/Dockerfile` | `${KUSTOS_GATEWAY_PORT:-18090}` | 配置只读 | 统一入口 |
 | `docker-socket-proxy` | `tecnativa/docker-socket-proxy` | 内网 | docker.sock ro | 只读容器状态 |
 | `docker-write-proxy` | OpenResty | 内网 | docker.sock ro | 仅 start/stop/restart |
 | `init`（profile） | app 镜像 | 无 | app-logs | 迁移 + 管理员引导 |

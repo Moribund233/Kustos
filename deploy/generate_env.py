@@ -20,8 +20,11 @@ Kustos .env 生成脚本
     KUSTOS_IMAGE_TAG               业务镜像标签（默认 latest）
     KUSTOS_IMAGE_PREFIX            镜像前缀（默认空=本地构建 kustos-*；推送私有仓库时设置）
     KUSTOS_NETWORK_NAME            compose 共享网络名（默认 kustos-network）
-    KUSTOS_GATEWAY_PORT            网关对外端口（默认 8000）
+    KUSTOS_GATEWAY_PORT            网关对外端口（默认 18090）
     KUSTOS_GATEWAY_HOST            网关对外主机（默认 127.0.0.1；Grafana root_url 拼装用）
+    KUSTOS_API_PORT                app 直连调试端口（默认 18091，可选）
+    KUSTOS_GIT_HTTP_PORT           git-cgi 直连调试端口（默认 19010，可选）
+    KUSTOS_SSH_PORT                Git over SSH 宿主端口（默认 19222，可选）
     KUSTOS_ADMIN_USERNAME          初始管理员用户名（默认 admin）
     KUSTOS_ADMIN_EMAIL             初始管理员邮箱（默认 admin@kustos.local）
     KUSTOS_APP_DEBUG               调试模式（固定 false，可手动改）
@@ -86,7 +89,7 @@ DEFAULT_VARS: dict[str, str] = {
     "KUSTOS_IMAGE_TAG": "latest",
     "KUSTOS_IMAGE_PREFIX": "",
     "KUSTOS_NETWORK_NAME": "kustos-network",
-    "KUSTOS_GATEWAY_PORT": "8000",
+    "KUSTOS_GATEWAY_PORT": "18090",
     "KUSTOS_GATEWAY_HOST": "127.0.0.1",
     "KUSTOS_ADMIN_USERNAME": "admin",
     "KUSTOS_ADMIN_EMAIL": "admin@kustos.local",

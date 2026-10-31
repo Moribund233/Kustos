@@ -23,12 +23,12 @@
 | --- | --- | --- | --- | --- | --- |
 | `postgres` | `pgvector/pgvector:pg16` | 5432 内网 | `postgres-data` | `POSTGRES_USER/PASSWORD/DB` | `pg_isready` |
 | `redis` | `redis:7-alpine` | 6379 内网 | 无（`appendonly no`） | `maxmemory 512mb`, `volatile-lru` | `redis-cli ping` |
-| `app` | `backend/Dockerfile` | `127.0.0.1:8001→8000` | `repos`, `lfs`, `app-logs` | `DATABASE_URL`, `REDIS_URL`, `KUSTOS_SECURITY_SECRET_KEY`, `KUSTOS_INIT_DATABASE=false`, `KUSTOS_*` | `GET /health` |
+| `app` | `backend/Dockerfile` | `127.0.0.1:${KUSTOS_API_PORT:-18091}→8000` | `repos`, `lfs`, `app-logs` | `DATABASE_URL`, `REDIS_URL`, `KUSTOS_SECURITY_SECRET_KEY`, `KUSTOS_INIT_DATABASE=false`, `KUSTOS_*` | `GET /health` |
 | `agent-worker` | 同 app 镜像 | 无 | `repos`, `app-logs` | `DATABASE_URL`, `REDIS_URL`, `KUSTOS_AGENT_*` | 无 |
 | `collab` | `docker/collab/Dockerfile`（Node 22 + Hocuspocus） | 4444 / 4445 内网 | 无 | `KUSTOS_APP_URL`, `KUSTOS_COLLAB_INTERNAL_SECRET`, `REDIS_URL` | `GET :4445/` |
-| `git-cgi` | `docker/git-cgi/Dockerfile`（Debian + fcgiwrap） | `127.0.0.1:9000` | `repos` | `GIT_PROJECT_ROOT`, `KUSTOS_GIT_HOOK_SECRET` | 无 |
-| `sshd` | `docker/ssh/Dockerfile`（Alpine + OpenSSH） | `127.0.0.1:2222` | `repos` | `KUSTOS_GIT_HOOK_SECRET`, `KUSTOS_DB_URL` | 无 |
-| `gateway` | `docker/gateway/Dockerfile`（OpenResty + 前端产物） | `${KUSTOS_GATEWAY_PORT:-8000}` | nginx.conf / admin_acl.lua 只读 | `KUSTOS_ADMIN_ALLOWED_SOURCES` | `GET /health` |
+| `git-cgi` | `docker/git-cgi/Dockerfile`（Debian + fcgiwrap） | `127.0.0.1:${KUSTOS_GIT_HTTP_PORT:-19010}` | `repos` | `GIT_PROJECT_ROOT`, `KUSTOS_GIT_HOOK_SECRET` | 无 |
+| `sshd` | `docker/ssh/Dockerfile`（Alpine + OpenSSH） | `127.0.0.1:${KUSTOS_SSH_PORT:-19222}→2222` | `repos` | `KUSTOS_GIT_HOOK_SECRET`, `KUSTOS_DB_URL` | 无 |
+| `gateway` | `docker/gateway/Dockerfile`（OpenResty + 前端产物） | `${KUSTOS_GATEWAY_PORT:-18090}` | nginx.conf / admin_acl.lua 只读 | `KUSTOS_ADMIN_ALLOWED_SOURCES` | `GET /health` |
 | `docker-socket-proxy` | `tecnativa/docker-socket-proxy:0.2.0` | 内网 | `/var/run/docker.sock:ro` | `CONTAINERS=1`, `POST=0` | 无 |
 | `docker-write-proxy` | `openresty/openresty` | 内网 | docker.sock:ro + Lua ACL | — | 无 |
 | `init`（profile） | app 镜像 | 无 | `app-logs` | `DATABASE_URL`, `KUSTOS_ADMIN_*` | 一次性任务 |

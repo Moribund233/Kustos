@@ -2,7 +2,7 @@
 # =============================================================================
 # E2E：LFS 仓库级 ACL + 短时效 transfer token（真实 gateway → app）
 #
-# 运行环境：需 curl / git / git-lfs，网关端口 8000（prod 栈已起）。
+# 运行环境：需 curl / git / git-lfs，网关端口 18090（prod 栈已起）。
 # 可在 WSL 或 Windows Git Bash 中执行；WSL 侧若未装 git-lfs 会在开头显式失败。
 #
 # 覆盖「验收清单」：
@@ -14,7 +14,7 @@
 # =============================================================================
 set -uo pipefail
 
-BASE=${LFS_E2E_BASE:-http://127.0.0.1:8000}
+BASE=${LFS_E2E_BASE:-http://127.0.0.1:18090}
 STAMP=$(date +%s)
 UNAME=lfse2e;        UPASS=LfsE2ePass1234;      UEMAIL=lfse2e@example.com
 RNAME=lfsreader;     RPASS=LfsReaderPass1234;   RMAIL=lfsreader@example.com
@@ -80,7 +80,7 @@ pass "outsider batch on private repo -> 403"
 # ---- 4. git clone + git lfs push（上传走网关重写入口）----
 WORK=$(mktemp -d)
 trap 'cd /; rm -rf "$WORK"' EXIT
-PUSH_URL="http://$UNAME:$UPASS@127.0.0.1:8000/$REPO_PATH.git"
+PUSH_URL="http://$UNAME:$UPASS@127.0.0.1:18090/$REPO_PATH.git"
 
 git init -q -b master "$WORK/local"
 cd "$WORK/local"
@@ -117,7 +117,7 @@ HREF=$(printf '%s' "$DL" | sed -n 's/.*"href":"\([^"]*\)".*/\1/p' | head -1)
 XAUTH=$(printf '%s' "$DL" | sed -n 's/.*"header":{"Authorization":"\([^"]*\)"}.*/\1/p' | head -1)
 [ -n "$HREF" ] && [ -n "$XAUTH" ] || { printf '%s\n' "$DL"; fail "download batch actions"; }
 case "$HREF" in
-    "http://127.0.0.1:8000/api/v1/repositories/$REPO_ID/lfs/objects/"*) ;;
+    "http://127.0.0.1:18090/api/v1/repositories/$REPO_ID/lfs/objects/"*) ;;
     *) fail "href must be absolute & gateway-scoped (Host 丢端口的老问题): $HREF" ;;
 esac
 pass "download batch issued transfer token (href repo-scoped)"

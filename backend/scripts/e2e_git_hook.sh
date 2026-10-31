@@ -11,7 +11,7 @@
 # =============================================================================
 set -uo pipefail
 
-BASE=http://127.0.0.1:8000
+BASE=http://127.0.0.1:18090
 UNAME=hookuser
 UPASS='HookPass123!'
 UEMAIL=hookuser@example.com
@@ -68,7 +68,7 @@ git config user.email hook@example.com
 echo "r1" > file.txt
 git add file.txt
 git commit -qm "first commit via e2e"
-PUSH_URL="http://$UNAME:$UPASS@127.0.0.1:8000/$REPO_PATH.git"
+PUSH_URL="http://$UNAME:$UPASS@127.0.0.1:18090/$REPO_PATH.git"
 if git push -q "$PUSH_URL" master 2>push.err; then
     pass "first push accepted"
 else

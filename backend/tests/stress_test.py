@@ -19,7 +19,7 @@ class StressTest:
     测试服务端 API 在高并发下的响应性能
     """
     
-    def __init__(self, base_url: str = "http://127.0.0.1:8000", token: str = None):
+    def __init__(self, base_url: str = "http://127.0.0.1:18090", token: str = None):
         """
         初始化压力测试
         
@@ -341,7 +341,7 @@ async def main():
     parser = argparse.ArgumentParser(description="Kustos 服务端压力测试")
     parser.add_argument("--mode", choices=["normal", "extreme", "sustained"], 
                         default="normal", help="测试模式")
-    parser.add_argument("--url", default="http://127.0.0.1:8000", help="服务端地址")
+    parser.add_argument("--url", default="http://127.0.0.1:18090", help="服务端地址")
     parser.add_argument("--duration", type=int, default=30, help="持续测试时间（秒）")
     
     args = parser.parse_args()

@@ -83,7 +83,7 @@ print_credentials() {
   local user pw port
   user="$(env_get KUSTOS_ADMIN_USERNAME)"; [[ -z "$user" ]] && user="admin"
   pw="$(env_get KUSTOS_ADMIN_PASSWORD)"
-  port="$(env_get KUSTOS_GATEWAY_PORT)"; [[ -z "$port" ]] && port="8000"
+  port="$(env_get KUSTOS_GATEWAY_PORT)"; [[ -z "$port" ]] && port="18090"
   local local_ip
   local_ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
   [[ -z "$local_ip" ]] && local_ip="127.0.0.1"
@@ -112,7 +112,7 @@ interactive_config() {
   log_info "自定义部署配置（直接回车使用方括号默认值）"
 
   local cur_port cur_user cur_email cur_tag
-  cur_port="$(env_get KUSTOS_GATEWAY_PORT)"; cur_port="${cur_port:-8000}"
+  cur_port="$(env_get KUSTOS_GATEWAY_PORT)"; cur_port="${cur_port:-18090}"
   cur_user="$(env_get KUSTOS_ADMIN_USERNAME)"; cur_user="${cur_user:-admin}"
   cur_email="$(env_get KUSTOS_ADMIN_EMAIL)"; cur_email="${cur_email:-admin@kustos.local}"
   cur_tag="$(env_get KUSTOS_IMAGE_TAG)"; cur_tag="${cur_tag:-latest}"

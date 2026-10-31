@@ -132,7 +132,7 @@ docker compose up -d
 
 ### 3.4 首次登录与安全
 
-1. 访问 `http://<host>:8000/`（默认网关端口）；
+1. 访问 `http://<host>:18090/`（网关默认端口，可用 `KUSTOS_GATEWAY_PORT` 覆盖）；
 2. 使用 `KUSTOS_ADMIN_USERNAME/PASSWORD` 登录；
 3. 立即修改管理员密码；
 4. 配置 `KUSTOS_ADMIN_ALLOWED_SOURCES`（否则 Admin API 全部 403）；
@@ -268,16 +268,16 @@ docker compose exec app python -c "from app.utils.db_migrate import get_applied_
 
 | 项 | 地址 |
 | --- | --- |
-| API 文档 | `http://host:8000/docs` |
+| API 文档 | `http://host:18090/docs` |
 | 健康检查 | `/health` |
 | 指标 | `/metrics` |
 | Prometheus | `http://127.0.0.1:9090`（监控栈） |
-| Grafana | `http://host:8000/grafana`（SSO）或 `:3000` |
-| Git HTTP | `http://host:8000/<owner>/<repo>.git` |
-| Git SSH | `ssh://git@host:2222/<owner>/<repo>.git` |
-| 协作 WS | `ws://host:8000/ws/collab` |
-| 应用 WS | `ws://host:8000/ws/` |
-| 管理员日志 WS | `ws://host:8000/ws/logs` |
+| Grafana | `http://host:18090/grafana`（SSO）或 `:3000` |
+| Git HTTP | `http://host:18090/<owner>/<repo>.git` |
+| Git SSH | `ssh://git@host:19222/<owner>/<repo>.git` |
+| 协作 WS | `ws://host:18090/ws/collab` |
+| 应用 WS | `ws://host:18090/ws/` |
+| 管理员日志 WS | `ws://host:18090/ws/logs` |
 
 ---
 
