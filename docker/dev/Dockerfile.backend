@@ -130,7 +130,7 @@ start_server() {\n\
     echo "Starting development server with hot reload..."\n\
     # 不能用 su -p: -p 会保留 root 的 HOME, libgit2 打开仓库时需 stat $HOME/.gitconfig,\n\
     # kustos 用户无权访问 /root/.gitconfig, 导致所有仓库打开失败 (Repository not found)\n\
-    su kustos -c "cd /app && uvicorn app:create_app --factory \\\n\
+    su kustos -c "cd /app && uvicorn app.main:create_app --factory \\\n\
         --host 0.0.0.0 --port 8000 \\\n\
         --reload --reload-dir /app \\\n\
         --log-level debug"\n\
