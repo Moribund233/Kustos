@@ -46,7 +46,8 @@ deploy/                   # 宿主机部署入口：install / mgt / kustos / dev
 docker-compose*.yml       # 生产 / 开发 / 监控编排（与 docker/ 同级）
 docs/
 ├── code-wiki/        # 架构与实现文档（见下方索引）
-└── prototype/        # 静态 Web 原型（设计说明与交互稿）
+├── desktop-app-design.md  # 桌面端（Wails v3）设计
+└── prototype/        # 静态原型：web/ 与 desktop/
 ```
 
 ## 快速开始
@@ -130,10 +131,12 @@ black app tests && isort app tests && flake8 app
 python scripts/security_audit.py
 ```
 
-Web 原型（`docs/prototype`）是纯静态页面，无需构建：
+Web 与桌面原型（`docs/prototype`）都是纯静态页面，无需构建：
 
 ```bash
-cd docs/prototype && python -m http.server 8765   # http://127.0.0.1:8765/index.html
+cd docs/prototype && python -m http.server 8765
+# Web:     http://127.0.0.1:8765/web/index.html
+# Desktop: http://127.0.0.1:8765/desktop/index.html
 ```
 
 ## 文档
@@ -154,7 +157,7 @@ cd docs/prototype && python -m http.server 8765   # http://127.0.0.1:8765/index.
 | `12-development-and-operations` | 本地开发、测试、排障 |
 | `13-dependencies` | 模块依赖与 import 规则 |
 
-设计稿与交互说明见 `docs/prototype/README.md`。
+Web 原型在 `docs/prototype/web`，桌面原型在 `docs/prototype/desktop`；设计稿与交互说明见 `docs/prototype/README.md`，桌面端实现设计见 `docs/desktop-app-design.md`。
 
 ## 开发约定
 

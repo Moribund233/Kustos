@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Editor · Kustos Desktop</title>
+  <meta name="description" content="Kustos desktop prototype — code editor with local language server and a local/live document mode switch.">
+  <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/tokens.css">
+  <link rel="stylesheet" href="assets/css/desktop.css">
+</head>
+<body
+  data-surface="code"
+  data-mode="local"
+  data-branch="feat/collab-cursors"
+  data-ahead="2"
+  data-behind="0"
+  data-conn="online 46ms"
+  data-clean-text="1 file modified"
+  data-lsp="gopls ready · tsserver ready"
+  data-index="index 7/7"
+  data-outbox="0 pending"
+  data-sync="synced 12s ago">
+
+<div class="desk">
+  <div class="win">
+
+    <div class="win-body">
+
+      <section class="listcol" aria-label="File tree">
+        <div class="list-head">
+          <div class="list-title-row">
+            <h1 class="list-title">Code</h1>
+            <span class="list-sub mono">feat/collab-cursors</span>
+          </div>
+          <div class="seg" data-seg>
+            <button type="button" class="is-on">Files</button>
+            <button type="button">Symbols</button>
+            <button type="button">Changes</button>
+          </div>
+          <input type="text" class="input" placeholder="Filter files…" aria-label="Filter files">
+        </div>
+
+        <div class="list-scroll" data-selectable>
+          <div class="tree">
+            <div class="tree-item is-dir"><svg class="icon"><use href="#i-folder"></use></svg>app</div>
+            <div class="tree-item is-dir" style="padding-left:26px"><svg class="icon"><use href="#i-folder"></use></svg>services</div>
+            <div class="tree-item is-dir" style="padding-left:38px"><svg class="icon"><use href="#i-folder"></use></svg>agent</div>
+            <div class="tree-item" style="padding-left:50px"><svg class="icon"><use href="#i-file"></use></svg>runtime.py<span class="status">M</span></div>
+            <div class="tree-item" style="padding-left:50px"><svg class="icon"><use href="#i-file"></use></svg>quota.py<span class="status">M</span></div>
+            <div class="tree-item" style="padding-left:50px"><svg class="icon"><use href="#i-file"></use></svg>worker.py</div>
+            <div class="tree-item is-dir" style="padding-left:26px"><svg class="icon"><use href="#i-folder"></use></svg>api</div>
+            <div class="tree-item" style="padding-left:38px"><svg class="icon"><use href="#i-file"></use></svg>agent_controller.py</div>
+
+            <div class="tree-item is-dir"><svg class="icon"><use href="#i-folder"></use></svg>src</div>
+            <div class="tree-item is-dir" style="padding-left:26px"><svg class="icon"><use href="#i-folder"></use></svg>lib</div>
+            <div class="tree-item is-dir" style="padding-left:38px"><svg class="icon"><use href="#i-folder"></use></svg>collab</div>
+            <div class="tree-item is-on" style="padding-left:50px"><svg class="icon"><use href="#i-file"></use></svg>caret.ts<span class="live-dot"></span></div>
+            <div class="tree-item" style="padding-left:50px"><svg class="icon"><use href="#i-file"></use></svg>client.ts<span class="live-dot"></span></div>
+            <div class="tree-item" style="padding-left:50px"><svg class="icon"><use href="#i-file"></use></svg>follow.ts</div>
+            <div class="tree-item is-dir" style="padding-left:26px"><svg class="icon"><use href="#i-folder"></use></svg>components</div>
+            <div class="tree-item" style="padding-left:38px"><svg class="icon"><use href="#i-file"></use></svg>editor.tsx</div>
+
+            <div class="tree-item"><svg class="icon"><use href="#i-file"></use></svg>README.md</div>
+            <div class="tree-item"><svg class="icon"><use href="#i-file"></use></svg>package.json</div>
+          </div>
+        </div>
+      </section>
+
+      <main class="detail" aria-label="Editor">
+        <div class="tabs" data-tabs>
+          <a class="tab is-on" href="#" data-toast="caret.ts is the active buffer.">
+            <svg class="icon"><use href="#i-file"></use></svg>caret.ts<span class="dirty" title="Unsaved"></span>
+            <span class="close">×</span>
+          </a>
+          <a class="tab" href="#" data-toast="client.ts has no unsaved changes.">
+            <svg class="icon"><use href="#i-file"></use></svg>client.ts<span class="close">×</span>
+          </a>
+          <a class="tab" href="#" data-toast="runtime.py opens in the working copy surface.">
+            <svg class="icon"><use href="#i-file"></use></svg>runtime.py<span class="close">×</span>
+          </a>
+        </div>
+
+        <div class="ed-bar">
+          <span class="mode-chip" data-mode-label>Local · on disk</span>
+
+          <div class="seg" data-seg style="width:auto;padding:1px">
+            <button type="button" data-mode-set="local" class="is-on">Local</button>
+            <button type="button" data-mode-set="live">Live</button>
+            <button type="button" data-mode-set="observe">Read-only</button>
+          </div>
+
+          <span class="chip">tsserver · 2 problems</span>
+          <span class="tb-grow"></span>
+          <button class="icon-btn" type="button" aria-label="Format document" data-toast="Formatting runs through the language server.">
+            <svg class="icon"><use href="#i-sliders"></use></svg>
+          </button>
+          <button class="btn btn-sm" type="button" data-save><span data-save-label>Save to disk</span></button>
+        </div>
+
+        <div class="banner is-quiet" style="margin:0;border-radius:0;border-width:0 0 1px" data-mode-note-wrap>
+          <svg class="icon"><use href="#i-lock"></use></svg>
+          <span data-mode-note>Edits write to the working tree. Your team cannot see them until you commit and push.</span>
+        </div>
+
+        <div class="detail-body" style="flex:1">
+          <div class="code" aria-label="caret.ts source">
+
+            <div class="cl"><span class="ln">41</span><span class="gut"></span><span class="src"><span class="tok-kw">import</span> type { Awareness } <span class="tok-kw">from</span> <span class="tok-str">"y-protocols/awareness"</span>;</span></div>
+            <div class="cl"><span class="ln">42</span><span class="gut"></span><span class="src"><span class="tok-kw">import</span> * <span class="tok-kw">as</span> Y <span class="tok-kw">from</span> <span class="tok-str">"yjs"</span>;</span></div>
+            <div class="cl"><span class="ln">43</span><span class="gut"></span><span class="src"></span></div>
+            <div class="cl"><span class="ln">44</span><span class="gut"></span><span class="src"><span class="tok-comment">/** Carets are absolute offsets, mapped to a line by the view. */</span></span></div>
+            <div class="cl"><span class="ln">45</span><span class="gut"></span><span class="src"><span class="tok-kw">export function</span> <span class="tok-fn">caretsFor</span>(awareness: Awareness, doc: Y.Text) {</span></div>
+            <div class="cl"><span class="ln">46</span><span class="gut"></span><span class="src">  <span class="tok-kw">const</span> carets: Caret[] = [];</span></div>
+            <div class="cl"><span class="ln">47</span><span class="gut"></span><span class="src">  <span class="tok-kw">for</span> (<span class="tok-kw">const</span> [clientId, state] <span class="tok-kw">of</span> awareness.getStates()) {</span></div>
+            <div class="cl"><span class="ln">48</span><span class="gut"></span><span class="src">    <span class="tok-kw">if</span> (!state.cursor || clientId === awareness.clientID) <span class="tok-kw">continue</span>; <span class="cursor-remote" data-who="mara"></span></span></div>
+            <div class="cl"><span class="ln">49</span><span class="gut"></span><span class="src">    <span class="tok-kw">const</span> head = Y.<span class="tok-fn">createAbsolutePositionFromRelativePosition</span>(</span></div>
+            <div class="cl"><span class="ln">50</span><span class="gut"></span><span class="src">      Y.<span class="tok-fn">createRelativePositionFromJSON</span>(state.cursor.head),</span></div>
+            <div class="cl"><span class="ln">51</span><span class="gut"></span><span class="src">      doc,</span></div>
+            <div class="cl"><span class="ln">52</span><span class="gut"></span><span class="src">    );</span></div>
+            <div class="cl"><span class="ln">53</span><span class="gut"></span><span class="src">    <span class="tok-kw">if</span> (!head) <span class="tok-kw">continue</span>;</span></div>
+            <div class="cl"><span class="ln">54</span><span class="gut"></span><span class="src"></span></div>
+            <div class="cl"><span class="ln">55</span><span class="gut"></span><span class="src">    carets.<span class="tok-fn">push</span>({</span></div>
+            <div class="cl"><span class="ln">56</span><span class="gut"></span><span class="src">      clientId,</span></div>
+            <div class="cl"><span class="ln">57</span><span class="gut"></span><span class="src">      name: state.user.name,</span></div>
+            <div class="cl"><span class="ln">58</span><span class="gut"></span><span class="src">      color: <span class="tok-fn">colorFor</span>(state.user.name),</span></div>
+            <div class="cl"><span class="ln">59</span><span class="gut"></span><span class="src">      offset: head.index,</span></div>
+            <div class="cl"><span class="ln">60</span><span class="gut"></span><span class="src">    });</span></div>
+            <div class="cl"><span class="ln">61</span><span class="gut"></span><span class="src">  }</span></div>
+            <div class="cl"><span class="ln">62</span><span class="gut"></span><span class="src">  <span class="tok-kw">return</span> carets;</span></div>
+            <div class="cl"><span class="ln">63</span><span class="gut"></span><span class="src">}</span></div>
+            <div class="cl"><span class="ln">64</span><span class="gut"></span><span class="src"></span></div>
+          </div>
+
+          <aside class="insp" aria-label="Editor inspector">
+            <div class="insp-head">
+              <div class="insp-tabs">
+                <button type="button" class="is-on">Problems</button>
+                <button type="button">People</button>
+              </div>
+              <button class="icon-btn insp-close" type="button" aria-label="Close inspector">
+                <svg class="icon"><use href="#i-x"></use></svg>
+              </button>
+            </div>
+            <div class="insp-body">
+              <div class="diag">
+                <svg class="icon"><use href="#i-alert"></use></svg>
+                <div>
+                  <p class="diag-msg">Property 'user' does not exist on type '{}'</p>
+                  <p class="diag-loc">caret.ts:57 · tsserver</p>
+                </div>
+              </div>
+              <div class="diag">
+                <svg class="icon"><use href="#i-alert"></use></svg>
+                <div>
+                  <p class="diag-msg">'Caret' is declared but never exported</p>
+                  <p class="diag-loc">caret.ts:12 · tsserver</p>
+                </div>
+              </div>
+              <div class="diag is-warn">
+                <svg class="icon"><use href="#i-alert"></use></svg>
+                <div>
+                  <p class="diag-msg">colour lookup runs per awareness update</p>
+                  <p class="diag-loc">caret.ts:58 · from Kustos review</p>
+                </div>
+              </div>
+
+              <p class="section-label">Language server</p>
+              <dl>
+                <div class="kv"><dt>tsserver</dt><dd class="is-sage">ready · 42ms</dd></div>
+                <div class="kv"><dt>Workspace root</dt><dd class="mono">~/code/atlas</dd></div>
+                <div class="kv"><dt>Diagnostics</dt><dd>2 errors, 1 warning</dd></div>
+                <div class="kv"><dt>Trusted</dt><dd>yes · granted 3d ago</dd></div>
+              </dl>
+
+              <p class="section-label">In this session</p>
+              <div class="stack stack-sm">
+                <div class="hstack"><span class="avatar avatar-sm">MA</span><span style="font-size:11.5px">mara</span><span class="chip is-amber" style="margin-left:auto">editing</span></div>
+                <div class="hstack"><span class="avatar avatar-sm">DV</span><span style="font-size:11.5px">dev</span><span class="chip" style="margin-left:auto">viewing</span></div>
+                <div class="hstack"><span class="avatar avatar-sm">YO</span><span style="font-size:11.5px">you</span><span class="chip is-sage" style="margin-left:auto">local</span></div>
+              </div>
+
+              <p class="section-label">Document</p>
+              <dl>
+                <div class="kv-block"><dt>docKey</dt><dd>12:feat/collab-cursors:src/lib/collab/caret.ts</dd></div>
+                <div class="kv-block"><dt>Draft branch</dt><dd>collab/draft-feat/collab-cursors</dd></div>
+                <div class="kv"><dt>Last save</dt><dd>40s ago</dd></div>
+              </dl>
+
+              <div class="banner is-quiet" style="margin-top:14px;align-items:flex-start">
+                <svg class="icon"><use href="#i-users"></use></svg>
+                <span style="font-size:11px">Switching modes runs a four-step preflight: branch, local edits, draft branch, live editors.</span>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </main>
+
+    </div>
+  </div>
+</div>
+
+<script src="assets/js/icons.js"></script>
+<script src="assets/js/util.js"></script>
+<script src="assets/js/desktop.js"></script>
+</body>
+</html>

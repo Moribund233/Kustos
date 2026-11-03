@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Working copy · Kustos Desktop</title>
+  <meta name="description" content="Kustos desktop prototype — local working copy, hunk staging and commit.">
+  <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/tokens.css">
+  <link rel="stylesheet" href="assets/css/desktop.css">
+</head>
+<body
+  data-surface="working-copy"
+  data-branch="feat/collab-cursors"
+  data-ahead="2"
+  data-behind="0"
+  data-conn="online 46ms"
+  data-clean="0"
+  data-clean-text="6 files changed"
+  data-lsp="gopls ready"
+  data-index="index 7/7"
+  data-outbox="0 pending"
+  data-sync="synced 12s ago">
+
+<div class="desk">
+  <div class="win">
+
+    <div class="win-body">
+
+      <section class="listcol" aria-label="Working copy">
+        <div class="list-head">
+          <div class="list-title-row">
+            <h1 class="list-title">Working copy</h1>
+            <span class="list-count">6</span>
+            <span class="list-sub mono">~/code/atlas</span>
+          </div>
+          <div class="seg" data-seg>
+            <button type="button" class="is-on">Changes</button>
+            <button type="button">History</button>
+            <button type="button">Stashes</button>
+          </div>
+        </div>
+
+        <div class="wc-branch">
+          <svg class="icon"><use href="#i-branch"></use></svg>
+          <span class="wc-branch-name">feat/collab-cursors</span>
+          <span class="chip is-sage" style="margin-left:auto">↑2</span>
+          <span class="chip">↓0</span>
+        </div>
+
+        <div class="list-scroll" data-selectable>
+          <p class="group-label">Staged <span class="n">2</span></p>
+
+          <div class="file-row">
+            <svg class="icon"><use href="#i-file"></use></svg>
+            <span class="file-name">src/lib/collab/caret.ts</span>
+            <span class="file-stat"><span class="add">+38</span><span class="del">−4</span></span>
+          </div>
+
+          <div class="file-row">
+            <svg class="icon"><use href="#i-file"></use></svg>
+            <span class="file-name">src/lib/collab/client.ts</span>
+            <span class="file-stat"><span class="add">+9</span><span class="del">−2</span></span>
+          </div>
+
+          <p class="group-label">Changes <span class="n">3</span></p>
+
+          <div class="file-row is-active">
+            <svg class="icon"><use href="#i-file"></use></svg>
+            <span class="file-name">app/services/agent/runtime.py</span>
+            <span class="file-stat"><span class="add">+24</span><span class="del">−6</span></span>
+          </div>
+
+          <div class="file-row">
+            <svg class="icon"><use href="#i-file"></use></svg>
+            <span class="file-name">app/services/agent/quota.py</span>
+            <span class="file-stat"><span class="add">+12</span><span class="del">−3</span></span>
+          </div>
+
+          <div class="file-row">
+            <svg class="icon"><use href="#i-file"></use></svg>
+            <span class="file-name">tests/test_agent_runtime.py</span>
+            <span class="file-stat"><span class="add">+41</span></span>
+          </div>
+
+          <p class="group-label">Untracked <span class="n">1</span></p>
+
+          <div class="file-row">
+            <svg class="icon"><use href="#i-file"></use></svg>
+            <span class="file-name">docs/notes/caret-follow.md</span>
+            <span class="file-stat"><span class="add">+18</span></span>
+          </div>
+        </div>
+
+        <div class="commitbar">
+          <label class="field-label" for="commit-msg">Commit message</label>
+          <textarea id="commit-msg" rows="3" placeholder="fix(agent): suspend job when quota is exceeded"></textarea>
+          <div class="commitbar-row">
+            <span class="avatar avatar-sm">YO</span>
+            <span class="commit-meta">you → <span class="mono">feat/collab-cursors</span></span>
+            <span class="chip is-amber" style="margin-left:auto;flex:none" data-staged-chip>1 hunk staged</span>
+          </div>
+          <div class="commitbar-row">
+            <button class="btn btn-sm" type="button" data-commit>Commit</button>
+            <button class="btn btn-sm btn-primary" type="button" data-toast="Commit runs locally first, then pushes with lease.">Commit &amp; push</button>
+          </div>
+        </div>
+      </section>
+
+      <main class="detail" aria-label="File diff">
+        <div class="detail-head">
+          <div class="detail-eyebrow">
+            <span>Working copy</span>
+            <span class="faint">·</span>
+            <span>modified</span>
+            <span class="detail-actions">
+              <button class="btn btn-sm" type="button" data-toast="Opened in your external editor at line 112.">
+                Open in editor
+              </button>
+              <button class="btn btn-sm" type="button" data-toast="Discard asks for confirmation and shows the exact git command.">
+                Discard
+              </button>
+              <button class="btn btn-sm btn-primary" type="button" data-toast="Staged the whole file.">Stage file</button>
+            </span>
+          </div>
+          <h2 class="detail-title mono">app/services/agent/runtime.py</h2>
+          <div class="detail-meta">
+            <span class="chip is-sage">+24</span>
+            <span class="chip is-rose">−6</span>
+            <span class="faint">·</span>
+            <span>last touched by you, 6m ago</span>
+            <span class="faint">·</span>
+            <span>no pull request yet</span>
+          </div>
+        </div>
+
+        <div class="detail-body">
+          <div class="doc">
+            <div class="banner is-quiet" style="margin-bottom:14px">
+              <svg class="icon"><use href="#i-lock"></use></svg>
+              <span>These edits live on your machine only. Nothing here is visible to your team until you push.</span>
+            </div>
+
+            <div class="diff">
+              <div class="diff-head">
+                <svg class="icon" style="width:12px;height:12px"><use href="#i-file"></use></svg>
+                <span class="mono">app/services/agent/runtime.py</span>
+                <span class="add">+24</span>
+                <span class="del">−6</span>
+                <span style="margin-left:auto">python · 214 lines</span>
+              </div>
+
+              <div class="hunk">
+                <div class="hunk-head">
+                  <span>@@ -112,7 +112,9 @@ def step</span>
+                  <button class="btn btn-sm" type="button" data-stage>Stage hunk</button>
+                </div>
+                <div class="cline is-ctx"><span class="ln">112</span><span class="sig"></span><span>    def step(self, tool_call: ToolCall) -&gt; StepResult:</span></div>
+                <div class="cline is-ctx"><span class="ln">113</span><span class="sig"></span><span>        registry = self.registry.for_job(self.job)</span></div>
+                <div class="cline is-del"><span class="ln">114</span><span class="sig">−</span><span>        tool = registry.get(tool_call.name)</span></div>
+                <div class="cline is-add"><span class="ln">114</span><span class="sig">+</span><span>        tool = registry.resolve(tool_call.name, self.job)</span></div>
+                <div class="cline is-add"><span class="ln">115</span><span class="sig">+</span><span>        if tool is None:</span></div>
+                <div class="cline is-add"><span class="ln">116</span><span class="sig">+</span><span>            raise UnknownTool(tool_call.name)</span></div>
+                <div class="cline is-ctx"><span class="ln">117</span><span class="sig"></span><span></span></div>
+                <div class="cline is-ctx"><span class="ln">118</span><span class="sig"></span><span>        if tool.is_write and not self.job.approved(tool_call.id):</span></div>
+                <div class="cline is-ctx"><span class="ln">119</span><span class="sig"></span><span>            return StepResult.awaiting_approval(tool_call)</span></div>
+              </div>
+
+              <div class="hunk is-staged">
+                <div class="hunk-head">
+                  <span>@@ -180,6 +184,10 @@ def finish</span>
+                  <button class="btn btn-sm" type="button" data-stage>Unstage</button>
+                </div>
+                <div class="cline is-ctx"><span class="ln">180</span><span class="sig"></span><span>        elapsed = time.monotonic() - started</span></div>
+                <div class="cline is-ctx"><span class="ln">181</span><span class="sig"></span><span>        self.job.steps.append(step_result)</span></div>
+                <div class="cline is-add"><span class="ln">182</span><span class="sig">+</span><span>        self.job.tokens_used += result.usage.total</span></div>
+                <div class="cline is-add"><span class="ln">183</span><span class="sig">+</span><span>        if self.job.tokens_used &gt; self.quota.limit:</span></div>
+                <div class="cline is-add"><span class="ln">184</span><span class="sig">+</span><span>            self.job.suspend("quota")</span></div>
+                <div class="cline is-add"><span class="ln">185</span><span class="sig">+</span><span>            return StepResult.suspended(reason="quota")</span></div>
+                <div class="cline is-ctx"><span class="ln">186</span><span class="sig"></span><span></span></div>
+                <div class="cline is-ctx"><span class="ln">187</span><span class="sig"></span><span>        self.emit(JobEvent.step_finished, elapsed=elapsed)</span></div>
+              </div>
+            </div>
+
+            <p class="section-label">Before you push</p>
+            <div class="card card-pad stack">
+              <div class="check-row"><svg class="icon is-sage"><use href="#i-check-circle"></use></svg> black · isort · flake8 <span class="dur">12s</span></div>
+              <div class="check-row"><svg class="icon is-rose"><use href="#i-x-circle"></use></svg> pytest tests/test_agent_runtime.py <span class="dur">2 failed</span></div>
+            </div>
+          </div>
+
+          <aside class="insp" aria-label="File facts">
+            <div class="insp-head">
+              <div class="insp-tabs">
+                <button type="button" class="is-on">Facts</button>
+                <button type="button">Blame</button>
+              </div>
+              <button class="icon-btn insp-close" type="button" aria-label="Close inspector">
+                <svg class="icon"><use href="#i-x"></use></svg>
+              </button>
+            </div>
+            <div class="insp-body">
+              <p class="section-label">File</p>
+              <dl>
+                <div class="kv"><dt>Language</dt><dd>Python 3.12</dd></div>
+                <div class="kv"><dt>Lines</dt><dd>214</dd></div>
+                <div class="kv"><dt>Last commit</dt><dd class="mono">a91f2c4</dd></div>
+                <div class="kv"><dt>Owner</dt><dd>agent subsystem</dd></div>
+              </dl>
+
+              <p class="section-label">Local status</p>
+              <dl>
+                <div class="kv"><dt>Hunks staged</dt><dd><span data-staged-count>1</span> of <span data-hunk-total>2</span></dd></div>
+                <div class="kv"><dt>Hunks left</dt><dd><span data-unstaged-count>1</span></dd></div>
+                <div class="kv"><dt>Branch</dt><dd class="mono">feat/collab-cursors</dd></div>
+              </dl>
+
+              <p class="section-label">Next</p>
+              <div class="stack stack-sm">
+                <button class="btn btn-sm" type="button" data-toast="Runs pytest for this file and streams the output into the status bar.">Run tests for this file</button>
+                <button class="btn btn-sm" type="button" data-toast="Pushing opens a pull request draft with the changed files pre-filled.">Push and open pull request</button>
+              </div>
+
+              <p class="section-label">Related</p>
+              <div class="card card-pad" style="font-size:11px;color:var(--muted)">
+                Nothing on the server references this commit yet. The branch exists only locally and as
+                <span class="mono">origin/feat/collab-cursors</span>.
+              </div>
+            </div>
+          </aside>
+        </div>
+      </main>
+
+    </div>
+  </div>
+</div>
+
+<script src="assets/js/icons.js"></script>
+<script src="assets/js/util.js"></script>
+<script src="assets/js/desktop.js"></script>
+</body>
+</html>
