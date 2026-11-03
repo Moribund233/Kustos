@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inbox · Kustos Desktop</title>
+  <meta name="description" content="Kustos desktop prototype — inbox-first three-pane workspace.">
+  <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/tokens.css">
+  <link rel="stylesheet" href="assets/css/desktop.css">
+</head>
+<body
+  data-surface="inbox"
+  data-branch="feat/collab-cursors"
+  data-ahead="2"
+  data-behind="0"
+  data-conn="online 46ms"
+  data-clean-text="clean · 2 ahead"
+  data-lsp="gopls ready"
+  data-index="index 7/7"
+  data-outbox="0 pending"
+  data-sync="synced 12s ago">
+
+<div class="desk">
+  <div class="win">
+
+    <div class="win-body">
+
+      <section class="listcol" aria-label="Inbox">
+        <div class="list-head">
+          <div class="list-title-row">
+            <h1 class="list-title">Inbox</h1>
+            <span class="list-count">12</span>
+            <span class="list-sub">by urgency</span>
+          </div>
+          <div class="seg" data-seg>
+            <button type="button" class="is-on">Needs you</button>
+            <button type="button">Started</button>
+            <button type="button">All</button>
+          </div>
+        </div>
+
+        <div class="list-scroll" data-selectable>
+          <p class="group-label">Needs your decision <span class="n">4</span></p>
+
+          <div class="row is-active">
+            <span class="row-dot is-amber"></span>
+            <div class="row-main">
+              <p class="row-title">#142 Review requested</p>
+              <p class="row-meta">atlas · feat/collab-cursors · 2h</p>
+            </div>
+            <span class="row-tag">pr</span>
+          </div>
+
+          <div class="row">
+            <span class="row-dot is-amber"></span>
+            <div class="row-main">
+              <p class="row-title">A-1042 Waiting for approval</p>
+              <p class="row-meta">write tool · create_issue · 40m</p>
+            </div>
+            <span class="row-tag">agent</span>
+          </div>
+
+          <div class="row">
+            <span class="row-dot is-sky"></span>
+            <div class="row-main">
+              <p class="row-title">Mara mentioned you in #atlas</p>
+              <p class="row-meta">“cursor colours clash with the diff…” · 1h</p>
+            </div>
+            <span class="row-tag">chat</span>
+          </div>
+
+          <div class="row">
+            <span class="row-dot"></span>
+            <div class="row-main">
+              <p class="row-title">#139 Changes requested on your PR</p>
+              <p class="row-meta">you · fix/index-chunks · 2h</p>
+            </div>
+            <span class="row-tag">pr</span>
+          </div>
+
+          <p class="group-label">Waiting on others <span class="n">3</span></p>
+
+          <div class="row">
+            <span class="row-dot is-sage"></span>
+            <div class="row-main">
+              <p class="row-title">#137 Awaiting review from Dev</p>
+              <p class="row-meta">you · feat/lfs-batch · 1d</p>
+            </div>
+            <span class="row-tag">pr</span>
+          </div>
+
+          <div class="row">
+            <span class="row-dot"></span>
+            <div class="row-main">
+              <p class="row-title">#94 Triage: index drift on forks</p>
+              <p class="row-meta">assigned to you · P1 · 3h</p>
+            </div>
+            <span class="row-tag">issue</span>
+          </div>
+
+          <p class="group-label">Done today <span class="n">5</span></p>
+
+          <div class="row">
+            <span class="row-dot is-sage"></span>
+            <div class="row-main">
+              <p class="row-title">A-1041 Succeeded · 6 tools</p>
+              <p class="row-meta">atlas · 6m · 2 files changed</p>
+            </div>
+            <span class="row-tag">agent</span>
+          </div>
+        </div>
+      </section>
+
+      <main class="detail" aria-label="Selected item">
+        <div class="detail-head">
+          <div class="detail-eyebrow">
+            <span>Pull request</span>
+            <span class="faint">·</span>
+            <span class="mono">acme/atlas</span>
+            <span class="detail-actions">
+              <button class="btn btn-sm" type="button" data-toast="Opened in a second window — see the review prototype.">
+                Open in window
+              </button>
+              <button class="btn btn-sm" type="button" data-toast="Requested changes. Not sent while offline either.">
+                Request changes
+              </button>
+              <button class="btn btn-sm btn-primary" type="button" data-toast="Approved. Merge is still gated by the failing check.">
+                Approve
+              </button>
+            </span>
+          </div>
+          <h2 class="detail-title">feat: collaborative cursors in the code view</h2>
+          <div class="detail-meta">
+            <span class="avatar avatar-sm">MA</span>
+            <span>mara</span>
+            <span class="faint">wants to merge into</span>
+            <span class="mono">main</span>
+            <span class="faint">·</span>
+            <span class="chip is-sage">+214</span>
+            <span class="chip is-rose">−36</span>
+            <span class="chip is-rose">2 checks failing</span>
+            <span class="chip">3 commits</span>
+          </div>
+        </div>
+
+        <div class="detail-body">
+          <div class="doc">
+            <div class="banner" style="margin-bottom:14px">
+              <svg class="icon"><use href="#i-branch"></use></svg>
+              <span>Checked out in <span class="mono">~/code/atlas</span> — your local branch is <strong>2 commits ahead</strong> of this pull request.</span>
+              <button class="btn btn-sm" type="button" data-toast="Would open the working copy surface with this branch selected.">Show</button>
+            </div>
+
+            <div class="prose">
+              <p>Replaces the single “someone is typing” chip with per-user carets inside the editor. Carets carry a user colour from awareness, collapse when the peer scrolls away, and never leak into saved content.</p>
+              <p>Follow mode reuses the same awareness payload: <code>viewport</code> and <code>follow</code> are stamped by the gateway, the client only reads them.</p>
+            </div>
+
+            <p class="section-label">Kustos review</p>
+            <div class="card">
+              <div class="card-head">
+                <span class="lamp is-amber"></span>
+                <span>2 findings, 1 blocking</span>
+                <span class="chip is-amber" style="margin-left:auto">reviewed 2h ago</span>
+              </div>
+              <div class="card-pad stack">
+                <div class="diag">
+                  <svg class="icon"><use href="#i-alert"></use></svg>
+                  <div>
+                    <p class="diag-msg">Caret offset uses the whole document, not the visible range</p>
+                    <p class="diag-loc">src/lib/collab/caret.ts:48 · blocking</p>
+                  </div>
+                </div>
+                <div class="diag is-warn">
+                  <svg class="icon"><use href="#i-alert"></use></svg>
+                  <div>
+                    <p class="diag-msg">Colour lookup runs on every awareness update</p>
+                    <p class="diag-loc">src/lib/collab/caret.ts:112 · suggestion</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <p class="section-label">Conversation</p>
+            <div class="timeline">
+              <div class="tl-item">
+                <span class="avatar">MA</span>
+                <div class="tl-body">
+                  <p class="tl-line"><strong>mara</strong> opened this pull request</p>
+                  <p class="tl-meta">2h ago · 3 commits · from feat/collab-cursors</p>
+                  <div class="tl-quote">Caret placement is still approximate past line 400; I would rather land the first pass and iterate on long files.</div>
+                </div>
+              </div>
+              <div class="tl-item">
+                <span class="avatar">DV</span>
+                <div class="tl-body">
+                  <p class="tl-line"><strong>dev</strong> requested your review</p>
+                  <p class="tl-meta">1h ago</p>
+                </div>
+              </div>
+              <div class="tl-item">
+                <span class="avatar">KU</span>
+                <div class="tl-body">
+                  <p class="tl-line"><strong>Kustos</strong> found a blocking issue</p>
+                  <p class="tl-meta">1h ago · read-only tool pass, 6 files</p>
+                  <div class="tl-quote">The caret offset is computed against the full document string; with a 2k-line file this drifts after the first fold.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <aside class="insp" aria-label="Pull request facts">
+            <div class="insp-head">
+              <div class="insp-tabs">
+                <button type="button" class="is-on">Review</button>
+                <button type="button">Checks</button>
+              </div>
+              <button class="icon-btn insp-close" type="button" aria-label="Close inspector">
+                <svg class="icon"><use href="#i-x"></use></svg>
+              </button>
+            </div>
+            <div class="insp-body">
+              <p class="section-label">Reviewers</p>
+              <div class="stack stack-sm">
+                <div class="hstack"><span class="avatar">YO</span><span style="font-size:11.5px">you</span><span class="chip is-amber" style="margin-left:auto">requested</span></div>
+                <div class="hstack"><span class="avatar">DV</span><span style="font-size:11.5px">dev</span><span class="chip is-sage" style="margin-left:auto">approved</span></div>
+                <div class="hstack"><span class="avatar">SA</span><span style="font-size:11.5px">sam</span><span class="chip" style="margin-left:auto">pending</span></div>
+              </div>
+
+              <p class="section-label">Checks</p>
+              <div class="stack stack-sm">
+                <div class="check-row"><svg class="icon is-sage"><use href="#i-check-circle"></use></svg> build <span class="dur">1m 42s</span></div>
+                <div class="check-row"><svg class="icon is-rose"><use href="#i-x-circle"></use></svg> pytest <span class="dur">3m 08s</span></div>
+                <div class="check-row"><svg class="icon is-rose"><use href="#i-x-circle"></use></svg> web e2e <span class="dur">4m 51s</span></div>
+              </div>
+
+              <p class="section-label">Local</p>
+              <dl>
+                <div class="kv"><dt>Working copy</dt><dd class="mono">~/code/atlas</dd></div>
+                <div class="kv"><dt>Branch</dt><dd class="mono">feat/collab-cursors</dd></div>
+                <div class="kv"><dt>Uncommitted</dt><dd>1 file</dd></div>
+                <div class="kv"><dt>Live editors</dt><dd>mara, dev</dd></div>
+              </dl>
+
+              <p class="section-label">Related</p>
+              <div class="stack stack-sm">
+                <a class="chip" href="windows.html" style="justify-content:flex-start">#94 index drift on forks</a>
+                <a class="chip" href="windows.html" style="justify-content:flex-start">#atlas thread · caret colours</a>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </main>
+
+    </div>
+  </div>
+</div>
+
+<script src="assets/js/icons.js"></script>
+<script src="assets/js/util.js"></script>
+<script src="assets/js/desktop.js"></script>
+</body>
+</html>
