@@ -180,6 +180,9 @@ temp/
 .backup.*
 backups/
 
+# 本地 E2E 夹具状态（实例地址与口令，仅本机使用）
+frontend/web/e2e/live/.state.json
+
 # scripts lib (override lib/ above)
 !scripts/lib/
 
