@@ -57,12 +57,33 @@ async def try_record_activity(
 
 
 async def list_activities(
-    repository_id: uuid.UUID, db: AsyncSession,
+    repository_id: uuid.UUID | None, db: AsyncSession,
     entity_type: str | None = None, actor_id: uuid.UUID | None = None,
     page: int = 1, limit: int = 20,
+    repository_ids: list[uuid.UUID] | None = None,
 ) -> dict:
-    """查询审计日志"""
-    stmt = select(Activity).filter(Activity.repository_id == repository_id)
+    """查询审计日志
+
+    Args:
+        repository_id: 限定单个仓库；``None`` 表示跨仓库
+        db: 异步数据库会话
+        entity_type: 实体类型过滤
+        actor_id: 操作者过滤
+        page: 页码
+        limit: 每页条数
+        repository_ids: 跨仓库查询时的可见仓库白名单；与 ``repository_id`` 同时
+            为空时返回空集——不提供"不带范围就查全表"的路径
+
+    Returns:
+        dict: 分页结果
+    """
+    stmt = select(Activity)
+    if repository_id is not None:
+        stmt = stmt.filter(Activity.repository_id == repository_id)
+    elif repository_ids:
+        stmt = stmt.filter(Activity.repository_id.in_(repository_ids))
+    else:
+        return build_pagination_response([], 0, page, limit)
     if entity_type:
         stmt = stmt.filter(Activity.entity_type == entity_type)
     if actor_id:

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Request, UploadFile, File
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Optional
+from typing import Any, Optional
 import uuid
 
 from app.api.prefixes import get_route_prefix
@@ -34,6 +34,8 @@ from app.services.collaboration.dashboard_service import (
 )
 from app.services.collaboration.pull_request_service import list_pull_requests_for_user as service_list_pull_requests_for_user
 from app.services.collaboration.issue_service import list_issues_for_user as service_list_issues_for_user
+from app.services.repository.activity_service import list_activities as service_list_activities
+from app.services.repository.repository_service import get_accessible_repository_ids
 import uuid
 
 # 创建路由实例
@@ -193,6 +195,38 @@ async def get_current_user_review_requests(
         list: PR 摘要列表
     """
     return await service_list_review_requests_for_user(db, current_user.id, limit=limit)
+
+
+@router.get("/me/activity", summary="获取当前用户可访问仓库的跨仓库动态流")
+async def list_current_user_activity(
+    entity_type: Optional[str] = None,
+    page: int = 1,
+    limit: int = 20,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user)
+) -> dict[str, Any]:
+    """
+    获取跨仓库活动流（Inbox 的"动态"分段数据源）
+
+    范围限当前用户可访问的仓库（公开仓 + 自有 + 在任成员），不提供按
+    repo_id 越权查询的入口。
+
+    Args:
+        entity_type: 实体类型过滤（pull_request / issue / …）
+        page: 页码
+        limit: 每页数量
+        db: 数据库会话
+        current_user: 当前认证用户
+
+    Returns:
+        dict: 分页结果
+    """
+    repository_ids = await get_accessible_repository_ids(db, current_user.id)
+    return await service_list_activities(
+        None, db,
+        entity_type=entity_type, page=page, limit=limit,
+        repository_ids=repository_ids,
+    )
 
 
 @router.get("/me/builds", summary="获取当前用户可访问仓库的最近构建")

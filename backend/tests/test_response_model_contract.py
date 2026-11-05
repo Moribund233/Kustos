@@ -75,12 +75,21 @@ def _is_route_decorator(node: ast.AST) -> bool:
     )
 
 
-def _declares_response_model(decorator: ast.Call) -> bool:
-    return any(keyword.arg == "response_model" for keyword in decorator.keywords)
+def _declares_response_model(node: ast.AST, decorator: ast.Call) -> bool:
+    """是否声明了响应契约。
+
+    两条等价路径：装饰器上的 ``response_model=``，或函数返回类型注解
+    （``-> list[DeviceInfo]`` / ``-> None``）——后者同样是 OpenAPI 的
+    契约来源，``-> None`` 对 204 路由尤其准确。
+    """
+    if any(keyword.arg == "response_model" for keyword in decorator.keywords):
+        return True
+    returns = getattr(node, "returns", None)
+    return returns is not None
 
 
 def _untyped_routes(path: pathlib.Path) -> list:
-    """返回文件里缺少 ``response_model`` 的路由函数名列表。"""
+    """返回文件里缺少响应契约的路由函数名列表。"""
     tree = ast.parse(path.read_text(encoding="utf-8"))
     out = []
     for node in tree.body:
@@ -88,7 +97,7 @@ def _untyped_routes(path: pathlib.Path) -> list:
             continue
         for decorator in node.decorator_list:
             if _is_route_decorator(decorator) and not _declares_response_model(
-                decorator
+                node, decorator
             ):
                 out.append(node.name)
     return out
