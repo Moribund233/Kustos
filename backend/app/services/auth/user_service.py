@@ -7,11 +7,13 @@ import os
 import shutil
 import logging
 from pathlib import Path
+from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
 from app.models import User
 from app.core.exception import ValidationException, NotFoundException, ConflictException, AuthenticationException
+from app.services.auth import device_service, token_service
 from app.services.auth.token_service import create_token_pair
 from app.utils.password_utils import verify_password, get_password_hash
 from app.utils.response_builder import build_user_response
@@ -329,20 +331,22 @@ async def change_password(user: User, old_password: str, new_password: str, db: 
     return {"message": "Password changed successfully"}
 
 
-async def login_user(credentials: dict, db: AsyncSession):
+async def login_user(credentials: dict, db: AsyncSession, ip: Optional[str] = None):
     """
     用户登录（异步版本）
 
     Args:
-        credentials: 登录凭证，包含用户名和密码
+        credentials: 登录凭证，包含用户名和密码；可选 ``device_id`` /
+            ``device_name`` / ``platform``，用于登记登录设备
         db: 异步数据库会话
+        ip: 来源 IP（登记设备时记录，可为空）
 
     Returns:
         dict: 登录成功后的用户信息
 
     Raises:
         ValidationException: 请求参数不完整时抛出422异常
-        AuthenticationException: 认证失败时抛出401异常
+        AuthenticationException: 用户名或密码错误时抛出401异常
     """
     # 验证请求参数
     if "username" not in credentials or "password" not in credentials:
@@ -356,8 +360,23 @@ async def login_user(credentials: dict, db: AsyncSession):
     if not user or not verify_password(credentials["password"], user.password):
         raise AuthenticationException(detail="Invalid username or password", error_code="invalid_credentials")
 
-    # 登录成功，创建令牌对
-    tokens = create_token_pair(user)
+    # 登录成功，创建令牌对（设备标识随家族链传递）
+    device_id, device_name, platform = device_service.normalize_device(
+        credentials.get("device_id"),
+        credentials.get("device_name"),
+        credentials.get("platform"),
+    )
+    extra_claims = {"device_id": device_id} if device_id else None
+    tokens = create_token_pair(user, extra_claims=extra_claims)
+
+    if device_id:
+        family_id = token_service.verify_token(
+            tokens["refresh_token"], token_type="refresh"
+        ).family_id
+        await device_service.register_login(
+            db, user.id, family_id, device_id, device_name, platform, ip
+        )
+        await db.commit()
 
     # 返回用户信息和令牌
     return {

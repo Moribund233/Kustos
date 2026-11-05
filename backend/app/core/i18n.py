@@ -234,6 +234,10 @@ ERROR_MESSAGES: dict[str, dict[str, str]] = {
         LOCALE_ZH: "未找到关联的第三方账号",
         LOCALE_EN: "Linked account not found",
     },
+    "device_not_found": {
+        LOCALE_ZH: "登录设备不存在",
+        LOCALE_EN: "Device not found",
+    },
     "notification_not_found": {
         LOCALE_ZH: "通知不存在",
         LOCALE_EN: "Notification not found",

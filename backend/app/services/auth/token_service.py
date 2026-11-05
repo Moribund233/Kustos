@@ -17,6 +17,7 @@ from app.models.revoked_token import RevokedToken
 from app.core.config import get_config, get_config_value
 from app.core.exception import AuthenticationException
 from app.services.auth import token_state
+from app.services.auth import device_service
 from app.utils.password_utils import verify_password, get_password_hash
 
 # 日志记录器
@@ -58,6 +59,7 @@ class TokenData:
         jti: Optional[str] = None,
         family_id: Optional[str] = None,
         exp: Optional[datetime] = None,
+        device_id: Optional[str] = None,
     ):
         self.user_id = user_id
         self.username = username
@@ -68,6 +70,8 @@ class TokenData:
         self.family_id = family_id
         #: token 过期时刻（撤销位图 TTL 的依据）
         self.exp = exp
+        #: 签发设备的标识；由客户端登录/刷新时上报，随家族链传递
+        self.device_id = device_id
 
 
 def create_access_token(
@@ -244,6 +248,10 @@ def verify_token(token: str, token_type: str = "access") -> Optional[TokenData]:
         if family_id is not None and not isinstance(family_id, str):
             family_id = None
 
+        device_id = payload.get("device_id")
+        if device_id is not None and not isinstance(device_id, str):
+            device_id = None
+
         exp_raw = payload.get("exp")
         exp = (
             datetime.fromtimestamp(exp_raw, tz=timezone.utc)
@@ -258,6 +266,7 @@ def verify_token(token: str, token_type: str = "access") -> Optional[TokenData]:
             jti=payload.get("jti"),
             family_id=family_id,
             exp=exp,
+            device_id=device_id,
         )
 
     except JWTError as e:
@@ -265,18 +274,22 @@ def verify_token(token: str, token_type: str = "access") -> Optional[TokenData]:
         return None
 
 
-async def refresh_access_token(refresh_token: str, db: AsyncSession) -> Dict[str, Any]:
+async def refresh_access_token(
+    refresh_token: str, db: AsyncSession, ip: Optional[str] = None
+) -> Dict[str, Any]:
     """
     使用刷新令牌换发新令牌对——**带轮换与重用检测**
 
     流程：签名/时效校验 → jti 撤销检查 → family 吊销检查 → 轮换重用检测
     （宽限期内重放放行且不重置计时；超宽限重放视为泄露，吊销整个 family）
     → 用户回源（保留）→ 标记旧 jti 已轮换（SET NX，首次时间戳为准）
-    → 换发新对（沿用 family_id；存量无 family 的 token 换发时进入 family 体系）。
+    → 换发新对（沿用 family_id 与 device_id；存量无 family 的 token 换发时
+    进入 family 体系）→ 回填设备存活证据。
 
     Args:
         refresh_token: 刷新令牌
         db: 异步数据库会话（用户回源 + family 吊销审计）
+        ip: 来源 IP（仅用于刷新设备最近活跃时间，可为空）
 
     Returns:
         dict: 新的令牌对
@@ -333,9 +346,15 @@ async def refresh_access_token(refresh_token: str, db: AsyncSession) -> Dict[str
     )
     await token_state.mark_rotated(token_data.jti, ttl)
 
-    # 6. 换发：沿用 family_id（存量 token 无 family → 新对自动进入新 family）
-    extra = {"family_id": token_data.family_id} if token_data.family_id else None
-    return create_token_pair(user, extra_claims=extra)
+    # 6. 换发：沿用 family_id 与 device_id（存量 token 无 family → 新对自动进入新 family）
+    extra: Dict[str, Any] = {}
+    if token_data.family_id:
+        extra["family_id"] = token_data.family_id
+    if token_data.device_id:
+        extra["device_id"] = token_data.device_id
+    # 7. 设备存活证据（缺失时静默跳过，不影响刷新）
+    await device_service.touch_family(db, token_data.family_id, ip)
+    return create_token_pair(user, extra_claims=extra or None)
 
 
 async def is_token_revoked(jti: Optional[str]) -> bool:

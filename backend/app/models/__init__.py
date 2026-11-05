@@ -45,6 +45,7 @@ from app.models.activity import Activity
 from app.models.notification import Notification
 from app.models.notification_preference import NotificationPreference
 from app.models.user_oauth import UserOAuthAccount
+from app.models.user_device import UserDevice
 from app.models.realtime_room import RealtimeRoom, RoomMember, DirectMessage
 from app.models.chat_message import ChatMessage
 from app.models.file_comment import FileComment
@@ -80,6 +81,7 @@ __all__ = [
     "Notification",
     "NotificationPreference",
     "UserOAuthAccount",
+    "UserDevice",
     "RealtimeRoom",
     "RoomMember",
     "DirectMessage",
