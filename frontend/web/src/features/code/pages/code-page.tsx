@@ -222,6 +222,9 @@ export function CodePage({ path, content, diff }: CodePageProps) {
   const [collab, setCollab] = useState<CollabSession | null>(null);
   const [collabStatus, setCollabStatus] = useState<CollabStatus | null>(null);
   const [collabPeers, setCollabPeers] = useState(1);
+  const [collabMembers, setCollabMembers] = useState<
+    { clientID: number; name: string; color: string }[]
+  >([]);
   const [collabCanWrite, setCollabCanWrite] = useState(false);
   const collabRef = useRef<CollabSession | null>(null);
   collabRef.current = collab;
@@ -318,7 +321,16 @@ export function CodePage({ path, content, diff }: CodePageProps) {
     });
 
     session.provider.awareness?.on("change", () => {
-      setCollabPeers(session.provider.awareness?.getStates().size ?? 1);
+      const awareness = session.provider.awareness;
+      if (!awareness) return;
+      const members = Array.from(awareness.getStates().entries()).flatMap(([clientID, state]) => {
+        const tag = (state as { user?: { name?: string; color?: string } }).user;
+        return tag?.name
+          ? [{ clientID, name: tag.name, color: tag.color ?? "#30bced" }]
+          : [];
+      });
+      setCollabPeers(members.length);
+      setCollabMembers(members);
     });
 
     setCollab(session);
@@ -329,6 +341,8 @@ export function CodePage({ path, content, diff }: CodePageProps) {
     collabRef.current?.destroy();
     setCollab(null);
     setCollabStatus(null);
+    setCollabMembers([]);
+    setCollabPeers(1);
     void blobQuery.refetch();
   };
 
@@ -801,6 +815,22 @@ export function CodePage({ path, content, diff }: CodePageProps) {
                   {t(COLLAB_STATUS_LABEL[collabStatus ?? "connecting"])}
                 </span>
                 <span className="text-faint font-mono text-2xs">{t("code.peersOnline", { count: collabPeers })}</span>
+                {collabMembers.length > 0 ? (
+                  <span className="flex items-center gap-1" aria-hidden="true">
+                    {collabMembers.map((member) => (
+                      <span
+                        key={member.clientID}
+                        className="border-edge-2 bg-ink-750/50 text-bone-2 inline-flex h-[18px] items-center gap-1 rounded-full border px-1.5 font-mono text-2xs leading-none"
+                      >
+                        <span
+                          className="size-[6px] flex-none rounded-full"
+                          style={{ backgroundColor: member.color }}
+                        />
+                        {member.name}
+                      </span>
+                    ))}
+                  </span>
+                ) : null}
                 {!collabCanWrite ? (
                   <span className="text-amber-2 font-mono text-2xs">{t("code.readOnlySuffix")}</span>
                 ) : null}

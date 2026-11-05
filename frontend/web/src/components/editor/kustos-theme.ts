@@ -90,6 +90,45 @@ export const kustosDarkTheme: Extension = EditorView.theme(
       color: "var(--color-faint)",
       fontStyle: "italic",
     },
+    // 协作编辑（y-codemirror.next）：远程光标与名字标签。库不带样式，
+    // 不写这里的话名字是裸着的 span 之外的 div，会把正文顶成两行并且看不出是谁
+    ".cm-ySelectionCaret": {
+      position: "relative",
+      borderLeft: "2px solid", // 内联 style 已带 border-color / background-color（用户色）
+      marginLeft: "-1px",
+      pointerEvents: "none",
+      userSelect: "none",
+    },
+    ".cm-ySelectionCaretDot": {
+      position: "absolute",
+      top: "-3px",
+      left: "-5px",
+      width: "8px",
+      height: "8px",
+      borderRadius: "50%",
+      backgroundColor: "inherit",
+    },
+    ".cm-ySelectionInfo": {
+      position: "absolute",
+      left: "4px",
+      top: "50%",
+      transform: "translateY(-50%)",
+      padding: "0 6px",
+      borderRadius: "4px",
+      backgroundColor: "inherit",
+      color: "#241a10",
+      fontFamily: "var(--font-mono)",
+      fontSize: "10.5px",
+      fontWeight: 600,
+      lineHeight: "1.6",
+      letterSpacing: "0.01em",
+      whiteSpace: "nowrap",
+      opacity: "0.78", // 半透明贴在文字行上，不抢正文视线
+      boxShadow: "0 1px 6px rgba(0, 0, 0, 0.35)",
+      pointerEvents: "none",
+      userSelect: "none",
+      zIndex: "5",
+    },
   },
   { dark: true },
 );
