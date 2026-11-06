@@ -169,6 +169,13 @@ CLAUDE.md
 # node_modules
 node_modules/
 
+# 桌面端（Wails）构建产物
+# go/web/dist 是 go:embed 的输入，构建期由 Taskfile 从 web/dist 复制进来，
+# 属于中间产物，不提交。
+frontend/desktop/go/web/dist/
+frontend/desktop/bin/
+frontend/desktop/web/dist/
+
 # Lock files
 yarn.lock
 package-lock.json

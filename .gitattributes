@@ -21,3 +21,15 @@ docker/ssh/git-shell-wrapper   text eol=lf
 
 # 其余文本文件交由 Git 自动识别
 * text=auto
+
+# Go 源码强制 LF。
+#
+# 仓库在 Windows 上编辑（core.autocrlf=true 会把文本检出为 CRLF），但
+# `gofmt` 只写 LF。两者不一致时，每次格式化都会让 git 把文件标记为已修改
+# （内容零变化、只有行尾不同），形成"格式化 → 出现脏文件 → 再格式化"的
+# 循环，把真实改动淹没在噪声里。
+*.go    text eol=lf
+# wails 生成的绑定与前端源码同样按 LF 提交，避免跨平台 diff 噪声
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.css   text eol=lf

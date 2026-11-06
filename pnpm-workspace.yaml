@@ -1,6 +1,7 @@
 packages:
   - "frontend/packages/*"
   - "frontend/web"
+  - "frontend/desktop/web"
 
 # pnpm 11 会拦截依赖的安装脚本；这里显式放行需要编译原生产物的包。
 # 缺了这一段，`pnpm install` 会因 esbuild 安装脚本被忽略而退出 1

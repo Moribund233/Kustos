@@ -1,0 +1,56 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+/* 共享设计层：品牌色 token、webfont、常驻动效。与 Web 同源。 */
+@import "@kustos/design";
+
+/**
+ * 桌面端密度层。
+ *
+ * 品牌一致，尺度不同：桌面端长期驻留 + 大屏，信息密度优先。
+ * 因此这里**覆盖**共享层的字号与行高，而不是另起一套色板。
+ *
+ * - 正文 13px（Web 14–15）
+ * - 列表行高 28–32px（Web 44–56）
+ * - 圆角 8–10px（Web 12–16）
+ * - 间距步长 2px（Web 4）
+ */
+@theme {
+  --text-base: 13px;
+  --text-sm: 12px;
+  --text-xs: 11px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-ink-900);
+    color: var(--color-bone);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    /* 桌面端是常驻应用，禁掉整页滚动：滚动只发生在各自窗格内。 */
+    overflow: hidden;
+    /* 原生窗口已提供窗口边框，WebView 内不需要再选中文本造成"像网页"。 */
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* 标题栏可拖拽区域（Wails 的自定义标题栏约定）。 */
+  [data-wails-drag] {
+    -webkit-app-region: drag;
+  }
+  [data-wails-drag] button,
+  [data-wails-drag] input {
+    -webkit-app-region: no-drag;
+  }
+}

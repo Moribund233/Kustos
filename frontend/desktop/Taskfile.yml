@@ -1,0 +1,73 @@
+version: "3"
+
+# Kustos 桌面端构建入口。
+#
+# 为什么需要 Taskfile 而不是裸命令：
+# 前端产物要先进 `go/web/dist` 才能被 go:embed 嵌入（Go 不允许 embed `..`），
+# 这个复制步骤容易漏。把它写进任务，`task build` 一条命令就能出可执行文件。
+
+vars:
+  BIN_DIR: bin
+  # 产物名按平台后缀：Windows 需要 .exe
+  BIN_NAME: kustos-desktop
+
+tasks:
+  default:
+    desc: 列出可用任务
+    cmds:
+      - task --list
+
+  deps:
+    desc: 安装前后端依赖
+    cmds:
+      - pnpm install
+      - cd go && go mod download
+
+  frontend:
+    desc: 构建前端产物到 web/dist
+    dir: web
+    cmds:
+      - pnpm build
+
+  # go:embed 只能引用本包目录下的文件，因此构建期把前端产物复制进 go/web/dist。
+  # 这份副本不提交（见 .gitignore），每次都从 web/dist 重新生成。
+  embed:
+    desc: 把前端产物复制到 go/web/dist 供嵌入
+    deps: [frontend]
+    cmds:
+      - rm -rf go/web/dist
+      - mkdir -p go/web
+      - cp -r web/dist go/web/dist
+
+  build:
+    desc: 构建桌面端可执行文件
+    deps: [embed]
+    dir: go
+    cmds:
+      - mkdir -p ../{{.BIN_DIR}}
+      - go build -o ../{{.BIN_DIR}}/{{.BIN_NAME}} .
+
+  test:
+    desc: 运行 Go 单元测试
+    dir: go
+    cmds:
+      - go test ./...
+
+  vet:
+    desc: go vet
+    dir: go
+    cmds:
+      - go vet ./...
+
+  typecheck:
+    desc: 前端类型检查
+    dir: web
+    cmds:
+      - pnpm typecheck
+
+  check:
+    desc: 提交前检查（vet + 单测 + 前端类型检查）
+    cmds:
+      - task: vet
+      - task: test
+      - task: typecheck
