@@ -61,6 +61,8 @@ _CONST_ALLOW: dict[tuple[str, str], str] = {
         "评论长度契约（API 行为值），未纳入配置范围",
     ("services/idempotency_service.py", "MAX_KEY_LENGTH"):
         "幂等键长度契约（请求头取值上限，超长即 400），非运维可调参数",
+    ("services/auth/pkce_service.py", "CODE_BYTES"):
+        "PKCE 授权码熵（32 字节，RFC 7636 安全参数），非运维可调参数",
     ("services/indexing/chunker.py", "MIN_REF_LEN"):
         "引用最短长度阈值（非大小/TTL/超时/并发类，扫描正则保守命中）",
     ("services/platform/redis_admin_service.py", "_KEYSPACE_TTL_SECONDS"):

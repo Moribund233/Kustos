@@ -226,6 +226,26 @@ ERROR_MESSAGES: dict[str, dict[str, str]] = {
         LOCALE_ZH: "OAuth 状态无效或已过期",
         LOCALE_EN: "Invalid or expired OAuth state",
     },
+    "pkce_invalid_grant": {
+        LOCALE_ZH: "授权码无效或已过期",
+        LOCALE_EN: "Invalid or expired authorization code",
+    },
+    "pkce_unknown_client": {
+        LOCALE_ZH: "未注册的客户端",
+        LOCALE_EN: "Unregistered client",
+    },
+    "pkce_redirect_uri_mismatch": {
+        LOCALE_ZH: "回调地址未注册",
+        LOCALE_EN: "Redirect URI is not registered",
+    },
+    "pkce_unsupported_challenge_method": {
+        LOCALE_ZH: "仅支持 code_challenge_method=S256",
+        LOCALE_EN: "Only code_challenge_method=S256 is supported",
+    },
+    "pkce_unsupported_grant_type": {
+        LOCALE_ZH: "仅支持 grant_type=authorization_code",
+        LOCALE_EN: "Only grant_type=authorization_code is supported",
+    },
     "oauth_no_matching_user": {
         LOCALE_ZH: "关联的 OAuth 账号没有匹配的用户",
         LOCALE_EN: "Linked OAuth account has no matching user",

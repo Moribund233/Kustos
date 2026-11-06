@@ -103,6 +103,8 @@ revocation_positive_ttl = 3600
 revocation_negative_ttl = 60
 # HSTS max-age（秒，由 ObservabilityMiddleware 下发）
 hsts_max_age = 31536000
+# PKCE 授权码有效期（分钟）；桌面端登录用，够用户点一次"允许"，短到泄漏窗口可忽略
+pkce_code_ttl_minutes = 5
 
 [logging]
 # 审计日志文件路径（启用日期目录时实际写入 <父目录>/<YYYY-MM-DD>/<文件名>，

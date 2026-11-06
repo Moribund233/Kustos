@@ -30,6 +30,7 @@ from app.core.config import get_config_value
 from app.models.activity import Activity
 from app.models.agent import AgentJob, AgentStep
 from app.models.idempotency_record import IdempotencyRecord
+from app.models.pkce_auth_code import PkceAuthorizationCode
 from app.models.revoked_token import RevokedToken
 from app.utils.logging import LogManager, cleanup_old_logs, maybe_rollover
 
@@ -115,6 +116,25 @@ class RetentionService:
         )
         return int(result.rowcount or 0)
 
+    async def cleanup_pkce_codes(self, db) -> int:
+        """
+        清理已过期或已被兑换的 PKCE 授权码，返回删除行数。
+
+        授权码的生命周期以分钟计（默认 5 分钟），用过的码立即失去价值；
+        留着既占空间，也让唯一索引随登录次数线性增长。
+
+        Args:
+            db: 异步会话。
+        """
+        cutoff = datetime.now(timezone.utc)
+        result = await db.execute(
+            delete(PkceAuthorizationCode).where(
+                (PkceAuthorizationCode.expires_at < cutoff)
+                | (PkceAuthorizationCode.used_at.is_not(None))
+            )
+        )
+        return int(result.rowcount or 0)
+
     async def cleanup_agent_steps(self, db, keep_days: int) -> int:
         """
         删除**已收尾**作业的过期步骤，返回删除行数。
@@ -197,6 +217,16 @@ class RetentionService:
                         session, keep_hours
                     )
 
+        # PKCE 授权码：分钟级寿命，过期或用过即无用
+        deleted_pkce = 0
+        if db is not None:
+            deleted_pkce = await self.cleanup_pkce_codes(db)
+        else:
+            from app.models.async_db import get_async_db_context
+
+            async with get_async_db_context() as session:
+                deleted_pkce = await self.cleanup_pkce_codes(session)
+
         # 中断作业回收：执行进程死亡/投递丢失后停在 running/queued 的僵尸行，
         # 既让用户无从得知，也长期占着并发配额
         from app.services.agent.agent_service import reclaim_stale_jobs
@@ -223,13 +253,13 @@ class RetentionService:
                     )
 
         if deleted_dirs or deleted_activities or deleted_revoked or reclaimed_jobs \
-                or deleted_steps or deleted_idempotency:
+                or deleted_steps or deleted_idempotency or deleted_pkce:
             logger.info(
                 "自动保留执行完成：日志目录 %d 个、Activity %d 条、撤销行 %d 条、"
-                "幂等记录 %d 条、中断作业 %d 个、Agent 步骤 %d 条"
+                "幂等记录 %d 条、PKCE 授权码 %d 条、中断作业 %d 个、Agent 步骤 %d 条"
                 "（log_keep_days=%s, activity_keep_days=%s, agent_steps_keep_days=%s）",
                 deleted_dirs, deleted_activities, deleted_revoked, deleted_idempotency,
-                reclaimed_jobs, deleted_steps, logging_cfg.log_keep_days,
+                deleted_pkce, reclaimed_jobs, deleted_steps, logging_cfg.log_keep_days,
                 logging_cfg.activity_keep_days, logging_cfg.agent_steps_keep_days,
             )
 
@@ -238,6 +268,7 @@ class RetentionService:
             "activities_deleted": deleted_activities,
             "revoked_tokens_deleted": deleted_revoked,
             "idempotency_records_deleted": deleted_idempotency,
+            "pkce_codes_deleted": deleted_pkce,
             "stale_jobs_reclaimed": reclaimed_jobs,
             "agent_steps_deleted": deleted_steps,
         }

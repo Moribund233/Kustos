@@ -271,6 +271,10 @@ class SecuritySettings(SectionSettings):
     revocation_positive_ttl: int = Field(default=3600, ge=1, description="撤销黑名单正缓存 TTL（秒，已撤销条目）")
     revocation_negative_ttl: int = Field(default=60, ge=1, description="撤销黑名单负缓存 TTL（秒，未撤销条目）")
     hsts_max_age: int = Field(default=31536000, ge=0, description="HSTS max-age（秒；由 ObservabilityMiddleware 下发）")
+    pkce_code_ttl_minutes: int = Field(
+        default=5, ge=1, le=30,
+        description="PKCE 授权码有效期（分钟）；够用户点一次允许，短到泄漏窗口可忽略"
+    )
 
     @field_validator("secret_key")
     @classmethod

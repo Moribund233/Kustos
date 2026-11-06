@@ -61,6 +61,12 @@ def create_api_router() -> APIRouter:
     from app.api.v1.git_hook_controller import router as git_hook_router
     api_v1_router.include_router(git_hook_router, prefix=API_V1_PREFIX)
 
+    # 3b1. PKCE 授权码路由（桌面端登录：不接触用户密码）
+    # 必须先于 3b 的 oauth_router 注册：后者含 GET /{provider}/login 通配，
+    # 排在前面会把 /auth/pkce/authorize 当作 provider="pkce" 吞掉。
+    from app.api.v1.auth_pkce_controller import router as auth_pkce_router
+    api_v1_router.include_router(auth_pkce_router)
+
     # 3b. OAuth 认证路由
     from app.api.v1.oauth_controller import router as oauth_router
     api_v1_router.include_router(oauth_router)
