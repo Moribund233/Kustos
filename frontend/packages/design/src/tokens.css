@@ -1,0 +1,95 @@
+/**
+ * Kustos design tokens —— 与 docs/prototype/assets/css/tokens.css 同源。
+ * 夜巡提灯：墨蓝底、骨白字、琥珀色只用于注意力与行动。
+ *
+ * 两端共享**品牌与语义色**（ink/bone/amber/sage…）与字体栈；
+ * 但字号、行高、圆角、间距密度各自另有一套（设计文档 §6.4）：
+ * Web 用 14–15px / 44–56px 行高，桌面端用 13px / 28–32px 行高。
+ * 因此密度类 token 不放在这里，由各自的入口层叠加。
+ */
+
+@theme {
+  --color-ink-1000: #06090b;
+  --color-ink-950: #080d10;
+  --color-ink-900: #0a1115;
+  --color-ink-850: #0d161b;
+  --color-ink-800: #111c22;
+  --color-ink-750: #15232a;
+  --color-ink-700: #1b2c34;
+  --color-ink-650: #223740;
+
+  --color-bone: #f0e7d8;
+  --color-bone-2: #d8cdbb;
+  --color-muted: #9aa5a7;
+  /* 灰阶按「同一背景下一律 ≥ 4.5:1」取值：muted-2 与 faint 原先在
+     ink-800 面板上只有 4.32 / 2.66，弱化文本几乎读不出来。抬高后
+     仍保留三级明度差（6.85 / 5.76 / 4.93），层次没被压平。 */
+  --color-muted-2: #8a979c;
+  --color-faint: #7e8b90;
+
+  --color-amber: #f2ae5b;
+  --color-amber-2: #ffd08a;
+  --color-amber-3: #c97a32;
+  --color-ember: #d46b45;
+  --color-sage: #86b79e;
+  --color-sage-2: #aed6bf;
+  --color-sky: #83a9c4;
+  --color-rose: #d98282;
+  --color-rose-2: #f0aaaa;
+
+  --color-edge-1: rgba(240, 231, 216, 0.07);
+  --color-edge-2: rgba(240, 231, 216, 0.12);
+  --color-edge-3: rgba(240, 231, 216, 0.22);
+
+  /* 字体栈按「逐字符回退」工作：西文取自 webfont，中文字符落到栈中下一个
+     能显示它的字体。因此西文字体在前、中文字体紧随其后。
+
+     中文用 MiSans（见 fonts.css）：现代无衬线、技术感强，与产品的夜巡气质
+     一致；宋体/楷体偏古风，不用。MiSans 未覆盖的生僻字再回退系统黑体。 */
+  --font-sans:
+    "Inter Variable", "Inter", "MiSans", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans SC", "Noto Sans CJK SC",
+    "WenQuanYi Micro Hei", sans-serif;
+  --font-display:
+    "Fraunces Variable", "Fraunces", "Iowan Old Style", Georgia, "MiSans", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans SC", "Noto Sans CJK SC",
+    "WenQuanYi Micro Hei", sans-serif;
+  --font-mono:
+    "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas,
+    "PingFang SC", "Microsoft YaHei", "Noto Sans Mono CJK SC", monospace;
+
+  --radius-panel: 10px;
+
+  /* 字号刻度。原先全站用 text-[9.5px] 这类任意值，出现过 7.5px 到 13.5px
+     之间十几档半像素，同一层级在不同组件里各调各的。收敛成固定刻度后，
+     「辅助文本 / 正文 / 标题」各对应唯一档位，跨组件自然一致。
+
+     档位按 rem 定义而非 px：浏览器字号设置与页面缩放能真实生效，
+     这是 WCAG 1.4.4（调整文字大小）的要求。 */
+  --text-2xs: 0.625rem; /* 10px —— 元信息、时间戳、计数 */
+  --text-2xs--line-height: 1.45;
+  --text-xs: 0.6875rem; /* 11px —— 表格正文、次要标签 */
+  --text-xs--line-height: 1.5;
+  --text-sm: 0.75rem; /* 12px —— 正文默认、输入框 */
+  --text-sm--line-height: 1.55;
+  --text-base: 0.8125rem; /* 13px —— 强调正文、代码 */
+  --text-base--line-height: 1.6;
+  --text-md: 0.875rem; /* 14px —— 小标题 */
+  --text-md--line-height: 1.5;
+  --text-lg: 1rem; /* 16px —— 区块标题 */
+  --text-lg--line-height: 1.4;
+  --text-xl: 1.25rem; /* 20px —— 页面标题 */
+  --text-xl--line-height: 1.3;
+  --text-2xl: 1.5rem; /* 24px —— 品牌字标 */
+  --text-2xl--line-height: 1.2;
+  --text-3xl: 1.75rem; /* 28px —— 空状态大标题 */
+  --text-3xl--line-height: 1.2;
+  --text-4xl: 2.25rem; /* 36px —— 统计数字、登录页标题 */
+  --text-4xl--line-height: 1.15;
+
+  /* 常驻循环动效的类名映射，keyframes 定义在 motion.css。
+     抽成 token 是为了让 `animate-lamp-breathe` 这类名字和颜色、字号一样
+     成为设计词汇的一部分，而不是散落在组件里的任意值。 */
+  --animate-lamp-breathe: lamp-breathe 2.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  --animate-caret-blink: caret-blink 1.1s steps(1, end) infinite;
+}

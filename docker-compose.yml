@@ -230,10 +230,12 @@ services:
   gateway:
     image: ${KUSTOS_IMAGE_PREFIX:-kustos}-gateway:${KUSTOS_IMAGE_TAG:-latest}
     build:
-      # 上下文为 frontend/web：容器内完成 pnpm build，宿主机无需 Node/pnpm
-      context: ./frontend/web
-      # dockerfile 相对构建上下文解析：frontend/web → 仓库根的 docker/gateway
-      dockerfile: ../../docker/gateway/Dockerfile
+      # 上下文为仓库根：前端是 pnpm workspace，根上有 pnpm-workspace.yaml、
+      # pnpm-lock.yaml 与共享包 frontend/packages/*，只给 frontend/web 会缺文件。
+      # 容器内仍完成 pnpm build，宿主机无需 Node/pnpm。
+      context: .
+      # dockerfile 相对构建上下文解析：仓库根 → docker/gateway
+      dockerfile: docker/gateway/Dockerfile
     container_name: kustos-gateway
     ports:
       - "${KUSTOS_GATEWAY_PORT:-18090}:8000"

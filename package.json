@@ -1,0 +1,14 @@
+{
+  "name": "kustos",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Kustos 单体仓库根：前端 pnpm workspace（Web + 桌面端共享契约层与基础组件）。",
+  "packageManager": "pnpm@11.0.0",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "typecheck": "pnpm -r typecheck",
+    "build": "pnpm --filter @kustos/web build"
+  }
+}

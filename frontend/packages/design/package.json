@@ -1,0 +1,22 @@
+{
+  "name": "@kustos/design",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Kustos 设计层：Tailwind v4 token、字体与动效。两端共享品牌与语义色，但字号/间距密度各自另有一套。",
+  "exports": {
+    ".": "./src/index.css",
+    "./tokens": "./src/tokens.css",
+    "./fonts": "./src/fonts.css",
+    "./motion": "./src/motion.css"
+  },
+  "dependencies": {
+    "@fontsource-variable/fraunces": "^5.3.0",
+    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "misans": "5.0.0"
+  },
+  "scripts": {
+    "typecheck": "echo 'design 包只含 CSS，无需类型检查'"
+  }
+}

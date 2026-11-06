@@ -1,0 +1,27 @@
+{
+  "name": "@kustos/api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Kustos 契约层：OpenAPI 类型、请求客户端与查询封装。不含 hooks 组合，Web 与桌面端共用。",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts",
+    "./client": "./src/client.ts",
+    "./hooks": "./src/hooks.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "api:generate": "node scripts/generate-api.mjs"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.62.7",
+    "openapi-fetch": "^0.13.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "openapi-typescript": "^7.5.0",
+    "typescript": "~5.7.2",
+    "vite": "^6.4.5"
+  }
+}

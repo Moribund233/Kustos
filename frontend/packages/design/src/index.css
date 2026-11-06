@@ -1,0 +1,18 @@
+/**
+ * Kustos 设计层入口。
+ *
+ * 只包含**两端一致**的部分：品牌与语义色 token、字体栈、常驻动效。
+ * 密度相关（字号、行高、圆角、间距步长）不在这里——Web 与桌面端有意不同
+ * （设计文档 §6.4：Web 14–15px / 44–56px 行高，桌面 13px / 28–32px），
+ * 共用一个值只会迫使双方取交集。
+ *
+ * 消费方通常在自己的全局样式入口里 `@import "@kustos/design";`，
+ * 再接上 Tailwind 与各自的密度 token。
+ */
+
+/* 常驻循环动效的 keyframes（呼吸灯 / 骨架流光 / 光标闪烁） */
+@import "./motion.css";
+/* webfont（自托管，仅 latin 片段） */
+@import "./fonts.css";
+/* 颜色与字体 token */
+@import "./tokens.css";

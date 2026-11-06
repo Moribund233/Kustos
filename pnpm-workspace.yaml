@@ -1,0 +1,17 @@
+packages:
+  - "frontend/packages/*"
+  - "frontend/web"
+
+# pnpm 11 会拦截依赖的安装脚本；这里显式放行需要编译原生产物的包。
+# 缺了这一段，`pnpm install` 会因 esbuild 安装脚本被忽略而退出 1
+# （网关镜像构建同样依赖它）。
+#
+# 本文件原本位于 frontend/web/pnpm-workspace.yaml（web 作为独立单包工作区）。
+# 抽出共享包后必须合并到根，否则前端目录里会再出现一个工作区根，
+# 把 `@kustos/api` 挡在外面——pnpm 只认同最近的那个 workspace 根。
+allowBuilds:
+  "@tailwindcss/oxide": true
+  esbuild: true
+  msw: true
+  sharp: false
+  unrs-resolver: true

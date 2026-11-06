@@ -26,14 +26,13 @@ jobs:
     name: 前端 typecheck / lint / test / build
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    defaults:
-      run:
-        working-directory: frontend/web
+    # 前端已改为 pnpm workspace（根 pnpm-workspace.yaml）：锁文件与共享包
+    # 都在仓库根，因此 CI 的工作目录也上移到根，用 --filter 选择具体包。
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
 
-      # 版本取自 package.json 的 packageManager 字段，与本地、网关镜像一致
+      # 版本取自根 package.json 的 packageManager 字段，与本地、网关镜像一致
       - name: 安装 pnpm
         uses: pnpm/action-setup@v4
 
@@ -42,22 +41,26 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: frontend/web/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: 安装依赖
         run: pnpm install --frozen-lockfile
 
+      # 共享包自身也要过类型检查：它们是两端共用契约，坏了影响面比单端更大
+      - name: 契约包类型检查
+        run: pnpm --filter @kustos/api typecheck
+
       - name: 类型检查
-        run: pnpm typecheck
+        run: pnpm --filter @kustos/web typecheck
 
       - name: 代码检查
-        run: pnpm lint
+        run: pnpm --filter @kustos/web lint
 
       - name: 单元测试
-        run: pnpm test
+        run: pnpm --filter @kustos/web test
 
       - name: 构建产物
-        run: pnpm build
+        run: pnpm --filter @kustos/web build
 
   backend:
     name: 后端容器内 pytest

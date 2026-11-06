@@ -1,0 +1,44 @@
+# 网关镜像的构建上下文是**仓库根**（见 docker-compose.yml 的 gateway.build.context）。
+#
+# 前端已改为 pnpm workspace：pnpm-workspace.yaml、pnpm-lock.yaml 与共享包
+# frontend/packages/* 都在根下，因此上下文不能再是 frontend/web。上下文变大后
+# 靠本文件收敛——否则 backend/ 与 .git/ 会被整包送进构建，镜像构建时间翻几倍。
+#
+# 原则：只保留前端构建真正需要的东西。
+
+# 版本控制与本地工具产物
+.git
+.gitignore
+.dsh
+.github
+.trae
+.vscode
+.idea
+
+# 后端与运维资料：与前端构建无关
+backend
+deploy
+docs
+services
+docker
+scripts
+tests
+
+# 依赖与构建产物：容器内用 lockfile 重装 + 重新构建
+**/node_modules
+**/dist
+**/coverage
+**/playwright-report
+**/test-results
+**/.vite
+.tmp-*
+**/.tmp-*
+
+# 运行时数据与本地环境
+data
+repositories
+backups
+**/*.log
+**/.env
+**/.env.*
+!**/.env.example
