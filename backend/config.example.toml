@@ -209,6 +209,8 @@ shutdown_timeout_seconds = 5.0
 # 协作文档 / 邀请配置（原 services/collab_invite_service 模块常量）
 invite_default_ttl_minutes = 60
 invite_max_ttl_minutes = 1440
+# 协作感知查询单副本超时（秒）；桌面端文件树 live 提示用，超时即降级为空清单
+active_query_timeout_seconds = 2.0
 
 [git]
 # Git / 仓库运维配置（原 utils/git_utils· 与 services/git_event_service· 模块常量）

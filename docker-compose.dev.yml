@@ -91,6 +91,8 @@ services:
       KUSTOS_ADMIN_EMAIL: ${KUSTOS_ADMIN_EMAIL:-admin@example.com}
       # 协作内部端点密钥 (与 collab 服务共享; 未设置时用开发默认值)
       KUSTOS_COLLAB_INTERNAL_SECRET: ${KUSTOS_COLLAB_INTERNAL_SECRET:-dev-collab-internal-secret}
+      # 协作感知：聚合各副本的活跃文档（与 collab 服务的 ACTIVE_PORT 对应）
+      KUSTOS_COLLAB_ACTIVE_ENDPOINTS: "${KUSTOS_COLLAB_ACTIVE_ENDPOINTS:-http://collab:4446}"
       # 编排组件状态（admin 控制台）：经只读 docker-socket-proxy 查询容器
       # Git hook 内部密钥（git-cgi 的 pre/post-receive 回调校验，开发默认值）
       KUSTOS_GIT_HOOK_SECRET: ${KUSTOS_GIT_HOOK_SECRET:-dev-git-hook-secret}

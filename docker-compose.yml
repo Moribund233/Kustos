@@ -46,6 +46,9 @@ services:
       KUSTOS_ADMIN_PASSWORD: ${KUSTOS_ADMIN_PASSWORD:?必需设置管理员初始密码}
       KUSTOS_ADMIN_EMAIL: ${KUSTOS_ADMIN_EMAIL:-admin@kustos.local}
       KUSTOS_COLLAB_INTERNAL_SECRET: ${KUSTOS_COLLAB_INTERNAL_SECRET:?必需设置协作网关内部密钥 (deploy/generate_env.py)}
+      # 协作感知：app 聚合各副本的活跃文档清单（逗号分隔，多副本逐个聚合；
+      # 未配置时 GET /repositories/{id}/collab/active 降级为空清单 + degraded）
+      KUSTOS_COLLAB_ACTIVE_ENDPOINTS: "${KUSTOS_COLLAB_ACTIVE_ENDPOINTS:-http://collab:4446}"
       # 编排组件状态：经只读 docker-socket-proxy 查询容器状态（admin 控制台）
       # Git hook 内部密钥（git-cgi/sshd 的 pre/post-receive 回调校验，与两者共享）
       KUSTOS_GIT_HOOK_SECRET: ${KUSTOS_GIT_HOOK_SECRET:?必需设置 Git hook 内部密钥 (deploy/generate_env.py)}
@@ -161,6 +164,8 @@ services:
       KUSTOS_COLLAB_SESSION_TTL_MS: "${KUSTOS_COLLAB_TTL_MS:-600000}"
       KUSTOS_COLLAB_MAX_CONTENT_CHARS: "${KUSTOS_COLLAB_MAX_CONTENT_CHARS:-2000000}"
       KUSTOS_COLLAB_MAX_CONNECTIONS_PER_DOC: "${KUSTOS_COLLAB_MAX_CONNECTIONS_PER_DOC:-50}"
+      # 活跃文档数据面端口（app 聚合查询用，仅容器网络内可达）
+      ACTIVE_PORT: "4446"
       TZ: Asia/Shanghai
     logging:
       driver: json-file

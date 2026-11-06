@@ -180,6 +180,9 @@ temp/
 .backup.*
 backups/
 
+# 本机专用的 DeepSeek Harness 扩展（kustos-dev 插件与本仓库技能），只存在于开发者机器上
+.dsh/
+
 # 本地 E2E 夹具状态（实例地址与口令，仅本机使用）
 frontend/web/e2e/live/.state.json
 

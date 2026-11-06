@@ -45,7 +45,9 @@ ROOT_LAYER = "root"
 #: 2026-10-30：479 → 474（清理 config.toml 参数链 + 控制器 SQL 下沉时提升的模块级导入）。
 #: 同日 474 → 477：新增协作草稿发布控制器 collab_publish_controller 的路由注册与
 #: ensure_local_write 分支保护接线（沿用既有模式，无新增跨层依赖）。
-_DEFERRED_BASELINE = 477
+#: 2026-11-06：477 → 478：新增协作感知控制器 collab_active_controller 的路由注册，
+#: 与上一条同为 create_api_router 内的既有注册模式（无新增跨层依赖）。
+_DEFERRED_BASELINE = 478
 
 
 def _layer_of(path: pathlib.Path) -> str:

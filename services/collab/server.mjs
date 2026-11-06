@@ -18,6 +18,7 @@
  *   KUSTOS_COLLAB_INTERNAL_SECRET  必填, 与 app 共享的内部密钥
  *   KUSTOS_APP_URL                 app 内部地址 (默认 http://app:8000)
  *   PORT / HEALTH_PORT              WS 端口(默认 4444) / 健康检查端口(默认 4445)
+ *   ACTIVE_PORT                    活跃文档数据面端口(默认 4446; app 聚合查询用)
  *   KUSTOS_APP_TIMEOUT_MS          回调超时 (默认 10000)
  *   KUSTOS_COLLAB_SESSION_TTL_MS   断开后保留内存会话的时长 (默认 600000; 0=禁用)
  *   REDIS_URL                       Redis 连接串; 配置后启用多副本同步 + 会话快照持久化
@@ -38,6 +39,7 @@ import { Server } from "@hocuspocus/server";
 import { createRedisPersistence, resolveRedisUrl } from "./redisPersistence.mjs";
 import { createSessionTtlExtension, DEFAULT_SESSION_TTL_MS } from "./sessionTtl.mjs";
 import { createVersionCounter } from "./versionCounter.mjs";
+import { startActiveDocumentsServer } from "./activeDocuments.mjs";
 
 export const APP_URL = process.env.KUSTOS_APP_URL || "http://app:8000";
 export const INTERNAL_SECRET = process.env.KUSTOS_COLLAB_INTERNAL_SECRET || "";
@@ -471,13 +473,16 @@ export function buildGateway({
 
   server.sessionTtl = ttl;
   server.redisPersistence = redisPersistence;
+  // 协作感知: 供活跃文档端点读取本副本的实时连接计数 (只读引用)
+  server.connectionsByDoc = connectionsByDoc;
   return server;
 }
 
-/** 启动网关 + 健康检查端点 */
+/** 启动网关 + 健康检查端点 + 活跃文档数据面 */
 export async function startGateway({
   port,
   healthPort,
+  activePort,
   sessionTtlMs,
   redisUrl,
   createRedisClient,
@@ -506,14 +511,23 @@ export async function startGateway({
     })
     .listen(healthPort ?? Number(process.env.HEALTH_PORT || 4445));
 
+  // 协作感知数据面: 供 app 聚合各副本的活跃文档 (独立端口, 需内部密钥)
+  const active = await startActiveDocumentsServer({
+    byDoc: gateway.connectionsByDoc,
+    secret: INTERNAL_SECRET,
+    port: activePort ?? Number(process.env.ACTIVE_PORT || 4446),
+  });
+
   log(`listening on :${gateway.address?.port ?? "?"}, app=${APP_URL}`);
   return {
     hocuspocus,
     port: gateway.address.port,
+    activePort: active.port,
     sessionTtl: gateway.sessionTtl,
     redisPersistence: gateway.redisPersistence,
     close: async () => {
       health.close();
+      await active.close();
       // 解除会话保留, 否则 destroy() 会等待文档卸载而挂起
       gateway.sessionTtl.releaseAll();
       await gateway.destroy();

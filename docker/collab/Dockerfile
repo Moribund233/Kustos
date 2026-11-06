@@ -22,13 +22,13 @@ WORKDIR /app/gateway
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
-# 复制网关源码 (TTL 会话保留 / Redis 多副本 + 会话持久化 / 协作版本计数)
-COPY server.mjs sessionTtl.mjs redisPersistence.mjs versionCounter.mjs ./
+# 复制网关源码 (TTL 会话保留 / Redis 多副本 + 会话持久化 / 协作版本计数 / 活跃文档数据面)
+COPY server.mjs sessionTtl.mjs redisPersistence.mjs versionCounter.mjs activeDocuments.mjs ./
 
 # 非 root 运行
 USER node
 
-EXPOSE 4444 4445
+EXPOSE 4444 4445 4446
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=5s --retries=3 \
     CMD wget -qO- http://127.0.0.1:4445/ || exit 1

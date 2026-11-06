@@ -650,6 +650,12 @@ class CollabSettings(SectionSettings):
 
     invite_default_ttl_minutes: int = Field(default=60, ge=1, le=10080, description="协作邀请默认有效期（分钟）")
     invite_max_ttl_minutes: int = Field(default=1440, ge=1, le=10080, description="协作邀请最长有效期（分钟）")
+    active_query_timeout_seconds: float = Field(
+        default=2.0,
+        ge=0.1,
+        le=30.0,
+        description="协作感知查询单副本超时（秒）；感知数据快过期不如快失败，不拖累仓库浏览",
+    )
 
 
 class GitSettings(SectionSettings):

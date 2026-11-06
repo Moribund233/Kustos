@@ -101,6 +101,10 @@ def create_api_router() -> APIRouter:
     from app.api.v1.collab_session_controller import router as collab_session_router
     api_v1_router.include_router(collab_session_router)
 
+    # 6c-quinquies. 协作感知路由（活跃文档清单，桌面端文件树 live 提示）
+    from app.api.v1.collab_active_controller import router as collab_active_router
+    api_v1_router.include_router(collab_active_router)
+
     # 6d. Repo Label 管理路由
     from app.api.v1.label_controller import router as label_router
     api_v1_router.include_router(label_router)
