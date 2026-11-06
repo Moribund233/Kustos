@@ -181,11 +181,11 @@ sequenceDiagram
 
 | 优先级 | 能力 | 现状 | 影响 |
 | --- | --- | --- | --- |
-| P0 | refresh token 记 `device_name` / `client_id` | 只有 token family，无设备维度 | 用户在"已登录设备"里看到一堆无法辨认的会话，无法定向吊销 |
-| P1 | `GET /api/v1/repositories/{id}/collab/active` | 网关只在内存维护 `connectionsByDoc`，无对外查询 | 桌面的"协作感知"（文件树 live 圆点、进入前预警）做不了（§8.4） |
-| P1 | 设备码 / PKCE 浏览器授权 | 只有账号密码 + OAuth | 密码型 SSO、2FA 环境只能开浏览器登录，体验断裂 |
-| P2 | 幂等键（`Idempotency-Key`） | 无 | 离线 outbox 只能做"草稿"，不能做"自动补发"，否则评论/Issue 会重复 |
-| P3 | `GET /api/app/client-compat` | 无 | 桌面端现在只能靠 `GET /` 的 version 字段猜兼容性 |
+| P0 | refresh token 记 `device_name` / `client_id` | ✅ 已实现（`user_devices` + `/auth/sessions`） | 用户在"已登录设备"里能辨认会话并按设备定向吊销 |
+| P1 | `GET /api/v1/repositories/{id}/collab/active` | ✅ 已实现（网关内部端点 + app 聚合多副本） | 桌面的"协作感知"（文件树 live 圆点、进入前预警）可用（§8.4） |
+| P1 | 设备码 / PKCE 浏览器授权 | ✅ 已实现（PKCE 授权码流 `/auth/pkce/*`） | 密码型 SSO、2FA 环境不必再开浏览器输密码，体验连贯 |
+| P2 | 幂等键（`Idempotency-Key`） | ✅ 已实现（`idempotency_records`，评论/Issue 已接入） | 离线 outbox 可做"自动补发"，不会产生重复评论/Issue |
+| P3 | `GET /api/v1/client-compat` | ✅ 已实现（公开面，声明 api_version/api_min/features） | 桌面端按能力开关降级，不再靠 version 猜 |
 
 ---
 

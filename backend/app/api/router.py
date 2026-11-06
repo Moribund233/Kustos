@@ -57,6 +57,10 @@ def create_api_router() -> APIRouter:
     from app.api.v1.collab_internal_controller import router as collab_internal_router
     api_v1_router.include_router(collab_internal_router, prefix=API_V1_PREFIX)
 
+    # 3a3. 客户端兼容性声明（公开面：桌面端登录前就要判断能力）
+    from app.api.v1.client_compat_controller import router as client_compat_router
+    api_v1_router.include_router(client_compat_router)
+
     # 3a3. Git hook 内部回调路由（git-cgi/sshd 容器 pre/post-receive）
     from app.api.v1.git_hook_controller import router as git_hook_router
     api_v1_router.include_router(git_hook_router, prefix=API_V1_PREFIX)

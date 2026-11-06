@@ -50,9 +50,9 @@ ROOT_LAYER = "root"
 #: 同日 478 → 479：保留任务接入幂等记录清理，沿用 run_once 内已有的
 #: "缺省会话时自建 get_async_db_context" 分支模式（与其他四类保留同构）。
 #: 同日 479 → 480：新增 PKCE 授权码控制器的路由注册，同 create_api_router 既有模式。
-#: 同日 480 → 481：PKCE 授权码清理并入保留任务，与幂等记录同构
-#: （缺省会话时自建 get_async_db_context）。
-_DEFERRED_BASELINE = 481
+#: 同日 480 → 482：PKCE 授权码清理并入保留任务（幂等记录同构的分支），
+#: 以及 client-compat 控制器的路由注册；两者均为既有模式，无新增跨层依赖。
+_DEFERRED_BASELINE = 482
 
 
 def _layer_of(path: pathlib.Path) -> str:
