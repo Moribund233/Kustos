@@ -18,6 +18,9 @@ lib/
 lib64/
 # 部署脚本的公共库是 shell 源码，不是 Python 构建产物
 !deploy/lib/
+# 前端 src/lib 是 TypeScript 源码目录，与 Python 的 lib/ 同名但无关。
+# 缺这一条会让桌面端的 src/lib 整目录进不了仓库，clone 后前端直接编译不过。
+!frontend/**/src/lib/
 parts/
 sdist/
 var/
