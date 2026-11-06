@@ -47,7 +47,9 @@ ROOT_LAYER = "root"
 #: ensure_local_write 分支保护接线（沿用既有模式，无新增跨层依赖）。
 #: 2026-11-06：477 → 478：新增协作感知控制器 collab_active_controller 的路由注册，
 #: 与上一条同为 create_api_router 内的既有注册模式（无新增跨层依赖）。
-_DEFERRED_BASELINE = 478
+#: 同日 478 → 479：保留任务接入幂等记录清理，沿用 run_once 内已有的
+#: "缺省会话时自建 get_async_db_context" 分支模式（与其他四类保留同构）。
+_DEFERRED_BASELINE = 479
 
 
 def _layer_of(path: pathlib.Path) -> str:

@@ -4,11 +4,12 @@
 路径: /api/v1/repositories/{repo_id}/discussions
 """
 from typing import Optional
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
 
+from app.api.idempotency import remember_replay, replay_if_idempotent
 from app.api.prefixes import get_route_prefix
 from app.models.async_db import get_async_db
 from app.models.user import User
@@ -47,10 +48,19 @@ class FileCommentResolveRequest(BaseModel):
 async def create_discussion_comment(
     repo_id: uuid.UUID,
     data: FileCommentCreateRequest,
+    request: Request,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await create_file_comment(
+    """创建行内评论；携带 Idempotency-Key 时重复提交重放首次结果。"""
+    # 幂等：离线 outbox 补发同一条评论时不能产生两条记录
+    replayed = await replay_if_idempotent(
+        db, request, current_user, resource="discussions", body=data.model_dump(mode="json")
+    )
+    if replayed is not None:
+        return replayed
+
+    created = await create_file_comment(
         db=db,
         repository_id=repo_id,
         author_id=current_user.id,
@@ -61,6 +71,19 @@ async def create_discussion_comment(
         commit_hash=data.commit_hash,
         parent_id=data.parent_id,
     )
+
+    await remember_replay(
+        db,
+        request,
+        current_user,
+        resource="discussions",
+        body=data.model_dump(mode="json"),
+        status_code=201,
+        response_body=created,
+        resource_id=str(created.get("id")) if isinstance(created, dict) else None,
+    )
+    await db.commit()
+    return created
 
 
 @router.get("/{repo_id}/discussions")

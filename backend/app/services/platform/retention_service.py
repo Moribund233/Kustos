@@ -26,12 +26,18 @@ from typing import Any, Dict, Optional
 
 from sqlalchemy import delete, select
 
+from app.core.config import get_config_value
 from app.models.activity import Activity
 from app.models.agent import AgentJob, AgentStep
+from app.models.idempotency_record import IdempotencyRecord
 from app.models.revoked_token import RevokedToken
 from app.utils.logging import LogManager, cleanup_old_logs, maybe_rollover
 
 logger = logging.getLogger(__name__)
+
+#: 幂等记录默认保留小时数（= [idempotency] record_keep_hours 的降级默认）。
+#: 只需覆盖客户端补发窗口，离线 outbox 通常几分钟到几小时内完成。
+DEFAULT_IDEMPOTENCY_KEEP_HOURS = 24
 
 
 class RetentionService:
@@ -86,6 +92,26 @@ class RetentionService:
                 RevokedToken.expires_at.is_not(None),
                 RevokedToken.expires_at < cutoff,
             )
+        )
+        return int(result.rowcount or 0)
+
+    async def cleanup_idempotency_records(self, db, keep_hours: int) -> int:
+        """
+        清理过期的幂等键记录，返回删除行数。
+
+        幂等记录只在"补发窗口"内有意义：桌面端离线 outbox 的补发通常发生在
+        几分钟到几小时内，超过窗口的键保留下来的唯一作用是占空间。而且这张表
+        每次带键写入都追加一行，不清理会无限增长（与 ``revoked_tokens`` 同病）。
+
+        Args:
+            db: 异步会话。
+            keep_hours: 保留小时数；``<=0`` 表示不清理。
+        """
+        if keep_hours <= 0:
+            return 0
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=keep_hours)
+        result = await db.execute(
+            delete(IdempotencyRecord).where(IdempotencyRecord.created_at < cutoff)
         )
         return int(result.rowcount or 0)
 
@@ -149,6 +175,28 @@ class RetentionService:
             async with get_async_db_context() as session:
                 deleted_revoked = await self.cleanup_revoked_tokens(session)
 
+        # 过期幂等键：补发窗口外的记录只占空间。
+        # 用 get_config_value 而非直接取节属性：配置未就绪/被替换时能降级，
+        # 不因为多接一类保留就让整轮清理抛错。
+        deleted_idempotency = 0
+        keep_hours = int(
+            get_config_value(
+                "idempotency", "record_keep_hours", DEFAULT_IDEMPOTENCY_KEEP_HOURS
+            )
+        )
+        if keep_hours > 0:
+            if db is not None:
+                deleted_idempotency = await self.cleanup_idempotency_records(
+                    db, keep_hours
+                )
+            else:
+                from app.models.async_db import get_async_db_context
+
+                async with get_async_db_context() as session:
+                    deleted_idempotency = await self.cleanup_idempotency_records(
+                        session, keep_hours
+                    )
+
         # 中断作业回收：执行进程死亡/投递丢失后停在 running/queued 的僵尸行，
         # 既让用户无从得知，也长期占着并发配额
         from app.services.agent.agent_service import reclaim_stale_jobs
@@ -175,20 +223,21 @@ class RetentionService:
                     )
 
         if deleted_dirs or deleted_activities or deleted_revoked or reclaimed_jobs \
-                or deleted_steps:
+                or deleted_steps or deleted_idempotency:
             logger.info(
                 "自动保留执行完成：日志目录 %d 个、Activity %d 条、撤销行 %d 条、"
-                "中断作业 %d 个、Agent 步骤 %d 条"
+                "幂等记录 %d 条、中断作业 %d 个、Agent 步骤 %d 条"
                 "（log_keep_days=%s, activity_keep_days=%s, agent_steps_keep_days=%s）",
-                deleted_dirs, deleted_activities, deleted_revoked, reclaimed_jobs,
-                deleted_steps, logging_cfg.log_keep_days, logging_cfg.activity_keep_days,
-                logging_cfg.agent_steps_keep_days,
+                deleted_dirs, deleted_activities, deleted_revoked, deleted_idempotency,
+                reclaimed_jobs, deleted_steps, logging_cfg.log_keep_days,
+                logging_cfg.activity_keep_days, logging_cfg.agent_steps_keep_days,
             )
 
         return {
             "log_dirs_deleted": deleted_dirs,
             "activities_deleted": deleted_activities,
             "revoked_tokens_deleted": deleted_revoked,
+            "idempotency_records_deleted": deleted_idempotency,
             "stale_jobs_reclaimed": reclaimed_jobs,
             "agent_steps_deleted": deleted_steps,
         }

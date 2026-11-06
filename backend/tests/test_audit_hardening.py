@@ -406,6 +406,7 @@ class TestActivityRetention:
             "log_dirs_deleted": 0,
             "activities_deleted": 0,
             "revoked_tokens_deleted": 0,
+            "idempotency_records_deleted": 0,
             "stale_jobs_reclaimed": 0,
             "agent_steps_deleted": 0,
         }

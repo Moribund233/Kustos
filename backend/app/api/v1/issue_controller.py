@@ -5,10 +5,11 @@ Issue 控制器层
 """
 from typing import Optional, List, Dict, Any
 import uuid
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.idempotency import remember_replay, replay_if_idempotent
 from app.api.prefixes import get_route_prefix
 from app.core.permissions import Action
 from app.api.guards import require_repo_permission, require_repo_read
@@ -118,12 +119,21 @@ async def list_issues(
 async def create_issue(
     repo_id: uuid.UUID,
     data: IssueCreateRequest,
+    request: Request,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user),
     # 决策：GitHub 式参与——公开仓登录即可建，私仓需成员（矩阵单点裁决）
     _perm=Depends(require_repo_permission(Action.ISSUE_CREATE, "create issues")),
 ):
-    return await service_create_issue(
+    """创建 Issue；携带 Idempotency-Key 时重复提交重放首次结果。"""
+    # 幂等：离线 outbox 补发同一条 Issue 时不能开出第二个
+    replayed = await replay_if_idempotent(
+        db, request, current_user, resource="issues", body=data.model_dump(mode="json")
+    )
+    if replayed is not None:
+        return replayed
+
+    created = await service_create_issue(
         db=db,
         repository_id=repo_id,
         author_id=current_user.id,
@@ -133,6 +143,19 @@ async def create_issue(
         assignee_id=data.assignee_id,
         label_ids=data.label_ids
     )
+
+    await remember_replay(
+        db,
+        request,
+        current_user,
+        resource="issues",
+        body=data.model_dump(mode="json"),
+        status_code=200,
+        response_body=created,
+        resource_id=str(created.get("id")) if isinstance(created, dict) else None,
+    )
+    await db.commit()
+    return created
 
 
 # ==================== Issue 高级筛选 ====================
@@ -489,6 +512,7 @@ async def create_issue_comment(
     repo_id: uuid.UUID,
     issue_number: int,
     data: IssueCommentCreateRequest,
+    request: Request,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user),
     _perm=Depends(require_repo_permission(Action.COMMENT_CREATE, "comment on issues")),
@@ -496,23 +520,38 @@ async def create_issue_comment(
     """
     创建 Issue 评论
 
-    Args:
-        repo_id: 仓库ID
-        issue_number: Issue 编号
-        data: 评论数据
-        db: 数据库会话
-        current_user: 当前认证用户
+    携带 Idempotency-Key 时，重复提交（离线补发）重放首次结果而不新增评论。
 
     Returns:
         dict: 创建的评论数据
     """
-    return await service_create_issue_comment(
+    # 幂等：补发同一条评论不能产生两条——这是离线 outbox 高频踩坑点
+    replayed = await replay_if_idempotent(
+        db, request, current_user, resource="issue-comments", body=data.model_dump(mode="json")
+    )
+    if replayed is not None:
+        return replayed
+
+    created = await service_create_issue_comment(
         db=db,
         repository_id=repo_id,
         issue_number=issue_number,
         author_id=current_user.id,
         content=data.content
     )
+
+    await remember_replay(
+        db,
+        request,
+        current_user,
+        resource="issue-comments",
+        body=data.model_dump(mode="json"),
+        status_code=200,
+        response_body=created,
+        resource_id=str(created.get("id")) if isinstance(created, dict) else None,
+    )
+    await db.commit()
+    return created
 
 
 

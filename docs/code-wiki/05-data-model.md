@@ -86,6 +86,7 @@ erDiagram
 | `ssh_keys` | `SSHKey` | user_id, name, public_key, fingerprint | fingerprint 索引 | Git over SSH 公钥 |
 | `user_oauth_accounts` | `UserOAuthAccount` | user_id, provider, provider_user_id, provider_username, access/refresh_token, token_expires_at | `(provider, provider_user_id)` 唯一 | GitHub/GitLab 绑定 |
 | `revoked_tokens` | `RevokedToken` | jti, user_id, token_type, expires_at | jti 唯一；expires_at 索引 | 审计 + 启动回填源（热路径走 Redis 位图） |
+| `idempotency_records` | `IdempotencyRecord` | user_id, scope, key, fingerprint, status_code, response_body(JSON), resource_id | `(user_id, scope, key)` 唯一；created_at 索引 | 幂等键重放（离线 outbox 自动补发的前提）；同键异体报 409 |
 | `app_config` | `AppConfig` | section, payload(JSON), version, updated_by | section 唯一 | 按节运行期配置 |
 | `config_secrets` | `ConfigSecret` | section, name, ciphertext | `(section,name)` 唯一 | AES-GCM 密文密钥（LLM/embedding） |
 

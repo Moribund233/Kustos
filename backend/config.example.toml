@@ -212,6 +212,11 @@ invite_max_ttl_minutes = 1440
 # 协作感知查询单副本超时（秒）；桌面端文件树 live 提示用，超时即降级为空清单
 active_query_timeout_seconds = 2.0
 
+[idempotency]
+# 幂等键（Idempotency-Key）重放记录的保留期，单位小时；0 = 不清理。
+# 只需覆盖客户端补发窗口：桌面端离线 outbox 的补发通常发生在几分钟到几小时内。
+record_keep_hours = 24
+
 [git]
 # Git / 仓库运维配置（原 utils/git_utils· 与 services/git_event_service· 模块常量）
 push_max_commits = 200

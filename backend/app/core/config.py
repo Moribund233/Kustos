@@ -658,6 +658,22 @@ class CollabSettings(SectionSettings):
     )
 
 
+class IdempotencySettings(SectionSettings):
+    """幂等键配置（客户端 Idempotency-Key 重放记录的保留期）"""
+    _config_section: ClassVar[str] = "idempotency"
+    model_config = SettingsConfigDict(env_prefix="KUSTOS_IDEMPOTENCY_")
+
+    record_keep_hours: int = Field(
+        default=24,
+        ge=0,
+        le=720,
+        description=(
+            "幂等记录保留小时数；0 表示不清理。"
+            "只需覆盖客户端补发窗口（离线 outbox 通常几分钟到几小时）"
+        ),
+    )
+
+
 class GitSettings(SectionSettings):
     """Git / 仓库运维配置（原 utils/git_utils· 与 services/git_event_service· 模块常量）"""
     _config_section: ClassVar[str] = "git"
@@ -839,6 +855,7 @@ class Config(BaseSettings):
     realtime: RealtimeSettings = Field(default_factory=RealtimeSettings)
     webhook: WebhookSettings = Field(default_factory=WebhookSettings)
     collab: CollabSettings = Field(default_factory=CollabSettings)
+    idempotency: IdempotencySettings = Field(default_factory=IdempotencySettings)
     git: GitSettings = Field(default_factory=GitSettings)
 
     @classmethod

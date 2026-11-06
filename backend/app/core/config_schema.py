@@ -121,6 +121,7 @@ SECTION_META: Dict[str, ConfigSection] = {
     "realtime": ConfigSection(writable=False, hot=True),
     "webhook": ConfigSection(writable=False),
     "collab": ConfigSection(writable=False, hot=True),
+    "idempotency": ConfigSection(writable=False, hot=True),
     "git": ConfigSection(writable=False),
     # 无模型遗留节：保持「整节拒绝」的错误文案（不落为「未知节」）
     "system": ConfigSection(writable=False),

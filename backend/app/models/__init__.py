@@ -54,6 +54,7 @@ from app.models.build_log_entry import BuildLogEntry
 from app.models.collab_session_override import CollabSessionOverride
 from app.models.collab_invite_revocation import CollabInviteRevocation
 from app.models.revoked_token import RevokedToken
+from app.models.idempotency_record import IdempotencyRecord
 from app.models.repo_search import RepoSearchState
 from app.models.repo_search_chunk import RepoSearchChunk
 from app.models.repo_search_ref import RepoSearchRef
@@ -92,6 +93,7 @@ __all__ = [
     "CollabSessionOverride",
     "CollabInviteRevocation",
     "RevokedToken",
+    "IdempotencyRecord",
     "RepoSearchState",
     "RepoSearchChunk",
     "RepoSearchRef",
