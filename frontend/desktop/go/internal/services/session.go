@@ -31,7 +31,7 @@ type InstanceInfo struct {
 	Version string `json:"version"`
 	// APICompat 是服务端公布的兼容性声明；老实例没有该端点时为空。
 	APICompat *APICompat `json:"apiCompat,omitempty"`
-	// Error 是失败原因（可达时为���）。
+	// Error 是失败原因（可达时为空）。
 	Error string `json:"error,omitempty"`
 }
 

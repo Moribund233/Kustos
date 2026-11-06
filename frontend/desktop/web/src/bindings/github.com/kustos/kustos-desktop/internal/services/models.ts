@@ -64,7 +64,7 @@ export interface InstanceInfo {
     "apiCompat"?: APICompat | null;
 
     /**
-     * Error 是失败原因（可达时为���）。
+     * Error 是失败原因（可达时为空）。
      */
     "error"?: string;
 }

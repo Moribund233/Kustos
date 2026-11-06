@@ -56,6 +56,18 @@ var migrationSteps = [][]string{
 		)`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_instances_base_url ON instances(base_url)`,
 	},
+	// v2：UI 状态。
+	//
+	// 值存 JSON 文本而不是拆列：窗口边界、分栏宽度、上次停留的 surface
+	// 这些形状会随界面演进而变，拆成列意味着每加一个偏好就要写一次迁移。
+	// 按 key 存整块 JSON 让界面自己定义结构，存储层不必跟着改。
+	{
+		`CREATE TABLE IF NOT EXISTS ui_state (
+			key        TEXT PRIMARY KEY,
+			value      TEXT NOT NULL,
+			updated_at INTEGER NOT NULL
+		)`,
+	},
 }
 
 // Open 打开（必要时创建）本地库。
@@ -198,4 +210,69 @@ func (d *DB) GetInstance(id string) (Instance, bool, error) {
 		return Instance{}, false, fmt.Errorf("查询实例失败: %w", err)
 	}
 	return it, true, nil
+}
+
+// GetInstanceByBaseURL 按地址取实例；不存在返回空值与 false。
+//
+// 存在的理由：SaveInstance 按 base_url 冲突时保留原有 id，所以"调用方传入的
+// id"未必是"库里最终那一行的 id"。需要拿到真正生效的行时必须回查一次，
+// 否则前端会拿着一个库里不存在的 id 去登录。
+func (d *DB) GetInstanceByBaseURL(baseURL string) (Instance, bool, error) {
+	var it Instance
+	err := d.sql.QueryRow(`
+		SELECT id, base_url, name, version, tls_pin, created_at
+		FROM instances WHERE base_url = ?`, baseURL).
+		Scan(&it.ID, &it.BaseURL, &it.Name, &it.Version, &it.TLSPin, &it.CreatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Instance{}, false, nil
+	}
+	if err != nil {
+		return Instance{}, false, fmt.Errorf("查询实例失败: %w", err)
+	}
+	return it, true, nil
+}
+
+// SetUIState 按 key 覆盖写入一段 UI 状态。
+//
+// Args:
+//
+//	key:   状态标识（如 "window.main"），调用方约定，存储层不解释
+//	value: 任意 JSON 文本，原样保存
+//
+// Returns:
+//
+//	写入失败时返回错误。
+func (d *DB) SetUIState(key, value string) error {
+	if key == "" {
+		return errors.New("UI 状态 key 不能为空")
+	}
+	_, err := d.sql.Exec(`
+		INSERT INTO ui_state (key, value, updated_at)
+		VALUES (?, ?, ?)
+		ON CONFLICT(key) DO UPDATE SET
+			value = excluded.value,
+			updated_at = excluded.updated_at`,
+		key, value, time.Now().Unix())
+	if err != nil {
+		return fmt.Errorf("保存 UI 状态失败: %w", err)
+	}
+	return nil
+}
+
+// GetUIState 读取一段 UI 状态。
+//
+// Returns:
+//
+//	值、是否命中、错误。未命中时返回空串与 false——首次启动就该走默认值，
+//	而不是让调用方把"没有记录"当成错误处理。
+func (d *DB) GetUIState(key string) (string, bool, error) {
+	var value string
+	err := d.sql.QueryRow(`SELECT value FROM ui_state WHERE key = ?`, key).Scan(&value)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, fmt.Errorf("读取 UI 状态失败: %w", err)
+	}
+	return value, true, nil
 }

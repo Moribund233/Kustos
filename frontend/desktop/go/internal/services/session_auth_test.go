@@ -236,6 +236,161 @@ func TestAddInstanceIsStable(t *testing.T) {
 	}
 }
 
+// 添加实例必须把地址同步给 bridge 的上游。
+//
+// 不同步的话，界面能登录成功，但之后每个接口请求都会打到占位上游——
+// 表现为"登录成功了但界面全是空的"。
+func TestAddInstanceSyncsUpstream(t *testing.T) {
+	svc, srv, _, _ := newAuthTestService(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"title":"实例","version":"1.0"}`))
+			return
+		}
+		http.NotFound(w, r)
+	})
+
+	var got string
+	svc.UpstreamSetter = func(base string) error {
+		got = base
+		return nil
+	}
+
+	svc.AddInstance(srv.URL)
+
+	if got != srv.URL {
+		t.Fatalf("上游应被同步为 %q，实际 %q", srv.URL, got)
+	}
+}
+
+// 切换实例同样要同步上游，否则界面会继续读上一台实例的数据。
+func TestSetActiveInstanceSyncsUpstream(t *testing.T) {
+	db, err := store.Open(":memory:")
+	if err != nil {
+		t.Fatalf("打开内存库失败: %v", err)
+	}
+	defer func() { _ = db.Close() }()
+
+	kc := keychain.NewCompositeWith(keychain.NewMemoryStore(), keychain.NewMemoryStore())
+	svc := NewSessionServiceWith(db, kc)
+
+	_ = db.SaveInstance(store.Instance{ID: "a", BaseURL: "https://a.example"})
+	_ = db.SaveInstance(store.Instance{ID: "b", BaseURL: "https://b.example"})
+
+	var got string
+	svc.UpstreamSetter = func(base string) error {
+		got = base
+		return nil
+	}
+
+	if err := svc.SetActiveInstance("b"); err != nil {
+		t.Fatalf("切换失败: %v", err)
+	}
+	if got != "https://b.example" {
+		t.Fatalf("上游应切到 b，实际 %q", got)
+	}
+}
+
+// 切换失败时不能改动上游：界面不该因为一次失败的切换而失去数据源。
+func TestSetActiveInstanceFailureKeepsUpstream(t *testing.T) {
+	db, err := store.Open(":memory:")
+	if err != nil {
+		t.Fatalf("打开内存库失败: %v", err)
+	}
+	defer func() { _ = db.Close() }()
+
+	kc := keychain.NewCompositeWith(keychain.NewMemoryStore(), keychain.NewMemoryStore())
+	svc := NewSessionServiceWith(db, kc)
+
+	called := false
+	svc.UpstreamSetter = func(string) error {
+		called = true
+		return nil
+	}
+
+	if err := svc.SetActiveInstance("nope"); err == nil {
+		t.Fatal("不存在的实例应报错")
+	}
+	if called {
+		t.Fatal("切换失败时不应改动上游")
+	}
+}
+
+// 添加实例必须同时把它设为活动实例。
+//
+// 否则前端拿到"实例已保存"却查不到活动实例，会再次渲染连接页——
+// 用户刚填完地址又被弹回同一个表单，永远走不到登录页。
+func TestAddInstanceBecomesActive(t *testing.T) {
+	svc, srv, _, _ := newAuthTestService(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"title":"实例","version":"1.0"}`))
+			return
+		}
+		http.NotFound(w, r)
+	})
+
+	added, info := svc.AddInstance(srv.URL)
+	if !info.Reachable {
+		t.Fatalf("实例应可达: %+v", info)
+	}
+
+	active, ok, err := svc.ActiveInstance()
+	if err != nil {
+		t.Fatalf("查询活动实例失败: %v", err)
+	}
+	if !ok {
+		t.Fatal("添加实例后应成为活动实例，否则前端会卡在连接页")
+	}
+	if active.ID != added.ID {
+		t.Fatalf("活动实例应为刚添加的那台: %q vs %q", active.ID, added.ID)
+	}
+}
+
+// 不可达的实例不应被设为活动实例：否则前端会对着一个连不上的地址渲染主界面。
+func TestAddUnreachableInstanceDoesNotBecomeActive(t *testing.T) {
+	svc, _, _, _ := newAuthTestService(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+
+	_, info := svc.AddInstance("http://127.0.0.1:1")
+	if info.Reachable {
+		t.Fatal("不可达的地址不应报告可达")
+	}
+
+	if _, ok, _ := svc.ActiveInstance(); ok {
+		t.Fatal("不可达的实例不应成为活动实例")
+	}
+}
+
+// 切换实例：SetActiveInstance 应改变活动实例而不需要重新添加。
+func TestSetActiveInstance(t *testing.T) {
+	db, err := store.Open(":memory:")
+	if err != nil {
+		t.Fatalf("打开内存库失败: %v", err)
+	}
+	defer func() { _ = db.Close() }()
+
+	kc := keychain.NewCompositeWith(keychain.NewMemoryStore(), keychain.NewMemoryStore())
+	svc := NewSessionServiceWith(db, kc)
+
+	_ = db.SaveInstance(store.Instance{ID: "a", BaseURL: "https://a.example"})
+	_ = db.SaveInstance(store.Instance{ID: "b", BaseURL: "https://b.example"})
+
+	if err := svc.SetActiveInstance("b"); err != nil {
+		t.Fatalf("切换失败: %v", err)
+	}
+	active, ok, _ := svc.ActiveInstance()
+	if !ok || active.ID != "b" {
+		t.Fatalf("活动实例应为 b，实际 %+v（ok=%v）", active, ok)
+	}
+
+	// 不存在的实例不能被设为活动实例：否则界面会显示一个查不到的数据源。
+	if err := svc.SetActiveInstance("nope"); err == nil {
+		t.Fatal("不存在的实例应报错")
+	}
+}
+
 // 不同地址必须是不同行——早期实现用手写折叠哈希，两台不同实例
 // 会碰撞成同一个 ID 并互相覆盖。
 func TestDifferentInstancesDoNotCollide(t *testing.T) {

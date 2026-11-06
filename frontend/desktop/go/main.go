@@ -46,20 +46,49 @@ func main() {
 	}
 	defer func() { _ = db.Close() }()
 
+	sessionSvc := services.NewSessionServiceWith(db, keychain.NewComposite())
+
 	desktop, err := app.New(app.Options{
 		Assets:   assets,
 		AssetDir: "web/dist",
-		Services: []application.Service{
-			application.NewService(services.NewSessionServiceWith(db, keychain.NewComposite())),
-		},
+		DB:       db,
+		Services: []application.Service{application.NewService(sessionSvc)},
 	})
 	if err != nil {
 		log.Fatalf("初始化桌面端失败: %v", err)
 	}
 
+	// 会话层负责决定"现在用哪台实例"，bridge 负责把请求发过去。把后者注入
+	// 给前者，用户添加或切换实例时上游才会跟着变；否则界面能登录成功，
+	// 但之后所有接口请求都打在占位地址上。
+	sessionSvc.UpstreamSetter = desktop.SetUpstream
+
+	// 上次用过的实例在启动时就接到 bridge 上：否则用户看到的界面虽然还在，
+	// 但所有接口请求都会打到占位上游而失败，得手动重连一次才恢复。
+	if err := restoreActiveUpstream(db, desktop); err != nil {
+		// 不是致命错误：界面会以"未连接实例"起步，用户仍可重新添加。
+		log.Printf("恢复上次实例失败: %v", err)
+	}
+
 	if err := desktop.Run(); err != nil {
 		log.Fatalf("运行桌面端失败: %v", err)
 	}
+}
+
+// restoreActiveUpstream 把上次使用的实例地址接到 bridge 上。
+//
+// 只取最近添加的一台：多实例并存是常态，但"上次用的那台"没有单独记录，
+// 而按添加时间取最后一台在单实例使用时与用户预期一致。
+// 真正的多实例切换由界面上的切换器完成，那里会显式调用 SetUpstream。
+func restoreActiveUpstream(db *store.DB, desktop *app.Desktop) error {
+	list, err := db.ListInstances()
+	if err != nil {
+		return fmt.Errorf("读取实例列表失败: %w", err)
+	}
+	if len(list) == 0 {
+		return nil
+	}
+	return desktop.SetUpstream(list[len(list)-1].BaseURL)
 }
 
 // localDBPath 返回本地库路径。

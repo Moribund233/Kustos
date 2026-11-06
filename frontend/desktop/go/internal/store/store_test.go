@@ -98,6 +98,84 @@ func TestDeleteInstance(t *testing.T) {
 	}
 }
 
+// 按 base_url 读回：保存后必须能拿到库里真正生效的那一行。
+//
+// upsert 按 base_url 冲突时保留原有 id，因此"我传进去的 id"未必是
+// "库里最终那一行的 id"，调用方不能拿前者当后者用。
+func TestGetInstanceByBaseURLReturnsPersistedRow(t *testing.T) {
+	db := newTestDB(t)
+
+	// 先用手工 id 存一行，再用另一个 id 存同一地址（触发 upsert 冲突）。
+	if err := db.SaveInstance(Instance{ID: "manual", BaseURL: "https://a.example", Name: "旧"}); err != nil {
+		t.Fatalf("保存失败: %v", err)
+	}
+	if err := db.SaveInstance(Instance{ID: "derived", BaseURL: "https://a.example", Name: "新"}); err != nil {
+		t.Fatalf("保存失败: %v", err)
+	}
+
+	got, ok, err := db.GetInstanceByBaseURL("https://a.example")
+	if err != nil {
+		t.Fatalf("查询失败: %v", err)
+	}
+	if !ok {
+		t.Fatal("应命中")
+	}
+	if got.ID != "manual" {
+		t.Fatalf("冲突时应保留原有 id，实际 %q", got.ID)
+	}
+	if got.Name != "新" {
+		t.Fatalf("其余字段应被更新，实际 %q", got.Name)
+	}
+}
+
+func TestGetInstanceByBaseURLNotFound(t *testing.T) {
+	db := newTestDB(t)
+	_, ok, err := db.GetInstanceByBaseURL("https://nope.example")
+	if err != nil {
+		t.Fatalf("不应报错: %v", err)
+	}
+	if ok {
+		t.Fatal("不应命中")
+	}
+}
+
+// UI 状态按 key 覆盖写：同一个 key 再存一次应更新而不是插入第二行。
+func TestSetUIStateOverwrites(t *testing.T) {
+	db := newTestDB(t)
+
+	if err := db.SetUIState("window.main", `{"width":1440}`); err != nil {
+		t.Fatalf("写入失败: %v", err)
+	}
+	if err := db.SetUIState("window.main", `{"width":1920}`); err != nil {
+		t.Fatalf("覆盖写失败: %v", err)
+	}
+
+	raw, ok, err := db.GetUIState("window.main")
+	if err != nil {
+		t.Fatalf("读取失败: %v", err)
+	}
+	if !ok {
+		t.Fatal("应命中")
+	}
+	if raw != `{"width":1920}` {
+		t.Fatalf("应取最后一次写入，实际 %q", raw)
+	}
+}
+
+func TestGetUIStateMissing(t *testing.T) {
+	db := newTestDB(t)
+	raw, ok, err := db.GetUIState("nope")
+	if err != nil {
+		t.Fatalf("缺失不应报错: %v", err)
+	}
+	if ok {
+		t.Fatalf("不应命中，实际 %q", raw)
+	}
+	if raw != "" {
+		t.Fatalf("缺失时值应为空串，实际 %q", raw)
+	}
+}
+
 // 迁移必须幂等：重开同一个库不能重复建表或失败。
 func TestMigrateIsIdempotent(t *testing.T) {
 	db := newTestDB(t)

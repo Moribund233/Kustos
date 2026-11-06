@@ -125,3 +125,22 @@ export function RemoveInstance(id: string): $CancellablePromise<void> {
 export function RestoreSession(instanceID: string): $CancellablePromise<[$models.Credentials, boolean]> {
     return $Call.ByID(3629595638, instanceID);
 }
+
+/**
+ * SetActiveInstance 切换当前使用的实例。
+ * 
+ * Args:
+ * 
+ * 	id: 目标实例 ID
+ * 
+ * Returns:
+ * 
+ * 	实例不存在时返回错误，且保持原有活动实例不变——界面不该因为一次
+ * 	失败的切换而失去数据源。
+ * 
+ * 切换会清掉内存里的 access token：token 属于特定实例，
+ * 带着上一台的 token 去请求新实例只会换来一个 401。
+ */
+export function SetActiveInstance(id: string): $CancellablePromise<void> {
+    return $Call.ByID(2277198133, id);
+}

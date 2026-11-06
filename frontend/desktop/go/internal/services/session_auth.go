@@ -33,6 +33,12 @@ type SessionService struct {
 	store    *store.DB
 	keychain *keychain.Composite
 
+	// UpstreamSetter 把活动实例的地址同步给 bridge 的反代上游。
+	//
+	// 用导出字段而不是方法：绑定生成器会把所有导出方法暴露成前端 API，
+	// 那等于让 JS 能改写上游地址。字段不参与绑定生成，装配层启动时赋值即可。
+	UpstreamSetter func(string) error
+
 	// mu 保护以下内存态。
 	mu sync.RWMutex
 	// activeInstanceID 是当前使用的实例（多实例并存是自托管产品的常态）。
@@ -88,6 +94,19 @@ func NewSessionServiceWith(db *store.DB, kc *keychain.Composite) *SessionService
 	}
 }
 
+// syncUpstream 把实例地址同步给 bridge 的反代上游。
+//
+// 上游切换失败意味着界面上的接口请求会打到旧地址，但用户至少还能看到
+// 实例已添加并在下次重试——因此这里不把错误抛给调用方。
+func (s *SessionService) syncUpstream(baseURL string) {
+	// 读字段不加锁：它在装配阶段一次性写入，此后只读。
+	// 加锁会与下面的 mu 使用顺序耦合，反而更容易出错。
+	setter := s.UpstreamSetter
+	if setter != nil && baseURL != "" {
+		_ = setter(baseURL)
+	}
+}
+
 /* ------------------------------------------------------------------ */
 /* 实例管理                                                            */
 /* ------------------------------------------------------------------ */
@@ -118,7 +137,55 @@ func (s *SessionService) AddInstance(baseURL string) (store.Instance, InstanceIn
 		it.Name = it.BaseURL
 	}
 	_ = s.store.SaveInstance(it)
-	return it, info
+
+	// 回查库里真正生效的那一行：SaveInstance 按 base_url 冲突时保留原有 id，
+	// 此时上面算出的 id 在库里并不存在，拿它当活动实例会让后续登录报"实例不存在"。
+	persisted, ok, err := s.store.GetInstanceByBaseURL(it.BaseURL)
+	if err != nil || !ok {
+		persisted = it
+	}
+
+	// 添加即切换：前端拿到"实例已保存"后立刻要查活动实例来渲染登录页，
+	// 这里不设置就会让用户刚填完地址又被弹回同一个表单。
+	s.mu.Lock()
+	s.activeInstanceID = persisted.ID
+	s.mu.Unlock()
+
+	// 同步给 bridge：不加这一步，登录成功后所有接口请求都会打到占位上游。
+	s.syncUpstream(persisted.BaseURL)
+
+	return persisted, info
+}
+
+// SetActiveInstance 切换当前使用的实例。
+//
+// Args:
+//
+//	id: 目标实例 ID
+//
+// Returns:
+//
+//	实例不存在时返回错误，且保持原有活动实例不变——界面不该因为一次
+//	失败的切换而失去数据源。
+//
+// 切换会清掉内存里的 access token：token 属于特定实例，
+// 带着上一台的 token 去请求新实例只会换来一个 401。
+func (s *SessionService) SetActiveInstance(id string) error {
+	it, ok, err := s.store.GetInstance(id)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("实例不存在: %s", id)
+	}
+
+	s.mu.Lock()
+	s.activeInstanceID = id
+	s.accessToken = ""
+	s.mu.Unlock()
+
+	s.syncUpstream(it.BaseURL)
+	return nil
 }
 
 // RemoveInstance 删除实例并清理其凭据。
@@ -257,6 +324,12 @@ func (s *SessionService) AccessToken() string {
 //
 // 返回凭据；无可用 refresh 时返回 false（不视为错误——首次启动就是这样）。
 func (s *SessionService) RestoreSession(instanceID string) (Credentials, bool) {
+	// 先对上上游：恢复会话之后界面立刻要发接口请求，此时 bridge 必须
+	// 已经指向这台实例，否则用户的每次请求都打在占位地址上。
+	if it, ok, err := s.store.GetInstance(instanceID); err == nil && ok {
+		s.syncUpstream(it.BaseURL)
+	}
+
 	refresh, err := s.keychain.Get(refreshKey(instanceID))
 	if err != nil || refresh == "" {
 		return Credentials{}, false

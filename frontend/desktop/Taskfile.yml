@@ -65,6 +65,15 @@ tasks:
     cmds:
       - pnpm typecheck
 
+  # 绑定由生成器产出，提交进仓库（见设计文档的代码组织）。
+  # 必须显式带上 `.` 与 `./internal/...`：生成器靠扫描 application.NewService
+  # 的调用点来发现服务，而调用点在根包 main.go 里，只扫 internal 会得到 0 个服务。
+  bindings:
+    desc: 重新生成 TypeScript 绑定（Go 侧方法签名变化后必须跑）
+    dir: go
+    cmds:
+      - wails3 generate bindings -ts -i -d ../web/src/bindings . ./internal/...
+
   check:
     desc: 提交前检查（vet + 单测 + 前端类型检查）
     cmds:

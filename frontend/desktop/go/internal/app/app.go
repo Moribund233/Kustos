@@ -11,8 +11,15 @@ import (
 	"net/http"
 
 	"github.com/kustos/kustos-desktop/internal/bridge"
+	"github.com/kustos/kustos-desktop/internal/platform/singleinstance"
+	"github.com/kustos/kustos-desktop/internal/store"
+	"github.com/kustos/kustos-desktop/internal/windowstate"
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 )
+
+// mainWindowKey 是主窗口状态在本地库里的 key。
+const mainWindowKey = "window.main"
 
 // Options 是装配参数。
 type Options struct {
@@ -22,7 +29,10 @@ type Options struct {
 	AssetDir string
 	// Services 是要绑定给前端的能力服务。
 	Services []application.Service
-	// Upstream 是默认实例地址；为空时不启动 bridge（首次启动由用户填地址）。
+	// DB 是本地库，用于窗口状态持久化。
+	DB *store.DB
+	// Upstream 是默认实例地址；为空时 bridge 仍会启动，指向一个占位地址，
+	// 由 SetUpstream 在用户选定实例后替换。
 	Upstream string
 }
 
@@ -30,9 +40,23 @@ type Options struct {
 type Desktop struct {
 	app    *application.App
 	bridge *bridge.Server
+	window *application.WebviewWindow
+	saver  *windowstate.Saver
+	db     *store.DB
+
+	// screens 返回当前可用屏幕，抽出来是为了让装配逻辑可测试。
+	screens func() []windowstate.Rect
 }
 
 // New 装配并返回桌面端实例（不启动事件循环）。
+//
+// Args:
+//
+//	opts: 装配参数
+//
+// Returns:
+//
+//	装配好的桌面端；前端产物缺失或 bridge 启动失败时返回错误。
 func New(opts Options) (*Desktop, error) {
 	dist, err := fs.Sub(opts.Assets, opts.AssetDir)
 	if err != nil {
@@ -43,22 +67,28 @@ func New(opts Options) (*Desktop, error) {
 	// 这是"前端代码与 Web 同构"的前提：共享层不必为桌面端加传输分支。
 	assets := http.FileServer(http.FS(dist))
 
-	d := &Desktop{}
+	d := &Desktop{db: opts.DB, screens: systemScreens}
 
-	// bridge 只在已知实例地址时启动；首次启动由用户在界面上填地址，
-	// 探活走 Go 直连（Probe），不依赖 bridge。
-	if opts.Upstream != "" {
-		b, err := bridge.New(opts.Upstream, assets)
-		if err != nil {
-			return nil, fmt.Errorf("启动 bridge 失败: %w", err)
-		}
-		d.bridge = b
+	// bridge 始终启动，即使还不知道上游地址：窗口必须加载到 bridge 的地址，
+	// 否则 WebView 里的 fetch("/api/v1/...") 会打到 Wails 资产服务器上变成 404。
+	// 未选定实例时先指向一个明确的占位上游，等用户填完地址再 SetUpstream。
+	upstream := opts.Upstream
+	if upstream == "" {
+		upstream = placeholderUpstream
 	}
+	b, err := bridge.New(upstream, assets)
+	if err != nil {
+		return nil, fmt.Errorf("启动 bridge 失败: %w", err)
+	}
+	d.bridge = b
 
 	app := application.New(application.Options{
 		Name:        "Kustos Desktop",
 		Description: "Kustos 桌面端：改、跑、收的工作台",
 		Services:    opts.Services,
+		// 单实例：常驻应用被双击第二次时唤出已有窗口，而不是再起一个进程
+		// 各自持有一份本地库连接，在 UI 状态上互相覆盖。
+		SingleInstance: singleinstance.Options(d.handleSecondLaunch),
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(opts.Assets),
 		},
@@ -67,22 +97,111 @@ func New(opts Options) (*Desktop, error) {
 			// 当前先按"关窗退出"处理，避免留下半成品行为。
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
 		},
+		OnShutdown: d.persistWindowState,
 	})
 	d.app = app
 
-	// 主窗口：默认 1440×900。桌面端面向大屏常驻使用，
-	// 窗口尺寸按信息密度优先取值，而不是网页常见的窄视口。
-	app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:  "Kustos",
-		Width:  1440,
-		Height: 900,
-		// 骨架阶段不设 URL，由 Wails 的资产服务器提供 index.html；
-		// 接入 bridge 后改为 bridge 的地址以取得同源能力。
-		URL:              "/",
-		BackgroundColour: application.NewRGB(10, 17, 21), // --color-ink-900
-	})
-
+	d.createMainWindow()
 	return d, nil
+}
+
+// placeholderUpstream 是尚未选定实例时的占位上游。
+//
+// 用保留的不可路由地址而不是空串：bridge.New 要求合法 URL，
+// 且任何真实请求都应当明确失败，而不是被悄悄发去某个真实主机。
+const placeholderUpstream = "http://127.0.0.1:1"
+
+// createMainWindow 创建主窗口并接上状态保存。
+func (d *Desktop) createMainWindow() {
+	st := windowstate.Restore(d.db, mainWindowKey, d.screens())
+
+	winOpts := application.WebviewWindowOptions{
+		Title: "Kustos",
+		// 窗口加载 bridge 地址而非资产服务器：同源能力是全盘走 bridge 的前提。
+		// 带一次性引导令牌，首个请求据此换取 nonce cookie，之后的请求靠 cookie 校验。
+		URL:              d.bridge.EntryURL(),
+		X:                st.X,
+		Y:                st.Y,
+		Width:            st.Width,
+		Height:           st.Height,
+		BackgroundColour: application.NewRGB(10, 17, 21), // --color-ink-900
+	}
+	if st.Maximised {
+		winOpts.StartState = application.WindowStateMaximised
+	}
+
+	win := d.app.Window.NewWithOptions(winOpts)
+	d.window = win
+
+	// 窗口状态的保存去抖：拖动时 move/resize 会连续触发上百次，
+	// 逐次写库是明显的写放大。
+	d.saver = windowstate.NewSaver(func(s windowstate.State) error {
+		return windowstate.Save(d.db, mainWindowKey, s)
+	}, 0)
+
+	record := func(*application.WindowEvent) {
+		d.saveWindowState()
+	}
+	for _, et := range []events.WindowEventType{
+		events.Common.WindowDidMove,
+		events.Common.WindowDidResize,
+		events.Common.WindowMaximise,
+		events.Common.WindowUnMaximise,
+		events.Common.WindowRestore,
+	} {
+		win.OnWindowEvent(et, record)
+	}
+}
+
+// saveWindowState 读取当前窗口几何并登记一次待保存。
+func (d *Desktop) saveWindowState() {
+	if d.window == nil || d.saver == nil {
+		return
+	}
+	b := d.window.Bounds()
+	st := windowstate.State{
+		X:         b.X,
+		Y:         b.Y,
+		Width:     b.Width,
+		Height:    b.Height,
+		Maximised: d.window.IsMaximised(),
+	}
+	// 最小化时窗口边界会变成 0，存下去等于把窗口尺寸抹掉；
+	// 此时保留上一次的几何，只更新最大化标记。
+	if st.Width < windowstate.MinWidth || st.Height < windowstate.MinHeight {
+		return
+	}
+	d.saver.Schedule(st)
+}
+
+// persistWindowState 在退出前把待写状态落盘。
+//
+// 去抖器可能还在等待窗口内，此时直接退出会把用户最后一次拖动丢掉——
+// 而"拖完就关"恰恰是最常见的路径。
+func (d *Desktop) persistWindowState() {
+	if d.saver != nil {
+		_ = d.saver.Flush()
+		d.saver.Close()
+	}
+}
+
+// handleSecondLaunch 处理第二实例的启动请求。
+//
+// Args:
+//
+//	data: 第二实例传来的参数（来自本机其它进程，按不可信输入处理）
+//
+// 当前没有深链路由，因此只做一件事：把已有窗口唤到前面。
+// 这正是用户双击图标时期望的结果，也避免了第二个进程持有同一份本地库。
+func (d *Desktop) handleSecondLaunch(_ application.SecondInstanceData) {
+	// 参数来自本机其它进程，一律视为不可信。当前没有深链路由，因此不解析
+	// 任何参数，只做用户双击图标时期望的那件事：把已有窗口唤到前面。
+	// 这样也避免了第二个进程持有同一份本地库、在 UI 状态上互相覆盖。
+	if d.window == nil {
+		return
+	}
+	d.window.Show()
+	d.window.Focus()
 }
 
 // Run 启动事件循环（阻塞直到退出）。
@@ -101,4 +220,16 @@ func (d *Desktop) BridgeURL() string {
 		return ""
 	}
 	return d.bridge.BaseURL()
+}
+
+// SetUpstream 切换 bridge 的上游实例。
+//
+// Returns:
+//
+//	地址非法时返回错误；失败时保留原有上游，不影响已连接的实例。
+func (d *Desktop) SetUpstream(raw string) error {
+	if d.bridge == nil {
+		return fmt.Errorf("bridge 未启动")
+	}
+	return d.bridge.SetUpstream(raw)
 }

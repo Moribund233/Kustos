@@ -10,11 +10,12 @@
 //  2. refresh token 只在 Go 与内存里，永不进 JS；
 //  3. CI 能不开窗口测：go test 起 bridge，Playwright 指过去跑真实链路。
 //
-// 安全约束（缺一不可，见 ServeHTTP 与 New）：
+// 安全约束（缺一不可，见 buildHandler 与 New）：
 //   - 只绑 127.0.0.1，端口由系统分配；
 //   - 每次启动生成 nonce，作为 HttpOnly + SameSite=Strict cookie 下发；
+//   - 首帧没有 cookie，靠 EntryURL 的一次性引导令牌换发，令牌用后即废；
 //   - 不返回任何 CORS 头，等于只接受同源；
-//   - 只反代白名单前缀，其余 404；
+//   - 只反代白名单前缀与只读公开面 /health，其余 404；
 //   - 显式拒绝 /api/app/（实例管理面，桌面端结构上不该有这条路）；
 //   - 反代时强制覆写 Origin。
 package bridge
@@ -30,6 +31,8 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -41,19 +44,28 @@ const (
 	nonceHeaderName = "X-Kustos-Bridge"
 	// nonceBytes 是 nonce 长度（32 字节）。
 	nonceBytes = 32
+	// entryTokenParam 是入口地址上的一次性引导令牌参数名。
+	entryTokenParam = "__bridge"
 )
 
 // allowedPrefixes 是唯一允许反代到上游的路径前缀。
 //
 // `/api/app/` **不在这里**：那是网关按 KUSTOS_ADMIN_ALLOWED_SOURCES 拦掉的
-// 实例管理面，桌面端跑在终端用户机器上，出口地址不可控，结构上就过不了那层
-// 桌面端跑在终端用户机器上，出口地址不可控，结构上过不了那层。
+// 实例管理面，桌面端跑在终端用户机器上，出口地址不可控，结构上就过不了那层。
 // 让它 404 比打到上游换一个 403 更早、更清楚。
 var allowedPrefixes = []string{
 	"/api/v1/",
 	"/ws",
 	"/ws/collab",
 	"/lsp/",
+}
+
+// publicExactPaths 是前缀白名单之外、按精确匹配放行的只读公开面。
+//
+// `/health` 是网关与后端的无鉴权探活端点，桌面端允许只读它；用精确匹配而不是
+// 前缀，是为了不让 `/healthz`、`/health/live` 这类相邻路径顺带继承放行。
+var publicExactPaths = []string{
+	"/health",
 }
 
 // rejectedPrefixes 是显式拒绝的路径：命中即 404，且优先于白名单判断。
@@ -66,6 +78,16 @@ type Server struct {
 	listener net.Listener
 	nonce    string
 	handler  http.Handler
+
+	// upstream 会被 SetUpstream 在运行时替换，反代每次请求读当前值：
+	// 切换实例不该重建监听，否则 WebView 的地址与 cookie 都会失效。
+	// 用 atomic 而非锁，避免改写阻塞在途请求。
+	upstream atomic.Pointer[url.URL]
+
+	// entryMu 保护 entryToken 的换发与作废：作废必须是"比较并清空"的
+	// 原子动作，否则并发导航会让同一个令牌成功两次。
+	entryMu    sync.Mutex
+	entryToken string
 }
 
 // New 创建并开始监听 bridge。
@@ -77,11 +99,12 @@ type Server struct {
 //
 // Returns:
 //
-//	已监听的 bridge；端口由系统分配，调用方通过 BaseURL 取得。
+//	已监听的 bridge；端口由系统分配，调用方通过 BaseURL 取根地址、
+//	通过 EntryURL 取 WebView 首次导航的入口地址。
 func New(upstream string, extra http.Handler) (*Server, error) {
-	base, err := url.Parse(strings.TrimRight(upstream, "/"))
-	if err != nil || base.Scheme == "" || base.Host == "" {
-		return nil, fmt.Errorf("上游地址非法: %q", upstream)
+	base, err := parseUpstream(upstream)
+	if err != nil {
+		return nil, err
 	}
 
 	nonce, err := newNonce()
@@ -95,8 +118,28 @@ func New(upstream string, extra http.Handler) (*Server, error) {
 		return nil, fmt.Errorf("监听回环端口失败: %w", err)
 	}
 
-	proxy := &httputil.ReverseProxy{
+	s := &Server{listener: listener, nonce: nonce}
+	s.upstream.Store(base)
+
+	entryToken, err := newNonce()
+	if err != nil {
+		_ = listener.Close()
+		return nil, fmt.Errorf("生成入口令牌失败: %w", err)
+	}
+	s.entryToken = entryToken
+
+	s.handler = s.buildHandler(s.newProxy(), extra)
+	return s, nil
+}
+
+// newProxy 构造反代。
+//
+// 上游地址不透传到闭包里，而是每次请求从 Server 读当前值：
+// 切换实例时只换地址，不重建监听，WebView 的 origin 与已下发 cookie 都保持有效。
+func (s *Server) newProxy() *httputil.ReverseProxy {
+	return &httputil.ReverseProxy{
 		Rewrite: func(r *httputil.ProxyRequest) {
+			base := s.upstream.Load()
 			r.SetURL(base)
 			// 强制覆写 Origin：上游若按 Origin 做 CSRF 判定，桌面端的
 			// http://127.0.0.1:<port> 会被误判成跨站来源。
@@ -109,16 +152,21 @@ func New(upstream string, extra http.Handler) (*Server, error) {
 			_, _ = fmt.Fprintf(w, `{"detail":%q}`, "实例不可达: "+err.Error())
 		},
 	}
-
-	s := &Server{listener: listener, nonce: nonce}
-	s.handler = s.buildHandler(proxy, extra)
-	return s, nil
 }
 
 // buildHandler 组装路由。
 func (s *Server) buildHandler(proxy http.Handler, extra http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 1. 同源校验：非本 bridge 发起的请求一律 401。
+		// 1. 首帧引导：WebView 第一次导航时还没有 nonce cookie，
+		//    只能凭入口地址上的令牌放行一次，并在这里补发 cookie。
+		//    其余请求仍要过下面的同源校验。
+		if s.consumeEntryToken(r) {
+			http.SetCookie(w, s.NonceCookie())
+			serveLocal(w, r, extra)
+			return
+		}
+
+		// 2. 同源校验：非本 bridge 发起的请求一律 401。
 		//    这挡住本机其它进程借用代理访问用户实例。
 		if !s.sameOrigin(r) {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -126,7 +174,7 @@ func (s *Server) buildHandler(proxy http.Handler, extra http.Handler) http.Handl
 		}
 
 		path := r.URL.Path
-		// 2. 显式拒绝管理面，先于白名单（否则 /api/v1/ 之类会误放行）。
+		// 3. 显式拒绝管理面，先于白名单（否则 /api/v1/ 之类会误放行）。
 		for _, p := range rejectedPrefixes {
 			if strings.HasPrefix(path, p) {
 				http.NotFound(w, r)
@@ -134,20 +182,61 @@ func (s *Server) buildHandler(proxy http.Handler, extra http.Handler) http.Handl
 			}
 		}
 
-		// 3. 非 API 前缀走本地静态资源（桌面端自有产物）。
-		if !hasAnyPrefix(path, allowedPrefixes) {
-			if extra != nil {
-				extra.ServeHTTP(w, r)
-				return
-			}
-			http.NotFound(w, r)
+		// 4. 前缀白名单与只读公开面之外，走本地静态资源（桌面端自有产物）。
+		if !hasAnyPrefix(path, allowedPrefixes) && !hasAnyExact(path, publicExactPaths) {
+			serveLocal(w, r, extra)
 			return
 		}
 
-		// 4. 白名单前缀反代到上游。不设置任何 CORS 头——没有
+		// 5. 白名单前缀反代到上游。不设置任何 CORS 头——没有
 		//    Access-Control-Allow-Origin 就等于只接受同源。
 		proxy.ServeHTTP(w, r)
 	})
+}
+
+// consumeEntryToken 判断这次请求是否携带当前的一次性引导令牌。
+//
+// 只有 `GET /` 接受它：令牌换到的是"同源身份"，不能当绕过同源校验的通行证
+// 去访问其它路径。命中即作废，与读取合成一个临界区，否则并发导航会各成功一次。
+//
+// Args:
+//
+//	r: 待校验请求
+//
+// Returns:
+//
+//	令牌有效且已被本次调用消费时为 true。
+func (s *Server) consumeEntryToken(r *http.Request) bool {
+	if r.URL.Path != "/" || r.Method != http.MethodGet {
+		return false
+	}
+	// 令牌同样要求回环 Host：DNS 重绑定下浏览器会把恶意域名的 Host 送进来，
+	// 一旦这里放行，等于把同源身份交给了任意网页。
+	if !isLoopbackHost(r.Host) {
+		return false
+	}
+	got := r.URL.Query().Get(entryTokenParam)
+	if got == "" {
+		return false
+	}
+
+	s.entryMu.Lock()
+	defer s.entryMu.Unlock()
+	// 常量时间比较：令牌与 nonce 同源风险，不该按字节提前返回。
+	if s.entryToken == "" || subtle.ConstantTimeCompare([]byte(got), []byte(s.entryToken)) != 1 {
+		return false
+	}
+	s.entryToken = ""
+	return true
+}
+
+// serveLocal 把请求交给本地静态资源处理器，没有处理器时 404。
+func serveLocal(w http.ResponseWriter, r *http.Request, extra http.Handler) {
+	if extra != nil {
+		extra.ServeHTTP(w, r)
+		return
+	}
+	http.NotFound(w, r)
 }
 
 // sameOrigin 校验请求来自本 bridge。
@@ -159,8 +248,14 @@ func (s *Server) sameOrigin(r *http.Request) bool {
 	if err != nil || subtle.ConstantTimeCompare([]byte(cookie.Value), []byte(s.nonce)) != 1 {
 		return false
 	}
+	return isLoopbackHost(r.Host)
+}
 
-	host := r.Host
+// isLoopbackHost 判断请求的 Host 是否指向回环。
+//
+// DNS 重绑定下恶意域名解析到 127.0.0.1 时，浏览器依然会带 cookie，
+// 因此凡是"凭凭据放行"的判定都要同时过这一关。
+func isLoopbackHost(host string) bool {
 	if h, _, err := net.SplitHostPort(host); err == nil {
 		host = h
 	}
@@ -170,6 +265,69 @@ func (s *Server) sameOrigin(r *http.Request) bool {
 // BaseURL 返回 bridge 的根地址。
 func (s *Server) BaseURL() string {
 	return "http://" + s.listener.Addr().String()
+}
+
+// EntryURL 返回带一次性引导令牌的入口地址，供 WebView 首次导航使用。
+//
+// 首帧还没有 nonce cookie，直接打开 BaseURL 会被同源校验挡成 401；入口地址
+// 让浏览器先拿到 cookie，此后所有请求（含静态资源与 /api）靠 cookie 通行。
+// 令牌只对 `GET /` 有效、且用一次即废，所以每次打开窗口都应重新取一次。
+//
+// Returns:
+//
+//	形如 http://127.0.0.1:PORT/?__bridge=<token> 的完整地址。
+//	换发不会失败（新令牌来自 crypto/rand；极端失败时沿用旧值并保持可用）。
+func (s *Server) EntryURL() string {
+	token, err := newNonce()
+	if err != nil {
+		// 换发失败不该让窗口打不开：保留上一次未消费的令牌继续用。
+		s.entryMu.Lock()
+		token = s.entryToken
+		s.entryMu.Unlock()
+	} else {
+		s.entryMu.Lock()
+		s.entryToken = token
+		s.entryMu.Unlock()
+	}
+
+	q := url.Values{}
+	q.Set(entryTokenParam, token)
+	return s.BaseURL() + "/?" + q.Encode()
+}
+
+// SetUpstream 在运行时更换反代上游，用于切换实例而不重建监听。
+//
+// Args:
+//
+//	raw: 新的上游实例根地址（如 https://kustos.example.com）；首尾空白与末尾斜杠会被忽略
+//
+// Returns:
+//
+//	地址非法（无法解析、缺 scheme 或 host）时返回错误，且保持原上游不变。
+func (s *Server) SetUpstream(raw string) error {
+	base, err := parseUpstream(raw)
+	if err != nil {
+		return err
+	}
+	s.upstream.Store(base)
+	return nil
+}
+
+// parseUpstream 解析并校验上游地址，供 New 与 SetUpstream 共用同一套规则。
+//
+// Args:
+//
+//	raw: 上游实例根地址，允许首尾空白与末尾斜杠
+//
+// Returns:
+//
+//	解析成功的 *url.URL；缺 scheme 或 host 时返回错误。
+func parseUpstream(raw string) (*url.URL, error) {
+	base, err := url.Parse(strings.TrimRight(strings.TrimSpace(raw), "/"))
+	if err != nil || base.Scheme == "" || base.Host == "" {
+		return nil, fmt.Errorf("上游地址非法: %q", raw)
+	}
+	return base, nil
 }
 
 // NonceCookie 返回首帧要下发的 Set-Cookie 指令。
@@ -211,6 +369,19 @@ func (s *Server) Serve() error {
 func hasAnyPrefix(path string, prefixes []string) bool {
 	for _, p := range prefixes {
 		if strings.HasPrefix(path, p) {
+			return true
+		}
+	}
+	return false
+}
+
+// hasAnyExact 判断路径是否与给定列表中的某一项完全相同。
+//
+// 公开面用精确匹配而非前缀：`/health` 之类的端点旁边往往还有 `/healthz`、
+// `/health/live` 等未审计的相邻路径，前缀放行会把它们一起带出去。
+func hasAnyExact(path string, exact []string) bool {
+	for _, p := range exact {
+		if path == p {
 			return true
 		}
 	}
