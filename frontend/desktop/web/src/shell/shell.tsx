@@ -273,7 +273,7 @@ function Chip({
  * 因此这里用 `data-window-*` 标记，而不是自己调运行时方法：
  * 由 Wails 自己做原生命中测试，才能与拖拽区域的判定保持一致。
  */
-function WindowControls() {
+export function WindowControls() {
   const { t } = useTranslation();
 
   return (
@@ -584,6 +584,7 @@ export function useSurfaceShortcuts(onSelect: (s: Surface) => void, enabled = tr
     return () => window.removeEventListener("keydown", handler);
   }, [onSelect, enabled]);
 }
+
 
 
 

@@ -101,16 +101,50 @@ func openWithDefaultApp(path string) error {
 	return nil
 }
 
+// ErrUnsafeURL 表示链接的协议不在允许范围内。
+var ErrUnsafeURL = errors.New("只允许打开 http/https 链接")
+
+// ValidateExternalURL 校验外部链接是否可安全打开。
+//
+// 只接受 http/https：其它协议（`file:`、`javascript:`、自定义 scheme）
+// 会变成任意代码执行或本地文件读取的入口，而调用方通常是服务端返回的
+// 链接，属于不可信输入。
+//
+// 这个函数**不启动任何进程**，因此可以在测试里直接调用。
+// 校验与执行分开是刻意的：把两者塞进一个函数，测试就必然带副作用——
+// 曾经就是这样，跑一次单测会真的弹出用户的浏览器。
+//
+// Args:
+//
+//	rawURL: 待校验的链接
+//
+// Returns:
+//
+//	规范化后的链接；协议不允许或为空时返回 ErrUnsafeURL。
+func ValidateExternalURL(rawURL string) (string, error) {
+	trimmed := strings.TrimSpace(rawURL)
+	lower := strings.ToLower(trimmed)
+	if !strings.HasPrefix(lower, "http://") && !strings.HasPrefix(lower, "https://") {
+		return "", fmt.Errorf("%w，实际 %q", ErrUnsafeURL, rawURL)
+	}
+	return trimmed, nil
+}
+
 // OpenExternal 用系统浏览器打开 URL。
 //
-// 只接受 http/https：其它协议（file:、javascript:、自定义 scheme）会变成
-// 任意代码执行或本地文件读取的入口，而调用方通常是服务端返回的链接。
+// Args:
+//
+//	rawURL: 要打开的链接
+//
+// Returns:
+//
+//	协议不允许时返回包裹 ErrUnsafeURL 的错误，且**不会启动任何进程**。
 func OpenExternal(rawURL string) error {
-	lower := strings.ToLower(strings.TrimSpace(rawURL))
-	if !strings.HasPrefix(lower, "http://") && !strings.HasPrefix(lower, "https://") {
-		return fmt.Errorf("只允许打开 http/https 链接，实际 %q", rawURL)
+	url, err := ValidateExternalURL(rawURL)
+	if err != nil {
+		return err
 	}
-	return openWithDefaultApp(rawURL)
+	return openWithDefaultApp(url)
 }
 
 // Reveal 在系统文件管理器里定位文件。

@@ -43,7 +43,7 @@ export function Login({
   const result = login.data?.[1];
 
   return (
-    <div className="flex h-full items-center justify-center p-8">
+    <div className="flex flex-1 items-center justify-center p-8">
       <form onSubmit={submit} className="w-full max-w-[380px]">
         <div className="mb-5">
           <h1 className="font-display mb-1 text-lg text-bone">{t("session.loginTitle")} {instance.name || instance.baseUrl}</h1>
@@ -97,5 +97,6 @@ export function Login({
     </div>
   );
 }
+
 
 

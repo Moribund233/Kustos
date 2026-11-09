@@ -8,10 +8,13 @@ import (
 	"testing"
 )
 
-// 这里能测的主要是**判定逻辑**（协议白名单、路径校验），
-// 真正的进程启动在 CI 上不可控，也不该在测试里弹窗口。
+// 这里只测**判定逻辑**（协议白名单、路径校验）。
+//
+// 关键约束：**测试绝不能启动任何外部进程**。曾经这里直接调 OpenExternal
+// 做"正向断言"，结果每次跑单测都会在开发者的机器上弹出浏览器——测试应当
+// 零副作用。协议校验因此被抽成独立的纯函数，正向用例只调它。
 
-func TestOpenExternalRejectsNonHTTPSchemes(t *testing.T) {
+func TestValidateExternalURLRejectsNonHTTPSchemes(t *testing.T) {
 	// 这些是真实的攻击面：服务端返回的链接、用户粘贴的内容都可能带这些前缀。
 	cases := []string{
 		"file:///etc/passwd",
@@ -26,24 +29,45 @@ func TestOpenExternalRejectsNonHTTPSchemes(t *testing.T) {
 	}
 
 	for _, raw := range cases {
-		err := OpenExternal(raw)
+		_, err := ValidateExternalURL(raw)
 		if err == nil {
 			t.Errorf("%q 应被拒绝", raw)
 			continue
 		}
-		if !strings.Contains(err.Error(), "http") {
-			t.Errorf("%q 的错误信息应说明只允许 http/https，实际 %v", raw, err)
+		// 用 errors.Is 而不是字符串匹配：错误文本会变，语义标识不会。
+		if !errors.Is(err, ErrUnsafeURL) {
+			t.Errorf("%q 应返回 ErrUnsafeURL，实际 %v", raw, err)
 		}
 	}
 }
 
-func TestOpenExternalAcceptsHTTPAndHTTPS(t *testing.T) {
-	// 这两种应当通过校验。实际启动浏览器在测试环境里不可控，
-	// 因此只断言"没有被协议校验拦下"。
-	for _, raw := range []string{"https://example.com", "http://127.0.0.1:8000/x"} {
-		err := OpenExternal(raw)
-		if err != nil && strings.Contains(err.Error(), "只允许") {
-			t.Errorf("%q 不应被协议校验拒绝，实际 %v", raw, err)
+func TestValidateExternalURLAcceptsHTTPAndHTTPS(t *testing.T) {
+	// 正向用例只跑校验函数，**不启动浏览器**。
+	cases := []string{
+		"https://example.com",
+		"http://127.0.0.1:8000/x",
+		"  https://kustos.example.com/path?q=1  ",
+	}
+
+	for _, raw := range cases {
+		got, err := ValidateExternalURL(raw)
+		if err != nil {
+			t.Errorf("%q 应通过校验，实际 %v", raw, err)
+			continue
+		}
+		if got != strings.TrimSpace(raw) {
+			t.Errorf("应返回去掉首尾空白的链接，实际 %q", got)
+		}
+	}
+}
+
+// OpenExternal 对非法协议必须**在启动进程之前**就失败。
+//
+// 这条断言的是副作用边界：调用它不会拉起浏览器，因为校验先于执行。
+func TestOpenExternalRejectsBeforeLaunching(t *testing.T) {
+	for _, raw := range []string{"file:///etc/passwd", "javascript:alert(1)", ""} {
+		if err := OpenExternal(raw); !errors.Is(err, ErrUnsafeURL) {
+			t.Errorf("%q 应在启动进程前被拒绝，实际 %v", raw, err)
 		}
 	}
 }

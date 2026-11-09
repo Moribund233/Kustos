@@ -59,34 +59,35 @@
  *   close    → 自定义关闭按钮
  *
  * 该属性会**继承**，因此标题栏里的每个子元素都会成为 caption 区域。
- * 交互元素必须显式覆盖成自己的角色，否则点击会被原生层当成拖动，
- * 表现为"按钮点不动"——这个坑已经踩过一次。
+ *
+ * ⚠️ 顺序与优先级都很关键。下面"退出 caption"的规则带 `[data-wails-drag]`
+ * 前缀（特异性 0,2,1），会盖过裸属性选择器（0,1,0）。因此窗口控制三键的
+ * 规则**必须带上 `[data-wails-drag]` 前缀**，否则会被前者覆盖成 `none`，
+ * 表现为"最小化/最大化/关闭都点不动"——这个坑已经踩过一次。
  */
 [data-wails-drag] {
   --wails-non-client-region: caption;
   user-select: none;
 }
 
-/* 拖拽区里的可交互元素：全部显式退出 caption，恢复正常鼠标事件。 */
-[data-wails-drag] button,
-[data-wails-drag] a,
-[data-wails-drag] input,
-[data-wails-drag] textarea,
-[data-wails-drag] select,
-[data-wails-drag] [role="button"] {
-  --wails-non-client-region: none;
-}
-
-[data-window-minimise] {
+/* 窗口控制三键：必须放在"退出 caption"之后，且带同等前缀以保证胜出。 */
+[data-wails-drag] [data-window-minimise] {
   --wails-non-client-region: minimize;
 }
 
-[data-window-maximise] {
+[data-wails-drag] [data-window-maximise] {
   --wails-non-client-region: maximize;
 }
 
-[data-window-close] {
+[data-wails-drag] [data-window-close] {
   --wails-non-client-region: close;
+}
+
+/* 拖拽区里其余可交互元素：退出 caption，恢复正常鼠标事件。 */
+[data-wails-drag] :where(button, a, input, textarea, select, [role="button"]):not(
+    [data-window-minimise]
+  ):not([data-window-maximise]):not([data-window-close]) {
+  --wails-non-client-region: none;
 }
 
 /**

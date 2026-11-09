@@ -24,6 +24,7 @@ import {
   WorkingCopyList,
   useWorkingCopySurface,
 } from "@/surfaces/working-copy";
+import { FramedNote, WindowFrame } from "@/shell/window-frame";
 import {
   Shell,
   SURFACES,
@@ -142,16 +143,18 @@ function Root() {
   useSurfaceShortcuts(setSurface, phase === "ready");
 
   if (phase === "loading") {
-    return <CenterNote>{t("session.restoring")}</CenterNote>;
+    return <FramedNote>{t("session.restoring")}</FramedNote>;
   }
 
   if (phase === "connect" || forceConnect) {
     return (
-      <ConnectInstance
-        onAdded={() => {
-          handleConnected();
-        }}
-      />
+      <WindowFrame>
+        <ConnectInstance
+          onAdded={() => {
+            handleConnected();
+          }}
+        />
+      </WindowFrame>
     );
   }
 
@@ -159,18 +162,24 @@ function Root() {
     // 活动实例是异步查出来的：首帧必然还没有值。此时若直接回退到连接页，
     // 用户会看到"刚添加成功又被弹回表单"——所以先等这次查询有结果。
     if (activeInstance.isLoading) {
-      return <CenterNote>{t("session.preparingLogin")}</CenterNote>;
+      return <FramedNote>{t("session.preparingLogin")}</FramedNote>;
     }
     // 确实没有活动实例（例如刚启动、还没选）才给连接页。
     if (!instance) {
-      return <ConnectInstance onAdded={handleConnected} />;
+      return (
+        <WindowFrame>
+          <ConnectInstance onAdded={handleConnected} />
+        </WindowFrame>
+      );
     }
     return (
-      <Login
-        instance={instance}
-        onSuccess={handleLoggedIn}
-        onChangeInstance={() => setForceConnect(true)}
-      />
+      <WindowFrame>
+        <Login
+          instance={instance}
+          onSuccess={handleLoggedIn}
+          onChangeInstance={() => setForceConnect(true)}
+        />
+      </WindowFrame>
     );
   }
 
@@ -384,13 +393,8 @@ function baseNameOf(path: string): string {
   return parts[parts.length - 1] ?? path;
 }
 
-function CenterNote({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex h-full items-center justify-center">
-      <p className="text-[12px] text-[var(--color-muted)]">{children}</p>
-    </div>
-  );
-}
+
+
 
 
 

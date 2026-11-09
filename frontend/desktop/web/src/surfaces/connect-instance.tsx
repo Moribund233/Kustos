@@ -38,7 +38,7 @@ export function ConnectInstance({ onAdded }: { onAdded: (id: string, info: Insta
   const info = probe ?? null;
 
   return (
-    <div className="flex h-full items-center justify-center p-8">
+    <div className="flex flex-1 items-center justify-center p-8">
       <form onSubmit={submit} className="w-full max-w-[420px]">
         <h1 className="font-display mb-1 text-lg text-bone">{t("session.connectTitle")}</h1>
         <p className="mb-5 text-[12px] leading-relaxed text-muted">
@@ -119,6 +119,7 @@ function ProbeResult({ info }: { info: InstanceInfo }) {
     </div>
   );
 }
+
 
 
 
