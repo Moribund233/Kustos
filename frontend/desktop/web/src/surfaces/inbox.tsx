@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@/shell/icon";
 import { StatusItem } from "@/shell/shell";
 import { relativeTime } from "@/lib/relative-time";
+import { InboxRequestError } from "@/lib/inbox";
 import {
   SEGMENTS,
   itemsInSegment,
@@ -122,7 +123,7 @@ export function InboxList({ state }: { state: InboxState }) {
 
       <div className="min-h-0 flex-1 overflow-auto">
         {loading && <Hint>{t("inbox.loading")}</Hint>}
-        {!loading && error != null && <Hint tone="rose">{errorText(error, t("inbox.loadFailed"))}</Hint>}
+        {!loading && error != null && <Hint tone="rose">{errorText(error, t, "inbox.loadFailed")}</Hint>}
         {!loading && error == null && segmented.length === 0 && (
           <Hint>{t("inbox.emptySegment")}</Hint>
         )}
@@ -195,7 +196,7 @@ export function InboxDetail({ state }: { state: InboxState }) {
   const item = state.selected;
 
   if (state.loading) {
-    return <p className="p-5 text-[12px] text-[var(--color-muted)]">正在读取…</p>;
+    return <p className="p-5 text-[12px] text-[var(--color-muted)]">{t("inbox.loading")}</p>;
   }
 
   if (!item) {
@@ -241,7 +242,7 @@ export function InboxDetail({ state }: { state: InboxState }) {
 
           {item.targetType && item.targetId && (
             <p className="mt-4 text-[11px] text-[var(--color-faint)]">
-              关联 {item.targetType} · <span className="font-mono">{item.targetId.slice(0, 8)}</span>
+              {t("inbox.related", { type: item.targetType })} · <span className="font-mono">{item.targetId.slice(0, 8)}</span>
             </p>
           )}
         </div>
@@ -339,9 +340,23 @@ function Hint({ children, tone }: { children: React.ReactNode; tone?: "rose" }) 
   );
 }
 
-function errorText(error: unknown, fallback: string): string {
-  if (error instanceof Error) return error.message;
-  return fallback;
+/**
+ * 把请求错误渲染成可读文案。
+ *
+ * 结构化错误按操作类型查翻译键，并保留 HTTP 状态码——"HTTP 401" 对
+ * 排查很关键，而一句"加载失败"没有信息量。其余错误直接用 message。
+ */
+function errorText(
+  error: unknown,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+  fallbackKey: string,
+): string {
+  if (error instanceof InboxRequestError) {
+    const key = `inbox.errors.${error.operation}`;
+    return t(key, { status: error.status });
+  }
+  if (error instanceof Error && error.message !== "") return error.message;
+  return t(fallbackKey);
 }
 
 function segmentLabel(seg: InboxSegment, t: (k: string) => string): string {
@@ -363,6 +378,9 @@ function segmentOfType(n: InboxNotification): InboxSegment {
 }
 
 export { StatusItem };
+
+
+
 
 
 

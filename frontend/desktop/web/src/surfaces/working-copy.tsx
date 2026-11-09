@@ -245,8 +245,8 @@ export function WorkingCopyList({
           type="button"
           onClick={state.refresh}
           disabled={state.refetching}
-          aria-label="重新扫描工作树"
-          title="重新扫描工作树"
+          aria-label={t("status.rescan")}
+          title={t("status.rescan")}
           className="ml-1 text-[var(--color-muted-2)] hover:text-[var(--color-bone-2)] disabled:opacity-40"
         >
           <Icon name="refresh" size={12} />
@@ -256,7 +256,7 @@ export function WorkingCopyList({
       <div className="min-h-0 flex-1 overflow-auto">
         {state.loading && <Hint>{t("workingCopy.loading")}</Hint>}
         {!state.loading && state.error != null && (
-          <Hint tone="rose">{errorText(state.error)}</Hint>
+          <Hint tone="rose">{errorText(state.error, t("workingCopy.errors.readWorktree"))}</Hint>
         )}
 
         {!state.loading && state.error == null && total === 0 && (
@@ -279,7 +279,7 @@ export function WorkingCopyList({
               change={c}
               active={c.path === state.selectedGroup?.path}
               onSelect={() => state.setSelectedPath(c.path)}
-              action="取消暂存"
+              action={t("workingCopy.unstage")}
               onAction={() => state.stage.mutate({ paths: [c.path], staged: false })}
               disabled={state.stage.isPending}
             />
@@ -295,7 +295,7 @@ export function WorkingCopyList({
               change={c}
               active={c.path === state.selectedGroup?.path}
               onSelect={() => state.setSelectedPath(c.path)}
-              action="暂存"
+              action={t("workingCopy.stage")}
               onAction={() => state.stage.mutate({ paths: [c.path], staged: true })}
               disabled={state.stage.isPending}
             />
@@ -311,7 +311,7 @@ export function WorkingCopyList({
               change={c}
               active={c.path === state.selectedGroup?.path}
               onSelect={() => state.setSelectedPath(c.path)}
-              action="暂存"
+              action={t("workingCopy.stage")}
               onAction={() => state.stage.mutate({ paths: [c.path], staged: true })}
               disabled={state.stage.isPending}
             />
@@ -343,7 +343,7 @@ export function WorkingCopyList({
                   onClick={state.add}
                   className="h-6 flex-1 rounded-[5px] border border-[rgba(242,174,91,0.45)] bg-[linear-gradient(180deg,rgba(242,174,91,0.22),rgba(201,122,50,0.18))] text-[11px] text-[var(--color-amber-2)] disabled:opacity-40"
                 >
-                  {state.addingNow ? "加入中…" : "加入"}
+                  {state.addingNow ? t("workingCopy.adding") : t("workingCopy.add")}
                 </button>
                 <button
                   type="button"
@@ -353,12 +353,12 @@ export function WorkingCopyList({
                   }}
                   className="h-6 rounded-[5px] border border-[var(--color-edge-2)] px-2 text-[11px] text-[var(--color-muted-2)]"
                 >
-                  取消
+                  {t("common.cancel")}
                 </button>
               </div>
               {state.addErr != null && (
                 <p className="text-[10.5px] leading-relaxed text-[var(--color-rose)]">
-                  {errorText(state.addErr)}
+                  {errorText(state.addErr, t("workingCopy.errors.add"))}
                 </p>
               )}
             </div>
@@ -368,7 +368,7 @@ export function WorkingCopyList({
         {/* 仓库切换：多仓库并存是常态。 */}
         {state.copies.length > 1 && (
           <div className="border-t border-[var(--color-edge-1)]">
-            <GroupLabel label="仓库" n={state.copies.length} />
+            <GroupLabel label={t("workingCopy.repos")} n={state.copies.length} />
             {state.copies.map((c) => (
               <button
                 key={c.id}
@@ -468,12 +468,12 @@ function CommitBar({ state }: { state: ReturnType<typeof useWorkingCopySurface> 
       </div>
       {state.commit.error != null && (
         <p className="mt-1 text-[10.5px] leading-relaxed text-[var(--color-rose)]">
-          {errorText(state.commit.error)}
+          {errorText(state.commit.error, t("workingCopy.errors.commit"))}
         </p>
       )}
       {state.push.error != null && (
         <p className="mt-1 text-[10.5px] leading-relaxed text-[var(--color-rose)]">
-          {errorText(state.push.error)}
+          {errorText(state.push.error, t("workingCopy.errors.operation"))}
         </p>
       )}
     </div>
@@ -497,10 +497,9 @@ export function WorkingCopyDetail({
   if (!path) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
-        <p className="text-[15px] text-[var(--color-bone)]">工作树是干净的</p>
+        <p className="text-[15px] text-[var(--color-bone)]">{t("workingCopy.cleanDetail")}</p>
         <p className="max-w-[46ch] text-[12px] leading-relaxed text-[var(--color-muted)]">
-          没有未提交的改动。改动出现在这里后，可以逐个文件暂存并提交。
-          这些改动只存在于本机，队友看不到，直到你推送。
+          {t("workingCopy.cleanDetailHint")}
         </p>
       </div>
     );
@@ -512,7 +511,7 @@ export function WorkingCopyDetail({
         <div className="flex items-center gap-[7px] text-[10px] tracking-[0.14em] text-[var(--color-faint)] uppercase">
           <span>{t("workingCopy.label")}</span>
           <span>·</span>
-          <span>{labelOf(state.selectedGroup?.kind ?? "")}</span>
+          <span>{labelOf(state.selectedGroup?.kind ?? "", t)}</span>
           <span className="ml-auto inline-flex items-center gap-1.5 tracking-normal normal-case">
             <button
               type="button"
@@ -520,7 +519,7 @@ export function WorkingCopyDetail({
               onClick={() => state.setStagedSide(!state.stagedSide)}
               className="h-[22px] rounded-[7px] border border-[var(--color-edge-2)] px-2 text-[10.5px] text-[var(--color-bone-2)] disabled:opacity-40"
             >
-              {state.selectedGroup?.staged && state.stagedSide ? "看工作区" : "看暂存区"}
+              {state.selectedGroup?.staged && state.stagedSide ? t("workingCopy.viewWorktree") : t("workingCopy.viewStaged")}
             </button>
             <button
               type="button"
@@ -537,10 +536,10 @@ export function WorkingCopyDetail({
             <button
               type="button"
               disabled
-              title="放弃改动的确认流程待补"
+              title={t("workingCopy.discardHint")}
               className="h-[22px] rounded-[7px] border border-[var(--color-edge-2)] px-2 text-[10.5px] opacity-40"
             >
-              放弃
+              {t("workingCopy.discard")}
             </button>
             <button
               type="button"
@@ -553,7 +552,7 @@ export function WorkingCopyDetail({
               }
               className="h-[22px] rounded-[7px] border border-[rgba(242,174,91,0.45)] bg-[linear-gradient(180deg,rgba(242,174,91,0.22),rgba(201,122,50,0.18))] px-2 text-[10.5px] text-[var(--color-amber-2)]"
             >
-              {state.selectedGroup?.staged ? "取消暂存整个文件" : "暂存整个文件"}
+              {state.selectedGroup?.staged ? t("workingCopy.unstageFile") : t("workingCopy.stageFile")}
             </button>
           </span>
         </div>
@@ -567,7 +566,7 @@ export function WorkingCopyDetail({
           <span className="inline-flex h-[18px] items-center rounded-[4px] bg-[var(--color-rose-wash)] px-1.5 text-[var(--color-rose)]">
             −{stats.removed}
           </span>
-          {state.selectedGroup?.staged && <span>· 已在暂存区</span>}
+          {state.selectedGroup?.staged && <span>· {t("workingCopy.inStagedArea")}</span>}
         </div>
       </div>
 
@@ -576,7 +575,7 @@ export function WorkingCopyDetail({
           <div className="mb-3.5 flex items-start gap-[9px] rounded-[7px] border border-[var(--color-edge-1)] bg-[linear-gradient(180deg,rgba(19,32,39,0.5),rgba(12,21,26,0.62))] px-3 py-2">
             <Icon name="lock" size={13} className="mt-px shrink-0 text-[var(--color-muted-2)]" />
             <span className="text-[11px] leading-relaxed text-[var(--color-muted)]">
-              这些改动只在你的机器上。推送之前，队友看不到任何内容。
+              {t("workingCopy.banner")}
             </span>
           </div>
 
@@ -588,9 +587,9 @@ export function WorkingCopyDetail({
               <span className="text-[var(--color-rose)]">−{stats.removed}</span>
             </div>
 
-            {state.diff.isLoading && <p className="p-3 text-[11px] text-[var(--color-muted)]">正在读取差异…</p>}
+            {state.diff.isLoading && <p className="p-3 text-[11px] text-[var(--color-muted)]">{t("workingCopy.diffLoading")}</p>}
             {!state.diff.isLoading && parsed.note !== "" && (
-              <p className="p-3 text-[11px] text-[var(--color-muted)]">{parsed.note}</p>
+              <p className="p-3 text-[11px] text-[var(--color-muted)]">{t(`workingCopy.diffNote.${parsed.note}`)}</p>
             )}
 
             {parsed.hunks.map((hunk, hi) => (
@@ -600,10 +599,10 @@ export function WorkingCopyDetail({
                   <button
                     type="button"
                     disabled
-                    title="逐 hunk 暂存需要把 patch 按块写入索引，等 DiffService 支持后开放"
+                    title={t("workingCopy.hunkHint")}
                     className="ml-auto rounded-[5px] border border-[var(--color-edge-2)] px-1.5 text-[10px] opacity-40"
                   >
-                    暂存此块
+                    {t("workingCopy.stageHunk")}
                   </button>
                 </div>
                 {hunk.lines.map((line, li) => (
@@ -647,8 +646,7 @@ export function WorkingCopyDetail({
           </p>
           <div className="rounded-[7px] border border-[var(--color-edge-1)] bg-[linear-gradient(180deg,rgba(23,38,46,0.72),rgba(14,24,29,0.82))] px-3 py-2">
             <p className="text-[11px] leading-relaxed text-[var(--color-muted-2)]">
-              本地验证会在推送前显示这里。它需要 FileService 与任务执行能力，
-              目前还没接入。
+              {t("workingCopy.beforePushHint")}
             </p>
           </div>
         </div>
@@ -696,8 +694,8 @@ export function WorkingCopyInspector({
         <SectionLabel>{t("workingCopy.inspector.sectionFile")}</SectionLabel>
         <dl>
           <KV k={t("workingCopy.inspector.path")} v={state.selectedGroup?.path ?? "—"} mono />
-          <KV k={t("workingCopy.inspector.change")} v={labelOf(state.selectedGroup?.kind ?? "")} />
-          <KV k={t("workingCopy.inspector.staged")} v={state.selectedGroup?.staged ? "是" : "否"} />
+          <KV k={t("workingCopy.inspector.change")} v={labelOf(state.selectedGroup?.kind ?? "", t)} />
+          <KV k={t("workingCopy.inspector.staged")} v={state.selectedGroup?.staged ? t("workingCopy.inspector.yes") : t("workingCopy.inspector.no")} />
         </dl>
 
         <SectionLabel>{t("workingCopy.inspector.sectionLocal")}</SectionLabel>
@@ -902,30 +900,36 @@ function Hint({ children, tone }: { children: React.ReactNode; tone?: "rose" }) 
   );
 }
 
-function errorText(error: unknown): string {
+/**
+ * 把错误渲染成可读文案。
+ *
+ * 有 message 时直接用——那通常是 Go 侧已经写好的具体原因（"文件过大"、
+ * "没有上游分支"），比一句笼统的"操作失败"有用得多。没有时才回落。
+ */
+function errorText(error: unknown, fallback: string): string {
   if (error instanceof Error) return error.message;
-  return "操作失败";
+  return fallback;
 }
 
 /** 变更类别的中文说明。 */
-function labelOf(kind: string): string {
+function labelOf(kind: string, t: (key: string) => string): string {
   switch (kind) {
     case "added":
-      return "新增";
     case "deleted":
-      return "删除";
     case "renamed":
-      return "重命名";
     case "untracked":
-      return "未跟踪";
     case "conflicted":
-      return "冲突";
     case "modified":
-      return "修改";
+      return t(`workingCopy.kinds.${kind}`);
     default:
       return kind || "—";
   }
 }
+
+
+
+
+
 
 
 

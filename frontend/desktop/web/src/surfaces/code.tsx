@@ -328,6 +328,7 @@ function TreeLevel({
   depth: number;
   state: CodeState;
 }) {
+  const { t } = useTranslation();
   const dir = useDirectory(workingCopyId, path);
 
   if (dir.isLoading) {
@@ -336,14 +337,14 @@ function TreeLevel({
   if (dir.error != null) {
     return (
       <p className="px-3 py-1 text-[10.5px] text-[var(--color-rose)]">
-        {dir.error instanceof Error ? dir.error.message : "读取失败"}
+        {dir.error instanceof Error ? dir.error.message : t("code.readFailed")}
       </p>
     );
   }
 
   const nodes = dir.data ?? [];
   if (nodes.length === 0 && depth === 0) {
-    return <Hint>这个仓库是空的。</Hint>;
+    return <Hint>{t("code.emptyRepository")}</Hint>;
   }
 
   return (
@@ -470,7 +471,7 @@ export function CodeDetail({ state }: { state: CodeState }) {
       <div className="flex h-[34px] shrink-0 items-center gap-2 border-b border-[var(--color-edge-1)] bg-[var(--color-ink-950)] px-2.5">
         <Breadcrumb path={path} />
         <span className="ml-auto shrink-0 text-[10.5px] text-[var(--color-faint)]">
-          {languageLabel(language)}
+          {languageLabel(language, t)}
         </span>
         {state.file.data !== undefined && (
           <span className="shrink-0 text-[10.5px] text-[var(--color-faint)]">
@@ -585,7 +586,7 @@ export function CodeInspector({ state }: { state: CodeState }) {
         <SectionLabel>{t("code.inspector.sectionFile")}</SectionLabel>
         <dl>
           <KV k={t("code.inspector.path")} v={node?.path ?? "—"} mono />
-          <KV k={t("code.inspector.language")} v={languageLabel(node?.language ?? "")} />
+          <KV k={t("code.inspector.language")} v={languageLabel(node?.language ?? "", t)} />
           <KV k={t("code.inspector.lines")} v={String(lineCount)} />
         </dl>
 
@@ -633,6 +634,9 @@ function baseName(path: string): string {
   const parts = path.split(/[\\/]/).filter(Boolean);
   return parts[parts.length - 1] ?? path;
 }
+
+
+
 
 
 

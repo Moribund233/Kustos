@@ -28,6 +28,11 @@ const zh = {
     shortcutHint: "{{label}} · ⌘{{key}}",
   },
 
+  shell: {
+    detail: "详情",
+    list: "列表",
+  },
+
   status: {
     region: "状态",
     online: "在线",
@@ -70,6 +75,12 @@ const zh = {
     unreadCountFailed: "获取未读数失败（HTTP {{status}}）",
     markReadFailed: "标记已读失败（HTTP {{status}}）",
     markAllReadFailed: "全部已读失败（HTTP {{status}}）",
+    errors: {
+      list: "获取通知失败（HTTP {{status}}）",
+      unreadCount: "获取未读数失败（HTTP {{status}}）",
+      markRead: "标记已读失败（HTTP {{status}}）",
+      markAllRead: "全部已读失败（HTTP {{status}}）",
+    },
     inspector: {
       title: "通知事实",
       tabFacts: "事实",
@@ -138,6 +149,7 @@ const zh = {
     commitTarget: "你 → {{branch}}",
     stagedFiles_one: "{{count}} 个文件已暂存",
     stagedFiles_other: "{{count}} 个文件已暂存",
+    inStagedArea: "已在暂存区",
     commit: "提交",
     committing: "提交中…",
     commitAndPush: "提交并推送",
@@ -166,6 +178,10 @@ const zh = {
     diffLoading: "正在读取差异…",
     label: "Working copy",
     labelModified: "修改",
+    diffNote: {
+      noDiff: "这个文件没有可显示的差异。",
+      binary: "二进制文件，不显示逐行差异。",
+    },
     inspector: {
       title: "文件事实",
       tabFacts: "事实",
@@ -207,6 +223,9 @@ const zh = {
     fileTree: "文件树",
     readOnlyHint: "只读查看器 · 编辑能力见后续里程碑",
     noRepository: "还没有仓库。先在工作副本面添加一个本地 git 仓库。",
+    plainText: "纯文本",
+    emptyRepository: "这个仓库是空的。",
+    readFailed: "读取失败",
     emptyTitle: "还没有打开文件",
     emptyHint: "从左侧文件树选一个文件。目录可以逐层展开，改动过的文件带状态标记。",
     loadingFile: "正在读取文件…",

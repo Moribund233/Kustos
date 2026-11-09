@@ -28,8 +28,13 @@ export interface ParsedDiff {
   hunks: DiffHunk[];
   /** 原文件是否被标记为二进制。 */
   binary: boolean;
-  /** 没有可显示内容时给出原因，避免详情区一片空白。 */
-  note: string;
+  /**
+   * 没有可显示内容时给出原因标识，避免详情区一片空白。
+   *
+   * 存**标识**而不是文案：这个函数是纯逻辑，拿不到 i18n 上下文，
+   * 返回中文会让英文界面里冒出中文。翻译由调用方按标识查表。
+   */
+  note: "" | "noDiff" | "binary";
 }
 
 const HUNK_RE = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/;
@@ -65,11 +70,11 @@ function isFileHeader(line: string): boolean {
  */
 export function parseUnifiedDiff(raw: string | null | undefined): ParsedDiff {
   if (!raw || raw.trim() === "") {
-    return { hunks: [], binary: false, note: "这个文件没有可显示的差异。" };
+    return { hunks: [], binary: false, note: "noDiff" };
   }
 
   if (raw.includes("Binary files") || raw.includes("GIT binary patch")) {
-    return { hunks: [], binary: true, note: "二进制文件，不显示逐行差异。" };
+    return { hunks: [], binary: true, note: "binary" };
   }
 
   const hunks: DiffHunk[] = [];
@@ -120,7 +125,7 @@ export function parseUnifiedDiff(raw: string | null | undefined): ParsedDiff {
   }
 
   if (!sawHunk) {
-    return { hunks: [], binary: false, note: "这个文件没有可显示的差异。" };
+    return { hunks: [], binary: false, note: "noDiff" };
   }
   return { hunks, binary: false, note: "" };
 }
@@ -137,3 +142,4 @@ export function diffStats(parsed: ParsedDiff): { added: number; removed: number 
   }
   return { added, removed };
 }
+

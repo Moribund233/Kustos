@@ -10,6 +10,23 @@ import { api } from "@kustos/api";
  * 取数与失效，不在本地重算。
  */
 
+/**
+ * 带 HTTP 状态码的请求错误。
+ *
+ * 抛**结构**而不是现成文案：数据层拿不到 i18n 上下文，写死中文会让
+ * 英文界面里冒出中文。状态码本身必须保留——"HTTP 401" 对排查很关键，
+ * 而"加载失败"四个字没有信息量。
+ */
+export class InboxRequestError extends Error {
+  constructor(
+    readonly operation: "list" | "unreadCount" | "markRead" | "markAllRead",
+    readonly status: number,
+  ) {
+    super(`${operation} failed with HTTP ${status}`);
+    this.name = "InboxRequestError";
+  }
+}
+
 export const inboxKeys = {
   list: (unreadOnly: boolean) => ["inbox", "notifications", { unreadOnly }] as const,
   unreadCount: ["inbox", "unread-count"] as const,
@@ -64,7 +81,7 @@ export function useNotifications(unreadOnly = false, limit = 50) {
         params: { query: { unread_only: unreadOnly, limit } },
       });
       if (error || !response.ok) {
-        throw new Error(`获取通知失败（HTTP ${response.status}）`);
+        throw new InboxRequestError("list", response.status);
       }
       const payload = data as { notifications?: RawNotification[]; total?: number } | undefined;
       return {
@@ -84,7 +101,7 @@ export function useUnreadCount() {
     queryFn: async () => {
       const { data, error, response } = await api.GET("/api/v1/notifications/unread-count", {});
       if (error || !response.ok) {
-        throw new Error(`获取未读数失败（HTTP ${response.status}）`);
+        throw new InboxRequestError("unreadCount", response.status);
       }
       return (data as { count?: number } | undefined)?.count ?? 0;
     },
@@ -101,7 +118,7 @@ export function useMarkRead() {
         params: { path: { notification_id: id } },
       });
       if (error || !response.ok) {
-        throw new Error(`标记已读失败（HTTP ${response.status}）`);
+        throw new InboxRequestError("markRead", response.status);
       }
     },
     onSuccess: () => {
@@ -117,7 +134,7 @@ export function useMarkAllRead() {
     mutationFn: async () => {
       const { error, response } = await api.POST("/api/v1/notifications/read-all", {});
       if (error || !response.ok) {
-        throw new Error(`全部已读失败（HTTP ${response.status}）`);
+        throw new InboxRequestError("markAllRead", response.status);
       }
     },
     onSuccess: () => {
@@ -165,4 +182,5 @@ export function segmentOf(n: InboxNotification): InboxSegment {
 export function itemsInSegment(items: InboxNotification[], segment: InboxSegment) {
   return items.filter((n) => segmentOf(n) === segment);
 }
+
 

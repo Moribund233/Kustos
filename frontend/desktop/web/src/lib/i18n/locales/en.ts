@@ -26,6 +26,11 @@ const en = {
     shortcutHint: "{{label}} · ⌘{{key}}",
   },
 
+  shell: {
+    detail: "Detail",
+    list: "List",
+  },
+
   status: {
     region: "Status",
     online: "online",
@@ -68,6 +73,12 @@ const en = {
     unreadCountFailed: "Failed to load unread count (HTTP {{status}})",
     markReadFailed: "Failed to mark as read (HTTP {{status}})",
     markAllReadFailed: "Failed to mark all as read (HTTP {{status}})",
+    errors: {
+      list: "Failed to load notifications (HTTP {{status}})",
+      unreadCount: "Failed to load unread count (HTTP {{status}})",
+      markRead: "Failed to mark as read (HTTP {{status}})",
+      markAllRead: "Failed to mark all as read (HTTP {{status}})",
+    },
     inspector: {
       title: "Notification facts",
       tabFacts: "Facts",
@@ -136,6 +147,7 @@ const en = {
     commitTarget: "you → {{branch}}",
     stagedFiles_one: "{{count}} file staged",
     stagedFiles_other: "{{count}} files staged",
+    inStagedArea: "in staged area",
     commit: "Commit",
     committing: "Committing…",
     commitAndPush: "Commit & push",
@@ -166,6 +178,10 @@ const en = {
     diffLoading: "Reading diff…",
     label: "Working copy",
     labelModified: "modified",
+    diffNote: {
+      noDiff: "No displayable diff for this file.",
+      binary: "Binary file — line-by-line diff is not shown.",
+    },
     inspector: {
       title: "File facts",
       tabFacts: "Facts",
@@ -207,6 +223,9 @@ const en = {
     fileTree: "File tree",
     readOnlyHint: "read-only viewer · editing lands in a later milestone",
     noRepository: "No repository yet. Add a local git repository on the Working copy surface first.",
+    plainText: "Plain text",
+    emptyRepository: "This repository is empty.",
+    readFailed: "Read failed",
     emptyTitle: "No file open",
     emptyHint:
       "Pick a file from the tree on the left. Directories expand level by level; changed files carry a status mark.",

@@ -117,6 +117,7 @@ export function Shell({
   ahead = 0,
   behind = 0,
 }: ShellProps) {
+  const { t } = useTranslation();
   const [listWidth, setListWidth] = useState(LIST_DEFAULT);
 
   return (
@@ -142,7 +143,7 @@ export function Shell({
         </ListPane>
         <main
           className="flex min-w-0 flex-1 flex-col overflow-hidden"
-          aria-label="详情"
+          aria-label={t("shell.detail")}
         >
           {detail}
         </main>
@@ -494,7 +495,7 @@ function ListPane({
 
   return (
     <section
-      aria-label="列表"
+      aria-label={t("shell.list")}
       className="relative flex shrink-0 flex-col overflow-hidden border-r border-[var(--color-edge-1)] bg-[var(--color-ink-950)]"
       style={{ width }}
     >
@@ -583,6 +584,8 @@ export function useSurfaceShortcuts(onSelect: (s: Surface) => void, enabled = tr
     return () => window.removeEventListener("keydown", handler);
   }, [onSelect, enabled]);
 }
+
+
 
 
 

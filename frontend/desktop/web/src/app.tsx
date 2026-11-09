@@ -290,7 +290,7 @@ function MainShell({
               {online ? t("status.connected") : t("status.offline")}
             </StatusItem>
             <span className="text-[var(--color-faint)]">·</span>
-            <StatusItem icon="database">本地 git</StatusItem>
+            <StatusItem icon="database">{t("status.localGit")}</StatusItem>
           </>
         }
       />
@@ -391,6 +391,7 @@ function CenterNote({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+
 
 
 

@@ -46,7 +46,7 @@ export function ConnectInstance({ onAdded }: { onAdded: (id: string, info: Insta
         </p>
 
         <label htmlFor="instance-url" className="mb-1 block text-[11px] text-faint">
-          实例地址
+          {t("session.instanceUrl")}
         </label>
         <div className="mb-3 flex gap-2">
           <Input
@@ -119,5 +119,6 @@ function ProbeResult({ info }: { info: InstanceInfo }) {
     </div>
   );
 }
+
 
 

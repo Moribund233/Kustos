@@ -204,23 +204,6 @@ export function statusLetter(kind: Change["kind"]): string {
   }
 }
 
-/** 变更类别的中文说明（用于提示与无障碍标签）。 */
-export function statusLabel(kind: Change["kind"]): string {
-  switch (kind) {
-    case "added":
-      return "新增";
-    case "deleted":
-      return "删除";
-    case "renamed":
-      return "重命名";
-    case "untracked":
-      return "未跟踪";
-    case "conflicted":
-      return "冲突";
-    default:
-      return "修改";
-  }
-}
 
 /** 路径最后一段，用于列表省略显示。 */
 export function baseName(path: string): string {

@@ -130,9 +130,20 @@ export function languageOf(path: string): string {
   return map[ext] ?? "";
 }
 
-/** 语言显示名（详情栏用）。 */
-export function languageLabel(language: string): string {
-  if (language === "") return "纯文本";
+/**
+ * 语言显示名（详情栏用）。
+ *
+ * 语言名本身是**专有名词**（TypeScript、Go、Rust），不翻译；
+ * 但"无法识别语言"这一档是普通描述，必须走翻译键——写死中文会让
+ * 英文界面里突然冒出一句中文。
+ *
+ * Args:
+ *
+ *	language: `detectLanguage` 的返回值
+ *	t:        翻译函数，由调用方的 useTranslation 提供
+ */
+export function languageLabel(language: string, t: (key: string) => string): string {
+  if (language === "" || language === "text") return t("code.plainText");
   const labels: Record<string, string> = {
     typescript: "TypeScript",
     javascript: "JavaScript",
