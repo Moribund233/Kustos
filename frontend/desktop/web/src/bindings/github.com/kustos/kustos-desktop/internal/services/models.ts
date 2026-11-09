@@ -96,3 +96,33 @@ export interface StatusResult {
     "behind": number;
     "changes": git$0.Change[] | null;
 }
+
+/**
+ * TreeNode 是文件树上的一个节点。
+ */
+export interface TreeNode {
+    /**
+     * Name 是显示名（不含路径）。
+     */
+    "name": string;
+
+    /**
+     * Path 是相对仓库根的路径（斜杠分隔），前端据此请求下一层。
+     */
+    "path": string;
+
+    /**
+     * IsDir 区分目录与文件。
+     */
+    "isDir": boolean;
+
+    /**
+     * Size 是文件字节数；目录为 0。
+     */
+    "size": number;
+
+    /**
+     * Status 是工作区变更标记（M/A/D/U…），无改动时为空。
+     */
+    "status": string;
+}

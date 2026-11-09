@@ -434,7 +434,7 @@ func (s *WorkingCopyService) OpenInEditor(id, path string) error {
 		return err
 	}
 
-	abs, err := resolveInside(wc.Path, path)
+	abs, err := resolveInside(wc.Path, path, false)
 	if err != nil {
 		return err
 	}
@@ -450,7 +450,7 @@ func (s *WorkingCopyService) RevealInFileManager(id, path string) error {
 		return err
 	}
 
-	abs, err := resolveInside(wc.Path, path)
+	abs, err := resolveInside(wc.Path, path, false)
 	if err != nil {
 		return err
 	}
@@ -466,12 +466,21 @@ func (s *WorkingCopyService) RevealInFileManager(id, path string) error {
 // 越界判定用"收敛后的绝对路径是否仍以 root 为前缀"，而不是检查字符串里
 // 有没有 `..`——`a/../b` 这种写法合法但含 `..`，而软链接也可能把路径
 // 指向仓库外。
-func resolveInside(root, rel string) (string, error) {
-	if strings.TrimSpace(rel) == "" {
-		return "", errors.New("路径为空")
+func resolveInside(root, rel string, allowRoot bool) (string, error) {
+	trimmed := strings.TrimSpace(rel)
+	if trimmed == "" {
+		// 空路径表示仓库根本身：只有"列举根目录"这种场景才允许。
+		if !allowRoot {
+			return "", errors.New("路径为空")
+		}
+		abs, err := filepath.Abs(root)
+		if err != nil {
+			return "", fmt.Errorf("解析仓库路径失败: %w", err)
+		}
+		return abs, nil
 	}
 	// 绝对路径一律拒绝：前端只应传相对仓库根的路径。
-	if filepath.IsAbs(rel) || strings.HasPrefix(rel, "/") || strings.HasPrefix(rel, "\\") {
+	if filepath.IsAbs(trimmed) || strings.HasPrefix(trimmed, "/") || strings.HasPrefix(trimmed, "\\") {
 		return "", fmt.Errorf("只接受仓库内的相对路径: %s", rel)
 	}
 
@@ -479,7 +488,7 @@ func resolveInside(root, rel string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("解析仓库路径失败: %w", err)
 	}
-	target, err := filepath.Abs(filepath.Join(rootAbs, filepath.FromSlash(rel)))
+	target, err := filepath.Abs(filepath.Join(rootAbs, filepath.FromSlash(trimmed)))
 	if err != nil {
 		return "", fmt.Errorf("解析目标路径失败: %w", err)
 	}

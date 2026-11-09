@@ -202,6 +202,32 @@ const zh = {
     },
   },
 
+  code: {
+    title: "代码",
+    fileTree: "文件树",
+    readOnlyHint: "只读查看器 · 编辑能力见后续里程碑",
+    noRepository: "还没有仓库。先在工作副本面添加一个本地 git 仓库。",
+    emptyTitle: "还没有打开文件",
+    emptyHint: "从左侧文件树选一个文件。目录可以逐层展开，改动过的文件带状态标记。",
+    loadingFile: "正在读取文件…",
+    loadFailed: "读取失败",
+    closeTab: "关闭标签页",
+    lineCount_one: "{{count}} 行",
+    lineCount_other: "{{count}} 行",
+    inspector: {
+      title: "文件事实",
+      tabFacts: "事实",
+      close: "关闭检查器",
+      sectionFile: "文件",
+      path: "路径",
+      language: "语言",
+      lines: "行数",
+      sectionNext: "下一步",
+      nextHint:
+        "可编辑、语法高亮与 LSP 诊断属于后续里程碑。这一版先保证能读懂一个仓库：树、标签页、完整内容。",
+    },
+  },
+
   surfaces: {
     code: "代码",
     pulls: "合并请求",

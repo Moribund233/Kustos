@@ -96,6 +96,23 @@ export function List(): $CancellablePromise<store$0.WorkingCopy[] | null> {
 }
 
 /**
+ * ListTree 列举仓库内某一层目录。
+ * 
+ * Args:
+ * 
+ * 	id:   工作副本 ID
+ * 	path: 相对仓库根的目录路径；空串表示仓库根
+ * 
+ * Returns:
+ * 
+ * 	该层的节点列表，目录在前、各自按名称排序。
+ * 	路径越界、不是目录或不存在时返回错误。
+ */
+export function ListTree(id: string, path: string): $CancellablePromise<$models.TreeNode[] | null> {
+    return $Call.ByID(1996581442, id, path);
+}
+
+/**
  * OpenInEditor 在用户配置的编辑器中打开仓库内的文件。
  * 
  * Args:
@@ -141,6 +158,25 @@ export function Push(id: string, force: boolean): $CancellablePromise<void> {
  */
 export function PushCommand(id: string, force: boolean): $CancellablePromise<string> {
     return $Call.ByID(1120904867, id, force);
+}
+
+/**
+ * ReadFile 读取仓库内某个文件的内容。
+ * 
+ * Args:
+ * 
+ * 	id:   工作副本 ID
+ * 	path: 相对仓库根的路径
+ * 
+ * Returns:
+ * 
+ * 	文件文本内容。越界、不存在、二进制或超过 maxReadableBytes 时返回错误。
+ * 
+ * 二进制与超大文件都**明确拒绝**而不是截断：界面上渲染一堆乱码或半个文件，
+ * 比一句"这个文件打不开"更让人困惑。
+ */
+export function ReadFile(id: string, path: string): $CancellablePromise<string> {
+    return $Call.ByID(548775148, id, path);
 }
 
 /**

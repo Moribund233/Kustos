@@ -13,6 +13,12 @@ import {
 } from "@/surfaces/inbox";
 import { Login } from "@/surfaces/login";
 import {
+  CodeDetail,
+  CodeInspector,
+  CodeTree,
+  useCodeSurface,
+} from "@/surfaces/code";
+import {
   WorkingCopyDetail,
   WorkingCopyInspector,
   WorkingCopyList,
@@ -201,6 +207,7 @@ function MainShell({
   const { t } = useTranslation();
   const inbox = useInbox();
   const wc = useWorkingCopySurface();
+  const code = useCodeSurface();
 
   const conn = online ? "online" : "offline";
 
@@ -290,6 +297,46 @@ function MainShell({
     );
   }
 
+  if (surface === "code") {
+    return (
+      <Shell
+        active={surface}
+        onSelect={onSelect}
+        conn={conn}
+        offline={!online}
+        badges={{ inbox: inbox.unreadCount }}
+        userName={creds?.username}
+        repoChip={code.active ? baseNameOf(code.active.path) : repoChip}
+        branchChip={branchChip}
+        ahead={ahead}
+        behind={behind}
+        list={<CodeTree state={code} />}
+        detail={<CodeDetail state={code} />}
+        inspector={<CodeInspector state={code} />}
+        statusLeft={
+          <>
+            <StatusItem icon="branch">
+              <span className="font-mono">{branchChip || "—"}</span>
+            </StatusItem>
+            <span className="text-[var(--color-faint)]">·</span>
+            <StatusItem icon="file">
+              {code.activePath ? baseNameOf(code.activePath) : t("code.emptyTitle")}
+            </StatusItem>
+          </>
+        }
+        statusRight={
+          <>
+            <StatusItem icon="pulse" tone={online ? "sage" : "amber"}>
+              {online ? t("status.connected") : t("status.offline")}
+            </StatusItem>
+            <span className="text-[var(--color-faint)]">·</span>
+            <StatusItem icon="database">{t("status.localGit")}</StatusItem>
+          </>
+        }
+      />
+    );
+  }
+
   const meta = SURFACES.find((s) => s.id === surface) ?? SURFACES[0];
   return (
     <Shell
@@ -344,6 +391,7 @@ function CenterNote({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+
 
 
 

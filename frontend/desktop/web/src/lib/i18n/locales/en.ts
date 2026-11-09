@@ -202,6 +202,33 @@ const en = {
     },
   },
 
+  code: {
+    title: "Code",
+    fileTree: "File tree",
+    readOnlyHint: "read-only viewer · editing lands in a later milestone",
+    noRepository: "No repository yet. Add a local git repository on the Working copy surface first.",
+    emptyTitle: "No file open",
+    emptyHint:
+      "Pick a file from the tree on the left. Directories expand level by level; changed files carry a status mark.",
+    loadingFile: "Reading file…",
+    loadFailed: "Failed to read",
+    closeTab: "Close tab",
+    lineCount_one: "{{count}} line",
+    lineCount_other: "{{count}} lines",
+    inspector: {
+      title: "File facts",
+      tabFacts: "Facts",
+      close: "Close inspector",
+      sectionFile: "File",
+      path: "Path",
+      language: "Language",
+      lines: "Lines",
+      sectionNext: "Next",
+      nextHint:
+        "Editing, syntax highlighting and LSP diagnostics belong to later milestones. This version makes a repository readable first: tree, tabs, full content.",
+    },
+  },
+
   surfaces: {
     code: "Code",
     pulls: "Pull requests",

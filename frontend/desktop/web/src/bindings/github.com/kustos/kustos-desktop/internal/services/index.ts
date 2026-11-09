@@ -13,5 +13,6 @@ export type {
     Credentials,
     InstanceInfo,
     LoginResult,
-    StatusResult
+    StatusResult,
+    TreeNode
 } from "./models.js";
