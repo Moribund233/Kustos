@@ -214,6 +214,132 @@ func isTextContent(data []byte) bool {
 	return len(sample) > 0 || len(data) == 0
 }
 
+// ListChanges 返回仓库内所有变更文件。
+//
+// 树形浏览适合"我要找某个文件"，但改代码时用户想的是"我改了哪些文件"，
+// 那是另一个入口——让他在树里逐层找自己刚改过的文件是反的。
+//
+// Returns:
+//
+//	与文件树同构的节点列表（路径相对仓库根），按路径排序。
+func (s *WorkingCopyService) ListChanges(id string) ([]TreeNode, error) {
+	wc, err := s.get(id)
+	if err != nil {
+		return nil, err
+	}
+
+	st, err := git.RepoStatus(wc.Path)
+	if err != nil {
+		return nil, err
+	}
+
+	nodes := make([]TreeNode, 0, len(st.Changes))
+	for _, c := range st.Changes {
+		nodes = append(nodes, TreeNode{
+			Name:   baseNameOf(c.Path),
+			Path:   c.Path,
+			IsDir:  false,
+			Status: statusLetter(c.Kind),
+		})
+	}
+
+	sort.SliceStable(nodes, func(i, j int) bool {
+		return strings.ToLower(nodes[i].Path) < strings.ToLower(nodes[j].Path)
+	})
+	return nodes, nil
+}
+
+// SearchFiles 按文件名或路径片段搜索工作树。
+//
+// Args:
+//
+//	id:    工作副本 ID
+//	query: 搜索片段（大小写不敏感）；空白查询直接返回空结果
+//	limit: 结果上限；<= 0 时用默认值
+//
+// Returns:
+//
+//	命中的文件节点，路径相对仓库根。
+//
+// 用户不记得文件在哪个目录时，逐层展开是找不动的。搜索只看路径，
+// 不读文件内容——全文检索是另一个量级的工程，而"找文件"这个诉求
+// 用路径匹配已经够用。
+func (s *WorkingCopyService) SearchFiles(id, query string, limit int) ([]TreeNode, error) {
+	wc, err := s.get(id)
+	if err != nil {
+		return nil, err
+	}
+
+	needle := strings.ToLower(strings.TrimSpace(query))
+	if needle == "" {
+		// 空查询返回空结果而不是整棵树：界面在用户还没输入时
+		// 不应该先做一次全树遍历。
+		return []TreeNode{}, nil
+	}
+	if limit <= 0 {
+		limit = searchLimit
+	}
+
+	results := make([]TreeNode, 0, min(limit, 64))
+	walkErr := filepath.WalkDir(wc.Path, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			// 单个目录不可读不该中断整个搜索：权限问题在工作树里很常见。
+			if entry != nil && entry.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if entry.IsDir() {
+			if skipDirNames[entry.Name()] {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		rel, relErr := filepath.Rel(wc.Path, path)
+		if relErr != nil {
+			return nil
+		}
+		rel = filepath.ToSlash(rel)
+
+		if !strings.Contains(strings.ToLower(rel), needle) {
+			return nil
+		}
+
+		results = append(results, TreeNode{
+			Name: entry.Name(),
+			Path: rel,
+		})
+		if len(results) >= limit {
+			return errStopWalk
+		}
+		return nil
+	})
+	if walkErr != nil && !errors.Is(walkErr, errStopWalk) {
+		return nil, fmt.Errorf("搜索文件失败: %w", walkErr)
+	}
+
+	sort.SliceStable(results, func(i, j int) bool {
+		return strings.ToLower(results[i].Path) < strings.ToLower(results[j].Path)
+	})
+	return results, nil
+}
+
+// searchLimit 是搜索结果的默认上限。
+const searchLimit = 200
+
+// errStopWalk 用于在达到上限时提前结束遍历。
+var errStopWalk = errors.New("搜索已达到上限")
+
+// baseNameOf 返回路径最后一段（Windows 与 POSIX 分隔符都处理）。
+func baseNameOf(path string) string {
+	parts := strings.FieldsFunc(path, func(r rune) bool { return r == '/' || r == '\\' })
+	if len(parts) == 0 {
+		return path
+	}
+	return parts[len(parts)-1]
+}
+
 // statusLetter 把变更类别映射成单字母状态码（对齐 git 习惯）。
 func statusLetter(kind git.ChangeKind) string {
 	switch kind {

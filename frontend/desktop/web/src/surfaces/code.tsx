@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/shell/icon";
@@ -7,8 +7,10 @@ import {
   languageLabel,
   languageOf,
   pathSegments,
+  useChangedFiles,
   useDirectory,
   useFileContent,
+  useFileSearch,
   type TreeNode,
 } from "@/lib/code";
 import { useWorkingCopies, type WorkingCopy } from "@/lib/working-copy";
@@ -36,6 +38,9 @@ export interface OpenTab {
   name: string;
 }
 
+/** 左栏的三个分段：与原型一致。 */
+export type CodeSegment = "files" | "symbols" | "changes";
+
 export interface CodeParts {
   list: React.ReactNode;
   detail: React.ReactNode;
@@ -54,14 +59,30 @@ export function useCodeSurface() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [tabs, setTabs] = useState<OpenTab[]>([]);
   const [activePath, setActivePath] = useState<string | null>(null);
+  const [segment, setSegment] = useState<CodeSegment>("files");
+  const [filter, setFilter] = useState("");
 
-  const openFile = useCallback((node: TreeNode) => {
+  // 过滤输入去抖：每敲一个字就遍历一次全树，在大仓库上是肉眼可见的卡顿。
+  const [debouncedFilter, setDebouncedFilter] = useState("");
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebouncedFilter(filter), 200);
+    return () => window.clearTimeout(id);
+  }, [filter]);
+
+  const openPath = useCallback((path: string) => {
     setTabs((prev) => {
-      if (prev.some((t) => t.path === node.path)) return prev;
-      return [...prev, { path: node.path, name: node.name }];
+      if (prev.some((t) => t.path === path)) return prev;
+      return [...prev, { path, name: baseName(path) }];
     });
-    setActivePath(node.path);
+    setActivePath(path);
   }, []);
+
+  const openFile = useCallback(
+    (node: TreeNode) => {
+      openPath(node.path);
+    },
+    [openPath],
+  );
 
   const closeTab = useCallback(
     (path: string) => {
@@ -90,6 +111,9 @@ export function useCodeSurface() {
 
   const file = useFileContent(active?.id ?? null, activePath);
 
+  const search = useFileSearch(active?.id ?? null, debouncedFilter, segment === "files");
+  const changes = useChangedFiles(active?.id ?? null, segment === "changes");
+
   return {
     copies: list,
     active,
@@ -98,15 +122,26 @@ export function useCodeSurface() {
       setExpanded(new Set());
       setTabs([]);
       setActivePath(null);
+      setFilter("");
     },
     expanded,
     toggleDir,
     openFile,
+    openPath,
     tabs,
     closeTab,
     activePath,
     setActivePath,
     file,
+    segment,
+    setSegment,
+    filter,
+    setFilter,
+    debouncedFilter,
+    search: search.data ?? [],
+    searchLoading: search.isFetching,
+    changes: changes.data ?? [],
+    changesLoading: changes.isLoading,
   };
 }
 
@@ -119,6 +154,12 @@ type CodeState = ReturnType<typeof useCodeSurface>;
 export function CodeTree({ state }: { state: CodeState }) {
   const { t } = useTranslation();
   const id = state.active?.id ?? null;
+
+  const segments: { id: CodeSegment; label: string }[] = [
+    { id: "files", label: t("code.segments.files") },
+    { id: "symbols", label: t("code.segments.symbols") },
+    { id: "changes", label: t("code.segments.changes") },
+  ];
 
   return (
     <section className="flex h-full flex-col" aria-label={t("code.fileTree")}>
@@ -142,24 +183,136 @@ export function CodeTree({ state }: { state: CodeState }) {
             ))}
           </select>
         )}
+
+        {/* 三个分段：与原型一致。 */}
+        <div className="mt-2 flex gap-0.5 rounded-[7px] border border-[var(--color-edge-1)] bg-[rgba(8,13,16,0.55)] p-0.5">
+          {segments.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => state.setSegment(s.id)}
+              className={[
+                "h-[22px] flex-1 rounded-[5px] text-[11px] whitespace-nowrap",
+                state.segment === s.id
+                  ? "bg-[var(--color-ink-750)] text-[var(--color-bone)] shadow-[inset_0_1px_0_rgba(240,231,216,0.045)]"
+                  : "text-[var(--color-muted-2)] hover:text-[var(--color-bone-2)]",
+              ].join(" ")}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+
+        {/* 过滤框只在文件分段有意义：变更与符号都有自己的过滤语义。 */}
+        {state.segment === "files" && (
+          <input
+            value={state.filter}
+            onChange={(e) => state.setFilter(e.target.value)}
+            placeholder={t("code.filterPlaceholder")}
+            aria-label={t("code.filterPlaceholder")}
+            className="mt-1.5 h-[22px] w-full rounded-[5px] border border-[var(--color-edge-2)] bg-[var(--color-ink-850)] px-1.5 text-[11px] text-[var(--color-bone)] outline-none focus:border-[var(--color-amber)]"
+          />
+        )}
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto py-1">
         {!id && <Hint>{t("code.noRepository")}</Hint>}
-        {id && (
-          <TreeLevel
-            workingCopyId={id}
-            path=""
-            depth={0}
-            state={state}
-          />
+
+        {id && state.segment === "files" && state.debouncedFilter.trim() === "" && (
+          <TreeLevel workingCopyId={id} path="" depth={0} state={state} />
         )}
+
+        {id && state.segment === "files" && state.debouncedFilter.trim() !== "" && (
+          <SearchResults state={state} />
+        )}
+
+        {id && state.segment === "symbols" && (
+          <p className="px-3 py-3 text-[11.5px] leading-relaxed text-[var(--color-muted)]">
+            {t("code.symbolsHint")}
+          </p>
+        )}
+
+        {id && state.segment === "changes" && <ChangeList state={state} />}
       </div>
 
       <div className="shrink-0 border-t border-[var(--color-edge-1)] px-3 py-1.5 text-[10px] text-[var(--color-faint)]">
         {t("code.readOnlyHint")}
       </div>
     </section>
+  );
+}
+
+/** 过滤结果：平铺列表，点击直接打开。 */
+function SearchResults({ state }: { state: CodeState }) {
+  const { t } = useTranslation();
+
+  if (state.searchLoading && state.search.length === 0) {
+    return <Hint>{t("code.searching")}</Hint>;
+  }
+  if (state.search.length === 0) {
+    return <Hint>{t("code.noMatches", { query: state.debouncedFilter })}</Hint>;
+  }
+
+  return (
+    <>
+      <p className="flex items-center gap-1.5 px-3 pt-2 pb-1 text-[9.5px] tracking-[0.15em] text-[var(--color-faint)] uppercase">
+        {t("code.matches", { count: state.search.length })}
+      </p>
+      {state.search.map((node) => (
+        <button
+          key={node.path}
+          type="button"
+          onClick={() => state.openPath(node.path)}
+          className={[
+            "flex h-[26px] w-full items-center gap-1.5 border-l-2 px-2.5 text-left text-[11.5px]",
+            node.path === state.activePath
+              ? "border-l-[var(--color-amber)] bg-[var(--color-ink-800)] text-[var(--color-bone)]"
+              : "border-l-transparent text-[var(--color-muted)] hover:bg-[var(--color-ink-850)]",
+          ].join(" ")}
+        >
+          <Icon name="file" size={13} className="shrink-0 text-[var(--color-faint)]" />
+          <span className="truncate font-mono text-[11px]">{node.path}</span>
+        </button>
+      ))}
+    </>
+  );
+}
+
+/** 变更列表：平铺，点击打开，带状态标记。 */
+function ChangeList({ state }: { state: CodeState }) {
+  const { t } = useTranslation();
+
+  if (state.changesLoading) {
+    return <Hint>{""}</Hint>;
+  }
+  if (state.changes.length === 0) {
+    return <Hint>{t("code.noChanges")}</Hint>;
+  }
+
+  return (
+    <>
+      {state.changes.map((node) => (
+        <button
+          key={node.path}
+          type="button"
+          onClick={() => state.openPath(node.path)}
+          className={[
+            "flex h-[26px] w-full items-center gap-1.5 border-l-2 px-2.5 text-left text-[11.5px]",
+            node.path === state.activePath
+              ? "border-l-[var(--color-amber)] bg-[var(--color-ink-800)] text-[var(--color-bone)]"
+              : "border-l-transparent text-[var(--color-muted)] hover:bg-[var(--color-ink-850)]",
+          ].join(" ")}
+        >
+          <Icon name="file" size={13} className="shrink-0 text-[var(--color-faint)]" />
+          <span className="truncate font-mono text-[11px]">{node.path}</span>
+          {node.status !== "" && (
+            <span className="ml-auto shrink-0 font-mono text-[9.5px] text-[var(--color-amber)]">
+              {node.status}
+            </span>
+          )}
+        </button>
+      ))}
+    </>
   );
 }
 
@@ -293,9 +446,10 @@ export function CodeDetail({ state }: { state: CodeState }) {
               <button
                 type="button"
                 onClick={() => state.setActivePath(tab.path)}
-                className="max-w-[180px] truncate"
+                className="flex max-w-[200px] items-center gap-1.5 truncate"
               >
-                {tab.name}
+                <Icon name="file" size={11} className="shrink-0 text-[var(--color-faint)]" />
+                <span className="truncate">{tab.name}</span>
               </button>
               <button
                 type="button"
@@ -310,6 +464,9 @@ export function CodeDetail({ state }: { state: CodeState }) {
         })}
       </div>
 
+      {/* ed-bar：模式徽标 + 文档事实 + 动作。
+          这一版只有只读模式，因此切换器与保存按钮都明确禁用并说明原因，
+          而不是画一个点了没反应的控件。 */}
       <div className="flex h-[34px] shrink-0 items-center gap-2 border-b border-[var(--color-edge-1)] bg-[var(--color-ink-950)] px-2.5">
         <Breadcrumb path={path} />
         <span className="ml-auto shrink-0 text-[10.5px] text-[var(--color-faint)]">
@@ -320,6 +477,28 @@ export function CodeDetail({ state }: { state: CodeState }) {
             {t("code.lineCount", { count: lines.length })}
           </span>
         )}
+        <span
+          title={t("code.modeHint")}
+          className="shrink-0 rounded-[4px] border border-[var(--color-edge-2)] px-1.5 py-0.5 text-[10px] text-[var(--color-muted-2)]"
+        >
+          {t("code.modeReadOnly")}
+        </span>
+        <button
+          type="button"
+          disabled
+          title={t("code.modeHint")}
+          className="h-[22px] shrink-0 rounded-[7px] border border-[var(--color-edge-2)] px-2 text-[10.5px] text-[var(--color-bone-2)] opacity-40"
+        >
+          {t("code.save")}
+        </button>
+      </div>
+
+      {/* 模式说明 banner：常驻，让"改动去哪了"这件事不用靠记忆。 */}
+      <div className="flex shrink-0 items-start gap-2 border-b border-[var(--color-edge-1)] bg-[linear-gradient(180deg,rgba(19,32,39,0.5),rgba(12,21,26,0.62))] px-3 py-1.5">
+        <Icon name="lock" size={12} className="mt-px shrink-0 text-[var(--color-muted-2)]" />
+        <span className="text-[10.5px] leading-relaxed text-[var(--color-muted)]">
+          {t("code.modeNote")}
+        </span>
       </div>
 
       <div className="min-h-0 flex-1 bg-[var(--color-ink-950)]">
@@ -454,6 +633,7 @@ function baseName(path: string): string {
   const parts = path.split(/[\\/]/).filter(Boolean);
   return parts[parts.length - 1] ?? path;
 }
+
 
 
 

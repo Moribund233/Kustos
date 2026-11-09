@@ -96,6 +96,20 @@ export function List(): $CancellablePromise<store$0.WorkingCopy[] | null> {
 }
 
 /**
+ * ListChanges 返回仓库内所有变更文件。
+ * 
+ * 树形浏览适合"我要找某个文件"，但改代码时用户想的是"我改了哪些文件"，
+ * 那是另一个入口——让他在树里逐层找自己刚改过的文件是反的。
+ * 
+ * Returns:
+ * 
+ * 	与文件树同构的节点列表（路径相对仓库根），按路径排序。
+ */
+export function ListChanges(id: string): $CancellablePromise<$models.TreeNode[] | null> {
+    return $Call.ByID(2210125691, id);
+}
+
+/**
  * ListTree 列举仓库内某一层目录。
  * 
  * Args:
@@ -193,6 +207,27 @@ export function Remove(id: string): $CancellablePromise<void> {
  */
 export function RevealInFileManager(id: string, path: string): $CancellablePromise<void> {
     return $Call.ByID(1966271729, id, path);
+}
+
+/**
+ * SearchFiles 按文件名或路径片段搜索工作树。
+ * 
+ * Args:
+ * 
+ * 	id:    工作副本 ID
+ * 	query: 搜索片段（大小写不敏感）；空白查询直接返回空结果
+ * 	limit: 结果上限；<= 0 时用默认值
+ * 
+ * Returns:
+ * 
+ * 	命中的文件节点，路径相对仓库根。
+ * 
+ * 用户不记得文件在哪个目录时，逐层展开是找不动的。搜索只看路径，
+ * 不读文件内容——全文检索是另一个量级的工程，而"找文件"这个诉求
+ * 用路径匹配已经够用。
+ */
+export function SearchFiles(id: string, query: string, limit: number): $CancellablePromise<$models.TreeNode[] | null> {
+    return $Call.ByID(3673579789, id, query, limit);
 }
 
 /**

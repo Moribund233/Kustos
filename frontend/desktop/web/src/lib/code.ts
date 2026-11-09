@@ -16,6 +16,8 @@ import type { TreeNode } from "@/bindings/github.com/kustos/kustos-desktop/inter
 export const codeKeys = {
   tree: (id: string, path: string) => ["code", id, "tree", path] as const,
   file: (id: string, path: string) => ["code", id, "file", path] as const,
+  changes: (id: string) => ["code", id, "changes"] as const,
+  search: (id: string, query: string) => ["code", id, "search", query] as const,
 };
 
 /** 列举某一层目录。 */
@@ -26,6 +28,33 @@ export function useDirectory(workingCopyId: string | null, path: string, enabled
     enabled: Boolean(workingCopyId) && enabled,
     // 目录内容只随本机改动变化；工作区变动由显式刷新驱动。
     staleTime: 10_000,
+  });
+}
+
+/** 变更文件列表（左栏"变更"分段）。 */
+export function useChangedFiles(workingCopyId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: codeKeys.changes(workingCopyId ?? ""),
+    queryFn: async () => (await WorkingCopyService.ListChanges(workingCopyId as string)) ?? [],
+    enabled: Boolean(workingCopyId) && enabled,
+    staleTime: 5_000,
+  });
+}
+
+/**
+ * 按文件名/路径搜索。
+ *
+ * 加 200ms 去抖：每敲一个字就遍历一次全树，在大仓库上是肉眼可见的卡顿。
+ */
+export function useFileSearch(workingCopyId: string | null, query: string, enabled = true) {
+  return useQuery({
+    queryKey: codeKeys.search(workingCopyId ?? "", query),
+    queryFn: async () =>
+      (await WorkingCopyService.SearchFiles(workingCopyId as string, query, 200)) ?? [],
+    enabled: Boolean(workingCopyId) && enabled && query.trim() !== "",
+    staleTime: 10_000,
+    // 搜索失败时保留上一次结果，避免边打字边闪烁。
+    placeholderData: (prev) => prev,
   });
 }
 

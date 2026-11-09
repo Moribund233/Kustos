@@ -215,6 +215,23 @@ const en = {
     closeTab: "Close tab",
     lineCount_one: "{{count}} line",
     lineCount_other: "{{count}} lines",
+    segments: {
+      files: "Files",
+      symbols: "Symbols",
+      changes: "Changes",
+    },
+    filterPlaceholder: "Filter files…",
+    searching: "Searching…",
+    noMatches: "No files match “{{query}}”.",
+    matches_one: "{{count}} result",
+    matches_other: "{{count}} results",
+    symbolsHint: "A symbol outline needs the language server's syntax tree; that lands in a later milestone.",
+    noChanges: "The working tree is clean — no changed files.",
+    modeReadOnly: "Read-only",
+    modeHint: "Editing lands in a later milestone; this is a read-only viewer for now.",
+    modeNote:
+      "This version is read-only. Stage and commit on the Working copy surface, or open the file in your external editor.",
+    save: "Save",
     inspector: {
       title: "File facts",
       tabFacts: "Facts",
