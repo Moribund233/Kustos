@@ -89,6 +89,77 @@ func TestProbeToleratesMissingCompatEndpoint(t *testing.T) {
 	}
 }
 
+// 真实部署里 `GET /` 返回的是前端 SPA 的 HTML，不是 JSON。
+//
+// 网关把根路径让给了前端路由，后端那个返回 JSON 的 `@router.get("/")`
+// 被 SPA 兜底覆盖。探活若坚持在根路径上解析 JSON，所有真实实例都会
+// 被判成"连不上"——而兼容性声明端点本来就是免鉴权的公开面，正是
+// 为这个场景加的。
+func TestProbeWorksWhenRootServesHTML(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/":
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			_, _ = w.Write([]byte(`<!doctype html><html><body><div id="root"></div></body></html>`))
+		case "/api/v1/client-compat":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{
+				"api_version":"v1","api_min":"v1","server_version":"0.1.0",
+				"features":{"collab_active":true}
+			}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	info := newProbeOnly().Probe(srv.URL)
+
+	if !info.Reachable {
+		t.Fatalf("根路径是 HTML 时仍应判为可达，实际错误: %s", info.Error)
+	}
+	if info.APICompat == nil {
+		t.Fatal("应从兼容性声明取到能力")
+	}
+	if info.Version == "" {
+		t.Error("版本应来自兼容性声明，不能为空")
+	}
+}
+
+// 根路径 404（纯 API 部署、无前端）时，兼容性声明仍然可以判定可达。
+func TestProbeWorksWhenRootIs404(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/client-compat" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"api_version":"v1","api_min":"v1","server_version":"2.3.4"}`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	info := newProbeOnly().Probe(srv.URL)
+
+	if !info.Reachable {
+		t.Fatalf("根路径 404 但有 client-compat 时应可达: %s", info.Error)
+	}
+	if info.Version != "2.3.4" {
+		t.Errorf("版本 = %q", info.Version)
+	}
+}
+
+// 根路径也 404、兼容性声明也没有：那才是真的连不上。
+func TestProbeFailsWhenNothingResponds(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	defer srv.Close()
+
+	if info := newProbeOnly().Probe(srv.URL); info.Reachable {
+		t.Fatal("根路径与兼容性声明都 404 时不应判为可达")
+	}
+}
+
 // 5xx 是失败，不是"可达但版本空"。
 func TestProbeServerError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

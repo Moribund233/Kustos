@@ -51,6 +51,11 @@ type APICompat struct {
 // **直连上游、不走 bridge**：bridge 的 `/` 是桌面端自己的 SPA，两者不能共用
 // 同一个路径。这也是为什么版本兼容判断放在 Go 而不是前端。
 //
+// 判据顺序上兼容性声明优先于根路径：真实部署里 `GET /` 返回的是前端 SPA 的
+// HTML（网关把根路径让给了前端路由），在那里解析 JSON 会把所有真实实例判成
+// "连不上"。兼容性声明本来就是免鉴权的公开面，正是为"还没登录就要判断
+// 这家实例能不能用"准备的。
+//
 // Args:
 //
 //	baseURL: 实例根地址，如 https://kustos.example.com
@@ -65,27 +70,34 @@ func (s *SessionService) Probe(baseURL string) InstanceInfo {
 		return InstanceInfo{Error: "实例地址为空"}
 	}
 
-	root, err := s.getJSON(base + "/")
-	if err != nil {
-		return InstanceInfo{Error: err.Error()}
-	}
+	info := InstanceInfo{}
 
-	info := InstanceInfo{Reachable: true}
-	if v, ok := root["title"].(string); ok {
-		info.Title = v
-	}
-	if v, ok := root["version"].(string); ok {
-		info.Version = v
-	}
-
-	// 兼容性声明是新增端点，老实例会 404：这里静默忽略，
-	// 由前端回退到"只凭 version 判断"的旧路径。
+	// 兼容性声明是判定可达与版本的主依据。老实例没有这个端点（404），
+	// 那时才回退到根路径的 JSON。
 	if compat, err := s.getJSON(base + "/api/v1/client-compat"); err == nil {
+		info.Reachable = true
 		info.APICompat = &APICompat{
 			APIVersion:    stringField(compat, "api_version"),
 			APIMin:        stringField(compat, "api_min"),
 			ServerVersion: stringField(compat, "server_version"),
 			Features:      boolMapField(compat, "features"),
+		}
+		info.Version = info.APICompat.ServerVersion
+	}
+
+	// 根路径只在还没判定可达时兜底（老实例），并且**必须确认拿到的是 JSON**：
+	// 返回 HTML 说明这是前端页面，不是 API 响应。
+	if !info.Reachable {
+		root, err := s.getJSONStrict(base + "/")
+		if err != nil {
+			return InstanceInfo{Error: err.Error()}
+		}
+		info.Reachable = true
+		if v, ok := root["title"].(string); ok {
+			info.Title = v
+		}
+		if v, ok := root["version"].(string); ok && info.Version == "" {
+			info.Version = v
 		}
 	}
 
@@ -94,6 +106,18 @@ func (s *SessionService) Probe(baseURL string) InstanceInfo {
 
 // getJSON 发起 GET 并解析 JSON 对象。
 func (s *SessionService) getJSON(url string) (map[string]any, error) {
+	return s.doGetJSON(url, false)
+}
+
+// getJSONStrict 与 getJSON 相同，但要求响应**确实是** JSON。
+//
+// 用于"根路径兜底"：真实部署的 `GET /` 返回 HTML，那个页面不是 API 响应，
+// 也不能被当成"实例可达"的证据。只按状态码判断会把前端页面认成 API。
+func (s *SessionService) getJSONStrict(url string) (map[string]any, error) {
+	return s.doGetJSON(url, true)
+}
+
+func (s *SessionService) doGetJSON(url string, requireJSON bool) (map[string]any, error) {
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("构造请求失败: %w", err)
@@ -108,6 +132,18 @@ func (s *SessionService) getJSON(url string) (map[string]any, error) {
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("实例返回 HTTP %d", resp.StatusCode)
+	}
+
+	if requireJSON {
+		// 明确按 HTML 拒绝：有些部署会把未命中的路径兜底成前端页面，
+		// 状态码是 200，但那是页面而不是接口，不能被当成"实例可达"的证据。
+		//
+		// 判定用"像 HTML"而不是"必须是 JSON"：老实例的 Content-Type 未必规范，
+		// 只要能解析成 JSON 对象就应当认，收紧到 Content-Type 会把可用实例误杀。
+		ct := strings.ToLower(resp.Header.Get("Content-Type"))
+		if strings.Contains(ct, "html") {
+			return nil, fmt.Errorf("期望 JSON 响应，实际是 %q", ct)
+		}
 	}
 
 	var payload map[string]any

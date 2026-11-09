@@ -82,6 +82,11 @@ export function Logout(): $CancellablePromise<void> {
  * **直连上游、不走 bridge**：bridge 的 `/` 是桌面端自己的 SPA，两者不能共用
  * 同一个路径。这也是为什么版本兼容判断放在 Go 而不是前端。
  * 
+ * 判据顺序上兼容性声明优先于根路径：真实部署里 `GET /` 返回的是前端 SPA 的
+ * HTML（网关把根路径让给了前端路由），在那里解析 JSON 会把所有真实实例判成
+ * "连不上"。兼容性声明本来就是免鉴权的公开面，正是为"还没登录就要判断
+ * 这家实例能不能用"准备的。
+ * 
  * Args:
  * 
  * 	baseURL: 实例根地址，如 https://kustos.example.com

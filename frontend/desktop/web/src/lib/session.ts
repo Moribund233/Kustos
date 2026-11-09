@@ -47,6 +47,10 @@ export function useAddInstance() {
     mutationFn: (baseURL: string) => SessionService.AddInstance(baseURL),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: sessionKeys.instances });
+      // 添加即成为活动实例（Go 侧这样约定），因此 active 也必须失效：
+      // 只刷 instances 的话，界面查到的 active 仍是旧的 null，
+      // 于是刚添加完实例又被弹回连接页。
+      void qc.invalidateQueries({ queryKey: sessionKeys.active });
     },
   });
 }

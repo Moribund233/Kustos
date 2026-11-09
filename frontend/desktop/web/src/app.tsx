@@ -131,7 +131,12 @@ function Root() {
   }
 
   if (phase === "login") {
-    // 没有活动实例时（例如刚启动、还没选）也给连接页。
+    // 活动实例是异步查出来的：首帧必然还没有值。此时若直接回退到连接页，
+    // 用户会看到"刚添加成功又被弹回表单"——所以先等这次查询有结果。
+    if (activeInstance.isLoading) {
+      return <CenterNote>正在准备登录…</CenterNote>;
+    }
+    // 确实没有活动实例（例如刚启动、还没选）才给连接页。
     if (!instance) {
       return <ConnectInstance onAdded={handleConnected} />;
     }
