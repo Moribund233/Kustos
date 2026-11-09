@@ -24,7 +24,7 @@ export interface CodeViewProps {
   /** 文件路径，用于推断语言。 */
   path: string;
   className?: string;
-  /** 只读浏览（默认）；可编辑模式在后续里程碑接入。 */
+  /** 只读浏览（默认）；传 false 进入可编辑。 */
   readOnly?: boolean;
   /** 内容变化回调（可编辑模式下使用）。 */
   onChange?: (value: string) => void;
@@ -142,6 +142,10 @@ export function CodeView({
     if (!view) return;
     const current = view.state.doc.toString();
     if (current === content) return;
+    // 只有"外部确实换了另一份内容"才覆盖：可编辑模式下用户可能已经改过，
+    // 此时把一个陈旧的 prop 回灌进去会直接吞掉用户刚敲的字。
+    // 调用方在每次 onChange 后都同步更新 content，因此两者一致时不会走到这里；
+    // 走到这里意味着来源真的变了（切文件、外部刷新），覆盖才是对的。
     view.dispatch({ changes: { from: 0, to: current.length, insert: content } });
   }, [content]);
 
