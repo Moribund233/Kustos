@@ -139,7 +139,12 @@ func (s *WorkingCopyService) List() ([]store.WorkingCopy, error) {
 // Remove 从列表移除工作副本记录。
 //
 // **不删除磁盘上的工作树**：用户不期望"从列表移除"等于删掉目录。
+// 未保存的 buffer 一并清掉：它们永远等不到对应的仓库，留着只会在
+// 下次启动时冒出一批无法恢复的条目。
 func (s *WorkingCopyService) Remove(id string) error {
+	if err := s.store.ClearBufferRecoveriesFor(id); err != nil {
+		return err
+	}
 	return s.store.DeleteWorkingCopy(id)
 }
 
@@ -507,10 +512,16 @@ func resolveInside(root, rel string, allowRoot bool) (string, error) {
 	}
 
 	if _, statErr := os.Stat(target); statErr != nil {
-		return "", fmt.Errorf("文件不存在: %s", rel)
+		return "", fmt.Errorf("%w: %s", ErrPathNotFound, rel)
 	}
 	return target, nil
 }
+
+// ErrPathNotFound 表示路径收敛在仓库内，但目标不存在。
+//
+// 单独定义而不是靠错误文案判断：调用方需要区分"越界（拒绝）"与
+// "文件没了（正常情形）"，比对中文错误串会在措辞调整时静默失效。
+var ErrPathNotFound = errors.New("路径不存在")
 
 // isWithin 判断 target 是否位于 root 之内（含 root 本身）。
 func isWithin(root, target string) bool {

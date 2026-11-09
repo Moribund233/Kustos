@@ -93,6 +93,24 @@ var migrationSteps = [][]string{
 		)`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_working_copies_path ON working_copies(path)`,
 	},
+	// v4：未保存的编辑器 buffer。
+	//
+	// 只存**改了但没存**的内容。崩溃或强杀后重开，能恢复用户的工作；
+	// 保存成功后这一行立即删除，因此表的大小由"当前打开了几个未保存文件"
+	// 决定，不随时间增长。
+	//
+	// base_mtime 是开始编辑时磁盘文件的修改时间：恢复后保存前用它比对，
+	// 磁盘在崩溃期间被别的东西改过时要让用户先看清再决定覆盖。
+	{
+		`CREATE TABLE IF NOT EXISTS buffer_recovery (
+			working_copy_id TEXT NOT NULL,
+			path            TEXT NOT NULL,
+			content         TEXT NOT NULL,
+			base_mtime      INTEGER NOT NULL DEFAULT 0,
+			saved_at        INTEGER NOT NULL DEFAULT 0,
+			PRIMARY KEY (working_copy_id, path)
+		)`,
+	},
 }
 
 // Open 打开（必要时创建）本地库。
@@ -532,4 +550,104 @@ func (d *DB) GetUIState(key string) (string, bool, error) {
 		return "", false, fmt.Errorf("读取 UI 状态失败: %w", err)
 	}
 	return value, true, nil
+}
+
+// BufferRecovery 是一条未保存的编辑器 buffer。
+type BufferRecovery struct {
+	// WorkingCopyID 与 Path 一起确定唯一一个文件。
+	WorkingCopyID string `json:"workingCopyId"`
+	// Path 是相对仓库根的路径。
+	Path string `json:"path"`
+	// Content 是用户改动后的全文。
+	Content string `json:"content"`
+	// BaseMtime 是开始编辑时磁盘文件的修改时间（Unix 纳秒）。
+	BaseMtime int64 `json:"baseMtime"`
+	// SavedAt 是最后一次记录的 Unix 秒时间戳。
+	SavedAt int64 `json:"savedAt"`
+}
+
+// SaveBufferRecovery 记录一份未保存的 buffer（按 工作副本 + 路径 upsert）。
+//
+// Args:
+//
+//	b: 待保存的记录；WorkingCopyID 与 Path 必填
+//
+// Returns:
+//
+//	缺字段或写入失败时返回错误。
+//
+// 这个表**只该装未保存的内容**：保存成功后必须调用 ClearBufferRecovery，
+// 否则下次启动会把已经写进磁盘的旧内容当成"待恢复的改动"再提一次。
+func (d *DB) SaveBufferRecovery(b BufferRecovery) error {
+	if b.WorkingCopyID == "" {
+		return errors.New("工作副本 ID 不能为空")
+	}
+	if b.Path == "" {
+		return errors.New("buffer 路径不能为空")
+	}
+	if b.SavedAt == 0 {
+		b.SavedAt = time.Now().Unix()
+	}
+	_, err := d.sql.Exec(`
+		INSERT INTO buffer_recovery (working_copy_id, path, content, base_mtime, saved_at)
+		VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT(working_copy_id, path) DO UPDATE SET
+			content    = excluded.content,
+			base_mtime = excluded.base_mtime,
+			saved_at   = excluded.saved_at`,
+		b.WorkingCopyID, b.Path, b.Content, b.BaseMtime, b.SavedAt)
+	if err != nil {
+		return fmt.Errorf("保存 buffer 失败: %w", err)
+	}
+	return nil
+}
+
+// ListBufferRecoveries 返回某个工作副本下所有未保存的 buffer。
+//
+// Returns:
+//
+//	按路径排序的列表；没有记录时返回空切片。
+func (d *DB) ListBufferRecoveries(workingCopyID string) ([]BufferRecovery, error) {
+	rows, err := d.sql.Query(`
+		SELECT working_copy_id, path, content, base_mtime, saved_at
+		FROM buffer_recovery WHERE working_copy_id = ? ORDER BY path ASC`, workingCopyID)
+	if err != nil {
+		return nil, fmt.Errorf("查询 buffer 失败: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	// 空切片而非 nil：绑定到前端时 nil 会变成 null。
+	list := make([]BufferRecovery, 0)
+	for rows.Next() {
+		var b BufferRecovery
+		if err := rows.Scan(&b.WorkingCopyID, &b.Path, &b.Content, &b.BaseMtime, &b.SavedAt); err != nil {
+			return nil, fmt.Errorf("读取 buffer 行失败: %w", err)
+		}
+		list = append(list, b)
+	}
+	return list, rows.Err()
+}
+
+// ClearBufferRecovery 删除一份 buffer 记录。
+//
+// 保存成功、用户选择放弃改动、或文件已从工作树移除时都调用它。
+func (d *DB) ClearBufferRecovery(workingCopyID, path string) error {
+	_, err := d.sql.Exec(`
+		DELETE FROM buffer_recovery WHERE working_copy_id = ? AND path = ?`,
+		workingCopyID, path)
+	if err != nil {
+		return fmt.Errorf("删除 buffer 失败: %w", err)
+	}
+	return nil
+}
+
+// ClearBufferRecoveriesFor 删除某个工作副本的全部 buffer 记录。
+//
+// 工作副本被移除时用：留下的记录会永远等不到对应的仓库。
+func (d *DB) ClearBufferRecoveriesFor(workingCopyID string) error {
+	_, err := d.sql.Exec(`DELETE FROM buffer_recovery WHERE working_copy_id = ?`, workingCopyID)
+	if err != nil {
+		return fmt.Errorf("删除 buffer 失败: %w", err)
+	}
+	return nil
 }
