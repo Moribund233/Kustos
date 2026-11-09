@@ -12,6 +12,51 @@ import (
 	"time"
 )
 
+// Wails 的绑定调用（$Call.ByID）走自己的 IPC 端点，不是 fetch("/api/...")。
+//
+// 窗口加载的是 bridge 地址，因此这些请求也会先到 bridge。若 bridge 把它们当
+// 普通路径交给静态资源处理器，所有 Go 方法调用都会 404——表现为"界面能显示，
+// 但点任何按钮都报 404 page not found"，而且不会出现在任何日志里。
+func TestWailsIPCPathsReachIPCService(t *testing.T) {
+	var gotPaths []string
+	ipc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPaths = append(gotPaths, r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	})
+
+	s := newTestServerWithIPC(t, "http://127.0.0.1:1", nil, ipc)
+
+	req := httptest.NewRequest(http.MethodPost, "http://127.0.0.1/wails/runtime", strings.NewReader(`{}`))
+	req.AddCookie(s.NonceCookie())
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+
+	if rec.Code == http.StatusUnauthorized {
+		t.Fatal("带 nonce 的 IPC 调用不应被同源校验拦住")
+	}
+	if len(gotPaths) != 1 || gotPaths[0] != "/wails/runtime" {
+		t.Fatalf("IPC 处理器应收到原始路径，实际 %v", gotPaths)
+	}
+}
+
+// IPC 端点同样要过同源校验：它是能调用 Go 方法的入口，
+// 不能因为"不是 API 前缀"就放行。
+func TestWailsIPCRequiresSameOrigin(t *testing.T) {
+	ipc := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	s := newTestServerWithIPC(t, "http://127.0.0.1:1", nil, ipc)
+
+	req := httptest.NewRequest(http.MethodPost, "http://127.0.0.1/_wails/runtime", strings.NewReader(`{}`))
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("缺 nonce 的 IPC 调用应 401，实际 %d", rec.Code)
+	}
+}
+
 // 这些测试把 bridge 的安全约束写成可执行的断言，
 // 而不是只存在于注释里。
 
@@ -377,6 +422,18 @@ func newTestServer(t *testing.T) *Server {
 	if err != nil {
 		t.Fatalf("创建 bridge 失败: %v", err)
 	}
+	t.Cleanup(func() { _ = s.Close() })
+	return s
+}
+
+// newTestServerWithIPC 起一个注入了 IPC 处理器的 bridge。
+func newTestServerWithIPC(t *testing.T, upstream string, extra, ipc http.Handler) *Server {
+	t.Helper()
+	s, err := New(upstream, extra)
+	if err != nil {
+		t.Fatalf("创建 bridge 失败: %v", err)
+	}
+	s.SetIPCHandler(ipc)
 	t.Cleanup(func() { _ = s.Close() })
 	return s
 }

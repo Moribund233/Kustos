@@ -67,6 +67,17 @@ var publicExactPaths = []string{
 	"/health",
 }
 
+// wailsPrefix 是 Wails 运行时自己的端点前缀。
+//
+// 前端调用 Go 方法（绑定生成器产出的 `$Call.ByID`）走的是 HTTP
+// `POST /wails/runtime`，而不是某种进程内通道。窗口加载的是 bridge 地址，
+// 因此这些请求也会先到 bridge：若被当成普通静态资源路径处理，每个按钮
+// 都会拿到 `404 page not found`，界面上还完全看不出是传输层的问题。
+//
+// 这些请求必须交给 Wails 自己的处理器，但仍要过同源校验——它是能执行
+// Go 方法的入口，不能因为"不是 /api/ 前缀"就放行。
+const wailsPrefix = "/wails/"
+
 // rejectedPrefixes 是显式拒绝的路径：命中即 404，且优先于白名单判断。
 var rejectedPrefixes = []string{
 	"/api/app/",
@@ -87,6 +98,10 @@ type Server struct {
 	// 原子动作，否则并发导航会让同一个令牌成功两次。
 	entryMu    sync.Mutex
 	entryToken string
+
+	// ipc 是 Wails 运行时端点（`/wails/*`）的处理器，由装配层注入。
+	// 用原子指针而非锁：装配后只读，请求路径上不该有锁。
+	ipc atomic.Pointer[http.Handler]
 }
 
 // New 创建并开始监听 bridge。
@@ -192,16 +207,48 @@ func (s *Server) buildHandler(proxy http.Handler, extra http.Handler) http.Handl
 			}
 		}
 
-		// 4. 前缀白名单与只读公开面之外，走本地静态资源（桌面端自有产物）。
+		// 4. Wails 运行时端点交给 Wails 自己的处理器。
+		//    绑定调用（POST /wails/runtime）必须到得了它，否则界面上每个
+		//    按钮都拿到 404，而这看起来像后端接口挂了。
+		if strings.HasPrefix(path, wailsPrefix) {
+			if ipc := s.ipc.Load(); ipc != nil {
+				(*ipc).ServeHTTP(w, r)
+				return
+			}
+			// 没注入处理器时明确 501，而不是伪装成"资源不存在"。
+			http.Error(w, "wails ipc handler not attached", http.StatusNotImplemented)
+			return
+		}
+
+		// 5. 前缀白名单与只读公开面之外，走本地静态资源（桌面端自有产物）。
 		if !hasAnyPrefix(path, allowedPrefixes) && !hasAnyExact(path, publicExactPaths) {
 			serveLocal(w, r, extra)
 			return
 		}
 
-		// 5. 白名单前缀反代到上游。不设置任何 CORS 头——没有
+		// 6. 白名单前缀反代到上游。不设置任何 CORS 头——没有
 		//    Access-Control-Allow-Origin 就等于只接受同源。
 		proxy.ServeHTTP(w, r)
 	})
+}
+
+// SetIPCHandler 注入 Wails 运行时端点（`/wails/*`）的处理器。
+//
+// Args:
+//
+//	h: Wails 的资产服务器处理器；传 nil 会断开 IPC
+//
+// 为什么不放进 New 的参数里：bridge 是传输层，不该在构造时就依赖 Wails
+// 的具体实现；装配层在 `application.New` 之后才拿得到那个 handler。
+//
+// 这些请求仍然要过同源校验：它是能执行 Go 方法的入口，
+// 不能因为"不是 /api/ 前缀"就放行。
+func (s *Server) SetIPCHandler(h http.Handler) {
+	if h == nil {
+		s.ipc.Store(nil)
+		return
+	}
+	s.ipc.Store(&h)
 }
 
 // consumeEntryToken 判断这次请求是否携带当前的一次性引导令牌。

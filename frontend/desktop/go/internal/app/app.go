@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"path/filepath"
+	"sync"
 
 	"github.com/kustos/kustos-desktop/internal/bridge"
 	"github.com/kustos/kustos-desktop/internal/platform/singleinstance"
@@ -52,6 +53,9 @@ type Desktop struct {
 
 	// screens 返回当前可用屏幕，抽出来是为了让装配逻辑可测试。
 	screens func() []windowstate.Rect
+
+	// assetsOnce 保证资产链只捕获一次（Wails 可能多次调用中间件构造）。
+	assetsOnce sync.Once
 }
 
 // New 装配并返回桌面端实例（不启动事件循环）。
@@ -104,6 +108,14 @@ func New(opts Options) (*Desktop, error) {
 		SingleInstance: singleinstance.Options(d.handleSecondLaunch),
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(opts.Assets),
+			// 捕获 Wails 组装好的完整资产链（含 `/wails/runtime` 的 IPC 端点），
+			// 再转交给 bridge。窗口加载的是 bridge 地址，前端调用 Go 方法走
+			// `POST /wails/runtime`——不把这条链路接过去，界面上每个按钮都会
+			// 拿到 404，而这看起来像后端接口挂了。
+			Middleware: func(next http.Handler) http.Handler {
+				d.captureAssets(next)
+				return next
+			},
 		},
 		Mac: application.MacOptions{
 			// 常驻应用应当关窗即收进托盘，但那需要托盘与常驻生命周期，
@@ -133,7 +145,22 @@ func New(opts Options) (*Desktop, error) {
 	return d, nil
 }
 
-// placeholderUpstream 是尚未选定实例时的占位上游。
+// captureAssets 记录 Wails 组装好的资产链，并转交给 bridge。
+//
+// 为什么需要：窗口加载的是 bridge 地址（为了与 `/api` 同源），而前端调用
+// Go 方法的绑定请求走 `POST /wails/runtime`。这条请求先到 bridge，
+// 只有把它交给 Wails 自己的处理器才能拿到响应；否则每个按钮都 404，
+// 而界面看起来一切正常，排查时极易误判成后端挂了。
+//
+// Wails 的资产服务器是私有字段，没有公开访问器，但它会把组装好的链作为
+// `next` 传给用户中间件——这里正好是唯一能拿到完整链的位置。
+func (d *Desktop) captureAssets(next http.Handler) {
+	d.assetsOnce.Do(func() {
+		if d.bridge != nil {
+			d.bridge.SetIPCHandler(next)
+		}
+	})
+}
 //
 // 用保留的不可路由地址而不是空串：bridge.New 要求合法 URL，
 // 且任何真实请求都应当明确失败，而不是被悄悄发去某个真实主机。
