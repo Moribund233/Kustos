@@ -24,7 +24,6 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -129,7 +128,18 @@ func New(upstream string, extra http.Handler) (*Server, error) {
 	s.entryToken = entryToken
 
 	s.handler = s.buildHandler(s.newProxy(), extra)
+	// 只监听不接 Accept 循环等于不服务：WebView 的首次导航会一直挂在
+	// about:blank，窗口等不到 NavigationCompleted 就永远不显示。
+	s.serve()
 	return s, nil
+}
+
+// serve 在监听器上跑 HTTP 服务，直到 Close。
+//
+// 返回的错误只可能是"监听已关闭"，因此不向外抛：Close 是正常退出路径。
+func (s *Server) serve() {
+	srv := &http.Server{Handler: s.handler, ReadHeaderTimeout: 10 * time.Second}
+	go func() { _ = srv.Serve(s.listener) }()
 }
 
 // newProxy 构造反代。
@@ -354,17 +364,8 @@ func (s *Server) Close() error {
 	return s.listener.Close()
 }
 
-// Handler 暴露底层 handler，供测试与 Wails 资产服务器复用。
+// Handler 暴露底层 handler，供测试直接驱动（Recorder 模式）。
 func (s *Server) Handler() http.Handler { return s.handler }
-
-// Serve 在给定 listener 上提供服务（测试用；正常路径由 New + BaseURL 承担）。
-func (s *Server) Serve() error {
-	if s.listener == nil {
-		return errors.New("bridge 未监听")
-	}
-	srv := &http.Server{Handler: s.handler, ReadHeaderTimeout: 10 * time.Second}
-	return srv.Serve(s.listener)
-}
 
 func hasAnyPrefix(path string, prefixes []string) bool {
 	for _, p := range prefixes {

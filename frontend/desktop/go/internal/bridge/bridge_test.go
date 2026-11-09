@@ -402,18 +402,34 @@ func serveWithNonce(s *Server, path string) *httptest.ResponseRecorder {
 
 // newListeningServer 起一个真正在回环端口上服务的 bridge。
 //
-// New 已经完成监听，Serve 只是把连接接进来，因此客户端不必等它启动：
-// 内核的 accept 队列会先替我们把连接收着。e2e 必须走真实连接——
-// Recorder 只测得到 handler，测不到 cookie 在传输层的实际行为。
+// New 既监听也开始服务，因此客户端不必等：拿到 BaseURL 就能发请求。
+// e2e 必须走真实连接——Recorder 只测得到 handler，测不到 cookie 在传输层的
+// 实际行为。
 func newListeningServer(t *testing.T, upstream string, extra http.Handler) *Server {
 	t.Helper()
 	s, err := New(upstream, extra)
 	if err != nil {
 		t.Fatalf("创建 bridge 失败: %v", err)
 	}
-	go func() { _ = s.Serve() }()
 	t.Cleanup(func() { _ = s.Close() })
 	return s
+}
+
+// New 之后就该能应答：漏掉 Accept 循环时连接会堵在内核队列里，
+// WebView 最终停在 about:blank、窗口永不显示。
+func TestNewServesRequests(t *testing.T) {
+	s := newListeningServer(t, "https://upstream.example", nil)
+
+	resp, err := newEntryClient(t).Get(s.EntryURL())
+	if err != nil {
+		t.Fatalf("New 之后应立即响应请求: %v", err)
+	}
+	_ = resp.Body.Close()
+
+	// 入口令牌换到的是同源身份，必须有 cookie 下发。
+	if len(resp.Cookies()) == 0 {
+		t.Fatal("入口响应应下发 nonce cookie")
+	}
 }
 
 // newEntryClient 返回带独立 cookie 罐的客户端。
