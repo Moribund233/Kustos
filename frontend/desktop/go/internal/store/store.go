@@ -69,6 +69,30 @@ var migrationSteps = [][]string{
 			updated_at INTEGER NOT NULL
 		)`,
 	},
+	// v3：本地工作副本。
+	//
+	// path 唯一而不是 (instance_id, path)：一个工作树只可能属于一次克隆，
+	// 同一目录被两台实例反复"添加"只会让用户困惑。repo_id 允许为空——
+	// 本地 clone 未必对得上服务端仓库（例如先 clone 后建仓库）。
+	//
+	// ahead/behind/dirty 是**上一次扫描的快照**，不是实时状态：列表要能立刻
+	// 出内容，逐仓库跑 git status 在大工作树上要几秒。真正的实时状态由
+	// WorkingCopyService.Status 现算。
+	{
+		`CREATE TABLE IF NOT EXISTS working_copies (
+			id           TEXT PRIMARY KEY,
+			instance_id  TEXT NOT NULL DEFAULT '',
+			repo_id      INTEGER NOT NULL DEFAULT 0,
+			path         TEXT NOT NULL,
+			branch       TEXT NOT NULL DEFAULT '',
+			ahead        INTEGER NOT NULL DEFAULT 0,
+			behind       INTEGER NOT NULL DEFAULT 0,
+			dirty        INTEGER NOT NULL DEFAULT 0,
+			last_scan_at INTEGER NOT NULL DEFAULT 0,
+			created_at   INTEGER NOT NULL DEFAULT 0
+		)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_working_copies_path ON working_copies(path)`,
+	},
 }
 
 // Open 打开（必要时创建）本地库。
@@ -329,6 +353,140 @@ func (d *DB) GetInstanceByBaseURL(baseURL string) (Instance, bool, error) {
 		return Instance{}, false, fmt.Errorf("查询实例失败: %w", err)
 	}
 	return it, true, nil
+}
+
+// WorkingCopy 是一条本地工作副本记录。
+//
+// 它是"本机事实"：路径、当前分支、相对远端的领先/落后、是否有未提交改动。
+// **不缓存权限或仓库可见性**——那些回服务端裁决。
+//
+// Ahead/Behind/Dirty 是上一次扫描的快照；实时状态现算（见 Status）。
+type WorkingCopy struct {
+	ID         string `json:"id"`
+	InstanceID string `json:"instanceId"`
+	RepoID     int64  `json:"repoId"`
+	Path       string `json:"path"`
+	Branch     string `json:"branch"`
+	Ahead      int    `json:"ahead"`
+	Behind     int    `json:"behind"`
+	Dirty      bool   `json:"dirty"`
+	LastScanAt int64  `json:"lastScanAt"`
+	CreatedAt  int64  `json:"createdAt"`
+}
+
+// ErrWorkingCopyNotFound 表示按 id 没有找到工作副本。
+var ErrWorkingCopyNotFound = errors.New("工作副本不存在")
+
+// ListWorkingCopies 返回所有工作副本，按添加时间升序。
+func (d *DB) ListWorkingCopies() ([]WorkingCopy, error) {
+	rows, err := d.sql.Query(`
+		SELECT id, instance_id, repo_id, path, branch, ahead, behind, dirty, last_scan_at, created_at
+		FROM working_copies ORDER BY created_at ASC`)
+	if err != nil {
+		return nil, fmt.Errorf("查询工作副本失败: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	// 空切片而非 nil：绑定到前端时 nil 会变成 null。
+	list := make([]WorkingCopy, 0)
+	for rows.Next() {
+		var wc WorkingCopy
+		if err := rows.Scan(
+			&wc.ID, &wc.InstanceID, &wc.RepoID, &wc.Path, &wc.Branch,
+			&wc.Ahead, &wc.Behind, &wc.Dirty, &wc.LastScanAt, &wc.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("读取工作副本行失败: %w", err)
+		}
+		list = append(list, wc)
+	}
+	return list, rows.Err()
+}
+
+// SaveWorkingCopy 新增或更新工作副本（按 path upsert）。
+//
+// Args:
+//
+//	wc: 待保存的记录；ID 与 Path 必填
+//
+// Returns:
+//
+//	缺字段或写入失败时返回错误。
+func (d *DB) SaveWorkingCopy(wc WorkingCopy) error {
+	if wc.ID == "" {
+		return errors.New("工作副本 ID 不能为空")
+	}
+	if wc.Path == "" {
+		return errors.New("工作副本路径不能为空")
+	}
+	now := time.Now().Unix()
+	if wc.CreatedAt == 0 {
+		wc.CreatedAt = now
+	}
+	_, err := d.sql.Exec(`
+		INSERT INTO working_copies
+			(id, instance_id, repo_id, path, branch, ahead, behind, dirty, last_scan_at, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(path) DO UPDATE SET
+			instance_id = excluded.instance_id,
+			repo_id     = excluded.repo_id,
+			branch      = excluded.branch,
+			ahead       = excluded.ahead,
+			behind      = excluded.behind,
+			dirty       = excluded.dirty,
+			last_scan_at = excluded.last_scan_at`,
+		wc.ID, wc.InstanceID, wc.RepoID, wc.Path, wc.Branch,
+		wc.Ahead, wc.Behind, wc.Dirty, wc.LastScanAt, wc.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("保存工作副本失败: %w", err)
+	}
+	return nil
+}
+
+// GetWorkingCopy 按 id 取工作副本；不存在返回 false。
+func (d *DB) GetWorkingCopy(id string) (WorkingCopy, bool, error) {
+	var wc WorkingCopy
+	err := d.sql.QueryRow(`
+		SELECT id, instance_id, repo_id, path, branch, ahead, behind, dirty, last_scan_at, created_at
+		FROM working_copies WHERE id = ?`, id).
+		Scan(&wc.ID, &wc.InstanceID, &wc.RepoID, &wc.Path, &wc.Branch,
+			&wc.Ahead, &wc.Behind, &wc.Dirty, &wc.LastScanAt, &wc.CreatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return WorkingCopy{}, false, nil
+	}
+	if err != nil {
+		return WorkingCopy{}, false, fmt.Errorf("查询工作副本失败: %w", err)
+	}
+	return wc, true, nil
+}
+
+// GetWorkingCopyByPath 按路径取工作副本。
+//
+// 添加同一目录两次时应命中同一行，因此需要按 path 回查（upsert 会保留原有 id）。
+func (d *DB) GetWorkingCopyByPath(path string) (WorkingCopy, bool, error) {
+	var wc WorkingCopy
+	err := d.sql.QueryRow(`
+		SELECT id, instance_id, repo_id, path, branch, ahead, behind, dirty, last_scan_at, created_at
+		FROM working_copies WHERE path = ?`, path).
+		Scan(&wc.ID, &wc.InstanceID, &wc.RepoID, &wc.Path, &wc.Branch,
+			&wc.Ahead, &wc.Behind, &wc.Dirty, &wc.LastScanAt, &wc.CreatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return WorkingCopy{}, false, nil
+	}
+	if err != nil {
+		return WorkingCopy{}, false, fmt.Errorf("查询工作副本失败: %w", err)
+	}
+	return wc, true, nil
+}
+
+// DeleteWorkingCopy 删除工作副本记录。
+//
+// 只删记录，**不碰磁盘上的工作树**：用户不期望"从列表移除"等于删掉目录。
+func (d *DB) DeleteWorkingCopy(id string) error {
+	_, err := d.sql.Exec(`DELETE FROM working_copies WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("删除工作副本失败: %w", err)
+	}
+	return nil
 }
 
 // SetUIState 按 key 覆盖写入一段 UI 状态。
