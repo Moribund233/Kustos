@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Button, Input } from "@kustos/ui";
 
@@ -20,6 +21,7 @@ export function Login({
   onSuccess: (creds: Credentials) => void;
   onChangeInstance: () => void;
 }) {
+  const { t } = useTranslation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const login = useLogin();
@@ -44,19 +46,15 @@ export function Login({
     <div className="flex h-full items-center justify-center p-8">
       <form onSubmit={submit} className="w-full max-w-[380px]">
         <div className="mb-5">
-          <h1 className="font-display mb-1 text-lg text-bone">登录 {instance.name || instance.baseUrl}</h1>
+          <h1 className="font-display mb-1 text-lg text-bone">{t("session.loginTitle")} {instance.name || instance.baseUrl}</h1>
           <button
             type="button"
             onClick={onChangeInstance}
             className="text-[11px] text-faint underline-offset-2 hover:text-bone hover:underline"
-          >
-            切换实例
-          </button>
+          >{t("session.switchInstance")}</button>
         </div>
 
-        <label htmlFor="username" className="mb-1 block text-[11px] text-faint">
-          用户名
-        </label>
+        <label htmlFor="username" className="mb-1 block text-[11px] text-faint">{t("session.username")}</label>
         <Input
           id="username"
           value={username}
@@ -67,9 +65,7 @@ export function Login({
           className="mb-3"
         />
 
-        <label htmlFor="password" className="mb-1 block text-[11px] text-faint">
-          密码
-        </label>
+        <label htmlFor="password" className="mb-1 block text-[11px] text-faint">{t("session.password")}</label>
         <Input
           id="password"
           type="password"
@@ -80,7 +76,7 @@ export function Login({
         />
 
         <Button type="submit" disabled={login.isPending || !username || !password} className="w-full">
-          {login.isPending ? "登录中…" : "登录"}
+          {login.isPending ? t("session.loggingIn") : t("session.login")}
         </Button>
 
         {/* 失败原因就地展示且可重试，不用一次性 toast */}
@@ -88,16 +84,18 @@ export function Login({
           <p className="mt-3 text-[12px] text-[var(--color-rose)]">{result.error}</p>
         )}
         {login.isError && (
-          <p className="mt-3 text-[12px] text-[var(--color-rose)]">登录请求失败：{String(login.error)}</p>
+          <p className="mt-3 text-[12px] text-[var(--color-rose)]">{t("session.addFailed", { error: String(login.error) })}</p>
         )}
 
         {/* 凭据未能进入系统钥匙串时如实告知：否则用户会在重启后莫名被登出 */}
         {login.data?.[0]?.persistent === false && (
           <p className="mt-3 text-[11px] leading-relaxed text-[var(--color-amber-2)]">
-            系统钥匙串不可用，凭据仅在本会话内有效；重启后需要重新登录。
+            {t("session.keychainDegraded")}
           </p>
         )}
       </form>
     </div>
   );
 }
+
+

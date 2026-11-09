@@ -129,10 +129,16 @@ export function useMarkAllRead() {
 /** 按类型归入设计里的三段：待我决策 / 我发起的 / 动态。 */
 export type InboxSegment = "decide" | "authored" | "activity";
 
-export const SEGMENTS: { id: InboxSegment; label: string }[] = [
-  { id: "decide", label: "待我决策" },
-  { id: "authored", label: "我发起的" },
-  { id: "activity", label: "动态" },
+/**
+ * 收件箱的分段。
+ *
+ * 只存 id 与翻译键，不存字面量：语言切换时这些标签必须跟着变，
+ * 写死的文案会让界面出现"一半英文一半中文"的混用状态。
+ */
+export const SEGMENTS: { id: InboxSegment; i18nKey: string }[] = [
+  { id: "decide", i18nKey: "inbox.segments.decide" },
+  { id: "authored", i18nKey: "inbox.segments.authored" },
+  { id: "activity", i18nKey: "inbox.segments.activity" },
 ];
 
 /**
@@ -159,3 +165,4 @@ export function segmentOf(n: InboxNotification): InboxSegment {
 export function itemsInSegment(items: InboxNotification[], segment: InboxSegment) {
   return items.filter((n) => segmentOf(n) === segment);
 }
+

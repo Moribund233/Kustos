@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Button, Input } from "@kustos/ui";
 
@@ -14,6 +15,7 @@ import { useAddInstance, type InstanceInfo } from "@/lib/session";
  * 而不是等到登录时才失败（那时用户会怀疑是密码问题）。
  */
 export function ConnectInstance({ onAdded }: { onAdded: (id: string, info: InstanceInfo) => void }) {
+  const { t } = useTranslation();
   const [baseURL, setBaseURL] = useState("");
   const [probe, setProbe] = useState<InstanceInfo | null>(null);
   const addInstance = useAddInstance();
@@ -38,10 +40,9 @@ export function ConnectInstance({ onAdded }: { onAdded: (id: string, info: Insta
   return (
     <div className="flex h-full items-center justify-center p-8">
       <form onSubmit={submit} className="w-full max-w-[420px]">
-        <h1 className="font-display mb-1 text-lg text-bone">连接 Kustos 实例</h1>
+        <h1 className="font-display mb-1 text-lg text-bone">{t("session.connectTitle")}</h1>
         <p className="mb-5 text-[12px] leading-relaxed text-muted">
-          填入实例地址，例如 <code className="text-bone-2">https://kustos.example.com</code>。
-          地址会先做一次探活，确认可达与版本后再保存。
+          {t("session.connectHint")}
         </p>
 
         <label htmlFor="instance-url" className="mb-1 block text-[11px] text-faint">
@@ -60,7 +61,7 @@ export function ConnectInstance({ onAdded }: { onAdded: (id: string, info: Insta
             spellCheck={false}
           />
           <Button type="submit" disabled={addInstance.isPending || !baseURL.trim()}>
-            {addInstance.isPending ? "连接中…" : "连接"}
+            {addInstance.isPending ? t("session.connecting") : t("session.connect")}
           </Button>
         </div>
 
@@ -69,7 +70,7 @@ export function ConnectInstance({ onAdded }: { onAdded: (id: string, info: Insta
 
         {addInstance.isError && (
           <p className="mt-3 text-[12px] text-[var(--color-rose)]">
-            添加失败：{String(addInstance.error)}
+            {t("session.addFailed", { error: String(addInstance.error) })}
           </p>
         )}
       </form>
@@ -79,12 +80,13 @@ export function ConnectInstance({ onAdded }: { onAdded: (id: string, info: Insta
 
 /** 探活结果。不可达时给出原因与可重试动作，而不是"出错了"。 */
 function ProbeResult({ info }: { info: InstanceInfo }) {
+  const { t } = useTranslation();
   if (!info.reachable) {
     return (
       <div className="rounded-md border border-[color-mix(in_srgb,var(--color-rose)_40%,transparent)] bg-[color-mix(in_srgb,var(--color-rose)_8%,transparent)] px-3 py-2">
-        <p className="text-[12px] text-[var(--color-rose-2)]">连不上实例</p>
+        <p className="text-[12px] text-[var(--color-rose-2)]">{t("session.unreachable")}</p>
         <p className="mt-0.5 text-[11px] leading-relaxed text-muted">
-          {info.error || "请检查地址是否正确、实例是否在运行。"}
+          {info.error || t("session.unreachableHint")}
         </p>
       </div>
     );
@@ -96,24 +98,26 @@ function ProbeResult({ info }: { info: InstanceInfo }) {
   return (
     <div className="rounded-md border border-[var(--color-edge-2)] px-3 py-2">
       <p className="text-[12px] text-bone">
-        {info.title || "已连接"}
+        {info.title || t("session.connected")}
         <span className="ml-2 text-[11px] text-faint">v{info.version}</span>
       </p>
       {info.apiCompat ? (
         <p className="mt-0.5 text-[11px] text-muted">
-          契约 {info.apiCompat.apiVersion} · 最低兼容 {info.apiCompat.apiMin}
+          {t("session.contract", { version: info.apiCompat.apiVersion, min: info.apiCompat.apiMin })}
         </p>
       ) : (
         // 老实例没有 client-compat：如实说明，不假装知道兼容性。
         <p className="mt-0.5 text-[11px] text-muted">
-          该实例未公布契约版本（较旧版本），将按应用版本判断兼容性。
+          {t("session.noContract")}
         </p>
       )}
       {tooOld && (
         <p className="mt-1 text-[11px] text-[var(--color-rose)]">
-          服务端契约版本低于本客户端要求，需要先升级实例。
+          {t("session.tooOld")}
         </p>
       )}
     </div>
   );
 }
+
+
