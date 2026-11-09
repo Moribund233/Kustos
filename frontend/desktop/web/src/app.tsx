@@ -2,10 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { configureAuth, setAccessToken } from "@kustos/api";
+import { Button, Input } from "@kustos/ui";
 
 import { ConnectInstance } from "@/surfaces/connect-instance";
 import { Inbox } from "@/surfaces/inbox";
 import { Login } from "@/surfaces/login";
+import { WorkingCopyView } from "@/surfaces/working-copy";
 import { Shell, SURFACES, useSurfaceShortcuts, type Surface } from "@/shell/shell";
 import {
   useActiveInstance,
@@ -13,6 +15,11 @@ import {
   useRestoreSession,
   type Credentials,
 } from "@/lib/session";
+import {
+  useAddWorkingCopy,
+  useWorkingCopies,
+  useWorkingCopyStatus,
+} from "@/lib/working-copy";
 
 /**
  * 桌面端根组件。
@@ -210,6 +217,10 @@ function MainShell({
     );
   }
 
+  if (surface === "working-copy") {
+    return <WorkingCopySurface onSelect={onSelect} titleContext={titleContext} />;
+  }
+
   return (
     <Shell
       active={surface}
@@ -236,6 +247,166 @@ function MainShell({
       statusLeft={statusLeft}
       statusRight={statusRight}
     />
+  );
+}
+
+/**
+ * 工作副本面：仓库选择 + 状态查询 + 添加入口。
+ *
+ * 把"选哪个仓库"与"这个仓库的状态"放在这一层：`WorkingCopyView` 只负责
+ * 呈现与暂存提交操作，不该同时管理仓库列表的查询。
+ */
+function WorkingCopySurface({
+  onSelect,
+  titleContext,
+}: {
+  onSelect: (s: Surface) => void;
+  titleContext: React.ReactNode;
+}) {
+  const copies = useWorkingCopies();
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [addPath, setAddPath] = useState("");
+  const addCopy = useAddWorkingCopy();
+
+  const list = copies.data ?? [];
+  const active = list.find((c) => c.id === activeId) ?? list[0] ?? null;
+  const status = useWorkingCopyStatus(active?.id ?? null);
+
+  // 收敛成视图层的形状：绑定的字段不该漏进 surface 组件。
+  const statusForView = status.data
+    ? {
+        branch: status.data.branch,
+        dirty: status.data.dirty,
+        ahead: status.data.ahead,
+        behind: status.data.behind,
+        changes: (status.data.changes ?? []).map((c) => ({
+          path: c.path,
+          origPath: c.origPath,
+          kind: c.kind,
+          staged: c.staged,
+        })),
+      }
+    : null;
+
+  // WorkingCopyView 渲染成两个片段（变更列表 + diff），由这里摆进三栏。
+  // 只实例化一次：提交信息与暂存侧选择是它内部的状态，两个实例会各存一份。
+  return (
+    <WorkingCopyView
+      workingCopyId={active?.id ?? null}
+      status={statusForView}
+      loading={status.isLoading}
+      error={status.error}
+      selectedPath={selectedPath}
+      onSelectPath={setSelectedPath}
+    >
+      {({ changesList, detail }) => (
+        <Shell
+          active="working-copy"
+          onSelect={onSelect}
+          titleContext={titleContext}
+          list={
+            <div className="flex h-full flex-col">
+              <div className="shrink-0 border-b border-[var(--color-edge-1)] px-3 py-2">
+                <div className="mb-1.5 flex items-center gap-2">
+                  <h2 className="text-[11px] font-medium tracking-wide text-faint uppercase">
+                    工作副本
+                  </h2>
+                  <div className="flex-1" />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-2 text-[11px]"
+                    onClick={() => setAdding((v) => !v)}
+                  >
+                    添加
+                  </Button>
+                </div>
+                {adding && (
+                  <div className="flex gap-1">
+                    <Input
+                      value={addPath}
+                      onChange={(e) => setAddPath(e.target.value)}
+                      placeholder="/path/to/repo"
+                      className="h-6 text-[11px]"
+                      autoFocus
+                    />
+                    <Button
+                      size="sm"
+                      className="h-6 shrink-0 px-2 text-[11px]"
+                      disabled={addPath.trim() === "" || addCopy.isPending}
+                      onClick={() =>
+                        addCopy.mutate(addPath.trim(), {
+                          onSuccess: (wc) => {
+                            setAddPath("");
+                            setAdding(false);
+                            setActiveId(wc.id);
+                            setSelectedPath(null);
+                          },
+                        })
+                      }
+                    >
+                      加入
+                    </Button>
+                  </div>
+                )}
+                {addCopy.isError && (
+                  <p className="mt-1 text-[11px] leading-relaxed text-[var(--color-rose)]">
+                    {addCopy.error instanceof Error ? addCopy.error.message : "添加失败"}
+                  </p>
+                )}
+              </div>
+
+              {/* 仓库列表：多仓库并存是常态，切仓库不该离开这一面。 */}
+              <div className="max-h-[30%] shrink-0 overflow-auto border-b border-[var(--color-edge-1)]">
+                {list.length === 0 && !adding && (
+                  <p className="px-3 py-3 text-[11px] leading-relaxed text-muted">
+                    还没有仓库。点「添加」填入本地 git 仓库路径。
+                  </p>
+                )}
+                {list.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveId(c.id);
+                      setSelectedPath(null);
+                    }}
+                    className={[
+                      "flex w-full items-center gap-2 border-b border-[var(--color-edge-1)] px-3 py-1.5 text-left",
+                      c.id === active?.id
+                        ? "bg-[var(--color-ink-800)]"
+                        : "hover:bg-[var(--color-ink-850)]",
+                    ].join(" ")}
+                  >
+                    <span className="min-w-0 flex-1 truncate text-[12px] text-bone">
+                      {c.path.split(/[\\/]/).pop() || c.path}
+                    </span>
+                    {c.dirty && (
+                      <span className="shrink-0 text-[10px] text-[var(--color-amber-500)]">●</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {/* 变更列表 + 提交框。 */}
+              <div className="min-h-0 flex-1">{changesList}</div>
+            </div>
+          }
+          detail={detail}
+          statusLeft={<span>{active ? active.branch || "—" : "未选择仓库"}</span>}
+          statusRight={
+            <>
+              <span>{status.data?.dirty ? "未提交" : "干净"}</span>
+              <span>
+                ↑{status.data?.ahead ?? 0} ↓{status.data?.behind ?? 0}
+              </span>
+            </>
+          }
+        />
+      )}
+    </WorkingCopyView>
   );
 }
 

@@ -52,6 +52,7 @@ func main() {
 	defer func() { _ = db.Close() }()
 
 	sessionSvc := services.NewSessionServiceWith(db, keychain.NewComposite())
+	workingCopySvc := services.NewWorkingCopyService(db)
 
 	desktop, err := app.New(app.Options{
 		Assets:   assets,
@@ -59,7 +60,10 @@ func main() {
 		DB:       db,
 		DataDir:  dir,
 		Logger:   logger,
-		Services: []application.Service{application.NewService(sessionSvc)},
+		Services: []application.Service{
+			application.NewService(sessionSvc),
+			application.NewService(workingCopySvc),
+		},
 	})
 	if err != nil {
 		diag.Fatalf("初始化桌面端失败: %v", err)

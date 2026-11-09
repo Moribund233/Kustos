@@ -15,3 +15,24 @@ export interface Instance {
     "tlsPin"?: string;
     "createdAt": number;
 }
+
+/**
+ * WorkingCopy 是一条本地工作副本记录。
+ * 
+ * 它是"本机事实"：路径、当前分支、相对远端的领先/落后、是否有未提交改动。
+ * **不缓存权限或仓库可见性**——那些回服务端裁决。
+ * 
+ * Ahead/Behind/Dirty 是上一次扫描的快照；实时状态现算（见 Status）。
+ */
+export interface WorkingCopy {
+    "id": string;
+    "instanceId": string;
+    "repoId": number;
+    "path": string;
+    "branch": string;
+    "ahead": number;
+    "behind": number;
+    "dirty": boolean;
+    "lastScanAt": number;
+    "createdAt": number;
+}
