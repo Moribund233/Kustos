@@ -334,6 +334,132 @@ func TestStageUnknownIDFails(t *testing.T) {
 }
 
 /* ------------------------------------------------------------------ */
+/* 远端同步                                                            */
+/* ------------------------------------------------------------------ */
+
+// newRemoteBackedService 建一个带本地裸远端的服务与工作副本。
+//
+// 用本地裸仓库而不是真网络：push 的语义（refspec、upstream、领先/落后）
+// 与远端类型无关，联网只会让测试变慢且不稳定。
+func newRemoteBackedService(t *testing.T) (*WorkingCopyService, string) {
+	t.Helper()
+	needGit(t)
+
+	remote := t.TempDir()
+	runGit(t, remote, "init", "--bare", "-b", "main")
+
+	seed := t.TempDir()
+	for _, args := range [][]string{
+		{"init", "-b", "main"},
+		{"config", "user.email", "seed@example.invalid"},
+		{"config", "user.name", "Seed"},
+		{"config", "core.autocrlf", "false"},
+	} {
+		runGit(t, seed, args...)
+	}
+	writeFile(t, seed, "README.md", "# seed\n")
+	runGit(t, seed, "add", ".")
+	runGit(t, seed, "commit", "-m", "seed")
+	runGit(t, seed, "remote", "add", "origin", remote)
+	runGit(t, seed, "push", "-u", "origin", "main")
+
+	parent := t.TempDir()
+	clonePath := filepath.Join(parent, "clone")
+	cmd := exec.Command("git", "clone", remote, clonePath)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("clone 失败: %v\n%s", err, out)
+	}
+	for _, args := range [][]string{
+		{"config", "user.email", "user@example.invalid"},
+		{"config", "user.name", "User"},
+		{"config", "core.autocrlf", "false"},
+	} {
+		runGit(t, clonePath, args...)
+	}
+
+	svc := newTestWorkingCopyService(t)
+	wc, err := svc.Add(clonePath)
+	if err != nil {
+		t.Fatalf("添加工作副本失败: %v", err)
+	}
+	return svc, wc.ID
+}
+
+// runGit 在目录里跑 git，失败即终止。
+func runGit(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %s 失败: %v\n%s", strings.Join(args, " "), err, out)
+	}
+	return string(out)
+}
+
+// Push 之后状态里的领先数应归零。
+func TestPushViaService(t *testing.T) {
+	svc, id := newRemoteBackedService(t)
+
+	wc, _, _ := svc.store.GetWorkingCopy(id)
+	writeFile(t, wc.Path, "new.txt", "hello\n")
+	runGit(t, wc.Path, "add", ".")
+	runGit(t, wc.Path, "commit", "-m", "add new")
+
+	if err := svc.Push(id, false); err != nil {
+		t.Fatalf("push 失败: %v", err)
+	}
+
+	st, err := svc.Status(id)
+	if err != nil {
+		t.Fatalf("读状态失败: %v", err)
+	}
+	if st.Ahead != 0 {
+		t.Fatalf("push 后领先数应为 0，实际 %d", st.Ahead)
+	}
+}
+
+func TestPushUnknownIDFails(t *testing.T) {
+	svc := newTestWorkingCopyService(t)
+	if err := svc.Push("nope", false); err == nil {
+		t.Fatal("未知 ID 应报错")
+	}
+}
+
+// PushCommand 供确认框展示：破坏性操作必须让用户看到完整命令。
+func TestPushCommandViaService(t *testing.T) {
+	svc, id := newRemoteBackedService(t)
+
+	cmd, err := svc.PushCommand(id, true)
+	if err != nil {
+		t.Fatalf("取命令失败: %v", err)
+	}
+	if !strings.Contains(cmd, "git push") || !strings.Contains(cmd, "--force-with-lease") {
+		t.Fatalf("命令不对: %q", cmd)
+	}
+}
+
+// 在编辑器中打开：路径不存在时服务层要给出明确错误而不是静默成功。
+func TestOpenInEditorMissingFile(t *testing.T) {
+	svc, id := newRemoteBackedService(t)
+
+	if err := svc.OpenInEditor(id, "definitely-missing.txt"); err == nil {
+		t.Fatal("不存在的文件应报错")
+	}
+}
+
+// 路径穿越必须被拒绝：前端传来的相对路径不能跑出仓库根。
+func TestOpenInEditorRejectsPathTraversal(t *testing.T) {
+	svc, id := newRemoteBackedService(t)
+
+	for _, bad := range []string{"../../../etc/passwd", "/etc/passwd", "..\\..\\windows\\system32"} {
+		if err := svc.OpenInEditor(id, bad); err == nil {
+			t.Errorf("越界路径 %q 应被拒绝", bad)
+		}
+	}
+}
+
+/* ------------------------------------------------------------------ */
 /* diff                                                                */
 /* ------------------------------------------------------------------ */
 

@@ -139,7 +139,23 @@ const en = {
     commit: "Commit",
     committing: "Committing…",
     commitAndPush: "Commit & push",
-    commitAndPushHint: "Pushing needs remote credentials; opens once Push is wired",
+    commitAndPushHint: "Pushing uses the system git credentials; the desktop never touches remote passwords",
+
+    pushing: "Pushing…",
+
+    pushCommand: "git push",
+
+    pushForceCommand: "git push --force-with-lease",
+
+    pushHint:
+      "Forced pushes use --force-with-lease and never silently overwrite others' commits",
+    push: "Push",
+    fetch: "Fetch",
+    fetching: "Fetching…",
+    forcePush: "Force push…",
+    forcePushWarning:
+      "A forced push rewrites remote history. Read the exact command before confirming:",
+    confirmForcePush: "Force push",
     editorHint: "External editor integration lands with FileService",
     discardHint: "Discard confirmation flow is not built yet",
     hunkHint: "Hunk staging needs patch-level index writes; waits on DiffService",
@@ -165,7 +181,7 @@ const en = {
       aheadBehind: "Ahead / behind",
       sectionNext: "Next",
       nextHint:
-        "Hunk staging, external editors and pushing all need capabilities that are not wired yet. The buttons are placeholders and stay disabled rather than doing nothing on click.",
+        "Fetch and push both go through system git, so credentials come from the credential helper or SSH agent already configured on your machine. The desktop app never touches remote passwords.",
       yes: "yes",
       no: "no",
     },
@@ -235,3 +251,4 @@ const en = {
 } as const;
 
 export default en;
+

@@ -186,10 +186,24 @@ func (d *Desktop) createMainWindow() {
 		// 无边框：标题栏由前端自绘（38px，含品牌、上下文 chip、连接灯、
 		// 搜索与窗口控制）。系统标题栏在这里是纯冗余——它会和白骨色的
 		// 内容区割裂，也放不下原型要表达的分支/PR 上下文。
-		//
-		// 拖拽靠 CSS 的 `-webkit-app-region: drag`（见 globals.css），
-		// 按钮与输入框用 `no-drag` 挖掉，否则点击会被当成拖拽。
 		Frameless: true,
+		Windows: application.WindowsWindow{
+			// WebView2 原生的非客户区命中测试。
+			//
+			// 不开这个开关，前端用 `--wails-non-client-region: caption`
+			// 标出的拖拽区域**完全无效**：窗口表现为"点标题栏拖不动"，
+			// 而界面看起来一切正常。默认值是 false，必须显式打开。
+			NonClientRegionSupport: true,
+			// 无边框自定义标题栏需要把 WebView2 切到视觉托管
+			// （CompositionController + DirectComposition）。
+			//
+			// 这一项不是可选的：Wails v3 把前端的
+			// `window._wails.flags.nonClientRegionTracking` **硬编码**绑定到
+			// 这个字段（见 webview_window_windows.go 的 flags 注入），
+			// 只开 NonClientRegionSupport 时该标志仍为 false，
+			// 拖拽区域根本不会上报给原生层。
+			WebView2CompositionHosting: true,
+		},
 	}
 	if st.Maximised {
 		winOpts.StartState = application.WindowStateMaximised

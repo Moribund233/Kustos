@@ -87,16 +87,7 @@ func execGit(dir string, args ...string) (string, error) {
 
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
-	// 关掉路径引号与转义：默认 core.quotepath 会把非 ASCII 路径写成
-	// "\344\270\255" 这种八进制，读出来就是乱码，后续 git 命令全部对不上。
-	// `-z` 只影响 status 的输出，diff 之类仍会转义，因此在进程环境里统一关掉。
-	cmd.Env = append(os.Environ(),
-		"GIT_OPTIONAL_LOCKS=0",
-		"LC_ALL=C.UTF-8",
-		"GIT_CONFIG_COUNT=1",
-		"GIT_CONFIG_KEY_0=core.quotepath",
-		"GIT_CONFIG_VALUE_0=false",
-	)
+	cmd.Env = gitEnv()
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -114,6 +105,24 @@ func execGit(dir string, args ...string) (string, error) {
 		return stdout.String(), fmt.Errorf("git %s: %s", strings.Join(args, " "), msg)
 	}
 	return stdout.String(), nil
+}
+
+// gitEnv 是所有 git 子进程共用的环境。
+//
+// 关掉路径引号与转义：默认 core.quotepath 会把非 ASCII 路径写成
+// "\344\270\255" 这种八进制，读出来就是乱码，后续 git 命令全部对不上。
+// `-z` 只影响 status 的输出，diff 之类仍会转义，因此在进程环境里统一关掉。
+//
+// GIT_OPTIONAL_LOCKS=0：只读命令（status/diff）不要去抢 index.lock，
+// 否则外部编辑器同时跑 git 时会互相干扰。
+func gitEnv() []string {
+	return append(os.Environ(),
+		"GIT_OPTIONAL_LOCKS=0",
+		"LC_ALL=C.UTF-8",
+		"GIT_CONFIG_COUNT=1",
+		"GIT_CONFIG_KEY_0=core.quotepath",
+		"GIT_CONFIG_VALUE_0=false",
+	)
 }
 
 // gitDir 校验目录并返回其绝对路径。
@@ -581,4 +590,138 @@ func CurrentBranch(dir string) (string, error) {
 		return "", err
 	}
 	return currentBranch(abs)
+}
+
+/* ------------------------------------------------------------------ */
+/* 远端同步                                                            */
+/* ------------------------------------------------------------------ */
+
+// networkTimeout 是联网类 git 命令的上限。
+//
+// 比本地命令宽松得多：push/fetch 要走网络，自托管实例可能在 VPN 后面，
+// 30 秒内没完成是常态而非故障。但也不能无限等——界面要能给出明确失败。
+const networkTimeout = 3 * time.Minute
+
+// execGitNetwork 与 execGit 相同，但用网络超时。
+func execGitNetwork(dir string, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), networkTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd.Dir = dir
+	cmd.Env = gitEnv()
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return "", fmt.Errorf("git %s 超时（%s）", strings.Join(args, " "), networkTimeout)
+		}
+		msg := strings.TrimSpace(stderr.String())
+		if msg == "" {
+			msg = err.Error()
+		}
+		return stdout.String(), fmt.Errorf("git %s: %s", strings.Join(args, " "), msg)
+	}
+	return stdout.String(), nil
+}
+
+// PushCommand 返回将要执行的 push 命令，供确认框展示。
+//
+// 破坏性操作必须让用户看到**完整命令**再确认——"确认强制推送？"这种问法
+// 无法让人判断后果，而 `git push --force-with-lease` 能。
+//
+// Args:
+//
+//	dir:   仓库目录
+//	force: 是否强制推送
+//
+// Returns:
+//
+//	可读的命令字符串。拿不到上游时给出不含远端名的通用形式，
+//	而不是返回空串——确认框里空白比写明"不知道远端"更糟。
+func PushCommand(dir string, force bool) string {
+	abs, err := checkDir(dir)
+	if err != nil {
+		return "git push"
+	}
+
+	remote, branch := upstreamInfo(abs)
+	parts := []string{"git", "push"}
+	if force {
+		parts = append(parts, "--force-with-lease")
+	}
+	if remote != "" && branch != "" {
+		parts = append(parts, remote, branch)
+	}
+	return strings.Join(parts, " ")
+}
+
+// Push 把当前分支推送到上游。
+//
+// Args:
+//
+//	dir:   仓库目录
+//	force: 是否强制推送；用 `--force-with-lease` 而不是 `--force`，
+//	       前者在远端已被别人更新时会拒绝，避免覆盖他人的提交
+//
+// Returns:
+//
+//	没有上游、没有提交、凭证缺失或被远端拒绝时返回可读错误。
+//
+// 用系统 git 的凭证机制（credential helper / SSH agent）：桌面端不接触
+// 也不存储远端密码，那正是用户机器上已经配置好的东西。
+func Push(dir string, force bool) error {
+	abs, err := checkDir(dir)
+	if err != nil {
+		return err
+	}
+
+	args := []string{"push"}
+	if force {
+		args = append(args, "--force-with-lease")
+	}
+	_, err = execGitNetwork(abs, args...)
+	return err
+}
+
+// Fetch 从上游拉取引用（不改工作区）。
+func Fetch(dir string) error {
+	abs, err := checkDir(dir)
+	if err != nil {
+		return err
+	}
+	_, err = execGitNetwork(abs, "fetch", "--prune")
+	return err
+}
+
+// upstreamInfo 返回当前分支的上游远端与分支名；没有上游时返回空串。
+func upstreamInfo(dir string) (remote, branch string) {
+	out, err := execGit(dir, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")
+	if err != nil {
+		return "", ""
+	}
+	full := strings.TrimSpace(out)
+	// 形如 "origin/main"；远端名本身可能含斜杠的情况极罕见，按第一段切分。
+	idx := strings.Index(full, "/")
+	if idx <= 0 || idx == len(full)-1 {
+		return "", ""
+	}
+	return full[:idx], full[idx+1:]
+}
+
+// RemoteURL 返回指定远端的地址；没有该远端时返回空串。
+func RemoteURL(dir, name string) string {
+	abs, err := checkDir(dir)
+	if err != nil {
+		return ""
+	}
+	out, err := execGit(abs, "remote", "get-url", name)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(out)
 }

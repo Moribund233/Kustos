@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/kustos/kustos-desktop/internal/git"
+	"github.com/kustos/kustos-desktop/internal/platform/shellopen"
 	"github.com/kustos/kustos-desktop/internal/store"
 )
 
@@ -324,4 +325,190 @@ func (s *WorkingCopyService) Branches(id string) ([]git.Branch, error) {
 	defer lock.Unlock()
 
 	return git.Branches(wc.Path)
+}
+
+/* ------------------------------------------------------------------ */
+/* 远端同步                                                            */
+/* ------------------------------------------------------------------ */
+
+// Push 把当前分支推送到上游。
+//
+// Args:
+//
+//	id:    工作副本 ID
+//	force: 是否强制推送
+//
+// Returns:
+//
+//	失败时返回可读错误。凭证走系统 git 的 credential helper / SSH agent——
+//	桌面端不接触也不存储远端密码，那是用户机器上已经配好的东西。
+//
+// 推送是长任务，因此单独走网络超时，不受本地命令那 30 秒的限制。
+func (s *WorkingCopyService) Push(id string, force bool) error {
+	wc, err := s.get(id)
+	if err != nil {
+		return err
+	}
+
+	lock := s.lockFor(wc.Path)
+	lock.Lock()
+	defer lock.Unlock()
+
+	if err := git.Push(wc.Path, force); err != nil {
+		return err
+	}
+
+	// 推送后刷新快照：状态条要立刻反映"已同步"。
+	s.refreshSnapshot(wc)
+	return nil
+}
+
+// PushCommand 返回将要执行的 push 命令。
+//
+// 破坏性操作（尤其是强制推送）必须在确认框里显示完整命令：
+// "确认强制推送？"无法让人判断后果，`git push --force-with-lease` 可以。
+func (s *WorkingCopyService) PushCommand(id string, force bool) (string, error) {
+	wc, err := s.get(id)
+	if err != nil {
+		return "", err
+	}
+	return git.PushCommand(wc.Path, force), nil
+}
+
+// Fetch 从上游拉取引用（不改工作区）。
+func (s *WorkingCopyService) Fetch(id string) error {
+	wc, err := s.get(id)
+	if err != nil {
+		return err
+	}
+
+	lock := s.lockFor(wc.Path)
+	lock.Lock()
+	defer lock.Unlock()
+
+	if err := git.Fetch(wc.Path); err != nil {
+		return err
+	}
+	s.refreshSnapshot(wc)
+	return nil
+}
+
+// refreshSnapshot 重新扫描并写回快照；失败静默。
+//
+// 快照只是为了列表页不用逐仓库跑 git status，写不进去不该影响用户
+// 刚刚成功完成的操作。
+func (s *WorkingCopyService) refreshSnapshot(wc store.WorkingCopy) {
+	st, err := git.RepoStatus(wc.Path)
+	if err != nil {
+		return
+	}
+	ahead, behind, _ := git.AheadBehind(wc.Path)
+	wc.Branch = st.Branch
+	wc.Dirty = st.Dirty
+	wc.Ahead = ahead
+	wc.Behind = behind
+	wc.LastScanAt = time.Now().Unix()
+	_ = s.store.SaveWorkingCopy(wc)
+}
+
+/* ------------------------------------------------------------------ */
+/* 系统集成                                                            */
+/* ------------------------------------------------------------------ */
+
+// OpenInEditor 在用户配置的编辑器中打开仓库内的文件。
+//
+// Args:
+//
+//	id:   工作副本 ID
+//	path: 相对仓库根的路径
+//
+// Returns:
+//
+//	路径越界、文件不存在或无法启动编辑器时返回错误。
+//
+// 路径必须先收敛到仓库根之内：这是前端传来的字符串，若直接拼进
+// filepath.Join，`../../../etc/passwd` 会打开仓库外的文件。
+func (s *WorkingCopyService) OpenInEditor(id, path string) error {
+	wc, err := s.get(id)
+	if err != nil {
+		return err
+	}
+
+	abs, err := resolveInside(wc.Path, path)
+	if err != nil {
+		return err
+	}
+
+	// 编辑器是长期进程，不该在 git 锁内启动。
+	return shellopen.OpenInEditor(abs)
+}
+
+// RevealInFileManager 在系统文件管理器里定位仓库内的文件。
+func (s *WorkingCopyService) RevealInFileManager(id, path string) error {
+	wc, err := s.get(id)
+	if err != nil {
+		return err
+	}
+
+	abs, err := resolveInside(wc.Path, path)
+	if err != nil {
+		return err
+	}
+	return shellopen.Reveal(abs)
+}
+
+// resolveInside 把相对路径收敛到 root 之内，并确认目标存在。
+//
+// Returns:
+//
+//	绝对路径；路径为空、越界或不存在时返回错误。
+//
+// 越界判定用"收敛后的绝对路径是否仍以 root 为前缀"，而不是检查字符串里
+// 有没有 `..`——`a/../b` 这种写法合法但含 `..`，而软链接也可能把路径
+// 指向仓库外。
+func resolveInside(root, rel string) (string, error) {
+	if strings.TrimSpace(rel) == "" {
+		return "", errors.New("路径为空")
+	}
+	// 绝对路径一律拒绝：前端只应传相对仓库根的路径。
+	if filepath.IsAbs(rel) || strings.HasPrefix(rel, "/") || strings.HasPrefix(rel, "\\") {
+		return "", fmt.Errorf("只接受仓库内的相对路径: %s", rel)
+	}
+
+	rootAbs, err := filepath.Abs(root)
+	if err != nil {
+		return "", fmt.Errorf("解析仓库路径失败: %w", err)
+	}
+	target, err := filepath.Abs(filepath.Join(rootAbs, filepath.FromSlash(rel)))
+	if err != nil {
+		return "", fmt.Errorf("解析目标路径失败: %w", err)
+	}
+
+	// 收敛软链接后再比一次，防止仓库内的软链指向仓库外。
+	realRoot, err := filepath.EvalSymlinks(rootAbs)
+	if err != nil {
+		realRoot = rootAbs
+	}
+	if targetReal, err := filepath.EvalSymlinks(target); err == nil {
+		target = targetReal
+	}
+
+	if !isWithin(realRoot, target) {
+		return "", fmt.Errorf("路径超出仓库范围: %s", rel)
+	}
+
+	if _, statErr := os.Stat(target); statErr != nil {
+		return "", fmt.Errorf("文件不存在: %s", rel)
+	}
+	return target, nil
+}
+
+// isWithin 判断 target 是否位于 root 之内（含 root 本身）。
+func isWithin(root, target string) bool {
+	rel, err := filepath.Rel(root, target)
+	if err != nil {
+		return false
+	}
+	// ".." 开头表示跑到了 root 之外；"." 表示就是 root 本身。
+	return rel == "." || (!strings.HasPrefix(rel, "..") && !filepath.IsAbs(rel))
 }

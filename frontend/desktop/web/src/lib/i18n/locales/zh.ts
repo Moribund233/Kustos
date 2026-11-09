@@ -141,7 +141,21 @@ const zh = {
     commit: "提交",
     committing: "提交中…",
     commitAndPush: "提交并推送",
-    commitAndPushHint: "推送需要远端凭证，等接入 Push 后开放",
+    commitAndPushHint: "推送使用系统 git 的凭证，桌面端不接触远端密码",
+
+    pushing: "推送中…",
+
+    pushCommand: "git push",
+
+    pushForceCommand: "git push --force-with-lease",
+
+    pushHint: "强制推送会被远端拒绝时改用 --force-with-lease，绝不静默覆盖他人提交",
+    push: "推送",
+    fetch: "拉取",
+    fetching: "拉取中…",
+    forcePush: "强制推送…",
+    forcePushWarning: "强制推送会改写远端历史。确认前请看清下面这条命令：",
+    confirmForcePush: "确认强制推送",
     editorHint: "外部编辑器集成等 FileService 落地后开放",
     discardHint: "放弃改动的确认流程待补",
     hunkHint: "逐 hunk 暂存需要把 patch 按块写入索引，等 DiffService 支持后开放",
@@ -167,7 +181,7 @@ const zh = {
       aheadBehind: "领先 / 落后",
       sectionNext: "下一步",
       nextHint:
-        "逐 hunk 暂存、外部编辑器与推送都需要后续能力，按钮先占位并禁用，避免给出点了没反应的路。",
+        "拉取与推送都走系统 git，凭证由你机器上已配置的 credential helper 或 SSH agent 提供，桌面端不接触远端密码。",
       yes: "是",
       no: "否",
     },
@@ -235,3 +249,4 @@ const zh = {
 } as const;
 
 export default zh;
+

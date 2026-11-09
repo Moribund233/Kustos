@@ -567,6 +567,176 @@ func TestRepoStatusStatsTolerantOfBinary(t *testing.T) {
 	}
 }
 
+/* ------------------------------------------------------------------ */
+/* 远端与 push                                                         */
+/* ------------------------------------------------------------------ */
+
+// newRemotePair 建一个本地裸仓库当"远端"，再 clone 一个工作副本出来。
+//
+// 用本地裸仓库而不是真的网络远端：push 的语义（refspec、upstream、
+// 领先/落后计数）与远端类型无关，而联网会让测试变慢且不稳定。
+func newRemotePair(t *testing.T) (workdir, remote string) {
+	t.Helper()
+	needGit(t)
+
+	remote = t.TempDir()
+	runAt(t, remote, "init", "--bare", "-b", "main")
+
+	// 先造一个初始提交，否则 clone 出来是空仓库，push 没有上游可推。
+	seed := t.TempDir()
+	for _, args := range [][]string{
+		{"init", "-b", "main"},
+		{"config", "user.email", "seed@example.invalid"},
+		{"config", "user.name", "Seed"},
+		{"config", "core.autocrlf", "false"},
+	} {
+		runAt(t, seed, args...)
+	}
+	write(t, seed, "README.md", "# seed\n")
+	runAt(t, seed, "add", ".")
+	runAt(t, seed, "commit", "-m", "seed")
+	runAt(t, seed, "remote", "add", "origin", remote)
+	runAt(t, seed, "push", "-u", "origin", "main")
+
+	// 再 clone 一份当用户的工作副本。
+	workdir = t.TempDir()
+	cloneTarget := filepath.Join(workdir, "clone")
+	cmd := exec.Command("git", "clone", remote, cloneTarget)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("clone 失败: %v\n%s", err, out)
+	}
+	for _, args := range [][]string{
+		{"config", "user.email", "user@example.invalid"},
+		{"config", "user.name", "User"},
+		{"config", "core.autocrlf", "false"},
+	} {
+		runAt(t, cloneTarget, args...)
+	}
+	return cloneTarget, remote
+}
+
+// runAt 在指定目录里跑 git，失败即终止测试。
+func runAt(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %s 失败: %v\n%s", strings.Join(args, " "), err, out)
+	}
+	return string(out)
+}
+
+// push 之后本地应与远端持平（ahead 归零）。
+func TestPushSendsCommitToRemote(t *testing.T) {
+	dir, remote := newRemotePair(t)
+
+	write(t, dir, "feature.txt", "hello\n")
+	runAt(t, dir, "add", ".")
+	runAt(t, dir, "commit", "-m", "add feature")
+
+	ahead, _, err := AheadBehind(dir)
+	if err != nil {
+		t.Fatalf("读领先数失败: %v", err)
+	}
+	if ahead != 1 {
+		t.Fatalf("提交后应领先 1，实际 %d", ahead)
+	}
+
+	if err := Push(dir, false); err != nil {
+		t.Fatalf("push 失败: %v", err)
+	}
+
+	ahead, behind, err := AheadBehind(dir)
+	if err != nil {
+		t.Fatalf("读领先数失败: %v", err)
+	}
+	if ahead != 0 || behind != 0 {
+		t.Fatalf("push 后应与远端持平，实际 %d/%d", ahead, behind)
+	}
+
+	// 远端确实收到了这个提交。
+	out := runAt(t, remote, "rev-parse", "refs/heads/main")
+	if strings.TrimSpace(out) == "" {
+		t.Fatal("远端 main 应指向提交")
+	}
+	lsOut := runAt(t, remote, "ls-tree", "--name-only", "HEAD")
+	if !strings.Contains(lsOut, "feature.txt") {
+		t.Fatalf("远端应包含 feature.txt，实际 %s", lsOut)
+	}
+}
+
+// 没有上游分支时 push 要给出可读错误，而不是让用户去猜。
+func TestPushWithoutUpstreamFails(t *testing.T) {
+	dir := newRepo(t)
+	write(t, dir, "a.txt", "1\n")
+	runAt(t, dir, "add", ".")
+	runAt(t, dir, "commit", "-m", "init")
+
+	err := Push(dir, false)
+	if err == nil {
+		t.Fatal("无上游时 push 应失败")
+	}
+	if !strings.Contains(err.Error(), "git push") {
+		t.Fatalf("错误信息应包含失败的 git 命令，实际 %v", err)
+	}
+}
+
+// 空仓库（还没提交）push 也要失败而不是静默成功。
+func TestPushOnEmptyRepoFails(t *testing.T) {
+	dir := newRepo(t)
+	if err := Push(dir, false); err == nil {
+		t.Fatal("没有提交时 push 应失败")
+	}
+}
+
+// 强制 push 是破坏性操作，必须能被单独请求；普通 push 不应悄悄带上 force。
+func TestPushForceFlagIsExplicit(t *testing.T) {
+	dir, _ := newRemotePair(t)
+
+	write(t, dir, "a.txt", "1\n")
+	runAt(t, dir, "add", ".")
+	runAt(t, dir, "commit", "-m", "one")
+	if err := Push(dir, false); err != nil {
+		t.Fatalf("首次 push 失败: %v", err)
+	}
+
+	// 改写历史后普通 push 会被拒绝——这正是要求用户显式确认的场景。
+	write(t, dir, "a.txt", "2\n")
+	runAt(t, dir, "add", ".")
+	runAt(t, dir, "commit", "--amend", "-m", "amended")
+	if err := Push(dir, false); err == nil {
+		t.Fatal("改写历史后普通 push 应被拒绝")
+	}
+	// 显式 force 才能成功。
+	if err := Push(dir, true); err != nil {
+		t.Fatalf("强制 push 应成功: %v", err)
+	}
+}
+
+// PushCommand 返回将要执行的命令，供确认框展示。
+//
+// 破坏性操作必须在确认框里显示完整命令——用户要能判断"我点下去会发生什么"。
+func TestPushCommandIsInspectable(t *testing.T) {
+	dir, _ := newRemotePair(t)
+	write(t, dir, "a.txt", "1\n")
+	runAt(t, dir, "add", ".")
+	runAt(t, dir, "commit", "-m", "one")
+
+	plain := PushCommand(dir, false)
+	if !strings.Contains(plain, "git push") {
+		t.Fatalf("应给出可读的 push 命令，实际 %q", plain)
+	}
+	if strings.Contains(plain, "--force") {
+		t.Fatalf("普通 push 不应包含 --force，实际 %q", plain)
+	}
+
+	force := PushCommand(dir, true)
+	if !strings.Contains(force, "--force-with-lease") {
+		t.Fatalf("强制 push 应使用 --force-with-lease（比 --force 安全），实际 %q", force)
+	}
+}
+
 func keys(m map[string]Change) []string {
 	out := make([]string, 0, len(m))
 	for k := range m {

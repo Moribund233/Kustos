@@ -3,6 +3,8 @@ package app
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/kustos/kustos-desktop/internal/bridge"
@@ -14,6 +16,28 @@ import (
 // 绑定请求走 `POST /wails/runtime`。如果这条链没接到 Wails 的处理器上，
 // 界面会正常渲染、但每个按钮都 404——而所有单测都是绿的，因为它们直接打
 // `/api/` 前缀，从不经过这条路径。
+
+// 无边框窗口必须开启 WebView2 的非客户区命中测试。
+//
+// 这条边界值得测：`Frameless: true` 单独存在时界面看起来完全正常——
+// 标题栏画出来了、按钮能点——只是拖不动窗口。而 `NonClientRegionSupport`
+// 默认 false，漏掉它的表现是"窗口不能移动"，很难往配置上想。
+func TestFramelessWindowEnablesNonClientRegionSupport(t *testing.T) {
+	// 读取源码做静态断言：真正创建窗口依赖 WebView2 与真实显示器，
+	// 在单测里起不来；而这条配置一旦被删就会静默失效，必须有人看着。
+	src, err := os.ReadFile("app.go")
+	if err != nil {
+		t.Fatalf("读源码失败: %v", err)
+	}
+	code := string(src)
+
+	if !strings.Contains(code, "Frameless: true") {
+		t.Fatal("主窗口应是无边框的")
+	}
+	if !strings.Contains(code, "NonClientRegionSupport: true") {
+		t.Fatal("无边框窗口必须开启 NonClientRegionSupport，否则标题栏拖不动窗口")
+	}
+}
 
 // captureAssets 必须把 Wails 的资产链注入 bridge，否则 IPC 调用拿不到响应。
 func TestCaptureAssetsWiresIPCHandlerIntoBridge(t *testing.T) {

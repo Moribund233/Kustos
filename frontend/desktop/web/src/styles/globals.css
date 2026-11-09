@@ -58,11 +58,23 @@
  *   maximize → 自定义最大化按钮
  *   close    → 自定义关闭按钮
  *
- * 漏标一个交互元素，它在拖拽区里就会变成"点了没反应"。
+ * 该属性会**继承**，因此标题栏里的每个子元素都会成为 caption 区域。
+ * 交互元素必须显式覆盖成自己的角色，否则点击会被原生层当成拖动，
+ * 表现为"按钮点不动"——这个坑已经踩过一次。
  */
 [data-wails-drag] {
   --wails-non-client-region: caption;
   user-select: none;
+}
+
+/* 拖拽区里的可交互元素：全部显式退出 caption，恢复正常鼠标事件。 */
+[data-wails-drag] button,
+[data-wails-drag] a,
+[data-wails-drag] input,
+[data-wails-drag] textarea,
+[data-wails-drag] select,
+[data-wails-drag] [role="button"] {
+  --wails-non-client-region: none;
 }
 
 [data-window-minimise] {
@@ -75,11 +87,6 @@
 
 [data-window-close] {
   --wails-non-client-region: close;
-}
-
-/* 拖拽区里的交互元素需要正常接收鼠标事件，否则点击会被当成拖动。 */
-[data-no-drag] {
-  -webkit-app-region: no-drag;
 }
 
 /**

@@ -5,7 +5,12 @@ import { Icon } from "@/shell/icon";
 import {
   useAddWorkingCopy,
   useCommit,
+  useFetch,
   useFileDiff,
+  useOpenInEditor,
+  usePush,
+  usePushCommand,
+  useRevealInFileManager,
   useStage,
   useWorkingCopies,
   useWorkingCopyStatus,
@@ -67,6 +72,12 @@ export interface WorkingCopyState {
   /** 主动重扫状态与 diff：工作树会被外部编辑器改动。 */
   refresh: () => void;
   refetching: boolean;
+  /** 推送（凭证走系统 git 的 credential helper，不经服务端）。 */
+  push: ReturnType<typeof usePush>;
+  fetchRemote: ReturnType<typeof useFetch>;
+  /** 在外部编辑器中打开选中文件。 */
+  openInEditor: ReturnType<typeof useOpenInEditor>;
+  revealInFileManager: ReturnType<typeof useRevealInFileManager>;
 }
 
 /** 汇总 Working Copy 面的全部状态；由外层装配进 Shell。 */
@@ -109,6 +120,10 @@ export function useWorkingCopySurface(): WorkingCopyState {
   const commit = useCommit(active?.id ?? null);
   const diff = useFileDiff(active?.id ?? null, selectedGroup?.path ?? null, effectiveStaged);
   const addMutation = useAddWorkingCopy();
+  const push = usePush(active?.id ?? null);
+  const fetchRemote = useFetch(active?.id ?? null);
+  const openInEditor = useOpenInEditor(active?.id ?? null);
+  const revealInFileManager = useRevealInFileManager(active?.id ?? null);
 
   return {
     copies: list,
@@ -151,6 +166,10 @@ export function useWorkingCopySurface(): WorkingCopyState {
       void diff.refetch();
     },
     refetching: status.isFetching,
+    push,
+    fetchRemote,
+    openInEditor,
+    revealInFileManager,
   };
 }
 
@@ -421,16 +440,40 @@ function CommitBar({ state }: { state: ReturnType<typeof useWorkingCopySurface> 
         >
           {state.commit.isPending ? t("workingCopy.committing") : t("workingCopy.commit")}
         </button>
+        {/* 提交推送：先提交（若有暂存内容），再推送。
+            凭证走系统 git，桌面端不接触远端密码。 */}
         <button
           type="button"
-          disabled
-          title={t("workingCopy.commitAndPushHint")}
-          className="h-[26px] flex-1 rounded-[7px] border border-[rgba(242,174,91,0.45)] bg-[linear-gradient(180deg,rgba(242,174,91,0.22),rgba(201,122,50,0.18))] text-[11.5px] text-[var(--color-amber-2)] opacity-40"
-        >{t("workingCopy.commitAndPush")}</button>
+          disabled={state.push.isPending || (staged.length === 0 && !state.status?.ahead)}
+          onClick={() => {
+            const message = state.commitMessage.trim();
+            if (message !== "" && staged.length > 0) {
+              state.commit.mutate(
+                { message, amend: false },
+                {
+                  onSuccess: () => {
+                    state.setCommitMessage("");
+                    state.push.mutate(false);
+                  },
+                },
+              );
+              return;
+            }
+            state.push.mutate(false);
+          }}
+          className="h-[26px] flex-1 rounded-[7px] border border-[rgba(242,174,91,0.45)] bg-[linear-gradient(180deg,rgba(242,174,91,0.22),rgba(201,122,50,0.18))] text-[11.5px] text-[var(--color-amber-2)] disabled:opacity-40"
+        >
+          {state.push.isPending ? t("workingCopy.pushing") : t("workingCopy.commitAndPush")}
+        </button>
       </div>
       {state.commit.error != null && (
         <p className="mt-1 text-[10.5px] leading-relaxed text-[var(--color-rose)]">
           {errorText(state.commit.error)}
+        </p>
+      )}
+      {state.push.error != null && (
+        <p className="mt-1 text-[10.5px] leading-relaxed text-[var(--color-rose)]">
+          {errorText(state.push.error)}
         </p>
       )}
     </div>
@@ -481,11 +524,15 @@ export function WorkingCopyDetail({
             </button>
             <button
               type="button"
-              disabled
-              title="外部编辑器集成等 FileService 落地后开放"
-              className="h-[22px] rounded-[7px] border border-[var(--color-edge-2)] px-2 text-[10.5px] opacity-40"
+              disabled={!state.selectedGroup || state.openInEditor.isPending}
+              title={t("workingCopy.openInEditor")}
+              onClick={() =>
+                state.selectedGroup &&
+                state.openInEditor.mutate(state.selectedGroup.path)
+              }
+              className="h-[22px] rounded-[7px] border border-[var(--color-edge-2)] px-2 text-[10.5px] text-[var(--color-bone-2)] hover:border-[var(--color-edge-3)] disabled:opacity-40"
             >
-              在编辑器中打开
+              {t("workingCopy.openInEditor")}
             </button>
             <button
               type="button"
@@ -662,13 +709,85 @@ export function WorkingCopyInspector({
 
         <SectionLabel>{t("workingCopy.inspector.sectionNext")}</SectionLabel>
         <div className="flex flex-col gap-1.5">
-          <span className="text-[11px] leading-relaxed text-[var(--color-muted-2)]">
-            逐 hunk 暂存、外部编辑器与推送都需要后续能力，按钮先占位并禁用，
-            避免给出点了没反应的路。
+          {/* 拉取：只更新远端引用，不动工作区。 */}
+          <button
+            type="button"
+            disabled={state.fetchRemote.isPending}
+            onClick={() => state.fetchRemote.mutate()}
+            className="h-[26px] rounded-[7px] border border-[var(--color-edge-2)] bg-[var(--color-ink-800)] text-[11px] text-[var(--color-bone-2)] hover:border-[var(--color-edge-3)] hover:text-[var(--color-bone)] disabled:opacity-40"
+          >
+            {state.fetchRemote.isPending ? t("workingCopy.fetching") : t("workingCopy.fetch")}
+          </button>
+
+          {/* 推送：普通推送直接执行，凭证由系统 git 处理。 */}
+          <button
+            type="button"
+            disabled={state.push.isPending}
+            onClick={() => state.push.mutate(false)}
+            className="h-[26px] rounded-[7px] border border-[var(--color-edge-2)] bg-[var(--color-ink-800)] text-[11px] text-[var(--color-bone-2)] hover:border-[var(--color-edge-3)] hover:text-[var(--color-bone)] disabled:opacity-40"
+          >
+            {state.push.isPending ? t("workingCopy.pushing") : t("workingCopy.push")}
+          </button>
+
+          {/* 强制推送是破坏性操作：先展示将要执行的完整命令再确认。
+              "确认强制推送？"无法让人判断后果，完整命令可以。 */}
+          <ForcePushBlock state={state} />
+
+          <span className="text-[10.5px] leading-relaxed text-[var(--color-faint)]">
+            {t("workingCopy.inspector.nextHint")}
           </span>
         </div>
       </div>
     </aside>
+  );
+}
+
+/** 强制推送：两段式确认，并显示完整命令。 */
+function ForcePushBlock({ state }: { state: ReturnType<typeof useWorkingCopySurface> }) {
+  const { t } = useTranslation();
+  const [confirming, setConfirming] = useState(false);
+  const cmd = usePushCommand(state.active?.id ?? null, true, confirming);
+
+  if (!confirming) {
+    return (
+      <button
+        type="button"
+        onClick={() => setConfirming(true)}
+        className="h-[26px] rounded-[7px] border border-[color-mix(in_srgb,var(--color-rose)_35%,transparent)] text-[11px] text-[var(--color-rose)] hover:bg-[var(--color-rose-wash)]"
+      >
+        {t("workingCopy.forcePush")}
+      </button>
+    );
+  }
+
+  return (
+    <div className="rounded-[7px] border border-[color-mix(in_srgb,var(--color-rose)_40%,transparent)] bg-[var(--color-rose-wash)] p-2">
+      <p className="mb-1 text-[10.5px] leading-relaxed text-[var(--color-rose-2)]">
+        {t("workingCopy.forcePushWarning")}
+      </p>
+      <code className="mb-1.5 block truncate rounded bg-[rgba(6,9,11,0.5)] px-1.5 py-1 font-mono text-[10px] text-[var(--color-bone-2)]">
+        {cmd.data ?? "git push --force-with-lease"}
+      </code>
+      <div className="flex gap-1.5">
+        <button
+          type="button"
+          disabled={state.push.isPending}
+          onClick={() =>
+            state.push.mutate(true, { onSettled: () => setConfirming(false) })
+          }
+          className="h-[24px] flex-1 rounded-[5px] border border-[color-mix(in_srgb,var(--color-rose)_45%,transparent)] text-[10.5px] text-[var(--color-rose-2)] disabled:opacity-40"
+        >
+          {state.push.isPending ? t("workingCopy.pushing") : t("workingCopy.confirmForcePush")}
+        </button>
+        <button
+          type="button"
+          onClick={() => setConfirming(false)}
+          className="h-[24px] flex-1 rounded-[5px] border border-[var(--color-edge-2)] text-[10.5px] text-[var(--color-muted-2)]"
+        >
+          {t("common.cancel")}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -807,6 +926,9 @@ function labelOf(kind: string): string {
       return kind || "—";
   }
 }
+
+
+
 
 
 

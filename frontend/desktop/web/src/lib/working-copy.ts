@@ -111,6 +111,64 @@ export function useCommit(id: string | null) {
   });
 }
 
+/**
+ * 推送。
+ *
+ * 凭证走系统 git 的 credential helper / SSH agent：桌面端不接触也不存储
+ * 远端密码。因此这条路径既不需要服务端参与，也不需要额外的凭据界面。
+ */
+export function usePush(id: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (force: boolean) => WorkingCopyService.Push(id as string, force),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: workingCopyKeys.status(id ?? "") });
+      void qc.invalidateQueries({ queryKey: workingCopyKeys.list });
+    },
+  });
+}
+
+/** 拉取引用（不改工作区）。 */
+export function useFetch(id: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => WorkingCopyService.Fetch(id as string),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: workingCopyKeys.status(id ?? "") });
+      void qc.invalidateQueries({ queryKey: workingCopyKeys.list });
+    },
+  });
+}
+
+/**
+ * 取将要执行的 push 命令，供确认框展示。
+ *
+ * 破坏性操作必须让用户看到完整命令：`git push --force-with-lease` 这个词
+ * 本身就能让人判断后果，而"确认强制推送？"不能。
+ */
+export function usePushCommand(id: string | null, force: boolean, enabled: boolean) {
+  return useQuery({
+    queryKey: ["working-copy", id ?? "", "push-command", force],
+    queryFn: () => WorkingCopyService.PushCommand(id as string, force),
+    enabled: Boolean(id) && enabled,
+    staleTime: Infinity,
+  });
+}
+
+/** 在外部编辑器中打开文件。 */
+export function useOpenInEditor(id: string | null) {
+  return useMutation({
+    mutationFn: (path: string) => WorkingCopyService.OpenInEditor(id as string, path),
+  });
+}
+
+/** 在文件管理器中定位文件。 */
+export function useRevealInFileManager(id: string | null) {
+  return useMutation({
+    mutationFn: (path: string) => WorkingCopyService.RevealInFileManager(id as string, path),
+  });
+}
+
 /** 变更的分组：界面要分别展示"已暂存"与"未暂存"两栏。 */
 export interface ChangeGroups {
   staged: Change[];

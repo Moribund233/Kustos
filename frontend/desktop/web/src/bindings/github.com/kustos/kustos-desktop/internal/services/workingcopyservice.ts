@@ -66,6 +66,13 @@ export function Commit(id: string, message: string, amend: boolean): $Cancellabl
 }
 
 /**
+ * Fetch 从上游拉取引用（不改工作区）。
+ */
+export function Fetch(id: string): $CancellablePromise<void> {
+    return $Call.ByID(1711799942, id);
+}
+
+/**
  * FileDiff 返回单个文件的 diff。
  * 
  * Args:
@@ -89,12 +96,67 @@ export function List(): $CancellablePromise<store$0.WorkingCopy[] | null> {
 }
 
 /**
+ * OpenInEditor 在用户配置的编辑器中打开仓库内的文件。
+ * 
+ * Args:
+ * 
+ * 	id:   工作副本 ID
+ * 	path: 相对仓库根的路径
+ * 
+ * Returns:
+ * 
+ * 	路径越界、文件不存在或无法启动编辑器时返回错误。
+ * 
+ * 路径必须先收敛到仓库根之内：这是前端传来的字符串，若直接拼进
+ * filepath.Join，`../../../etc/passwd` 会打开仓库外的文件。
+ */
+export function OpenInEditor(id: string, path: string): $CancellablePromise<void> {
+    return $Call.ByID(1626170760, id, path);
+}
+
+/**
+ * Push 把当前分支推送到上游。
+ * 
+ * Args:
+ * 
+ * 	id:    工作副本 ID
+ * 	force: 是否强制推送
+ * 
+ * Returns:
+ * 
+ * 	失败时返回可读错误。凭证走系统 git 的 credential helper / SSH agent——
+ * 	桌面端不接触也不存储远端密码，那是用户机器上已经配好的东西。
+ * 
+ * 推送是长任务，因此单独走网络超时，不受本地命令那 30 秒的限制。
+ */
+export function Push(id: string, force: boolean): $CancellablePromise<void> {
+    return $Call.ByID(918850498, id, force);
+}
+
+/**
+ * PushCommand 返回将要执行的 push 命令。
+ * 
+ * 破坏性操作（尤其是强制推送）必须在确认框里显示完整命令：
+ * "确认强制推送？"无法让人判断后果，`git push --force-with-lease` 可以。
+ */
+export function PushCommand(id: string, force: boolean): $CancellablePromise<string> {
+    return $Call.ByID(1120904867, id, force);
+}
+
+/**
  * Remove 从列表移除工作副本记录。
  * 
  * **不删除磁盘上的工作树**：用户不期望"从列表移除"等于删掉目录。
  */
 export function Remove(id: string): $CancellablePromise<void> {
     return $Call.ByID(1835736198, id);
+}
+
+/**
+ * RevealInFileManager 在系统文件管理器里定位仓库内的文件。
+ */
+export function RevealInFileManager(id: string, path: string): $CancellablePromise<void> {
+    return $Call.ByID(1966271729, id, path);
 }
 
 /**
