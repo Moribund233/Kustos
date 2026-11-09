@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { configureAuth, setAccessToken } from "@kustos/api";
 
 import { ConnectInstance } from "@/surfaces/connect-instance";
+import { Inbox } from "@/surfaces/inbox";
 import { Login } from "@/surfaces/login";
 import { Shell, SURFACES, useSurfaceShortcuts, type Surface } from "@/shell/shell";
 import {
@@ -172,37 +173,68 @@ function MainShell({
   instanceName: string;
 }) {
   const meta = useMemo(() => SURFACES.find((s) => s.id === surface) ?? SURFACES[0], [surface]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const titleContext = (
+    <span className="text-[11px] text-muted">{instanceName || "未连接实例"}</span>
+  );
+  const statusLeft = <span>无工作副本</span>;
+  const statusRight = (
+    <>
+      <span>在线 —</span>
+      <span>待发 0</span>
+    </>
+  );
+
+  // 收件箱是唯一已经接上真实数据的面；其余面仍是骨架。
+  if (surface === "inbox") {
+    return (
+      <Inbox onUnreadCount={setUnreadCount}>
+        {({ list, detail }) => (
+          <Shell
+            active={surface}
+            onSelect={onSelect}
+            titleContext={titleContext}
+            list={list}
+            detail={detail}
+            statusLeft={statusLeft}
+            statusRight={
+              <>
+                <span>在线 —</span>
+                <span>未读 {unreadCount}</span>
+              </>
+            }
+          />
+        )}
+      </Inbox>
+    );
+  }
 
   return (
     <Shell
       active={surface}
       onSelect={onSelect}
-      titleContext={<span className="text-[11px] text-muted">{instanceName || "未连接实例"}</span>}
+      titleContext={titleContext}
       list={
         <div className="p-3">
           <h2 className="mb-2 text-[11px] font-medium tracking-wide text-faint uppercase">
             {meta.label}
           </h2>
           <p className="text-[12px] leading-relaxed text-muted">
-            已登录为 {creds?.username || "—"}。此处将呈现「待我决策 / 我发起的 / 动态」分段队列。
+            已登录为 {creds?.username || "—"}。
           </p>
         </div>
       }
       detail={
         <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
-          <p className="font-display text-lg text-bone">已连接</p>
+          <p className="font-display text-lg text-bone">{meta.label}</p>
           <p className="max-w-[42ch] text-[12px] leading-relaxed text-muted">
-            实例连接、登录与 Keychain 存储已打通。下一步接入 Inbox 数据与 bridge 同源请求。
+            这一面还没接入。收件箱已经可用，其余面按里程碑逐个落地。
           </p>
         </div>
       }
-      statusLeft={<span>无工作副本</span>}
-      statusRight={
-        <>
-          <span>在线 —</span>
-          <span>待发 0</span>
-        </>
-      }
+      statusLeft={statusLeft}
+      statusRight={statusRight}
     />
   );
 }
