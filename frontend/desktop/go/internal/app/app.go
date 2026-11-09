@@ -97,6 +97,12 @@ func New(opts Options) (*Desktop, error) {
 			// 当前先按"关窗退出"处理，避免留下半成品行为。
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
 		},
+		Windows: application.WindowsOptions{
+			// 远程调试只在显式设置环境变量时开启，见 cdp.go 的说明：
+			// 这条能力的收益是能用 CDP/Playwright 直接驱动真实 WebView，
+			// 代价是渲染进程连同 access token 向本机开放，因此不进发布产物。
+			AdditionalBrowserArgs: browserArgs(),
+		},
 		OnShutdown: d.persistWindowState,
 	})
 	d.app = app
