@@ -179,6 +179,20 @@ frontend/desktop/go/web/dist/
 frontend/desktop/bin/
 frontend/desktop/web/dist/
 
+# 桌面端本地运行产物
+# 用 KUSTOS_DESKTOP_DATA_DIR 把数据目录指到仓库内调试时会生成这些：
+# SQLite 库（本机事实）、WebView2 用户数据（缓存与 profile）、启动日志。
+# 它们既不该进仓库，也不该被 git add -A 顺手带进去。
+frontend/desktop/**/kustos.db
+frontend/desktop/**/kustos.db-shm
+frontend/desktop/**/kustos.db-wal
+frontend/desktop/**/webview2/
+frontend/desktop/**/desktop.log
+
+# CDP 调试脚本与临时数据目录（本机验证 WebView 用，不进仓库）
+.cdp-verify/
+.probe*/
+
 # Lock files
 yarn.lock
 package-lock.json
