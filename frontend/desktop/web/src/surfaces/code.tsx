@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/shell/icon";
+import { CodeView } from "@kustos/editor";
 import {
   languageLabel,
   languageOf,
@@ -321,7 +322,7 @@ export function CodeDetail({ state }: { state: CodeState }) {
         )}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto bg-[var(--color-ink-950)] py-2.5 font-mono">
+      <div className="min-h-0 flex-1 bg-[var(--color-ink-950)]">
         {state.file.isLoading && <Hint>{t("code.loadingFile")}</Hint>}
         {state.file.error != null && (
           <p className="px-4 py-2 text-[11.5px] leading-relaxed text-[var(--color-rose)]">
@@ -331,18 +332,12 @@ export function CodeDetail({ state }: { state: CodeState }) {
           </p>
         )}
         {state.file.data !== undefined && (
-          <div role="region" aria-label={path}>
-            {lines.map((line, i) => (
-              <div key={i} className="flex whitespace-pre hover:bg-[rgba(240,231,216,0.025)]">
-                <span className="w-[46px] shrink-0 pr-3 text-right text-[var(--color-faint)] select-none">
-                  {i + 1}
-                </span>
-                <span className="pr-4 text-[var(--color-bone-2)]">
-                  {line === "" ? "\u00a0" : line}
-                </span>
-              </div>
-            ))}
-          </div>
+          <CodeView
+            content={state.file.data}
+            path={path}
+            readOnly
+            className="h-full overflow-auto"
+          />
         )}
       </div>
     </>
@@ -459,4 +454,7 @@ function baseName(path: string): string {
   const parts = path.split(/[\\/]/).filter(Boolean);
   return parts[parts.length - 1] ?? path;
 }
+
+
+
 

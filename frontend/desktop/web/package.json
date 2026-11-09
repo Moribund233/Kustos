@@ -14,6 +14,7 @@
   "dependencies": {
     "@kustos/api": "workspace:*",
     "@kustos/design": "workspace:*",
+    "@kustos/editor": "workspace:*",
     "@kustos/ui": "workspace:*",
     "@tanstack/react-query": "^5.62.7",
     "@wailsio/runtime": "3.0.0",

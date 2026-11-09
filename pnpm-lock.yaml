@@ -16,6 +16,9 @@ importers:
       '@kustos/design':
         specifier: workspace:*
         version: link:../../packages/design
+      '@kustos/editor':
+        specifier: workspace:*
+        version: link:../../packages/editor
       '@kustos/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -105,6 +108,49 @@ importers:
       misans:
         specifier: 5.0.0
         version: 5.0.0
+
+  frontend/packages/editor:
+    dependencies:
+      '@codemirror/commands':
+        specifier: ^6.11.1
+        version: 6.11.1
+      '@codemirror/language':
+        specifier: ^6.13.1
+        version: 6.13.1
+      '@codemirror/language-data':
+        specifier: ^6.5.2
+        version: 6.5.2
+      '@codemirror/search':
+        specifier: ^6.7.2
+        version: 6.7.2
+      '@codemirror/state':
+        specifier: ^6.7.6
+        version: 6.7.6
+      '@codemirror/view':
+        specifier: ^6.43.15
+        version: 6.43.15
+      '@lezer/highlight':
+        specifier: ^1.2.5
+        version: 1.2.5
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.18
+        version: 18.3.31
+      '@types/react-dom':
+        specifier: ^18.3.5
+        version: 18.3.7(@types/react@18.3.31)
+      typescript:
+        specifier: ~5.7.2
+        version: 5.7.3
+      vitest:
+        specifier: ^3.2.7
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.5)(jiti@2.7.0)(jsdom@25.0.1)(lightningcss@1.33.0)(msw@2.15.0(@types/node@22.20.5)(typescript@5.7.3))
 
   frontend/packages/ui:
     dependencies:
@@ -235,6 +281,9 @@ importers:
       '@kustos/design':
         specifier: workspace:*
         version: link:../packages/design
+      '@kustos/editor':
+        specifier: workspace:*
+        version: link:../packages/editor
       '@kustos/ui':
         specifier: workspace:*
         version: link:../packages/ui
