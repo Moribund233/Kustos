@@ -19,6 +19,31 @@ export interface APICompat {
 }
 
 /**
+ * BufferDraft 是一条尚未保存的编辑内容。
+ */
+export interface BufferDraft {
+    /**
+     * Path 是相对仓库根的路径。
+     */
+    "path": string;
+
+    /**
+     * Content 是用户改动后的全文。
+     */
+    "content": string;
+
+    /**
+     * BaseMtime 是开始编辑时磁盘文件的修改时间，保存前用它检测冲突。
+     */
+    "baseMtime": number;
+
+    /**
+     * SavedAt 是最后一次记录的 Unix 秒时间戳。
+     */
+    "savedAt": number;
+}
+
+/**
  * Credentials 是登录结果中返回给前端的部分。
  * 
  * **不含 refresh token**：它只进 Keychain。这条边界写在这里而不是注释里，
@@ -40,6 +65,54 @@ export interface Credentials {
      * 为 false 时前端应提示"重启后需重新登录"。
      */
     "persistent": boolean;
+}
+
+/**
+ * FileStat 返回仓库内某个文件的当前状态。
+ * 
+ * 编辑器用它判断"磁盘上的文件是不是在我编辑期间变过"，
+ * 而不是每次保存都靠写盘失败来回退。
+ */
+export interface FileStat {
+    /**
+     * Exists 表示文件当前是否还在。
+     */
+    "exists": boolean;
+
+    /**
+     * Mtime 是修改时间（Unix 毫秒）；文件不存在时为 0。
+     */
+    "mtime": number;
+
+    /**
+     * Size 是字节数。
+     */
+    "size": number;
+}
+
+/**
+ * FileText 是一次文本读取的结果。
+ */
+export interface FileText {
+    /**
+     * Content 是文件原文。
+     */
+    "content": string;
+
+    /**
+     * Mtime 是文件的修改时间（Unix **毫秒**），写回时作为冲突检测的基准。
+     * 
+     * 用毫秒而不是纳秒：绑定层把 Go 的 int64 转成 JSON 数字交给 JS，
+     * 而 JS 的 Number 只有 53 位整数精度（约 9e15）。纳秒时间戳是 1.7e18，
+     * 往返一次就会被舍入，写回时永远对不上——表现为"刚打开的文件也报冲突"。
+     * 毫秒量级（1.7e12）在安全范围内，且文件系统的时间精度本就远粗于纳秒。
+     */
+    "mtime": number;
+
+    /**
+     * Size 是文件字节数。
+     */
+    "size": number;
 }
 
 /**

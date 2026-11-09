@@ -15,6 +15,7 @@ import { Login } from "@/surfaces/login";
 import {
   CodeDetail,
   CodeInspector,
+  CodeQuickOpen,
   CodeTree,
   useCodeSurface,
 } from "@/surfaces/code";
@@ -320,7 +321,12 @@ function MainShell({
         ahead={ahead}
         behind={behind}
         list={<CodeTree state={code} />}
-        detail={<CodeDetail state={code} />}
+        detail={
+          <>
+            <CodeDetail state={code} />
+            <CodeQuickOpen state={code} />
+          </>
+        }
         inspector={<CodeInspector state={code} />}
         statusLeft={
           <>

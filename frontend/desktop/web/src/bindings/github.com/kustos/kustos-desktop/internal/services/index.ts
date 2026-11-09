@@ -10,7 +10,10 @@ export {
 
 export type {
     APICompat,
+    BufferDraft,
     Credentials,
+    FileStat,
+    FileText,
     InstanceInfo,
     LoginResult,
     StatusResult,

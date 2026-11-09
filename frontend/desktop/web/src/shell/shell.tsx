@@ -142,7 +142,7 @@ export function Shell({
           {list}
         </ListPane>
         <main
-          className="flex min-w-0 flex-1 flex-col overflow-hidden"
+          className="relative flex min-w-0 flex-1 flex-col overflow-hidden"
           aria-label={t("shell.detail")}
         >
           {detail}

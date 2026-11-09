@@ -221,7 +221,7 @@ const en = {
   code: {
     title: "Code",
     fileTree: "File tree",
-    readOnlyHint: "read-only viewer · editing lands in a later milestone",
+    readOnlyHint: "Local working tree · ⌘S writes to disk",
     noRepository: "No repository yet. Add a local git repository on the Working copy surface first.",
     plainText: "Plain text",
     emptyRepository: "This repository is empty.",
@@ -246,11 +246,23 @@ const en = {
     matches_other: "{{count}} results",
     symbolsHint: "A symbol outline needs the language server's syntax tree; that lands in a later milestone.",
     noChanges: "The working tree is clean — no changed files.",
-    modeReadOnly: "Read-only",
-    modeHint: "Editing lands in a later milestone; this is a read-only viewer for now.",
-    modeNote:
-      "This version is read-only. Stage and commit on the Working copy surface, or open the file in your external editor.",
     save: "Save",
+    saving: "Saving…",
+    saveHint: "Write changes to disk (⌘S)",
+    noChangesToSave: "Nothing to save",
+    unsaved: "Unsaved",
+    conflictHint:
+      "This file was changed externally while you were editing it. Saving now would overwrite those changes.",
+    overwrite: "Overwrite anyway",
+    draftRecovered: "Recovered unsaved changes from your last session.",
+    draftFound: "This file has unsaved changes from your last session.",
+    draftRestore: "Restore",
+    draftDiscard: "Discard",
+    quickOpen: {
+      title: "Quick open",
+      placeholder: "Type a file name or path…",
+      hint: "Matches on path fragments; ↑↓ to move, ↵ to open.",
+    },
     inspector: {
       title: "File facts",
       tabFacts: "Facts",

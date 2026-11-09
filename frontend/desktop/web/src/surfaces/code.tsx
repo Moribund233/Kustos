@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/shell/icon";
@@ -9,14 +9,18 @@ import {
   pathSegments,
   useChangedFiles,
   useDirectory,
-  useFileContent,
+  useDiscardDraft,
+  useDrafts,
   useFileSearch,
+  useFileText,
+  useSaveFile,
+  useSaveDraft,
   type TreeNode,
 } from "@/lib/code";
 import { useWorkingCopies, type WorkingCopy } from "@/lib/working-copy";
 
 /**
- * Code 面：文件树 + 标签页 + 只读代码视图。
+ * Code 面：文件树 + 标签页 + 编辑器。
  *
  * 结构对齐原型 `docs/prototype/desktop/editor.html`：
  *
@@ -24,13 +28,13 @@ import { useWorkingCopies, type WorkingCopy } from "@/lib/working-copy";
  *   ├ list-head（标题 + 仓库路径 + 分段）
  *   └ tree（可展开的目录，每行带变更状态标记）
  *   detail
- *   ├ tabs（打开的标签页）
- *   ├ ed-bar（面包屑 + 语言 + 行数）
+ *   ├ tabs（打开的标签页，未保存的带圆点）
+ *   ├ ed-bar（面包屑 + 语言 + 行数 + 保存）
  *   └ code（行号 + 源码，等宽）
  *
- * 这一版是**只读查看器**。可编辑 + LSP + 模式徽标属于后续里程碑
- * （设计文档把 `code-view.tsx` 明确定位为"只读查看器"）。
- * 先把"能读懂一个仓库"这件事做扎实，比先塞一个半成品编辑器有用。
+ * 编辑语义是**磁盘是唯一真相**：改动只存在内存里，`⌘S` 才落盘。
+ * 未保存的内容会写进本地库，崩溃后重开能恢复——这是编辑器类应用
+ * 必须有的兜底，而 Web 端没有对应问题，最容易漏。
  */
 
 export interface OpenTab {
@@ -49,18 +53,33 @@ export interface CodeParts {
   statusRight: React.ReactNode;
 }
 
+/** 编辑器里一份打开了的内容。 */
+interface Buffer {
+  /** 编辑器当前内容。 */
+  text: string;
+  /** 打开时磁盘上的 mtime；保存时作为冲突检测基准。 */
+  baseMtime: number;
+  /** 是否与磁盘内容不同。 */
+  dirty: boolean;
+}
+
 /** 汇总 Code 面的状态；由外层装配进 Shell。 */
 export function useCodeSurface() {
   const copies = useWorkingCopies();
   const list = copies.data ?? [];
   const [activeId, setActiveId] = useState<string | null>(null);
   const active: WorkingCopy | null = list.find((c) => c.id === activeId) ?? list[0] ?? null;
+  const workingCopyId = active?.id ?? null;
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [tabs, setTabs] = useState<OpenTab[]>([]);
   const [activePath, setActivePath] = useState<string | null>(null);
   const [segment, setSegment] = useState<CodeSegment>("files");
   const [filter, setFilter] = useState("");
+  // 编辑器缓冲区：按 path 存，切标签不丢改动。
+  const [buffers, setBuffers] = useState<Record<string, Buffer>>({});
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [conflict, setConflict] = useState<string | null>(null);
 
   // 过滤输入去抖：每敲一个字就遍历一次全树，在大仓库上是肉眼可见的卡顿。
   const [debouncedFilter, setDebouncedFilter] = useState("");
@@ -68,6 +87,12 @@ export function useCodeSurface() {
     const id = window.setTimeout(() => setDebouncedFilter(filter), 200);
     return () => window.clearTimeout(id);
   }, [filter]);
+
+  const file = useFileText(workingCopyId, activePath);
+  const save = useSaveFile(workingCopyId);
+  const saveDraft = useSaveDraft(workingCopyId);
+  const drafts = useDrafts(workingCopyId);
+  const discardDraft = useDiscardDraft(workingCopyId);
 
   const openPath = useCallback((path: string) => {
     setTabs((prev) => {
@@ -96,6 +121,12 @@ export function useCodeSurface() {
         }
         return next;
       });
+      // 关标签时清掉缓冲区：磁盘是唯一真相，未保存的改动不该在后台悬着。
+      setBuffers((prev) => {
+        const next = { ...prev };
+        delete next[path];
+        return next;
+      });
     },
     [activePath],
   );
@@ -109,10 +140,120 @@ export function useCodeSurface() {
     });
   }, []);
 
-  const file = useFileContent(active?.id ?? null, activePath);
+  // 文件读回来时建立缓冲区基准。
+  useEffect(() => {
+    if (!file.data || !activePath) return;
+    setBuffers((prev) => {
+      const existing = prev[activePath];
+      // 已经有缓冲区就不覆盖：用户可能正在编辑，重设会吞掉改动。
+      if (existing) return prev;
+      return {
+        ...prev,
+        [activePath]: {
+          text: file.data.content,
+          baseMtime: file.data.mtime,
+          dirty: false,
+        },
+      };
+    });
+  }, [file.data, activePath]);
 
-  const search = useFileSearch(active?.id ?? null, debouncedFilter, segment === "files");
-  const changes = useChangedFiles(active?.id ?? null, segment === "changes");
+  /**
+   * 上次会话遗留的未保存内容。
+   *
+   * 崩溃或强杀后重开，这些内容还没落盘。**不自动套用**——磁盘可能在
+   * 崩溃期间被外部改过，直接灌进编辑器等于替用户做了合并决定。
+   * 界面只提示存在待恢复内容，由用户显式选择。
+   */
+  const recoverable = useMemo(() => {
+    const list = drafts.data ?? [];
+    return list.filter((d) => d.path !== activePath);
+  }, [drafts.data, activePath]);
+
+  const activeDraft = useMemo(() => {
+    const list = drafts.data ?? [];
+    return list.find((d) => d.path === activePath) ?? null;
+  }, [drafts.data, activePath]);
+
+  /**
+   * 把草稿内容装进缓冲区。
+   *
+   * baseMtime 沿用草稿里记的值：如果磁盘在崩溃期间又被改过，
+   * 保存时仍会触发冲突，用户还有机会看到差异。
+   */
+  const restoreDraft = useCallback(
+    (path: string) => {
+      const list = drafts.data ?? [];
+      const d = list.find((x) => x.path === path);
+      if (!d) return;
+      setBuffers((prev) => ({
+        ...prev,
+        [path]: { text: d.content, baseMtime: d.baseMtime, dirty: true },
+      }));
+      openPath(path);
+    },
+    [drafts.data, openPath],
+  );
+
+  const edit = useCallback(
+    (path: string, text: string) => {
+      setBuffers((prev) => {
+        const buf = prev[path];
+        if (!buf) return prev;
+        const next: Buffer = { ...buf, text, dirty: true };
+        // 内容一变就记草稿（去抖在下面的 effect 里做）：
+        // 真崩溃时，最后几秒的改动也应当能恢复。
+        saveDraft.mutate({ path, content: text, baseMtime: buf.baseMtime });
+        return { ...prev, [path]: next };
+      });
+    },
+    [saveDraft],
+  );
+
+  const activeBuffer = activePath ? (buffers[activePath] ?? null) : null;
+
+  /**
+   * 保存当前文件。
+   *
+   * force 为 true 表示用户在冲突提示里明确选择"覆盖磁盘内容"，
+   * 此时不做 mtime 校验——这个决定必须由用户做出，不能替他猜。
+   */
+  const saveActive = useCallback(
+    async (force = false) => {
+      const path = activePath;
+      const buf = path ? buffers[path] : null;
+      if (!path || !buf || !buf.dirty) return;
+
+      setSaveError(null);
+      setConflict(null);
+
+      const outcome = await save.mutateAsync({
+        path,
+        content: buf.text,
+        expectedMtime: force ? 0 : buf.baseMtime,
+      });
+
+      if (outcome.conflict) {
+        setConflict(path);
+        return;
+      }
+
+      setBuffers((prev) => {
+        const cur = prev[path];
+        if (!cur) return prev;
+        return { ...prev, [path]: { ...cur, baseMtime: outcome.mtime, dirty: false } };
+      });
+    },
+    [activePath, buffers, save],
+  );
+
+  const search = useFileSearch(workingCopyId, debouncedFilter, segment === "files");
+  const changes = useChangedFiles(workingCopyId, segment === "changes");
+
+  const dirtyPaths = useMemo(
+    () => new Set(Object.entries(buffers).filter(([, b]) => b.dirty).map(([p]) => p)),
+    [buffers],
+  );
 
   return {
     copies: list,
@@ -123,6 +264,9 @@ export function useCodeSurface() {
       setTabs([]);
       setActivePath(null);
       setFilter("");
+      setBuffers({});
+      setSaveError(null);
+      setConflict(null);
     },
     expanded,
     toggleDir,
@@ -133,6 +277,21 @@ export function useCodeSurface() {
     activePath,
     setActivePath,
     file,
+    // 缓冲区版本的内容：编辑器始终以它为准，磁盘内容只在打开时读一次。
+    buffers,
+    activeBuffer,
+    dirtyPaths,
+    edit,
+    saveActive,
+    saving: save.isPending,
+    saveError,
+    conflict,
+    drafts: drafts.data ?? [],
+    // 当前文件存在未保存的遗留草稿时，界面提示"恢复 / 丢弃"。
+    activeDraft,
+    recoverable,
+    restoreDraft,
+    discardDraft: (path: string) => discardDraft.mutate(path),
     segment,
     setSegment,
     filter,
@@ -411,6 +570,18 @@ function TreeLevel({
 export function CodeDetail({ state }: { state: CodeState }) {
   const { t } = useTranslation();
 
+  // ⌘S / Ctrl+S 保存。必须显式接管：WebView 的默认行为是弹"另存为"。
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== "s") return;
+      if (!(e.metaKey || e.ctrlKey)) return;
+      e.preventDefault();
+      void state.saveActive();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [state]);
+
   if (state.tabs.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
@@ -424,7 +595,10 @@ export function CodeDetail({ state }: { state: CodeState }) {
 
   const path = state.activePath ?? state.tabs[0].path;
   const language = languageOf(path);
-  const content = state.file.data ?? "";
+  const buffer = state.activeBuffer;
+  // 编辑器以缓冲区为准；缓冲区还没建立时退回磁盘内容，避免闪一帧空白。
+  const content = buffer?.text ?? state.file.data?.content ?? "";
+  const dirty = buffer?.dirty ?? false;
   const lines = content === "" ? [] : content.split("\n");
   // 文件末尾的换行会产生一个空行，界面上多一个空行号没有意义。
   if (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
@@ -434,6 +608,7 @@ export function CodeDetail({ state }: { state: CodeState }) {
       <div className="flex shrink-0 items-stretch overflow-auto border-b border-[var(--color-edge-1)] bg-[var(--color-ink-900)]">
         {state.tabs.map((tab) => {
           const on = tab.path === path;
+          const tabDirty = state.dirtyPaths.has(tab.path);
           return (
             <div
               key={tab.path}
@@ -451,6 +626,16 @@ export function CodeDetail({ state }: { state: CodeState }) {
               >
                 <Icon name="file" size={11} className="shrink-0 text-[var(--color-faint)]" />
                 <span className="truncate">{tab.name}</span>
+                {/* 未保存标记：常驻在文件名后面，而不是只在标题栏汇总。 */}
+                {tabDirty && (
+                  <span
+                    aria-label={t("code.unsaved")}
+                    title={t("code.unsaved")}
+                    className="shrink-0 text-[var(--color-amber)]"
+                  >
+                    ●
+                  </span>
+                )}
               </button>
               <button
                 type="button"
@@ -465,42 +650,79 @@ export function CodeDetail({ state }: { state: CodeState }) {
         })}
       </div>
 
-      {/* ed-bar：模式徽标 + 文档事实 + 动作。
-          这一版只有只读模式，因此切换器与保存按钮都明确禁用并说明原因，
-          而不是画一个点了没反应的控件。 */}
+      {/* ed-bar：面包屑 + 文档事实 + 保存。 */}
       <div className="flex h-[34px] shrink-0 items-center gap-2 border-b border-[var(--color-edge-1)] bg-[var(--color-ink-950)] px-2.5">
         <Breadcrumb path={path} />
         <span className="ml-auto shrink-0 text-[10.5px] text-[var(--color-faint)]">
           {languageLabel(language, t)}
         </span>
-        {state.file.data !== undefined && (
-          <span className="shrink-0 text-[10.5px] text-[var(--color-faint)]">
-            {t("code.lineCount", { count: lines.length })}
-          </span>
-        )}
-        <span
-          title={t("code.modeHint")}
-          className="shrink-0 rounded-[4px] border border-[var(--color-edge-2)] px-1.5 py-0.5 text-[10px] text-[var(--color-muted-2)]"
-        >
-          {t("code.modeReadOnly")}
+        <span className="shrink-0 text-[10.5px] text-[var(--color-faint)]">
+          {t("code.lineCount", { count: lines.length })}
         </span>
         <button
           type="button"
-          disabled
-          title={t("code.modeHint")}
-          className="h-[22px] shrink-0 rounded-[7px] border border-[var(--color-edge-2)] px-2 text-[10.5px] text-[var(--color-bone-2)] opacity-40"
+          onClick={() => void state.saveActive()}
+          // 没有改动时禁用：一个永远可点但没有效果的按钮会让人怀疑保存没生效。
+          disabled={!dirty || state.saving}
+          title={dirty ? t("code.saveHint") : t("code.noChangesToSave")}
+          className={[
+            "h-[22px] shrink-0 rounded-[7px] border px-2 text-[10.5px]",
+            dirty
+              ? "border-[var(--color-amber)] text-[var(--color-amber)] hover:bg-[rgba(232,163,58,0.12)]"
+              : "border-[var(--color-edge-2)] text-[var(--color-bone-2)] opacity-40",
+          ].join(" ")}
         >
-          {t("code.save")}
+          {state.saving ? t("code.saving") : t("code.save")}
         </button>
       </div>
 
-      {/* 模式说明 banner：常驻，让"改动去哪了"这件事不用靠记忆。 */}
-      <div className="flex shrink-0 items-start gap-2 border-b border-[var(--color-edge-1)] bg-[linear-gradient(180deg,rgba(19,32,39,0.5),rgba(12,21,26,0.62))] px-3 py-1.5">
-        <Icon name="lock" size={12} className="mt-px shrink-0 text-[var(--color-muted-2)]" />
-        <span className="text-[10.5px] leading-relaxed text-[var(--color-muted)]">
-          {t("code.modeNote")}
-        </span>
-      </div>
+      {/* 遗留草稿提示：崩溃/强杀后重开，未保存的内容还在本地库里。
+          不自动套用——磁盘可能已被外部改过，等于替用户做了合并决定。 */}
+      {state.activeDraft != null && !dirty && (
+        <div className="flex shrink-0 items-start gap-2 border-b border-[var(--color-edge-1)] bg-[linear-gradient(180deg,rgba(19,32,39,0.6),rgba(12,21,26,0.7))] px-3 py-1.5">
+          <Icon name="clock" size={12} className="mt-px shrink-0 text-[var(--color-muted-2)]" />
+          <span className="text-[10.5px] leading-relaxed text-[var(--color-bone-2)]">
+            {t("code.draftFound")}
+          </span>
+          <button
+            type="button"
+            onClick={() => state.restoreDraft(path)}
+            className="ml-auto shrink-0 text-[10.5px] text-[var(--color-amber)] hover:underline"
+          >
+            {t("code.draftRestore")}
+          </button>
+          <button
+            type="button"
+            onClick={() => state.discardDraft(path)}
+            className="shrink-0 text-[10.5px] text-[var(--color-muted-2)] hover:underline"
+          >
+            {t("code.draftDiscard")}
+          </button>
+        </div>
+      )}
+
+      {/* 冲突提示：磁盘文件在编辑期间被别的东西改过。 */}
+      {state.conflict === path && (
+        <div className="flex shrink-0 items-start gap-2 border-b border-[var(--color-edge-1)] bg-[rgba(232,163,58,0.1)] px-3 py-1.5">
+          <Icon name="alert" size={12} className="mt-px shrink-0 text-[var(--color-amber)]" />
+          <span className="text-[10.5px] leading-relaxed text-[var(--color-bone-2)]">
+            {t("code.conflictHint")}
+          </span>
+          <button
+            type="button"
+            onClick={() => void state.saveActive(true)}
+            className="ml-auto shrink-0 text-[10.5px] text-[var(--color-amber)] hover:underline"
+          >
+            {t("code.overwrite")}
+          </button>
+        </div>
+      )}
+
+      {state.saveError != null && (
+        <div className="shrink-0 border-b border-[var(--color-edge-1)] px-3 py-1.5 text-[10.5px] text-[var(--color-rose)]">
+          {state.saveError}
+        </div>
+      )}
 
       <div className="min-h-0 flex-1 bg-[var(--color-ink-950)]">
         {state.file.isLoading && <Hint>{t("code.loadingFile")}</Hint>}
@@ -513,9 +735,10 @@ export function CodeDetail({ state }: { state: CodeState }) {
         )}
         {state.file.data !== undefined && (
           <CodeView
-            content={state.file.data}
+            content={content}
             path={path}
-            readOnly
+            readOnly={false}
+            onChange={(value) => state.edit(path, value)}
             className="h-full overflow-auto"
           />
         )}
@@ -547,8 +770,128 @@ function Breadcrumb({ path }: { path: string }) {
   );
 }
 
-/** 详情右侧的事实面板。 */
-export function CodeInspector({ state }: { state: CodeState }) {
+/* ------------------------------------------------------------------ */
+/* ⌘P 快速跳文件                                                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 文件快速跳转面板。
+ *
+ * 触发方式与所有主流编辑器一致：`⌘P` / `Ctrl+P`。它存在的理由是
+ * **文件树在深目录下找不动**——用户记得文件名，但不想逐层展开。
+ *
+ * 搜索走 Go 侧的 SearchFiles（路径匹配），复用左栏的同一份数据源，
+ * 因此这里不做第二次遍历。
+ */
+export function CodeQuickOpen({ state }: { state: CodeState }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [cursor, setCursor] = useState(0);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  // 面板只在 Code 面可见时挂载，因此这里的全局监听不会干扰其他面。
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const isP = e.key.toLowerCase() === "p";
+      if (isP && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setOpen(true);
+        setQuery("");
+        setCursor(0);
+      }
+      if (e.key === "Escape" && open) {
+        e.preventDefault();
+        setOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  // 打开后聚焦输入框：否则用户得先点一下才能打字。
+  useEffect(() => {
+    if (open) inputRef.current?.focus();
+  }, [open]);
+
+  // 独立的搜索：与左栏过滤框互不影响（两者可能同时有内容）。
+  const search = useFileSearch(state.active?.id ?? null, query, open);
+  const results = search.data ?? [];
+
+  if (!open) return null;
+
+  const choose = (path: string) => {
+    state.openPath(path);
+    setOpen(false);
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setCursor((c) => Math.min(c + 1, Math.max(results.length - 1, 0)));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setCursor((c) => Math.max(c - 1, 0));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const hit = results[cursor];
+      if (hit) choose(hit.path);
+    }
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-label={t("code.quickOpen.title")}
+      className="absolute inset-0 z-30 flex items-start justify-center bg-[rgba(6,10,13,0.55)] pt-[64px]"
+      onClick={() => setOpen(false)}
+    >
+      <div
+        className="w-[520px] max-w-[86vw] overflow-hidden rounded-[9px] border border-[var(--color-edge-2)] bg-[var(--color-ink-900)] shadow-[0_18px_48px_rgba(0,0,0,0.5)]"
+        // 点面板内部不该关闭面板。
+        onClick={(e) => e.stopPropagation()}
+      >
+        <input
+          ref={inputRef}
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setCursor(0);
+          }}
+          onKeyDown={onKeyDown}
+          placeholder={t("code.quickOpen.placeholder")}
+          aria-label={t("code.quickOpen.placeholder")}
+          className="h-[38px] w-full border-b border-[var(--color-edge-1)] bg-transparent px-3 text-[12.5px] text-[var(--color-bone)] outline-none placeholder:text-[var(--color-faint)]"
+        />
+        <div className="max-h-[320px] overflow-auto py-1">
+          {query.trim() === "" && <Hint>{t("code.quickOpen.hint")}</Hint>}
+          {query.trim() !== "" && results.length === 0 && !search.isFetching && (
+            <Hint>{t("code.noMatches", { query })}</Hint>
+          )}
+          {results.map((node, i) => (
+            <button
+              key={node.path}
+              type="button"
+              onClick={() => choose(node.path)}
+              onMouseEnter={() => setCursor(i)}
+              className={[
+                "flex h-[27px] w-full items-center gap-2 px-3 text-left text-[11.5px]",
+                i === cursor
+                  ? "bg-[var(--color-ink-750)] text-[var(--color-bone)]"
+                  : "text-[var(--color-muted)]",
+              ].join(" ")}
+            >
+              <Icon name="file" size={12} className="shrink-0 text-[var(--color-faint)]" />
+              <span className="truncate font-mono text-[11px]">{node.path}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** 详情右侧的事实面板。 */export function CodeInspector({ state }: { state: CodeState }) {
   const { t } = useTranslation();
   const path = state.activePath ?? state.tabs[0]?.path ?? null;
   const node = useMemo(() => {
@@ -556,7 +899,9 @@ export function CodeInspector({ state }: { state: CodeState }) {
     return { path, language: languageOf(path) };
   }, [path]);
 
-  const content = state.file.data ?? "";
+  // 行数与文件事实都以缓冲区为准：用户改了几行就该看到几行，
+  // 而不是磁盘上那份旧内容的行数。
+  const content = state.activeBuffer?.text ?? state.file.data?.content ?? "";
   const lineCount = content === "" ? 0 : content.replace(/\n$/, "").split("\n").length;
 
   return (

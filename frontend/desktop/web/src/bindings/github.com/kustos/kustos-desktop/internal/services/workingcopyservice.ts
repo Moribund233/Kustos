@@ -66,6 +66,15 @@ export function Commit(id: string, message: string, amend: boolean): $Cancellabl
 }
 
 /**
+ * DiscardDraft 放弃一份未保存的内容。
+ * 
+ * 用户选择"放弃改动"或保存成功后调用。
+ */
+export function DiscardDraft(id: string, path: string): $CancellablePromise<void> {
+    return $Call.ByID(2477365991, id, path);
+}
+
+/**
  * Fetch 从上游拉取引用（不改工作区）。
  */
 export function Fetch(id: string): $CancellablePromise<void> {
@@ -107,6 +116,19 @@ export function List(): $CancellablePromise<store$0.WorkingCopy[] | null> {
  */
 export function ListChanges(id: string): $CancellablePromise<$models.TreeNode[] | null> {
     return $Call.ByID(2210125691, id);
+}
+
+/**
+ * ListDrafts 返回某个工作副本下所有未保存的内容。
+ * 
+ * Returns:
+ * 
+ * 	按路径排序的草稿列表；没有记录时返回空切片。
+ * 
+ * 只在需要恢复时调用（启动、切换工作副本），不做轮询。
+ */
+export function ListDrafts(id: string): $CancellablePromise<$models.BufferDraft[] | null> {
+    return $Call.ByID(482864218, id);
 }
 
 /**
@@ -194,9 +216,30 @@ export function ReadFile(id: string, path: string): $CancellablePromise<string> 
 }
 
 /**
+ * ReadText 读取文件内容并附上修改时间。
+ * 
+ * 与 ReadFile 的区别是它同时返回 mtime：写回时要用这个值判断"我读到的
+ * 是不是还是磁盘上那一份"。只读浏览走 ReadFile 就够了。
+ * 
+ * Args:
+ * 
+ * 	id:   工作副本 ID
+ * 	path: 相对仓库根的路径
+ * 
+ * Returns:
+ * 
+ * 	文件内容与元信息。越界、不存在、二进制或超过上限时返回错误。
+ */
+export function ReadText(id: string, path: string): $CancellablePromise<$models.FileText> {
+    return $Call.ByID(511069761, id, path);
+}
+
+/**
  * Remove 从列表移除工作副本记录。
  * 
  * **不删除磁盘上的工作树**：用户不期望"从列表移除"等于删掉目录。
+ * 未保存的 buffer 一并清掉：它们永远等不到对应的仓库，留着只会在
+ * 下次启动时冒出一批无法恢复的条目。
  */
 export function Remove(id: string): $CancellablePromise<void> {
     return $Call.ByID(1835736198, id);
@@ -207,6 +250,27 @@ export function Remove(id: string): $CancellablePromise<void> {
  */
 export function RevealInFileManager(id: string, path: string): $CancellablePromise<void> {
     return $Call.ByID(1966271729, id, path);
+}
+
+/**
+ * SaveDraft 记录一份未保存的编辑内容。
+ * 
+ * Args:
+ * 
+ * 	id:      工作副本 ID
+ * 	path:    相对仓库根的路径
+ * 	content: 当前编辑器内容
+ * 	baseMtime: 开始编辑时磁盘文件的修改时间
+ * 
+ * Returns:
+ * 
+ * 	写入失败时返回错误。
+ * 
+ * 前端在内容变化后去抖调用，因此这里必须便宜：一次 upsert，不做任何
+ * 文件系统操作。
+ */
+export function SaveDraft(id: string, path: string, content: string, baseMtime: number): $CancellablePromise<void> {
+    return $Call.ByID(3781780602, id, path, content, baseMtime);
 }
 
 /**
@@ -238,6 +302,24 @@ export function Stage(id: string, paths: string[] | null): $CancellablePromise<v
 }
 
 /**
+ * StatText 查询文件当前状态。
+ * 
+ * Args:
+ * 
+ * 	id:   工作副本 ID
+ * 	path: 相对仓库根的路径
+ * 
+ * Returns:
+ * 
+ * 	文件状态。路径越界时返回错误；文件不存在不算错误（Exists 为 false）。
+ * 
+ * 文件被删除是编辑过程中完全正常的情形，不该让前端的轮询变成一个错误。
+ */
+export function StatText(id: string, path: string): $CancellablePromise<$models.FileStat> {
+    return $Call.ByID(1743971775, id, path);
+}
+
+/**
  * Status 扫描工作区并把快照写回本地库。
  * 
  * Args:
@@ -260,4 +342,30 @@ export function Status(id: string): $CancellablePromise<$models.StatusResult> {
  */
 export function Unstage(id: string, paths: string[] | null): $CancellablePromise<void> {
     return $Call.ByID(4209061977, id, paths);
+}
+
+/**
+ * WriteText 把编辑后的内容写回磁盘。
+ * 
+ * Args:
+ * 
+ * 	id:           工作副本 ID
+ * 	path:         相对仓库根的路径
+ * 	content:      新的文件内容
+ * 	expectedMtime: 读取时拿到的 mtime（Unix 纳秒）；传 0 表示不做冲突检测
+ * 
+ * Returns:
+ * 
+ * 	写入后的 mtime，供前端更新基准值。
+ * 	文件已被外部修改时返回 ErrFileChanged，写入不会发生。
+ * 
+ * 冲突检测是这里存在的唯一理由：编辑器和用户自己的构建脚本、另一个编辑器
+ * 可能同时改同一个文件。发现不一致时**不写**，把这个决定交回给用户——
+ * 静默覆盖会丢掉别人（或自己刚才在别处）的修改，而且事后无从追溯。
+ * 
+ * 写盘用"先写临时文件再改名"：直接截断写入的过程中崩溃，会留下一个
+ * 既不是旧内容也不是新内容的半截文件。
+ */
+export function WriteText(id: string, path: string, content: string, expectedMtime: number): $CancellablePromise<number> {
+    return $Call.ByID(1925808438, id, path, content, expectedMtime);
 }
