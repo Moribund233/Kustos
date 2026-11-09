@@ -8,7 +8,9 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"net/http"
+	"path/filepath"
 
 	"github.com/kustos/kustos-desktop/internal/bridge"
 	"github.com/kustos/kustos-desktop/internal/platform/singleinstance"
@@ -31,6 +33,10 @@ type Options struct {
 	Services []application.Service
 	// DB 是本地库，用于窗口状态持久化。
 	DB *store.DB
+	// DataDir 是本机数据目录；WebView2 的用户数据目录放在它下面。
+	DataDir string
+	// Logger 是 Wails 系统日志记录器；nil 表示丢弃。
+	Logger *slog.Logger
 	// Upstream 是默认实例地址；为空时 bridge 仍会启动，指向一个占位地址，
 	// 由 SetUpstream 在用户选定实例后替换。
 	Upstream string
@@ -69,6 +75,12 @@ func New(opts Options) (*Desktop, error) {
 
 	d := &Desktop{db: opts.DB, screens: systemScreens}
 
+	// WebView2 的用户数据目录放在本机数据目录下：与本地库同级，便于备份与清理。
+	webviewDir := ""
+	if opts.DataDir != "" {
+		webviewDir = filepath.Join(opts.DataDir, webviewProfileName)
+	}
+
 	// bridge 始终启动，即使还不知道上游地址：窗口必须加载到 bridge 的地址，
 	// 否则 WebView 里的 fetch("/api/v1/...") 会打到 Wails 资产服务器上变成 404。
 	// 未选定实例时先指向一个明确的占位上游，等用户填完地址再 SetUpstream。
@@ -86,6 +98,7 @@ func New(opts Options) (*Desktop, error) {
 		Name:        "Kustos Desktop",
 		Description: "Kustos 桌面端：改、跑、收的工作台",
 		Services:    opts.Services,
+		Logger:      opts.Logger,
 		// 单实例：常驻应用被双击第二次时唤出已有窗口，而不是再起一个进程
 		// 各自持有一份本地库连接，在 UI 状态上互相覆盖。
 		SingleInstance: singleinstance.Options(d.handleSecondLaunch),
@@ -102,10 +115,19 @@ func New(opts Options) (*Desktop, error) {
 			// 这条能力的收益是能用 CDP/Playwright 直接驱动真实 WebView，
 			// 代价是渲染进程连同 access token 向本机开放，因此不进发布产物。
 			AdditionalBrowserArgs: browserArgs(),
+			WebviewUserDataPath:   webviewDir,
 		},
 		OnShutdown: d.persistWindowState,
 	})
 	d.app = app
+
+	// 单实例判定在 application.New 里，第二个实例到这里前已经退出；
+	// 此时再等 WebView2 目录，才不会把"自己就是第二实例"当成占用。
+	if webviewDir != "" {
+		if err := waitWebviewProfile(webviewDir, webviewProfileWait); err != nil {
+			return nil, err
+		}
+	}
 
 	d.createMainWindow()
 	return d, nil

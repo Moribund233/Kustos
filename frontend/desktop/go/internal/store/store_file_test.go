@@ -6,6 +6,33 @@ import (
 	"testing"
 )
 
+// 坏库不该让桌面端永久起不来：隔离改名后重建，进程照常起来。
+func TestOpenQuarantinesCorruptFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "kustos.db")
+	if err := os.WriteFile(path, []byte("this is not a sqlite database"), 0o600); err != nil {
+		t.Fatalf("准备坏库失败: %v", err)
+	}
+
+	db, err := Open(path)
+	if err != nil {
+		t.Fatalf("坏库应被隔离后重建: %v", err)
+	}
+	defer func() { _ = db.Close() }()
+
+	if err := db.SaveInstance(Instance{ID: "x", BaseURL: "https://a.example"}); err != nil {
+		t.Fatalf("重建后应可写: %v", err)
+	}
+
+	matches, err := filepath.Glob(path + ".corrupt-*")
+	if err != nil {
+		t.Fatalf("查找隔离文件失败: %v", err)
+	}
+	if len(matches) == 0 {
+		t.Fatal("坏库应改名留存，便于事后排查")
+	}
+}
+
 // 用真实文件而不是 :memory:，覆盖 WAL、迁移事务与路径处理。
 func TestOpenRealFileWithWAL(t *testing.T) {
 	dir := t.TempDir()

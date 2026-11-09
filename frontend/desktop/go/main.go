@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 
 	"github.com/kustos/kustos-desktop/internal/app"
+	"github.com/kustos/kustos-desktop/internal/platform/diag"
 	"github.com/kustos/kustos-desktop/internal/platform/keychain"
 	"github.com/kustos/kustos-desktop/internal/services"
 	"github.com/kustos/kustos-desktop/internal/store"
@@ -36,13 +37,17 @@ func main() {
 	application.RegisterEvent[string]("session:lost")
 
 	// 本地事实库与凭据存储：SQLite 存本机事实，凭据进系统钥匙串。
-	dbPath, err := localDBPath()
+	dir, err := localDataDir()
 	if err != nil {
-		log.Fatalf("定位本地数据目录失败: %v", err)
+		diag.Fatalf("定位本地数据目录失败: %v", err)
 	}
+	// 日志打不开不拦启动：界面能起来比留证据更要紧。
+	logger, _ := diag.Setup(dir)
+
+	dbPath := filepath.Join(dir, "kustos.db")
 	db, err := store.Open(dbPath)
 	if err != nil {
-		log.Fatalf("打开本地数据库失败（%s）: %v", dbPath, err)
+		diag.Fatalf("打开本地数据库失败（%s）: %v", dbPath, err)
 	}
 	defer func() { _ = db.Close() }()
 
@@ -52,10 +57,12 @@ func main() {
 		Assets:   assets,
 		AssetDir: "web/dist",
 		DB:       db,
+		DataDir:  dir,
+		Logger:   logger,
 		Services: []application.Service{application.NewService(sessionSvc)},
 	})
 	if err != nil {
-		log.Fatalf("初始化桌面端失败: %v", err)
+		diag.Fatalf("初始化桌面端失败: %v", err)
 	}
 
 	// 会话层负责决定"现在用哪台实例"，bridge 负责把请求发过去。把后者注入
@@ -71,7 +78,7 @@ func main() {
 	}
 
 	if err := desktop.Run(); err != nil {
-		log.Fatalf("运行桌面端失败: %v", err)
+		diag.Fatalf("运行桌面端失败: %v", err)
 	}
 }
 
@@ -91,14 +98,14 @@ func restoreActiveUpstream(db *store.DB, desktop *app.Desktop) error {
 	return desktop.SetUpstream(list[len(list)-1].BaseURL)
 }
 
-// localDBPath 返回本地库路径。
+// localDataDir 返回本机数据目录：本地库、启动日志与 WebView2 用户数据都放这里。
 //
 // 放在用户配置目录而非可执行文件旁：后者在 macOS 的 .app 包里是只读的，
 // 在 Windows 的 Program Files 下同样不可写。
 //
 // `KUSTOS_DESKTOP_DATA_DIR` 可覆盖：一是让 CI/自动化能在沙箱允许的目录里跑，
 // 二是排查"某个路径写不进去"时不必改代码。
-func localDBPath() (string, error) {
+func localDataDir() (string, error) {
 	dir := os.Getenv("KUSTOS_DESKTOP_DATA_DIR")
 	if dir == "" {
 		configDir, err := os.UserConfigDir()
@@ -110,5 +117,5 @@ func localDBPath() (string, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", fmt.Errorf("创建应用数据目录失败: %w", err)
 	}
-	return filepath.Join(dir, "kustos.db"), nil
+	return dir, nil
 }

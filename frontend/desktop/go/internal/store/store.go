@@ -15,9 +15,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
-	_ "modernc.org/sqlite"
+	sqlite "modernc.org/sqlite"
 )
 
 // DB 是本地存储句柄。
@@ -72,9 +73,17 @@ var migrationSteps = [][]string{
 
 // Open 打开（必要时创建）本地库。
 //
+// 文件被别的进程短暂占用（杀软扫描、上个进程没退干净）会重试；库文件本身
+// 损坏则改名隔离后重建——本地库存的是可重建的本机事实，一次坏文件不该让
+// 桌面端永久起不来。
+//
 // Args:
 //
 //	path: 数据库文件路径；传 ":memory:" 可用于测试。
+//
+// Returns:
+//
+//	可用的数据库句柄；文件被占用且重试无效、或隔离失败时返回错误。
 func Open(path string) (*DB, error) {
 	dsn := path
 	if path != ":memory:" {
@@ -83,6 +92,50 @@ func Open(path string) (*DB, error) {
 		dsn = fmt.Sprintf("file:%s?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)", path)
 	}
 
+	db, err := openWithRetry(dsn)
+	if err == nil {
+		return db, nil
+	}
+	if path == ":memory:" || !isCorrupt(err) {
+		if sqliteCode(err) == sqliteCantOpen {
+			return nil, fmt.Errorf("%w（本地库被其他进程占用或目录不可写，稍后重试）", err)
+		}
+		return nil, err
+	}
+	if qerr := quarantine(path); qerr != nil {
+		return nil, qerr
+	}
+	return openWithRetry(dsn)
+}
+
+// openAttempts 是同一进程内的打开尝试次数。
+//
+// 只兜住"秒级"的占用（扫描、句柄晚释放）：DSN 里的 busy_timeout 已经等过
+// 一次锁，再多次重试只是让用户对着空屏幕多等。
+const openAttempts = 2
+
+// openRetryDelay 是两次尝试之间的间隔；测试会调小。
+var openRetryDelay = 400 * time.Millisecond
+
+func openWithRetry(dsn string) (*DB, error) {
+	var lastErr error
+	for attempt := 0; attempt < openAttempts; attempt++ {
+		if attempt > 0 {
+			time.Sleep(openRetryDelay)
+		}
+		db, err := openOnce(dsn)
+		if err == nil {
+			return db, nil
+		}
+		lastErr = err
+		if !isRetryable(err) {
+			break
+		}
+	}
+	return nil, lastErr
+}
+
+func openOnce(dsn string) (*DB, error) {
 	sqlDB, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("打开本地数据库失败: %w", err)
@@ -96,6 +149,52 @@ func Open(path string) (*DB, error) {
 		return nil, err
 	}
 	return db, nil
+}
+
+// SQLite 结果码：只区分"打不开"和"文件坏了"，其余原样上报。
+const (
+	sqliteBusy     = 5
+	sqliteLocked   = 6
+	sqliteCorrupt  = 11
+	sqliteCantOpen = 14
+	sqliteNotADB   = 26
+)
+
+func sqliteCode(err error) int {
+	var se *sqlite.Error
+	if errors.As(err, &se) {
+		return se.Code()
+	}
+	return 0
+}
+
+// isRetryable 判断错误是否可能自己消失（锁竞争、文件被短暂占用）。
+func isRetryable(err error) bool {
+	switch sqliteCode(err) {
+	case sqliteBusy, sqliteLocked, sqliteCantOpen:
+		return true
+	}
+	return false
+}
+
+// isCorrupt 判断库文件本身是否已损坏：坏文件重试多少次结果都一样。
+func isCorrupt(err error) bool {
+	c := sqliteCode(err)
+	return c == sqliteCorrupt || c == sqliteNotADB
+}
+
+// quarantine 把坏库连同 WAL 侧文件改名留存，便于事后排查。
+func quarantine(path string) error {
+	suffix := ".corrupt-" + time.Now().Format("20060102-150405")
+	for _, p := range []string{path, path + "-wal", path + "-shm"} {
+		if _, err := os.Stat(p); err != nil {
+			continue
+		}
+		if err := os.Rename(p, p+suffix); err != nil {
+			return fmt.Errorf("隔离损坏的本地库失败（%s）: %w", p, err)
+		}
+	}
+	return nil
 }
 
 func (d *DB) migrate() error {
