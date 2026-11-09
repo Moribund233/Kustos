@@ -38,9 +38,10 @@ export function useWorkingCopyStatus(id: string | null) {
     queryKey: workingCopyKeys.status(id ?? ""),
     queryFn: async () => WorkingCopyService.Status(id as string),
     enabled: Boolean(id),
-    // 状态是现算的（要跑 git status），不该被频繁重取；
-    // 显式操作后会 invalidate。
-    staleTime: 10_000,
+    // 工作树随时可能被外部编辑器改动，缓存太久会让界面显示过期状态。
+    // 真正昂贵的 git 调用由 Go 侧串行化，这里保留一个很短的窗口即可。
+    staleTime: 2_000,
+    refetchOnWindowFocus: true,
   });
 }
 

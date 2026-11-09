@@ -55,6 +55,10 @@ type Change struct {
 	Kind ChangeKind `json:"kind"`
 	// Staged 表示这条改动已进暂存区。
 	Staged bool `json:"staged"`
+	// Added / Removed 是行数增删。二进制文件为 0：git 不给出行数，
+	// 而列表层显示一个假的 0 比显示空更不误导。
+	Added   int `json:"added"`
+	Removed int `json:"removed"`
 }
 
 // StatusResult 是一次工作区扫描的结果。
@@ -196,10 +200,134 @@ func RepoStatus(dir string) (StatusResult, error) {
 	st := StatusResult{Changes: parsePorcelainZ(out)}
 	st.Dirty = len(st.Changes) > 0
 
+	// 行数统计来自 --numstat：porcelain 本身不含改动量。
+	// 两处都要取——未暂存看工作区，已暂存看索引——否则列表里
+	// 已暂存的文件会显示成 0。
+	attachLineStats(abs, st.Changes)
+
 	if branch, err := currentBranch(abs); err == nil {
 		st.Branch = branch
 	}
 	return st, nil
+}
+
+// attachLineStats 为每条变更填上增删行数。
+//
+// 统计失败不影响状态本身：拿不到行数时显示为空，比让整个 status 失败好。
+func attachLineStats(dir string, changes []Change) {
+	if len(changes) == 0 {
+		return
+	}
+
+	// 已暂存看索引，其余看工作区。
+	applyNumstat(dir, changes, false, func(c *Change) bool {
+		return !c.Staged && c.Kind != KindUntracked
+	})
+	applyNumstat(dir, changes, true, func(c *Change) bool { return c.Staged })
+
+	// 未跟踪文件不在 `git diff` 的输出里：它还没有被 git 记录，
+	// 因此要单独数一遍行数，否则列表里新文件永远显示 0。
+	for i := range changes {
+		if changes[i].Kind != KindUntracked {
+			continue
+		}
+		added, ok := countFileLines(dir, changes[i].Path)
+		if ok {
+			changes[i].Added = added
+		}
+	}
+}
+
+// countFileLines 数一个未跟踪文件的行数。
+//
+// 二进制文件返回 false：给它一个行数是编造的，列表里留空更诚实。
+func countFileLines(dir, path string) (int, bool) {
+	full := filepath.Join(dir, filepath.FromSlash(path))
+	data, err := os.ReadFile(full)
+	if err != nil {
+		return 0, false
+	}
+	// 含 NUL 即视为二进制（与 git 的判定一致）。
+	if bytes.IndexByte(data, 0) >= 0 {
+		return 0, false
+	}
+	if len(data) == 0 {
+		return 0, true
+	}
+	lines := bytes.Count(data, []byte("\n"))
+	// 末行没有换行符时也要算一行。
+	if data[len(data)-1] != '\n' {
+		lines++
+	}
+	return lines, true
+}
+
+// applyNumstat 跑一次 --numstat 并按匹配规则写入。
+func applyNumstat(dir string, changes []Change, cached bool, match func(*Change) bool) {
+	args := []string{"diff", "--numstat", "-z"}
+	if cached {
+		args = append(args, "--cached")
+	}
+	out, err := execGit(dir, args...)
+	if err != nil {
+		return
+	}
+
+	stats := parseNumstatZ(out)
+	for i := range changes {
+		if !match(&changes[i]) {
+			continue
+		}
+		if s, ok := stats[changes[i].Path]; ok {
+			changes[i].Added = s.added
+			changes[i].Removed = s.removed
+		}
+	}
+}
+
+// parseNumstatZ 解析 `git diff --numstat -z` 的输出。
+//
+// -z 模式下重命名记录形如：
+//
+//	"ADDED\tREMOVED\t\0OLD\0NEW\0"
+//
+// 即统计行以空路径结尾，随后是两个 NUL 分隔的路径。
+func parseNumstatZ(out string) map[string]struct{ added, removed int } {
+	result := make(map[string]struct{ added, removed int })
+	fields := strings.Split(out, "\x00")
+
+	for i := 0; i < len(fields); i++ {
+		entry := fields[i]
+		if entry == "" {
+			continue
+		}
+		parts := strings.SplitN(entry, "\t", 3)
+		if len(parts) < 3 {
+			continue
+		}
+
+		added, removed := parseCount(parts[0]), parseCount(parts[1])
+		path := parts[2]
+
+		// 空路径表示这是一条重命名记录：后面两个字段是旧路径与新路径。
+		if path == "" && i+2 < len(fields) {
+			newPath := fields[i+2]
+			result[newPath] = struct{ added, removed int }{added, removed}
+			i += 2
+			continue
+		}
+		result[path] = struct{ added, removed int }{added, removed}
+	}
+	return result
+}
+
+// parseCount 解析一行计数；二进制文件的 "-" 视为 0。
+func parseCount(s string) int {
+	n, err := strconv.Atoi(strings.TrimSpace(s))
+	if err != nil {
+		return 0
+	}
+	return n
 }
 
 // currentBranch 返回当前分支名。

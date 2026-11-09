@@ -32,6 +32,13 @@ export interface Change {
      * Staged 表示这条改动已进暂存区。
      */
     "staged": boolean;
+
+    /**
+     * Added / Removed 是行数增删。二进制文件为 0：git 不给出行数，
+     * 而列表层显示一个假的 0 比显示空更不误导。
+     */
+    "added": number;
+    "removed": number;
 }
 
 /**

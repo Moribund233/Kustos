@@ -469,6 +469,104 @@ func TestStageRejectsUnknownPath(t *testing.T) {
 	}
 }
 
+// 每个文件的行数增删统计：列表层要直接给出改动量，
+// 用户不必逐个点开才知道改了多少。
+func TestRepoStatusIncludesLineStats(t *testing.T) {
+	dir := newRepo(t)
+	write(t, dir, "a.txt", "one\ntwo\nthree\n")
+	gitRun(t, dir, "add", ".")
+	gitRun(t, dir, "commit", "-m", "init")
+
+	write(t, dir, "a.txt", "one\nCHANGED\nthree\nFOUR\n")
+	write(t, dir, "new.txt", "alpha\nbeta\n")
+
+	st, err := RepoStatus(dir)
+	if err != nil {
+		t.Fatalf("读状态失败: %v", err)
+	}
+
+	byPath := map[string]Change{}
+	for _, c := range st.Changes {
+		byPath[c.Path] = c
+	}
+
+	a, ok := byPath["a.txt"]
+	if !ok {
+		t.Fatalf("应有 a.txt，实际 %v", keys2(st.Changes))
+	}
+	if a.Added != 2 || a.Removed != 1 {
+		t.Errorf("a.txt 应为 +2/-1，实际 +%d/-%d", a.Added, a.Removed)
+	}
+
+	newFile, ok := byPath["new.txt"]
+	if !ok {
+		t.Fatalf("应有 new.txt，实际 %v", keys2(st.Changes))
+	}
+	if newFile.Added != 2 || newFile.Removed != 0 {
+		t.Errorf("new.txt 应为 +2/-0，实际 +%d/-%d", newFile.Added, newFile.Removed)
+	}
+}
+
+// 已暂存的改动，其统计要来自暂存区那一侧，否则列表会显示 0。
+func TestRepoStatusStatsForStagedChanges(t *testing.T) {
+	dir := newRepo(t)
+	write(t, dir, "s.txt", "x\n")
+	gitRun(t, dir, "add", ".")
+	gitRun(t, dir, "commit", "-m", "init")
+
+	write(t, dir, "s.txt", "x\ny\nz\n")
+	gitRun(t, dir, "add", "s.txt")
+
+	st, err := RepoStatus(dir)
+	if err != nil {
+		t.Fatalf("读状态失败: %v", err)
+	}
+
+	var found bool
+	for _, c := range st.Changes {
+		if c.Path == "s.txt" {
+			found = true
+			if !c.Staged {
+				t.Fatal("s.txt 应标记为已暂存")
+			}
+			if c.Added != 2 {
+				t.Errorf("已暂存文件应显示 +2，实际 +%d", c.Added)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("应有 s.txt")
+	}
+}
+
+// 二进制文件没有行数统计，不能让整个 status 失败。
+func TestRepoStatusStatsTolerantOfBinary(t *testing.T) {
+	dir := newRepo(t)
+	write(t, dir, "keep.txt", "x\n")
+	gitRun(t, dir, "add", ".")
+	gitRun(t, dir, "commit", "-m", "init")
+
+	// 含 NUL 的文件会被 git 视为二进制。
+	if err := os.WriteFile(filepath.Join(dir, "blob.bin"), []byte{0x00, 0x01, 0x02}, 0o644); err != nil {
+		t.Fatalf("写文件失败: %v", err)
+	}
+
+	st, err := RepoStatus(dir)
+	if err != nil {
+		t.Fatalf("二进制文件不应导致 status 失败: %v", err)
+	}
+	var found bool
+	for _, c := range st.Changes {
+		if c.Path == "blob.bin" {
+			found = true
+			// 二进制统计为 0/0，不报错即可。
+		}
+	}
+	if !found {
+		t.Fatalf("应列出 blob.bin，实际 %v", keys2(st.Changes))
+	}
+}
+
 func keys(m map[string]Change) []string {
 	out := make([]string, 0, len(m))
 	for k := range m {

@@ -182,6 +182,14 @@ func (d *Desktop) createMainWindow() {
 		Width:            st.Width,
 		Height:           st.Height,
 		BackgroundColour: application.NewRGB(10, 17, 21), // --color-ink-900
+
+		// 无边框：标题栏由前端自绘（38px，含品牌、上下文 chip、连接灯、
+		// 搜索与窗口控制）。系统标题栏在这里是纯冗余——它会和白骨色的
+		// 内容区割裂，也放不下原型要表达的分支/PR 上下文。
+		//
+		// 拖拽靠 CSS 的 `-webkit-app-region: drag`（见 globals.css），
+		// 按钮与输入框用 `no-drag` 挖掉，否则点击会被当成拖拽。
+		Frameless: true,
 	}
 	if st.Maximised {
 		winOpts.StartState = application.WindowStateMaximised

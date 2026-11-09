@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 
-import { Button, Tabs, TabsList, TabsTrigger } from "@kustos/ui";
-
+import { Icon } from "@/shell/icon";
+import { StatusItem } from "@/shell/shell";
+import { relativeTime } from "@/lib/relative-time";
 import {
   SEGMENTS,
   itemsInSegment,
@@ -16,23 +18,33 @@ import {
 /**
  * Inbox（首页）：三段队列 + 就地处理。
  *
+ * 结构对齐原型 `docs/prototype/desktop/index.html`：
+ *
+ *   listcol
+ *   ├ list-head（标题 + 计数 + 分段 Changes/History/Stashes 的等价物）
+ *   ├ list-scroll（group-label 分段 + row 条目）
+ *   └ （无 commitbar）
+ *   detail（选中项的详情卡片）
+ *   insp（事实面板）
+ *
  * 桌面端是常驻工作台，因此这一面按"批量、单键、少跳转"设计：
  * 列表常驻在左栏，选中即在右侧看详情，不整页跳转。
  *
- * 空状态给可执行动作而不是产品介绍——用户要的是"接下来干什么"。
+ * 三段的划分只有一处依据：服务端给的通知类型。真正的"待我决策"取决于目标
+ * 当前状态（PR 是否仍待审），那要等接入 PR/Issue 接口后由服务端字段决定——
+ * 现在就在前端猜一个精确判定，等于埋一条与服务端漂移的逻辑。
  */
 
-interface InboxProps {
-  /** 状态条右侧需要未读数，由外层读取以免重复请求。 */
-  onUnreadCount?: (count: number) => void;
-  /**
-   * 由外层 Shell 决定两栏如何摆放：Inbox 自己管理选中态，
-   * 因此渲染成 list/detail 两个片段而不是一整个页面。
-   */
-  children: (parts: { list: React.ReactNode; detail: React.ReactNode }) => React.ReactNode;
+export interface InboxParts {
+  list: React.ReactNode;
+  detail: React.ReactNode;
+  inspector?: React.ReactNode;
+  statusLeft: React.ReactNode;
+  statusRight: React.ReactNode;
+  badges: { inbox: number };
 }
 
-export function Inbox({ onUnreadCount, children }: InboxProps) {
+export function useInbox() {
   const [segment, setSegment] = useState<InboxSegment>("decide");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -43,213 +55,283 @@ export function Inbox({ onUnreadCount, children }: InboxProps) {
 
   const items = list.data?.items ?? [];
   const unreadCount = unread.data ?? 0;
-  onUnreadCount?.(unreadCount);
-
   const segmented = useMemo(() => itemsInSegment(items, segment), [items, segment]);
-  const selected =
-    segmented.find((n) => n.id === selectedId) ?? segmented[0] ?? null;
+  const selected = segmented.find((n) => n.id === selectedId) ?? segmented[0] ?? null;
 
-  return (
-    <>
-      {children({
-        list: (
-          <ListPane
-            segment={segment}
-            onSegment={setSegment}
-            items={segmented}
-            total={list.data?.total ?? 0}
-            selectedId={selected?.id ?? null}
-            onSelect={(n) => {
-              setSelectedId(n.id);
-              // 选中即视为看过：单键处理的桌面习惯，省掉一次显式操作。
-              if (!n.isRead) markRead.mutate(n.id);
-            }}
-            loading={list.isLoading}
-            error={list.error}
-            unreadCount={unreadCount}
-            onMarkAllRead={() => markAllRead.mutate()}
-            markingAll={markAllRead.isPending}
-          />
-        ),
-        detail: <DetailPane item={selected} loading={list.isLoading} />,
-      })}
-    </>
-  );
+  return {
+    segment,
+    setSegment,
+    items,
+    segmented,
+    selected,
+    total: list.data?.total ?? 0,
+    unreadCount,
+    loading: list.isLoading,
+    error: list.error,
+    select: (n: InboxNotification) => {
+      setSelectedId(n.id);
+      // 选中即视为看过：单键处理的桌面习惯，省掉一次显式操作。
+      if (!n.isRead) markRead.mutate(n.id);
+    },
+    markAllRead: () => markAllRead.mutate(),
+    markingAll: markAllRead.isPending,
+  };
 }
 
-/** 左栏：分段 + 条目列表。 */
-function ListPane({
-  segment,
-  onSegment,
-  items,
-  total,
-  selectedId,
-  onSelect,
-  loading,
-  error,
-  unreadCount,
-  onMarkAllRead,
-  markingAll,
-}: {
-  segment: InboxSegment;
-  onSegment: (s: InboxSegment) => void;
-  items: InboxNotification[];
-  total: number;
-  selectedId: string | null;
-  onSelect: (n: InboxNotification) => void;
-  loading: boolean;
-  error: unknown;
-  unreadCount: number;
-  onMarkAllRead: () => void;
-  markingAll: boolean;
-}) {
+type InboxState = ReturnType<typeof useInbox>;
+
+export function InboxList({ state }: { state: InboxState }) {
+  const { t } = useTranslation();
+  const { segment, setSegment, segmented, total, unreadCount, loading, error } = state;
+
   return (
-    <div className="flex h-full flex-col">
-      <div className="shrink-0 border-b border-[var(--color-edge-1)] px-3 py-2">
-        <div className="mb-2 flex items-center gap-2">
-          <h2 className="text-[11px] font-medium tracking-wide text-faint uppercase">
-            收件箱
-          </h2>
+    <section className="flex h-full flex-col" aria-label={t("inbox.title")}>
+      <div className="shrink-0 border-b border-[var(--color-edge-1)] px-3 pt-2.5 pb-2">
+        <div className="flex items-center gap-2">
+          <h1 className="text-[13px] font-medium text-[var(--color-bone)]">{t("inbox.title")}</h1>
           {unreadCount > 0 && (
-            <span className="rounded bg-[var(--color-amber-600)] px-1 text-[10px] text-ink-900">
+            <span className="text-[11px] text-[var(--color-amber)] tabular-nums">
               {unreadCount}
             </span>
           )}
-          <div className="flex-1" />
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={markingAll || unreadCount === 0}
-            onClick={onMarkAllRead}
-            className="h-6 px-2 text-[11px]"
-          >
-            全部已读
-          </Button>
+          <span className="ml-auto text-[10.5px] text-[var(--color-faint)]">
+            {t("inbox.total", { count: total })}
+          </span>
         </div>
-        <Tabs value={segment} onValueChange={(v) => onSegment(v as InboxSegment)}>
-          <TabsList className="h-7 w-full">
-            {SEGMENTS.map((s) => (
-              <TabsTrigger key={s.id} value={s.id} className="text-[11px]">
-                {s.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+        <div className="mt-2 flex gap-0.5 rounded-[7px] border border-[var(--color-edge-1)] bg-[rgba(8,13,16,0.55)] p-0.5">
+          {SEGMENTS.map((s) => {
+            const on = s.id === segment;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setSegment(s.id)}
+                className={[
+                  "h-[22px] flex-1 rounded-[5px] text-[11px] whitespace-nowrap",
+                  on
+                    ? "bg-[var(--color-ink-750)] text-[var(--color-bone)] shadow-[inset_0_1px_0_rgba(240,231,216,0.045)]"
+                    : "text-[var(--color-muted-2)] hover:text-[var(--color-bone-2)]",
+                ].join(" ")}
+              >
+                {t(s.i18nKey)}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto">
-        {loading && <EmptyHint>正在读取通知…</EmptyHint>}
-        {!loading && error != null && (
-          <EmptyHint tone="error">{errorText(error)}</EmptyHint>
+        {loading && <Hint>{t("inbox.loading")}</Hint>}
+        {!loading && error != null && <Hint tone="rose">{errorText(error, t("inbox.loadFailed"))}</Hint>}
+        {!loading && error == null && segmented.length === 0 && (
+          <Hint>{t("inbox.emptySegment")}</Hint>
         )}
-        {!loading && error == null && items.length === 0 && (
-          <EmptyHint>这一段没有待处理项。按 ⌘1 回到收件箱总览。</EmptyHint>
+
+        {segmented.length > 0 && (
+          <p className="flex items-center gap-1.5 px-3 pt-[11px] pb-[5px] text-[9.5px] tracking-[0.15em] text-[var(--color-faint)] uppercase">
+            {segmentLabel(segment, t)}
+            <span className="tracking-normal text-[var(--color-muted-2)]">{segmented.length}</span>
+          </p>
         )}
-        {items.map((n) => (
-          <NotificationRow
-            key={n.id}
-            notification={n}
-            active={n.id === selectedId}
-            onClick={() => onSelect(n)}
-          />
-        ))}
+
+        {segmented.map((n) => {
+          const on = n.id === state.selected?.id;
+          return (
+            <div
+              key={n.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => state.select(n)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  state.select(n);
+                }
+              }}
+              className={[
+                "flex cursor-pointer items-start gap-2 border-l-2 py-1.5 pr-3 pl-2.5",
+                on
+                  ? "border-l-[var(--color-amber)] bg-[var(--color-ink-800)]"
+                  : "border-l-transparent hover:bg-[var(--color-ink-850)]",
+              ].join(" ")}
+            >
+              <span
+                aria-hidden
+                className={[
+                  "mt-[7px] h-[5px] w-[5px] shrink-0 rounded-full",
+                  n.isRead ? "bg-[var(--color-faint)]" : "bg-[var(--color-amber)]",
+                ].join(" ")}
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[12px] text-[var(--color-bone-2)]">
+                  {n.title}
+                </span>
+                <span className="mt-0.5 block truncate text-[10.5px] text-[var(--color-muted-2)]">
+                  {n.message} · {relativeTime(n.createdAt, t)}
+                </span>
+              </span>
+            </div>
+          );
+        })}
       </div>
 
-      <div className="shrink-0 border-t border-[var(--color-edge-1)] px-3 py-1.5 text-[11px] text-faint">
-        共 {total} 条 · 本段 {items.length} 条
-      </div>
-    </div>
-  );
-}
-
-/** 单条通知行：未读点在左，标题一行，摘要一行。 */
-function NotificationRow({
-  notification,
-  active,
-  onClick,
-}: {
-  notification: InboxNotification;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-current={active ? "true" : undefined}
-      className={[
-        "flex w-full items-start gap-2 border-b border-[var(--color-edge-1)] px-3 py-2 text-left",
-        active ? "bg-[var(--color-ink-800)]" : "hover:bg-[var(--color-ink-850)]",
-      ].join(" ")}
-    >
-      <span
-        aria-hidden
-        className={[
-          "mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full",
-          notification.isRead ? "bg-transparent" : "bg-[var(--color-amber-500)]",
-        ].join(" ")}
-      />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-[12px] text-bone">{notification.title}</span>
-        <span className="mt-0.5 block truncate text-[11px] text-muted">
-          {notification.message}
+      <div className="flex shrink-0 items-center gap-2 border-t border-[var(--color-edge-1)] px-3 py-1.5">
+        <span className="text-[10px] text-[var(--color-faint)]">
+          {t("inbox.total", { count: total })} · {t("inbox.segmentCount", { count: segmented.length })}
         </span>
-      </span>
-      <span className="shrink-0 text-[10px] text-faint">{relativeTime(notification.createdAt)}</span>
-    </button>
+        <button
+          type="button"
+          disabled={state.markingAll || unreadCount === 0}
+          onClick={state.markAllRead}
+          className="ml-auto rounded-[7px] px-2 py-0.5 text-[11px] text-[var(--color-muted-2)] hover:bg-[var(--color-ink-800)] hover:text-[var(--color-bone-2)] disabled:opacity-40"
+        >{t("inbox.markAllRead")}</button>
+      </div>
+    </section>
   );
 }
 
-/** 右栏：详情。 */
-function DetailPane({ item, loading }: { item: InboxNotification | null; loading: boolean }) {
-  if (loading) {
-    return <div className="p-6 text-[12px] text-muted">正在读取…</div>;
+export function InboxDetail({ state }: { state: InboxState }) {
+  const { t } = useTranslation();
+  const item = state.selected;
+
+  if (state.loading) {
+    return <p className="p-5 text-[12px] text-[var(--color-muted)]">正在读取…</p>;
   }
+
   if (!item) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
-        <p className="font-display text-lg text-bone">收件箱已清空</p>
-        <p className="max-w-[42ch] text-[12px] leading-relaxed text-muted">
-          没有待你决策的条目。新的评审请求与指派会出现在这里。
+        <p className="text-[15px] text-[var(--color-bone)]">{t("inbox.emptyAll")}</p>
+        <p className="max-w-[42ch] text-[12px] leading-relaxed text-[var(--color-muted)]">
+          {t("inbox.emptyAllHint")}
         </p>
       </div>
     );
   }
 
   return (
-    <article className="mx-auto max-w-[68ch] p-6">
-      <div className="mb-1 flex items-center gap-2 text-[11px] text-faint">
-        <span className="rounded border border-[var(--color-edge-2)] px-1.5 py-0.5">
-          {item.type}
-        </span>
-        <span>{relativeTime(item.createdAt)}</span>
-        {item.isRead && <span className="text-muted">· 已读</span>}
+    <>
+      <div className="shrink-0 border-b border-[var(--color-edge-1)] px-5 pt-[13px] pb-[11px]">
+        <div className="flex items-center gap-[7px] text-[10px] tracking-[0.14em] text-[var(--color-faint)] uppercase">
+          <span>{segmentLabel(segmentOfType(item), t)}</span>
+          <span className="text-[var(--color-faint)]">·</span>
+          <span>{item.type}</span>
+          <span className="ml-auto inline-flex items-center gap-1.5 text-[10px] tracking-normal normal-case">
+            <span>{relativeTime(item.createdAt, t)}</span>
+            {item.isRead && <span className="text-[var(--color-muted-2)]">· {t("inbox.read")}</span>}
+          </span>
+        </div>
+        <h2 className="mt-1 text-[15px] font-medium tracking-[-0.01em] text-[var(--color-bone)]">
+          {item.title}
+        </h2>
       </div>
-      <h1 className="font-display mb-3 text-lg text-bone">{item.title}</h1>
-      <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-bone-2">
-        {item.message}
-      </p>
-      {item.targetType && item.targetId && (
-        <p className="mt-4 text-[11px] text-faint">
-          关联 {item.targetType} · {item.targetId.slice(0, 8)}
-        </p>
-      )}
-    </article>
+
+      <div className="min-h-0 flex-1 overflow-auto px-5 py-4">
+        <div className="mx-auto max-w-[74ch]">
+          <div className="mb-3.5 flex items-start gap-[9px] rounded-[7px] border border-[var(--color-edge-1)] bg-[linear-gradient(180deg,rgba(19,32,39,0.5),rgba(12,21,26,0.62))] px-3 py-2">
+            <Icon name="lock" size={13} className="mt-px shrink-0 text-[var(--color-muted-2)]" />
+            <span className="text-[11px] leading-relaxed text-[var(--color-muted)]">
+              {t("inbox.inspector.banner")}
+            </span>
+          </div>
+
+          <p className="mt-0.5 text-[12.5px] leading-[1.6] whitespace-pre-wrap text-[var(--color-bone-2)]">
+            {item.message}
+          </p>
+
+          {item.targetType && item.targetId && (
+            <p className="mt-4 text-[11px] text-[var(--color-faint)]">
+              关联 {item.targetType} · <span className="font-mono">{item.targetId.slice(0, 8)}</span>
+            </p>
+          )}
+        </div>
+      </div>
+    </>
   );
 }
 
-function EmptyHint({
-  children,
-  tone,
-}: {
-  children: React.ReactNode;
-  tone?: "error";
-}) {
+/** 详情右侧的事实面板。 */
+export function InboxInspector({ state }: { state: InboxState }) {
+  const { t } = useTranslation();
+  const item = state.selected;
+  return (
+    <aside
+      aria-label={t("inbox.inspector.title")}
+      className="flex w-[292px] shrink-0 flex-col border-l border-[var(--color-edge-1)] bg-[var(--color-ink-900)]"
+    >
+      <div className="flex shrink-0 items-center gap-1.5 border-b border-[var(--color-edge-1)] px-3 py-2.5">
+        <div className="flex gap-0.5">
+          <button
+            type="button"
+            className="h-[22px] rounded-[5px] bg-[var(--color-ink-750)] px-[7px] text-[11px] text-[var(--color-bone)]"
+          >{t("inbox.inspector.tabFacts")}</button>
+          <button
+            type="button"
+            className="h-[22px] rounded-[5px] px-[7px] text-[11px] text-[var(--color-muted-2)]"
+          >{t("inbox.inspector.tabSource")}</button>
+        </div>
+        <button
+          type="button"
+          aria-label={t("inbox.inspector.close")}
+          className="ml-auto text-[var(--color-muted-2)] hover:text-[var(--color-bone-2)]"
+        >
+          <Icon name="x" size={13} />
+        </button>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-auto px-3 pt-2.5 pb-6">
+        <SectionLabel>{t("inbox.inspector.sectionNotification")}</SectionLabel>
+        <dl>
+          <KV k={t("inbox.inspector.type")} v={item?.type ?? "—"} />
+          <KV k={t("inbox.inspector.segment")} v={item ? segmentLabel(segmentOfType(item), t) : "—"} />
+          <KV k={t("inbox.inspector.state")} v={item?.isRead ? t("inbox.read") : t("inbox.unread")} />
+          <KV k={t("inbox.inspector.time")} v={item ? relativeTime(item.createdAt, t) : "—"} />
+        </dl>
+
+        <SectionLabel>{t("inbox.inspector.sectionRelated")}</SectionLabel>
+        <dl>
+          <KV k={t("inbox.inspector.targetType")} v={item?.targetType ?? "—"} mono={Boolean(item?.targetType)} />
+          <KV
+            k={t("inbox.inspector.targetId")}
+            v={item?.targetId ? item.targetId.slice(0, 8) : "—"}
+            mono={Boolean(item?.targetId)}
+          />
+        </dl>
+
+        <SectionLabel>{t("inbox.inspector.sectionNext")}</SectionLabel>
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[11px] leading-relaxed text-[var(--color-muted-2)]">
+            {t("inbox.inspector.nextHint")}
+          </span>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="mt-3 mb-1 text-[9.5px] tracking-[0.15em] text-[var(--color-faint)] uppercase first:mt-0">
+      {children}
+    </p>
+  );
+}
+
+function KV({ k, v, mono }: { k: string; v: string; mono?: boolean }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2 py-0.5 text-[11px]">
+      <dt className="text-[var(--color-muted-2)]">{k}</dt>
+      <dd className={`text-right text-[var(--color-bone-2)] ${mono ? "font-mono" : ""}`}>{v}</dd>
+    </div>
+  );
+}
+
+function Hint({ children, tone }: { children: React.ReactNode; tone?: "rose" }) {
   return (
     <p
       className={[
-        "px-3 py-4 text-[12px] leading-relaxed",
-        tone === "error" ? "text-[var(--color-rose)]" : "text-muted",
+        "px-3 py-4 text-[11.5px] leading-relaxed",
+        tone === "rose" ? "text-[var(--color-rose)]" : "text-[var(--color-muted)]",
       ].join(" ")}
     >
       {children}
@@ -257,30 +339,36 @@ function EmptyHint({
   );
 }
 
-function errorText(error: unknown): string {
+function errorText(error: unknown, fallback: string): string {
   if (error instanceof Error) return error.message;
-  return "加载失败，请检查实例连接";
+  return fallback;
 }
 
-/**
- * 相对时间。
- *
- * 通知列表的信息密度优先，绝对时间在这一层是噪声；详情区同样用相对时间，
- * 但悬停可看到完整时间（由调用方补充）。
- */
-function relativeTime(iso: string | null): string {
-  if (!iso) return "";
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return "";
-  const diff = Date.now() - then;
-
-  const minute = 60_000;
-  const hour = 60 * minute;
-  const day = 24 * hour;
-
-  if (diff < minute) return "刚刚";
-  if (diff < hour) return `${Math.floor(diff / minute)} 分钟前`;
-  if (diff < day) return `${Math.floor(diff / hour)} 小时前`;
-  if (diff < 30 * day) return `${Math.floor(diff / day)} 天前`;
-  return new Date(iso).toLocaleDateString("zh-CN");
+function segmentLabel(seg: InboxSegment, t: (k: string) => string): string {
+  return t(`inbox.segments.${seg}`);
 }
+
+/** 按类型粗分段（与服务端仅在类型层面一致，见文件头说明）。 */
+
+function segmentOfType(n: InboxNotification): InboxSegment {
+  switch (n.type) {
+    case "review":
+    case "pull_request":
+      return n.isRead ? "activity" : "decide";
+    case "issue":
+      return "authored";
+    default:
+      return "activity";
+  }
+}
+
+export { StatusItem };
+
+
+
+
+
+
+
+
+

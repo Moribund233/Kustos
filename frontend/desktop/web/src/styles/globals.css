@@ -10,8 +10,8 @@
  * 因此这里**覆盖**共享层的字号与行高，而不是另起一套色板。
  *
  * - 正文 13px（Web 14–15）
- * - 列表行高 28–32px（Web 44–56）
- * - 圆角 8–10px（Web 12–16）
+ * - 列表行高 27–30px（Web 44–56，对齐原型）
+ * - 圆角 7–10px
  * - 间距步长 2px（Web 4）
  */
 @theme {
@@ -44,13 +44,69 @@
     /* 原生窗口已提供窗口边框，WebView 内不需要再选中文本造成"像网页"。 */
     -webkit-font-smoothing: antialiased;
   }
+}
 
-  /* 标题栏可拖拽区域（Wails 的自定义标题栏约定）。 */
-  [data-wails-drag] {
-    -webkit-app-region: drag;
-  }
-  [data-wails-drag] button,
-  [data-wails-drag] input {
-    -webkit-app-region: no-drag;
-  }
+/**
+ * 无边框窗口的拖拽区域。
+ *
+ * 窗口是 `Frameless: true`，系统标题栏不存在，因此"拖动窗口"与"点按钮"
+ * 的区分完全由 CSS 决定。Wails v3 用的是自定义属性
+ * `--wails-non-client-region`（**不是** Electron 的 `-webkit-app-region`）：
+ *
+ *   caption  → 可拖拽区域
+ *   minimize → 自定义最小化按钮
+ *   maximize → 自定义最大化按钮
+ *   close    → 自定义关闭按钮
+ *
+ * 漏标一个交互元素，它在拖拽区里就会变成"点了没反应"。
+ */
+[data-wails-drag] {
+  --wails-non-client-region: caption;
+  user-select: none;
+}
+
+[data-window-minimise] {
+  --wails-non-client-region: minimize;
+}
+
+[data-window-maximise] {
+  --wails-non-client-region: maximize;
+}
+
+[data-window-close] {
+  --wails-non-client-region: close;
+}
+
+/* 拖拽区里的交互元素需要正常接收鼠标事件，否则点击会被当成拖动。 */
+[data-no-drag] {
+  -webkit-app-region: no-drag;
+}
+
+/**
+ * 细滚动条。
+ *
+ * 桌面端的信息密度高，窗格里同时出现多根系统滚动条会让界面显得粗糙。
+ * 只在悬停时显形，保持静止时的干净。
+ */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(240, 231, 216, 0.14) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(240, 231, 216, 0.12);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(240, 231, 216, 0.22);
 }

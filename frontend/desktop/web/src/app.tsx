@@ -1,26 +1,36 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { configureAuth, setAccessToken } from "@kustos/api";
-import { Button, Input } from "@kustos/ui";
 
 import { ConnectInstance } from "@/surfaces/connect-instance";
-import { Inbox } from "@/surfaces/inbox";
+import {
+  InboxDetail,
+  InboxInspector,
+  InboxList,
+  useInbox,
+} from "@/surfaces/inbox";
 import { Login } from "@/surfaces/login";
-import { WorkingCopyView } from "@/surfaces/working-copy";
-import { Shell, SURFACES, useSurfaceShortcuts, type Surface } from "@/shell/shell";
+import {
+  WorkingCopyDetail,
+  WorkingCopyInspector,
+  WorkingCopyList,
+  useWorkingCopySurface,
+} from "@/surfaces/working-copy";
+import {
+  Shell,
+  SURFACES,
+  StatusItem,
+  useSurfaceShortcuts,
+  type Surface,
+} from "@/shell/shell";
 import {
   useActiveInstance,
   useInstances,
   useRestoreSession,
   type Credentials,
 } from "@/lib/session";
-import {
-  useAddWorkingCopy,
-  useWorkingCopies,
-  useWorkingCopyStatus,
-} from "@/lib/working-copy";
-
 /**
  * 桌面端根组件。
  *
@@ -65,6 +75,7 @@ export function App() {
 type Phase = "loading" | "connect" | "login" | "ready";
 
 function Root() {
+  const { t } = useTranslation();
   const [surface, setSurface] = useState<Surface>("inbox");
   const [creds, setCreds] = useState<Credentials | null>(null);
   const [phase, setPhase] = useState<Phase>("loading");
@@ -125,7 +136,7 @@ function Root() {
   useSurfaceShortcuts(setSurface, phase === "ready");
 
   if (phase === "loading") {
-    return <CenterNote>正在读取本机实例…</CenterNote>;
+    return <CenterNote>{t("session.restoring")}</CenterNote>;
   }
 
   if (phase === "connect" || forceConnect) {
@@ -142,7 +153,7 @@ function Root() {
     // 活动实例是异步查出来的：首帧必然还没有值。此时若直接回退到连接页，
     // 用户会看到"刚添加成功又被弹回表单"——所以先等这次查询有结果。
     if (activeInstance.isLoading) {
-      return <CenterNote>正在准备登录…</CenterNote>;
+      return <CenterNote>{t("session.preparingLogin")}</CenterNote>;
     }
     // 确实没有活动实例（例如刚启动、还没选）才给连接页。
     if (!instance) {
@@ -163,257 +174,179 @@ function Root() {
       onSelect={setSurface}
       creds={creds}
       instanceName={instance?.name ?? ""}
-    />
-  );
-}
-
-/** 主界面三栏。 */
-function MainShell({
-  surface,
-  onSelect,
-  creds,
-  instanceName,
-}: {
-  surface: Surface;
-  onSelect: (s: Surface) => void;
-  creds: Credentials | null;
-  instanceName: string;
-}) {
-  const meta = useMemo(() => SURFACES.find((s) => s.id === surface) ?? SURFACES[0], [surface]);
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  const titleContext = (
-    <span className="text-[11px] text-muted">{instanceName || "未连接实例"}</span>
-  );
-  const statusLeft = <span>无工作副本</span>;
-  const statusRight = (
-    <>
-      <span>在线 —</span>
-      <span>待发 0</span>
-    </>
-  );
-
-  // 收件箱是唯一已经接上真实数据的面；其余面仍是骨架。
-  if (surface === "inbox") {
-    return (
-      <Inbox onUnreadCount={setUnreadCount}>
-        {({ list, detail }) => (
-          <Shell
-            active={surface}
-            onSelect={onSelect}
-            titleContext={titleContext}
-            list={list}
-            detail={detail}
-            statusLeft={statusLeft}
-            statusRight={
-              <>
-                <span>在线 —</span>
-                <span>未读 {unreadCount}</span>
-              </>
-            }
-          />
-        )}
-      </Inbox>
-    );
-  }
-
-  if (surface === "working-copy") {
-    return <WorkingCopySurface onSelect={onSelect} titleContext={titleContext} />;
-  }
-
-  return (
-    <Shell
-      active={surface}
-      onSelect={onSelect}
-      titleContext={titleContext}
-      list={
-        <div className="p-3">
-          <h2 className="mb-2 text-[11px] font-medium tracking-wide text-faint uppercase">
-            {meta.label}
-          </h2>
-          <p className="text-[12px] leading-relaxed text-muted">
-            已登录为 {creds?.username || "—"}。
-          </p>
-        </div>
-      }
-      detail={
-        <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
-          <p className="font-display text-lg text-bone">{meta.label}</p>
-          <p className="max-w-[42ch] text-[12px] leading-relaxed text-muted">
-            这一面还没接入。收件箱已经可用，其余面按里程碑逐个落地。
-          </p>
-        </div>
-      }
-      statusLeft={statusLeft}
-      statusRight={statusRight}
+      online={instance != null}
     />
   );
 }
 
 /**
- * 工作副本面：仓库选择 + 状态查询 + 添加入口。
+ * 主界面：外壳 + 当前 surface。
  *
- * 把"选哪个仓库"与"这个仓库的状态"放在这一层：`WorkingCopyView` 只负责
- * 呈现与暂存提交操作，不该同时管理仓库列表的查询。
+ * 每个面自己提供 list / detail / inspector 片段，外壳只负责摆放——
+ * 三栏骨架是外壳的职责，面的内容是各自的事。
  */
-function WorkingCopySurface({
+function MainShell({
+  surface,
   onSelect,
-  titleContext,
+  creds,
+  instanceName,
+  online,
 }: {
+  surface: Surface;
   onSelect: (s: Surface) => void;
-  titleContext: React.ReactNode;
+  creds: Credentials | null;
+  instanceName: string;
+  online: boolean;
 }) {
-  const copies = useWorkingCopies();
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [selectedPath, setSelectedPath] = useState<string | null>(null);
-  const [adding, setAdding] = useState(false);
-  const [addPath, setAddPath] = useState("");
-  const addCopy = useAddWorkingCopy();
+  const { t } = useTranslation();
+  const inbox = useInbox();
+  const wc = useWorkingCopySurface();
 
-  const list = copies.data ?? [];
-  const active = list.find((c) => c.id === activeId) ?? list[0] ?? null;
-  const status = useWorkingCopyStatus(active?.id ?? null);
+  const conn = online ? "online" : "offline";
 
-  // 收敛成视图层的形状：绑定的字段不该漏进 surface 组件。
-  const statusForView = status.data
-    ? {
-        branch: status.data.branch,
-        dirty: status.data.dirty,
-        ahead: status.data.ahead,
-        behind: status.data.behind,
-        changes: (status.data.changes ?? []).map((c) => ({
-          path: c.path,
-          origPath: c.origPath,
-          kind: c.kind,
-          staged: c.staged,
-        })),
-      }
-    : null;
+  // 标题栏的仓库与分支 chip：原型在这里常驻展示当前上下文，
+  // 用户一眼知道"我现在在哪个仓库、哪个分支"。
+  // 仓库名取自工作副本路径的最后一段，分支取其实时状态。
+  const repoChip = wc.active ? baseNameOf(wc.active.path) : instanceName || t("status.offline");
+  const branchChip = wc.status?.branch || "";
+  const ahead = wc.status?.ahead ?? 0;
+  const behind = wc.status?.behind ?? 0;
 
-  // WorkingCopyView 渲染成两个片段（变更列表 + diff），由这里摆进三栏。
-  // 只实例化一次：提交信息与暂存侧选择是它内部的状态，两个实例会各存一份。
+  // 收件箱与工作副本已接真实数据；其余面保持骨架。
+  if (surface === "inbox") {
+    return (
+      <Shell
+        active={surface}
+        onSelect={onSelect}
+        conn={conn}
+        offline={!online}
+        badges={{ inbox: inbox.unreadCount }}
+        userName={creds?.username}
+        repoChip={repoChip}
+        branchChip={branchChip}
+        ahead={ahead}
+        behind={behind}
+        list={<InboxList state={inbox} />}
+        detail={<InboxDetail state={inbox} />}
+        inspector={<InboxInspector state={inbox} />}
+        statusLeft={
+          <>
+            <StatusItem icon="git-commit">{t("status.noWorkingCopy")}</StatusItem>
+            <span className="text-[var(--color-faint)]">·</span>
+            <StatusItem icon="pulse" tone={online ? "sage" : "amber"}>
+              {online ? t("status.connected") : t("status.offline")}
+            </StatusItem>
+          </>
+        }
+        statusRight={
+          <>
+            <StatusItem icon="bell" tone={inbox.unreadCount > 0 ? "amber" : undefined}>
+              {t("status.unread", { count: inbox.unreadCount })}
+            </StatusItem>
+          </>
+        }
+      />
+    );
+  }
+
+  if (surface === "working-copy") {
+    const dirty = wc.status?.dirty ?? false;
+    return (
+      <Shell
+        active={surface}
+        onSelect={onSelect}
+        conn={conn}
+        offline={!online}
+        badges={{ inbox: inbox.unreadCount }}
+        userName={creds?.username}
+        repoChip={repoChip}
+        branchChip={branchChip}
+        ahead={ahead}
+        behind={behind}
+        list={<WorkingCopyList state={wc} />}
+        detail={<WorkingCopyDetail state={wc} />}
+        inspector={<WorkingCopyInspector state={wc} />}
+        statusLeft={
+          <>
+            <StatusItem icon="branch">
+              <span className="font-mono">{wc.status?.branch || "—"}</span>
+            </StatusItem>
+            <span className="text-[var(--color-faint)]">·</span>
+            <span className={dirty ? "text-[var(--color-amber)]" : ""}>
+              {dirty ? t("status.changedFiles", { count: wc.status?.changes.length ?? 0 }) : t("status.clean")}
+            </span>
+          </>
+        }
+        statusRight={
+          <>
+            <StatusItem icon="pulse" tone={online ? "sage" : "amber"}>
+              {online ? t("status.connected") : t("status.offline")}
+            </StatusItem>
+            <span className="text-[var(--color-faint)]">·</span>
+            <StatusItem icon="database">本地 git</StatusItem>
+          </>
+        }
+      />
+    );
+  }
+
+  const meta = SURFACES.find((s) => s.id === surface) ?? SURFACES[0];
   return (
-    <WorkingCopyView
-      workingCopyId={active?.id ?? null}
-      status={statusForView}
-      loading={status.isLoading}
-      error={status.error}
-      selectedPath={selectedPath}
-      onSelectPath={setSelectedPath}
-    >
-      {({ changesList, detail }) => (
-        <Shell
-          active="working-copy"
-          onSelect={onSelect}
-          titleContext={titleContext}
-          list={
-            <div className="flex h-full flex-col">
-              <div className="shrink-0 border-b border-[var(--color-edge-1)] px-3 py-2">
-                <div className="mb-1.5 flex items-center gap-2">
-                  <h2 className="text-[11px] font-medium tracking-wide text-faint uppercase">
-                    工作副本
-                  </h2>
-                  <div className="flex-1" />
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6 px-2 text-[11px]"
-                    onClick={() => setAdding((v) => !v)}
-                  >
-                    添加
-                  </Button>
-                </div>
-                {adding && (
-                  <div className="flex gap-1">
-                    <Input
-                      value={addPath}
-                      onChange={(e) => setAddPath(e.target.value)}
-                      placeholder="/path/to/repo"
-                      className="h-6 text-[11px]"
-                      autoFocus
-                    />
-                    <Button
-                      size="sm"
-                      className="h-6 shrink-0 px-2 text-[11px]"
-                      disabled={addPath.trim() === "" || addCopy.isPending}
-                      onClick={() =>
-                        addCopy.mutate(addPath.trim(), {
-                          onSuccess: (wc) => {
-                            setAddPath("");
-                            setAdding(false);
-                            setActiveId(wc.id);
-                            setSelectedPath(null);
-                          },
-                        })
-                      }
-                    >
-                      加入
-                    </Button>
-                  </div>
-                )}
-                {addCopy.isError && (
-                  <p className="mt-1 text-[11px] leading-relaxed text-[var(--color-rose)]">
-                    {addCopy.error instanceof Error ? addCopy.error.message : "添加失败"}
-                  </p>
-                )}
-              </div>
-
-              {/* 仓库列表：多仓库并存是常态，切仓库不该离开这一面。 */}
-              <div className="max-h-[30%] shrink-0 overflow-auto border-b border-[var(--color-edge-1)]">
-                {list.length === 0 && !adding && (
-                  <p className="px-3 py-3 text-[11px] leading-relaxed text-muted">
-                    还没有仓库。点「添加」填入本地 git 仓库路径。
-                  </p>
-                )}
-                {list.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => {
-                      setActiveId(c.id);
-                      setSelectedPath(null);
-                    }}
-                    className={[
-                      "flex w-full items-center gap-2 border-b border-[var(--color-edge-1)] px-3 py-1.5 text-left",
-                      c.id === active?.id
-                        ? "bg-[var(--color-ink-800)]"
-                        : "hover:bg-[var(--color-ink-850)]",
-                    ].join(" ")}
-                  >
-                    <span className="min-w-0 flex-1 truncate text-[12px] text-bone">
-                      {c.path.split(/[\\/]/).pop() || c.path}
-                    </span>
-                    {c.dirty && (
-                      <span className="shrink-0 text-[10px] text-[var(--color-amber-500)]">●</span>
-                    )}
-                  </button>
-                ))}
-              </div>
-
-              {/* 变更列表 + 提交框。 */}
-              <div className="min-h-0 flex-1">{changesList}</div>
-            </div>
-          }
-          detail={detail}
-          statusLeft={<span>{active ? active.branch || "—" : "未选择仓库"}</span>}
-          statusRight={
-            <>
-              <span>{status.data?.dirty ? "未提交" : "干净"}</span>
-              <span>
-                ↑{status.data?.ahead ?? 0} ↓{status.data?.behind ?? 0}
-              </span>
-            </>
-          }
-        />
-      )}
-    </WorkingCopyView>
+    <Shell
+      active={surface}
+      onSelect={onSelect}
+      conn={conn}
+        offline={!online}
+        badges={{ inbox: inbox.unreadCount }}
+        userName={creds?.username}
+        repoChip={repoChip}
+        branchChip={branchChip}
+        ahead={ahead}
+        behind={behind}
+      list={
+        <div className="flex h-full flex-col">
+          <div className="shrink-0 border-b border-[var(--color-edge-1)] px-3 pt-2.5 pb-2">
+            <h1 className="text-[13px] font-medium text-[var(--color-bone)]">{t(meta.i18nKey)}</h1>
+          </div>
+          <p className="px-3 py-3 text-[11.5px] leading-relaxed text-[var(--color-muted)]">
+            {t("surfaces.notImplemented")}
+          </p>
+        </div>
+      }
+      detail={
+        <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+          <p className="text-[15px] text-[var(--color-bone)]">{t(meta.i18nKey)}</p>
+          <p className="max-w-[46ch] text-[12px] leading-relaxed text-[var(--color-muted)]">
+            {t("surfaces.notImplemented")} {t("surfaces.signedInAs", { name: creds?.username || "—" })}
+          </p>
+        </div>
+      }
+      statusLeft={<StatusItem icon="pulse">{t(meta.i18nKey)}</StatusItem>}
+      statusRight={
+        <StatusItem icon="pulse" tone={online ? "sage" : "amber"}>
+          {online ? t("status.connected") : t("status.offline")}
+        </StatusItem>
+      }
+    />
   );
+}
+
+/** 取路径最后一段作为仓库显示名（Windows 与 POSIX 分隔符都处理）。 */
+function baseNameOf(path: string): string {
+  const parts = path.split(/[\\/]/).filter(Boolean);
+  return parts[parts.length - 1] ?? path;
 }
 
 function CenterNote({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-full items-center justify-center">
-      <p className="text-[12px] text-muted">{children}</p>
+      <p className="text-[12px] text-[var(--color-muted)]">{children}</p>
     </div>
   );
 }
+
+
+
+
+
+
