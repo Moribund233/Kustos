@@ -161,6 +161,8 @@ func (d *Desktop) captureAssets(next http.Handler) {
 		}
 	})
 }
+
+// placeholderUpstream 是尚未选定实例时的占位上游。
 //
 // 用保留的不可路由地址而不是空串：bridge.New 要求合法 URL，
 // 且任何真实请求都应当明确失败，而不是被悄悄发去某个真实主机。
