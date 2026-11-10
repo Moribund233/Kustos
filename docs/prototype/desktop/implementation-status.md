@@ -74,6 +74,7 @@ SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 4 版：
 ### 多窗口与托盘
 
 - **多窗口**：窗口按 `Name` 复用（`main` / `review`），`OpenWindow` 对已存在的窗口只唤到前面，不重复创建。每种窗口各自持有一份几何状态（`window.main` / `window.review`），复用的是既有 `windowstate` 包。
+- **评审窗是真正的第二个窗口**：它显示单个 PR，且**没有左轨与列表栏**——打开它是"把某个 PR 拎出来单独看"，再放一层列表只会让人以为能在窗口里切换 PR。PR 编号经 URL 片段（`#/review/42`）随窗口自己走，而不是靠全局状态：多窗口下全局状态由最后写入者胜出，两个评审窗会显示同一个 PR。对已存在的评审窗再次打开另一个 PR 会替换内容并重新导航。
 - **关窗语义**：主窗口关闭是收进托盘（`RegisterHook` + `Cancel` + `Hide`），不是退出；退出是托盘菜单里的显式动作。评审窗关闭就是真关闭。这一条必须用 `RegisterHook` 而不是 `OnWindowEvent`——前者在 UI 线程同步执行，`Cancel` 才能挡住 Wails 内建的销毁流程；后者在独立 goroutine 里，拦不住。
 - **托盘**：内嵌 PNG 图标（非 PNG 会在 Windows 上静默不显示，有测试守着），菜单为「打开 Kustos / 评审窗 / 退出」，单击图标唤出主窗口。Wails 要求托盘在 `app.Run()` 之后创建，早于事件循环创建则托盘根本不出现。
 - **入口令牌按窗口发放**：每个窗口导航时各取一个一次性令牌。只留单个令牌时，后开的窗口会把前一个顶掉，表现为「开第二个窗口，第一个白屏」。
@@ -81,19 +82,21 @@ SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 4 版：
 
 ### 通知
 
-- 系统通知走 Wails 的 `notifications` 服务，已注册为可绑定服务；授权、发送、点击回调的接口在 Go 侧就位。
-- 通知目前不自动弹：哪些事件值得打扰用户需要服务端给出「待我决策」语义（PR 是否仍待审、Issue 是否指派给我），在本地猜一套判定等于埋一条与服务端漂移的逻辑。
+- 系统通知走 Wails 的 `notifications` 服务：`NotificationService` 暴露申请授权、查询授权与发送三条路径，全部在 Go 侧就位并有单测（含"未接线时明确失败"与"校验不通过不触碰系统通知中心"）。
+- 授权只在用户显式点击左轨的通知开关时申请。启动就弹授权请求时，用户还不知道会收到什么，拒绝一次之后系统就很难再让他改回来。
+- **通知目前不自动弹**：哪些事件值得打扰用户取决于服务端给出的事实（PR 是否仍待审、Issue 是否指派给我），在本地猜一套判定等于埋一条与服务端漂移的逻辑。发送通道是一条待接通的竖线。
 
 ## 未实现
 
 ### 缺口（M1–M3 范围内）
 
 - **clone**：只能添加本地已有仓库，不能从远端克隆。
-- **PR 评审窗**：独立窗口与行内评论未做；评审窗的**窗口骨架**已就绪（多窗口管理、按窗口几何、关闭语义），缺的是窗口里的评审内容与草稿。
+- **PR 评审窗的行内评论**：窗口骨架与单 PR 视图已就绪；行内评论、评审草稿与提交评审未做（动作由服务端裁决，入口仍在 Web）。
 - **标签页布局恢复**：崩溃恢复只保内容，不保"当时打开了哪些标签"。
 - **diff 行标**：编辑器内相对 HEAD 的增删标记。
 - **协作感知的界面部分**：后端端点已就绪，`live` 圆点与在线人数预警未接。
 - **PR / Issue 的动作**：两个面当前只读。评论、评审、关闭、合并等写操作由服务端权限裁决，入口仍在 Web。
+- **通知的自动触发**：发送通道已通，但"什么事件值得弹"要等后端给出待决策语义。
 
 ### 未开始的里程碑
 
@@ -117,7 +120,7 @@ SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 4 版：
 
 ## 验证方式
 
-- Go：`go test ./...`（在 `frontend/desktop/go` 下），覆盖 bridge 安全约束（含多窗口入口令牌并存）、git 解析与逐 hunk 暂存、远端关联、写盘冲突、崩溃恢复、窗口状态、窗口种类与托盘语义。
-- 前端：`pnpm typecheck` / `pnpm test`（`frontend/desktop/web`、`frontend/packages/editor`）。当前 153 个用例，含 diff 解析、相对时间、PR/Issue 数据层与 remote 地址解析。
+- Go：`go test ./...`（在 `frontend/desktop/go` 下），覆盖 bridge 安全约束（含多窗口入口令牌并存）、git 解析与逐 hunk 暂存、远端关联、写盘冲突、崩溃恢复、窗口状态、窗口种类与托盘语义、评审窗路由与通知校验。
+- 前端：`pnpm typecheck` / `pnpm test`（`frontend/desktop/web`、`frontend/packages/editor`）。当前 159 个用例，含 diff 解析、相对时间、PR/Issue 数据层、remote 地址解析与窗口路由。
 - CI：`.github/workflows/ci.yml` 的 `desktop` job 跑前端 typecheck/单测与 Go 侧不依赖 cgo 的包（`internal/bridge`、`git`、`services`、`store`、`windowstate`、`platform/*`）。Wails 的 `pkg/application` 在 Linux 上需要 GTK/WebKitGTK 头文件，因此 `main`、`internal/app` 与 `singleinstance` 不在 CI 的 Go 覆盖范围内，workflow 注释里写明了原因。
 - 端到端：设 `KUSTOS_DESKTOP_CDP_PORT` 后用 CDP 驱动真实 WebView，验证编辑、保存、冲突、崩溃恢复等交互。
