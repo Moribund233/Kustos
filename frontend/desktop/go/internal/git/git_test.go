@@ -737,6 +737,36 @@ func TestPushCommandIsInspectable(t *testing.T) {
 	}
 }
 
+// RemoteInfo 要给出"这个仓库 push 到哪里"，前端据此把本机目录关联到
+// 服务端的仓库记录。没有上游时必须是空值而不是报错：仓库还没接远端是常态。
+func TestRemoteInfoReportsUpstream(t *testing.T) {
+	dir, remote := newRemotePair(t)
+
+	info := RemoteInfo(dir)
+	if info.Name != "origin" {
+		t.Fatalf("应识别出上游远端名 origin，实际 %q", info.Name)
+	}
+	if info.URL == "" {
+		t.Fatal("有上游时必须给出 remote 地址，否则前端无法解析 owner/repo")
+	}
+	if !strings.Contains(info.URL, remote) {
+		t.Fatalf("remote 地址应指向那个裸仓库，实际 %q", info.URL)
+	}
+}
+
+func TestRemoteInfoEmptyWithoutUpstream(t *testing.T) {
+	dir := newRepo(t)
+	write(t, dir, "a.txt", "a\n")
+	runAt(t, dir, "add", ".")
+	runAt(t, dir, "commit", "-m", "init")
+
+	// 没有任何远端：两个字段都应为空，且不 panic。
+	info := RemoteInfo(dir)
+	if info.Name != "" || info.URL != "" {
+		t.Fatalf("没有远端时应返回空值，实际 %+v", info)
+	}
+}
+
 func keys(m map[string]Change) []string {
 	out := make([]string, 0, len(m))
 	for k := range m {

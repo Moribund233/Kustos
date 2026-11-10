@@ -22,6 +22,8 @@ import (
 )
 
 // mainWindowKey 是主窗口状态在本地库里的 key。
+//
+// 完整映射见 windows.go 的 windowKeys：每种窗口各有自己的几何。
 const mainWindowKey = "window.main"
 
 // Options 是装配参数。
@@ -51,6 +53,14 @@ type Desktop struct {
 	saver  *windowstate.Saver
 	db     *store.DB
 
+	// registry 按 Name 复用窗口：主窗口与评审窗各只有一个实例。
+	registry *windowRegistry
+	// tray 是托盘图标与菜单；关窗后从它回来。
+	tray *tray
+	// savers 是各窗口的几何去抖器，退出前统一 Flush。
+	saversMu sync.Mutex
+	savers   []*windowstate.Saver
+
 	// screens 返回当前可用屏幕，抽出来是为了让装配逻辑可测试。
 	screens func() []windowstate.Rect
 
@@ -77,7 +87,12 @@ func New(opts Options) (*Desktop, error) {
 	// 这是"前端代码与 Web 同构"的前提：共享层不必为桌面端加传输分支。
 	assets := http.FileServer(http.FS(dist))
 
-	d := &Desktop{db: opts.DB, screens: systemScreens}
+	d := &Desktop{
+		db:       opts.DB,
+		screens:  systemScreens,
+		registry: newWindowRegistry(),
+		tray:     newTray(),
+	}
 
 	// WebView2 的用户数据目录放在本机数据目录下：与本地库同级，便于备份与清理。
 	webviewDir := ""
@@ -118,9 +133,10 @@ func New(opts Options) (*Desktop, error) {
 			},
 		},
 		Mac: application.MacOptions{
-			// 常驻应用应当关窗即收进托盘，但那需要托盘与常驻生命周期，
-			// 当前先按"关窗退出"处理，避免留下半成品行为。
-			ApplicationShouldTerminateAfterLastWindowClosed: true,
+			// 关掉最后一个窗口不等于退出：主窗口只是收进托盘，退出是托盘里的
+			// 显式动作。设成 true 会让 macOS 在关窗时直接终止进程，
+			// 用户再点托盘图标就没有进程可唤了。
+			ApplicationShouldTerminateAfterLastWindowClosed: false,
 		},
 		Windows: application.WindowsOptions{
 			// 远程调试只在显式设置环境变量时开启，见 cdp.go 的说明：
@@ -128,6 +144,9 @@ func New(opts Options) (*Desktop, error) {
 			// 代价是渲染进程连同 access token 向本机开放，因此不进发布产物。
 			AdditionalBrowserArgs: browserArgs(),
 			WebviewUserDataPath:   webviewDir,
+			// 与 mac 同一个理由，这里是 Windows 上的开关：关掉主窗口只收起，
+			// 进程继续活在托盘里。
+			DisableQuitOnLastWindowClosed: true,
 		},
 		OnShutdown: d.persistWindowState,
 	})
@@ -141,7 +160,9 @@ func New(opts Options) (*Desktop, error) {
 		}
 	}
 
-	d.createMainWindow()
+	if err := d.createMainWindow(); err != nil {
+		return nil, err
+	}
 	return d, nil
 }
 
@@ -169,14 +190,51 @@ func (d *Desktop) captureAssets(next http.Handler) {
 const placeholderUpstream = "http://127.0.0.1:1"
 
 // createMainWindow 创建主窗口并接上状态保存。
-func (d *Desktop) createMainWindow() {
-	st := windowstate.Restore(d.db, mainWindowKey, d.screens())
+func (d *Desktop) createMainWindow() error {
+	win, err := d.createWindow(WindowKindMain)
+	if err != nil {
+		return err
+	}
+	d.window = win
+	d.saver = windowstate.NewSaver(func(s windowstate.State) error {
+		return windowstate.Save(d.db, windowStateKey(WindowKindMain), s)
+	}, 0)
+
+	record := func(*application.WindowEvent) {
+		d.saveWindowState()
+	}
+	for _, et := range windowEventTypes {
+		win.OnWindowEvent(et, record)
+	}
+	return nil
+}
+
+// createWindow 按种类创建窗口，每个窗口各自取自己的几何状态。
+//
+// Args:
+//
+//	kind: 窗口种类
+//
+// Returns:
+//
+//	新建的窗口；入口地址换发失败时返回错误。
+//
+// 每个窗口都要自己的入口地址：入口令牌是一次性的，多个窗口共用同一个地址时
+// 只有先导航的那个能换到 cookie，后一个会被同源校验挡成 401。
+func (d *Desktop) createWindow(kind WindowKind) (*application.WebviewWindow, error) {
+	entryURL, err := d.bridge.EntryURL()
+	if err != nil {
+		return nil, err
+	}
+
+	st := windowstate.Restore(d.db, windowStateKey(kind), d.screens())
 
 	winOpts := application.WebviewWindowOptions{
-		Title: "Kustos",
+		Name:  string(kind),
+		Title: windowTitle(kind),
 		// 窗口加载 bridge 地址而非资产服务器：同源能力是全盘走 bridge 的前提。
 		// 带一次性引导令牌，首个请求据此换取 nonce cookie，之后的请求靠 cookie 校验。
-		URL:              d.bridge.EntryURL(),
+		URL:              entryURL,
 		X:                st.X,
 		Y:                st.Y,
 		Width:            st.Width,
@@ -210,26 +268,122 @@ func (d *Desktop) createMainWindow() {
 	}
 
 	win := d.app.Window.NewWithOptions(winOpts)
-	d.window = win
+	d.registry.markOpen(kind)
+	d.attachWindowPersistence(win, kind)
+	return win, nil
+}
 
-	// 窗口状态的保存去抖：拖动时 move/resize 会连续触发上百次，
-	// 逐次写库是明显的写放大。
-	d.saver = windowstate.NewSaver(func(s windowstate.State) error {
-		return windowstate.Save(d.db, mainWindowKey, s)
+// windowTitle 返回窗口标题。
+func windowTitle(kind WindowKind) string {
+	switch kind {
+	case WindowKindReview:
+		return "Kustos — 评审"
+	default:
+		return "Kustos"
+	}
+}
+
+// attachWindowPersistence 给某个窗口接上几何持久化与关闭语义。
+//
+// Args:
+//
+//	win:  目标窗口
+//	kind: 窗口种类，决定状态 key 与关闭行为
+func (d *Desktop) attachWindowPersistence(win *application.WebviewWindow, kind WindowKind) {
+	key := windowStateKey(kind)
+	saver := windowstate.NewSaver(func(s windowstate.State) error {
+		return windowstate.Save(d.db, key, s)
 	}, 0)
+	d.registerSaver(saver)
 
 	record := func(*application.WindowEvent) {
-		d.saveWindowState()
+		b := win.Bounds()
+		st := windowstate.State{
+			X:         b.X,
+			Y:         b.Y,
+			Width:     b.Width,
+			Height:    b.Height,
+			Maximised: win.IsMaximised(),
+		}
+		// 最小化时窗口边界会变成 0，存下去等于把窗口尺寸抹掉。
+		if st.Width < windowstate.MinWidth || st.Height < windowstate.MinHeight {
+			return
+		}
+		saver.Schedule(st)
 	}
-	for _, et := range []events.WindowEventType{
-		events.Common.WindowDidMove,
-		events.Common.WindowDidResize,
-		events.Common.WindowMaximise,
-		events.Common.WindowUnMaximise,
-		events.Common.WindowRestore,
-	} {
+	for _, et := range windowEventTypes {
 		win.OnWindowEvent(et, record)
 	}
+
+	// 关闭语义必须用 RegisterHook 而不是 OnWindowEvent：hooks 在 UI 线程里
+	// **同步**执行，事件被 Cancel 后 HandleWindowEvent 直接返回，Wails 内建的
+	// "真正销毁窗口"监听器不会跑。OnWindowEvent 的监听器在独立 goroutine 里，
+	// 那时窗口已经关了，Cancel 不起作用。
+	if hidableOnClose(kind) {
+		win.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+			e.Cancel()
+			win.Hide()
+		})
+	} else {
+		win.RegisterHook(events.Common.WindowClosing, func(*application.WindowEvent) {
+			d.registry.markClosed(kind)
+		})
+	}
+}
+
+// OpenWindow 打开（或聚焦）指定种类的窗口。
+//
+// 已存在时只唤到前面，不重复创建——每种窗口只应有一个实例，否则用户连点两次
+// 会得到两个各自持有独立状态的窗口。
+//
+// Args:
+//
+//	kind: 窗口种类（main / review）
+//
+// Returns:
+//
+//	种类无法识别时返回错误。
+func (d *Desktop) OpenWindow(kind WindowKind) error {
+	if kind == WindowKindMain {
+		d.ShowMainWindow()
+		return nil
+	}
+
+	if existing := d.registry.existing(d.app, kind); existing != nil {
+		existing.Show()
+		existing.Focus()
+		return nil
+	}
+
+	win, err := d.createWindow(kind)
+	if err != nil {
+		return err
+	}
+	win.Show()
+	win.Focus()
+	return nil
+}
+
+// ShowMainWindow 唤出主窗口（从托盘回来走这条路径）。
+func (d *Desktop) ShowMainWindow() {
+	if d.window == nil {
+		if err := d.createMainWindow(); err != nil {
+			return
+		}
+	}
+	d.window.Show()
+	d.window.Focus()
+}
+
+// CloseCurrentWindow 关闭当前活动窗口。
+//
+// 主窗口的关闭被关闭钩子改写成"收进托盘"，因此这里调 Close 与用户点关闭键
+// 走同一条路径——两处各写一套隐藏逻辑迟早会漂移。
+func (d *Desktop) CloseCurrentWindow() {
+	if d.window == nil {
+		return
+	}
+	d.window.Close()
 }
 
 // saveWindowState 读取当前窗口几何并登记一次待保存。
@@ -256,12 +410,26 @@ func (d *Desktop) saveWindowState() {
 // persistWindowState 在退出前把待写状态落盘。
 //
 // 去抖器可能还在等待窗口内，此时直接退出会把用户最后一次拖动丢掉——
-// 而"拖完就关"恰恰是最常见的路径。
+// 而"拖完就关"恰恰是最常见的路径。每个窗口各有一个去抖器，全部都要刷。
 func (d *Desktop) persistWindowState() {
-	if d.saver != nil {
-		_ = d.saver.Flush()
-		d.saver.Close()
+	d.saversMu.Lock()
+	savers := append([]*windowstate.Saver(nil), d.savers...)
+	d.saversMu.Unlock()
+
+	for _, s := range savers {
+		_ = s.Flush()
+		s.Close()
 	}
+}
+
+// registerSaver 登记一个窗口的几何去抖器，退出时统一刷盘。
+func (d *Desktop) registerSaver(s *windowstate.Saver) {
+	if s == nil {
+		return
+	}
+	d.saversMu.Lock()
+	defer d.saversMu.Unlock()
+	d.savers = append(d.savers, s)
 }
 
 // handleSecondLaunch 处理第二实例的启动请求。
@@ -276,21 +444,62 @@ func (d *Desktop) handleSecondLaunch(_ application.SecondInstanceData) {
 	// 参数来自本机其它进程，一律视为不可信。当前没有深链路由，因此不解析
 	// 任何参数，只做用户双击图标时期望的那件事：把已有窗口唤到前面。
 	// 这样也避免了第二个进程持有同一份本地库、在 UI 状态上互相覆盖。
-	if d.window == nil {
-		return
-	}
-	d.window.Show()
-	d.window.Focus()
+	d.ShowMainWindow()
 }
 
 // Run 启动事件循环（阻塞直到退出）。
+//
+// 托盘在 app.Run() 之后才创建：Wails 的 SystemTray.Run 会检查应用是否已在运行，
+// 早于事件循环调用则托盘根本不出现，而没有任何报错。
 func (d *Desktop) Run() error {
 	defer func() {
 		if d.bridge != nil {
 			_ = d.bridge.Close()
 		}
 	}()
+	d.startTray()
 	return d.app.Run()
+}
+
+// startTray 装配托盘并接上三个动作。
+//
+// 托盘创建必须延后到 app.Run() 内部：这里把它包成一个在事件循环启动后执行的
+// 调用，而不是在 Run 之前直接建。
+func (d *Desktop) startTray() {
+	if d.tray == nil {
+		return
+	}
+	d.tray.wire(d.ShowMainWindow, func() {
+		_ = d.OpenWindow(WindowKindReview)
+	}, func() {
+		d.app.Quit()
+	})
+	// Wails 要求在事件循环里创建托盘；用 AfterStartup 排队而不是直接建。
+	d.app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
+		d.tray.setup(d.app)
+	})
+}
+
+// TrayLabels 返回托盘当前文案，供服务层读取后转给前端。
+func (d *Desktop) TrayLabels() (show, review, quit, tooltip string) {
+	if d.tray == nil {
+		labels := defaultTrayLabels()
+		return labels.ShowMain, labels.Review, labels.Quit, labels.Tooltip
+	}
+	labels := d.tray.labelsSnapshot()
+	return labels.ShowMain, labels.Review, labels.Quit, labels.Tooltip
+}
+
+// SetTrayLabels 更新托盘菜单文案。
+//
+// Args:
+//
+//	show、review、quit、tooltip: 新文案；空串表示保留原值
+func (d *Desktop) SetTrayLabels(show, review, quit, tooltip string) {
+	if d.tray == nil {
+		return
+	}
+	d.tray.setLabels(trayLabels{ShowMain: show, Review: review, Quit: quit, Tooltip: tooltip})
 }
 
 // BridgeURL 返回 bridge 地址（未启用时为空），供测试与诊断使用。

@@ -457,6 +457,32 @@ func (s *WorkingCopyService) refreshSnapshot(wc store.WorkingCopy) {
 /* 系统集成                                                            */
 /* ------------------------------------------------------------------ */
 
+// RemoteInfo 返回当前分支上游远端的名字与地址。
+//
+// 前端据此把"本机这个目录"关联到服务端的仓库记录：remote 地址里的
+// `owner/repo` 片段是两者之间唯一可靠的桥梁。关联完之后 PR 与 Issue 面
+// 才知道该向服务端要哪个仓库的数据。
+//
+// Args:
+//
+//	id: 工作副本 ID
+//
+// Returns:
+//
+//	远端名与地址；仓库还没接远端时两者皆为空字符串。
+func (s *WorkingCopyService) RemoteInfo(id string) (git.Upstream, error) {
+	wc, err := s.get(id)
+	if err != nil {
+		return git.Upstream{}, err
+	}
+
+	lock := s.lockFor(wc.Path)
+	lock.Lock()
+	defer lock.Unlock()
+
+	return git.RemoteInfo(wc.Path), nil
+}
+
 // OpenInEditor 在用户配置的编辑器中打开仓库内的文件。
 //
 // Args:

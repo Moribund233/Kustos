@@ -498,3 +498,64 @@ func TestBranchesViaService(t *testing.T) {
 		t.Fatalf("分支列表不对: %+v", branches)
 	}
 }
+
+/* ------------------------------------------------------------------ */
+/* 远端关联                                                            */
+/* ------------------------------------------------------------------ */
+
+// RemoteInfo 是"本机工作副本 ↔ 服务端仓库"之间唯一的桥梁：
+// PR 与 Issue 面靠它给出的 remote 地址推导 owner/repo。
+func TestRemoteInfoReturnsUpstream(t *testing.T) {
+	svc := newTestWorkingCopyService(t)
+	dir := initRepo(t)
+	writeFile(t, dir, "a.txt", "1\n")
+	gitIn(t, dir, "add", ".")
+	gitIn(t, dir, "commit", "-m", "init")
+	gitIn(t, dir, "remote", "add", "origin", "https://kustos.example.com/octo/kustos.git")
+
+	wc, err := svc.Add(dir)
+	if err != nil {
+		t.Fatalf("添加失败: %v", err)
+	}
+
+	info, err := svc.RemoteInfo(wc.ID)
+	if err != nil {
+		t.Fatalf("读取远端信息失败: %v", err)
+	}
+	if info.URL != "https://kustos.example.com/octo/kustos.git" {
+		t.Fatalf("remote 地址不对: %q", info.URL)
+	}
+	// 没有配置上游分支时远端名可能为空；地址必须能取到才算可用。
+	if info.URL == "" {
+		t.Fatal("取不到 remote 地址时前端无法关联服务端仓库")
+	}
+}
+
+func TestRemoteInfoEmptyWithoutRemote(t *testing.T) {
+	svc := newTestWorkingCopyService(t)
+	dir := initRepo(t)
+	writeFile(t, dir, "a.txt", "1\n")
+	gitIn(t, dir, "add", ".")
+	gitIn(t, dir, "commit", "-m", "init")
+
+	wc, err := svc.Add(dir)
+	if err != nil {
+		t.Fatalf("添加失败: %v", err)
+	}
+
+	// 仓库还没接远端是常态，不该报错。
+	info, err := svc.RemoteInfo(wc.ID)
+	if err != nil {
+		t.Fatalf("没有远端时不应报错: %v", err)
+	}
+	if info.Name != "" || info.URL != "" {
+		t.Fatalf("没有远端时应返回空值，实际 %+v", info)
+	}
+}
+
+func TestRemoteInfoRejectsUnknownID(t *testing.T) {
+	svc := newTestWorkingCopyService(t)
+	if _, err := svc.RemoteInfo("no-such-copy"); err == nil {
+		t.Fatal("未知工作副本 ID 应报错")
+	}
+}

@@ -738,6 +738,78 @@ func upstreamInfo(dir string) (remote, branch string) {
 	return full[:idx], full[idx+1:]
 }
 
+// Upstream 描述当前分支的上游远端。
+//
+// 为什么需要它：桌面端要回答"这个本地目录对应服务端哪个仓库"，而这个对应
+// 关系只存在于 remote 地址里（`owner/repo` 片段）。有了 remote 名与 URL，
+// 前端才能把工作副本关联到服务端的仓库记录上，PR 与 Issue 面才有东西可取。
+type Upstream struct {
+	// Name 是远端名（通常是 origin）；没有上游时为空。
+	Name string `json:"name"`
+	// URL 是该远端的原始地址；没有上游或取不到时为空。
+	URL string `json:"url"`
+}
+
+// RemoteInfo 返回当前分支上游远端的名字与地址。
+//
+// 只读当前分支的上游，不遍历所有远端：用户关心的是"我 push 到哪里"，
+// 而不是 `git remote -v` 的完整清单。
+//
+// 有上游时直接用上游的远端。**没有上游时回落到 origin，再回落到第一个远端**：
+// 刚 clone 但还没建立跟踪、或者 clone 后 checkout 了本地新建分支，都只有
+// `origin` 而没有上游。此时返回空值会让前端无法把这个目录关联到服务端的
+// 仓库，PR 与 Issue 面跟着一起空掉——而用户明明就站在那个仓库里。
+//
+// Args:
+//
+//	dir: 仓库目录（子目录会被收敛到仓库根）
+//
+// Returns:
+//
+//	远端名与地址；仓库完全没有远端时两者皆为空字符串，不报错
+//	——"这个仓库还没接远端"是正常状态。
+func RemoteInfo(dir string) Upstream {
+	abs, err := checkDir(dir)
+	if err != nil {
+		return Upstream{}
+	}
+
+	if name, _ := upstreamInfo(abs); name != "" {
+		return Upstream{Name: name, URL: RemoteURL(abs, name)}
+	}
+
+	for _, name := range remoteNames(abs) {
+		if url := RemoteURL(abs, name); url != "" {
+			return Upstream{Name: name, URL: url}
+		}
+	}
+	return Upstream{}
+}
+
+// remoteNames 返回仓库配置的远端名，origin 排在最前。
+//
+// 排序理由：多远端时 origin 是用户心智里"这个仓库的正主"，
+// 其余（upstream、同事的 fork）都是附加的。
+func remoteNames(dir string) []string {
+	out, err := execGit(dir, "remote")
+	if err != nil {
+		return nil
+	}
+
+	var names []string
+	for _, line := range strings.Split(out, "\n") {
+		name := strings.TrimSpace(line)
+		if name == "" {
+			continue
+		}
+		if name == "origin" {
+			return append([]string{"origin"}, names...)
+		}
+		names = append(names, name)
+	}
+	return names
+}
+
 // RemoteURL 返回指定远端的地址；没有该远端时返回空串。
 func RemoteURL(dir, name string) string {
 	abs, err := checkDir(dir)

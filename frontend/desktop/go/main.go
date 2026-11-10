@@ -54,6 +54,9 @@ func main() {
 	sessionSvc := services.NewSessionServiceWith(db, keychain.NewComposite())
 	workingCopySvc := services.NewWorkingCopyService(db)
 
+	// 窗口与托盘服务的动作要等 desktop 建好才能接上，所以先声明再回填。
+	windowSvc := services.NewWindowService()
+
 	desktop, err := app.New(app.Options{
 		Assets:   assets,
 		AssetDir: "web/dist",
@@ -63,11 +66,26 @@ func main() {
 		Services: []application.Service{
 			application.NewService(sessionSvc),
 			application.NewService(workingCopySvc),
+			application.NewService(windowSvc),
 		},
 	})
 	if err != nil {
 		diag.Fatalf("初始化桌面端失败: %v", err)
 	}
+
+	// 回填窗口与托盘的实现：服务层只转发，真正的实现在 app 包。
+	// 用包级绑定函数而不是服务方法，是为了不让装配动作出现在前端可调用的绑定里。
+	services.BindWindowBackend(
+		func(kind string) error {
+			return desktop.OpenWindow(app.WindowKind(kind))
+		},
+		func() error {
+			desktop.CloseCurrentWindow()
+			return nil
+		},
+		desktop.TrayLabels,
+		desktop.SetTrayLabels,
+	)
 
 	// 会话层负责决定"现在用哪台实例"，bridge 负责把请求发过去。把后者注入
 	// 给前者，用户添加或切换实例时上游才会跟着变；否则界面能登录成功，
