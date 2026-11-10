@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Window } from "@wailsio/runtime";
 
 import { Icon, type IconName } from "@/shell/icon";
+import { CommandPalette, type PaletteGroup } from "@/shell/command-palette";
 import {
   LOCALE_LABELS,
   normalizeLocale,
@@ -97,6 +98,8 @@ export interface ShellProps {
   /** 分支领先/落后。 */
   ahead?: number;
   behind?: number;
+  /** 命令面板的动作组；不传则 `⌘K` 无内容可开。 */
+  paletteGroups?: PaletteGroup[];
 }
 
 /** 窗口外壳。 */
@@ -117,12 +120,28 @@ export function Shell({
   branchChip,
   ahead = 0,
   behind = 0,
+  paletteGroups,
 }: ShellProps) {
   const { t } = useTranslation();
   const [listWidth, setListWidth] = useState(LIST_DEFAULT);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // `⌘K` 的开合放在外壳这一层：面板是窗口级覆盖层，不是某个 surface 的
+  // 局部控件。只为有动作可执行的场景注册监听，否则会留下一个能开却空的面板。
+  useEffect(() => {
+    if (!paletteGroups || paletteGroups.length === 0) return;
+    const handler = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey) return;
+      if (e.key.toLowerCase() !== "k") return;
+      e.preventDefault();
+      setPaletteOpen((v) => !v);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [paletteGroups]);
 
   return (
-    <div className="flex h-full flex-col bg-[var(--color-ink-950)] text-[var(--color-bone)]">
+    <div className="relative flex h-full flex-col bg-[var(--color-ink-950)] text-[var(--color-bone)]">
       <TitleBar
         titleContext={titleContext}
         conn={conn}
@@ -131,6 +150,7 @@ export function Shell({
         branchChip={branchChip}
         ahead={ahead}
         behind={behind}
+        onOpenPalette={() => setPaletteOpen(true)}
       />
       <div className="flex min-h-0 flex-1">
         <IconRail
@@ -151,6 +171,13 @@ export function Shell({
         {inspector}
       </div>
       <StatusBar left={statusLeft} right={statusRight} />
+      {paletteGroups && (
+        <CommandPalette
+          open={paletteOpen}
+          onClose={() => setPaletteOpen(false)}
+          groups={paletteGroups}
+        />
+      )}
     </div>
   );
 }
@@ -173,6 +200,7 @@ function TitleBar({
   branchChip,
   ahead,
   behind,
+  onOpenPalette,
 }: {
   titleContext?: React.ReactNode;
   conn?: string;
@@ -181,6 +209,7 @@ function TitleBar({
   branchChip?: string;
   ahead: number;
   behind: number;
+  onOpenPalette?: () => void;
 }) {
   const { t } = useTranslation();
   const hasContext = Boolean(repoChip || branchChip);
@@ -212,6 +241,7 @@ function TitleBar({
       <span className="flex-1" />
       <button
         type="button"
+        onClick={onOpenPalette}
         className="inline-flex h-[24px] w-[226px] items-center gap-[7px] rounded-[7px] border border-[var(--color-edge-1)] bg-[rgba(8,13,16,0.6)] px-2 text-[11.5px] text-[var(--color-muted-2)] hover:border-[var(--color-edge-2)] hover:text-[var(--color-muted)]"
       >
         <Icon name="search" size={13} />

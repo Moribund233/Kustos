@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { configureAuth, setAccessToken } from "@kustos/api";
+import { WorkingCopyService } from "@/bindings/github.com/kustos/kustos-desktop/internal/services";
 
 import { ConnectInstance } from "@/surfaces/connect-instance";
 import {
@@ -33,6 +34,7 @@ import {
   useSurfaceShortcuts,
   type Surface,
 } from "@/shell/shell";
+import type { PaletteAction, PaletteGroup } from "@/shell/command-palette";
 import {
   useActiveInstance,
   useInstances,
@@ -229,6 +231,63 @@ function MainShell({
   const ahead = wc.status?.ahead ?? 0;
   const behind = wc.status?.behind ?? 0;
 
+  // 命令面板的动作组。
+  //
+  // 只组装**当下真的能执行**的动作：七个 surface 的跳转，以及工作副本与
+  // 当前文件存在时的两个本地动作。协作类动作（加入实时会话、只读观察、
+  // 复制行链接）依赖尚未实现的协作能力，不在此列出——留一个点了没反应的
+  // 条目比没有这个入口更糟。
+  //
+  // 前提不满足时整组不出现，而不是渲染成禁用态：命令面板是"我能做什么"的
+  // 清单，塞满灰掉的条目会让它变成一份功能目录。
+  const paletteGroups = useMemo<PaletteGroup[]>(() => {
+    const groups: PaletteGroup[] = [
+      {
+        key: "goto",
+        label: t("palette.groupGoTo"),
+        actions: SURFACES.map((s) => ({
+          id: `goto-${s.id}`,
+          group: "goto",
+          label: t(s.i18nKey),
+          icon: s.icon,
+          hint: `⌘${s.key}`,
+          run: () => onSelect(s.id),
+        })),
+      },
+    ];
+
+    const local: PaletteAction[] = [];
+    const activeCopy = wc.active;
+    if (activeCopy) {
+      // 快速打开：跳去 Code 面并让它自己去挑文件。
+      // 这里不复制 Code 面的文件搜索状态——那会造出第二份真相。
+      local.push({
+        id: "local-quick-open",
+        group: "local",
+        label: t("palette.quickOpen"),
+        icon: "search",
+        hint: "⌘P",
+        run: () => onSelect("code"),
+      });
+    }
+    if (activeCopy && code.activePath) {
+      local.push({
+        id: "local-open-editor",
+        group: "local",
+        label: t("palette.openInEditor"),
+        icon: "external",
+        run: () => {
+          void WorkingCopyService.OpenInEditor(activeCopy.id, code.activePath as string);
+        },
+      });
+    }
+    if (local.length > 0) {
+      groups.push({ key: "local", label: t("palette.groupLocal"), actions: local });
+    }
+
+    return groups;
+  }, [t, onSelect, wc.active, code.activePath]);
+
   // 收件箱与工作副本已接真实数据；其余面保持骨架。
   if (surface === "inbox") {
     return (
@@ -243,6 +302,7 @@ function MainShell({
         branchChip={branchChip}
         ahead={ahead}
         behind={behind}
+        paletteGroups={paletteGroups}
         list={<InboxList state={inbox} />}
         detail={<InboxDetail state={inbox} />}
         inspector={<InboxInspector state={inbox} />}
@@ -280,6 +340,7 @@ function MainShell({
         branchChip={branchChip}
         ahead={ahead}
         behind={behind}
+        paletteGroups={paletteGroups}
         list={<WorkingCopyList state={wc} />}
         detail={<WorkingCopyDetail state={wc} />}
         inspector={<WorkingCopyInspector state={wc} />}
@@ -320,6 +381,7 @@ function MainShell({
         branchChip={branchChip}
         ahead={ahead}
         behind={behind}
+        paletteGroups={paletteGroups}
         list={<CodeTree state={code} />}
         detail={
           <>
@@ -365,6 +427,7 @@ function MainShell({
         branchChip={branchChip}
         ahead={ahead}
         behind={behind}
+        paletteGroups={paletteGroups}
       list={
         <div className="flex h-full flex-col">
           <div className="shrink-0 border-b border-[var(--color-edge-1)] px-3 pt-2.5 pb-2">

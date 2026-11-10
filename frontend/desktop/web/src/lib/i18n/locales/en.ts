@@ -31,6 +31,18 @@ const en = {
     list: "List",
   },
 
+  palette: {
+    title: "Command palette",
+    placeholder: "Search files, jump to a surface, or run a command…",
+    noResults: "Nothing matches “{{query}}”",
+    groupGoTo: "Go to",
+    groupLocal: "Local",
+    quickOpen: "Quick open file",
+    openInEditor: "Open current file in external editor",
+    move: "move",
+    run: "run",
+  },
+
   status: {
     region: "Status",
     online: "online",

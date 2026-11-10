@@ -33,6 +33,18 @@ const zh = {
     list: "列表",
   },
 
+  palette: {
+    title: "命令面板",
+    placeholder: "搜索文件、跳转或执行命令…",
+    noResults: "没有匹配「{{query}}」的命令",
+    groupGoTo: "转到",
+    groupLocal: "本机",
+    quickOpen: "快速打开文件",
+    openInEditor: "在外部编辑器中打开当前文件",
+    move: "移动",
+    run: "执行",
+  },
+
   status: {
     region: "状态",
     online: "在线",
