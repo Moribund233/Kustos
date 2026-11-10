@@ -16,6 +16,7 @@ import (
 	"github.com/kustos/kustos-desktop/internal/services"
 	"github.com/kustos/kustos-desktop/internal/store"
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/services/notifications"
 )
 
 // 前端产物由 Vite 构建到 `web/dist`，再由 `pnpm build` 前的任务复制到
@@ -56,6 +57,11 @@ func main() {
 
 	// 窗口与托盘服务的动作要等 desktop 建好才能接上，所以先声明再回填。
 	windowSvc := services.NewWindowService()
+	notificationSvc := services.NewNotificationService()
+
+	// 通知后端先接上再启动：Wails 在启动时初始化这个服务，
+	// 晚于它接线会让第一批通知静默失败。
+	services.BindNotifier(notifications.New())
 
 	desktop, err := app.New(app.Options{
 		Assets:   assets,
@@ -67,6 +73,7 @@ func main() {
 			application.NewService(sessionSvc),
 			application.NewService(workingCopySvc),
 			application.NewService(windowSvc),
+			application.NewService(notificationSvc),
 		},
 	})
 	if err != nil {
@@ -78,6 +85,9 @@ func main() {
 	services.BindWindowBackend(
 		func(kind string) error {
 			return desktop.OpenWindow(app.WindowKind(kind))
+		},
+		func(kind, route string) error {
+			return desktop.OpenWindowWith(app.WindowKind(kind), route)
 		},
 		func() error {
 			desktop.CloseCurrentWindow()

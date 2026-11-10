@@ -160,6 +160,35 @@ export interface LoginResult {
 }
 
 /**
+ * NotificationRequest 是一条要发出的系统通知。
+ * 
+ * 由界面组装后下发，而不是 Go 侧自己判断"什么事值得打扰用户"：待我决策的
+ * 语义取决于目标当前状态（PR 是否仍待审、Issue 是否指派给我），那由服务端
+ * 裁决；桌面端只负责把已经决定的事推到系统通知里。
+ */
+export interface NotificationRequest {
+    /**
+     * ID 是通知标识，同一 ID 的新通知会替换掉旧的那条。
+     */
+    "id": string;
+
+    /**
+     * Title 是通知标题，不能为空。
+     */
+    "title": string;
+
+    /**
+     * Body 是正文，可为空。
+     */
+    "body": string;
+
+    /**
+     * ThreadID 把相关通知归到一组（同一 PR 的评论堆叠在一起）。
+     */
+    "threadId": string;
+}
+
+/**
  * StatusResult 是工作区扫描结果（对前端绑定友好，字段扁平）。
  */
 export interface StatusResult {
