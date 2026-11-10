@@ -253,7 +253,7 @@ func TestEntryURLBootstrapsNonce(t *testing.T) {
 	s := newListeningServer(t, upstream.URL, spaHandler("桥接入口"))
 	client := newEntryClient(t)
 
-	resp := mustGet(t, client, s.EntryURL())
+	resp := mustGet(t, client, mustEntryURL(t, s))
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("入口 URL 应返回 SPA，实际 %d", resp.StatusCode)
 	}
@@ -288,7 +288,7 @@ func TestEntryURLBootstrapsNonce(t *testing.T) {
 // 入口令牌一次性：换一个没有 cookie 的客户端再访问同一个 URL 必须 401。
 func TestEntryTokenSingleUse(t *testing.T) {
 	s := newListeningServer(t, "http://127.0.0.1:1", spaHandler("桥接入口"))
-	entry := s.EntryURL()
+	entry := mustEntryURL(t, s)
 
 	client := newEntryClient(t)
 	if resp := mustGet(t, client, entry); resp.StatusCode != http.StatusOK {
@@ -309,10 +309,10 @@ func TestEntryTokenSingleUse(t *testing.T) {
 func TestEntryURLReissuesAfterConsume(t *testing.T) {
 	s := newListeningServer(t, "http://127.0.0.1:1", spaHandler("桥接入口"))
 
-	if resp := mustGet(t, newEntryClient(t), s.EntryURL()); resp.StatusCode != http.StatusOK {
+	if resp := mustGet(t, newEntryClient(t), mustEntryURL(t, s)); resp.StatusCode != http.StatusOK {
 		t.Fatalf("首次引导应 200，实际 %d", resp.StatusCode)
 	}
-	if resp := mustGet(t, newEntryClient(t), s.EntryURL()); resp.StatusCode != http.StatusOK {
+	if resp := mustGet(t, newEntryClient(t), mustEntryURL(t, s)); resp.StatusCode != http.StatusOK {
 		t.Fatalf("重新引导应 200，实际 %d", resp.StatusCode)
 	}
 }
@@ -321,7 +321,7 @@ func TestEntryURLReissuesAfterConsume(t *testing.T) {
 func TestEntryTokenOnlyAcceptedOnRoot(t *testing.T) {
 	s := newListeningServer(t, "http://127.0.0.1:1", spaHandler("桥接入口"))
 
-	entry, err := url.Parse(s.EntryURL())
+	entry, err := url.Parse(mustEntryURL(t, s))
 	if err != nil {
 		t.Fatalf("入口 URL 无法解析: %v", err)
 	}
@@ -355,7 +355,7 @@ func TestEntryTokenOnlyAcceptedOnRoot(t *testing.T) {
 func TestEntryTokenRejectsNonLoopbackHost(t *testing.T) {
 	s := newListeningServer(t, "http://127.0.0.1:1", spaHandler("桥接入口"))
 
-	entry, err := url.Parse(s.EntryURL())
+	entry, err := url.Parse(mustEntryURL(t, s))
 	if err != nil {
 		t.Fatalf("入口 URL 无法解析: %v", err)
 	}
@@ -377,7 +377,7 @@ func TestEntryTokenRejectsNonLoopbackHost(t *testing.T) {
 // 令牌的作废必须是一次性的原子操作：并发抢同一个入口 URL 只能有一个成功。
 func TestEntryTokenConsumedOnlyOnce(t *testing.T) {
 	s := newListeningServer(t, "http://127.0.0.1:1", spaHandler("桥接入口"))
-	entry := s.EntryURL()
+	entry := mustEntryURL(t, s)
 
 	const clients = 8
 	codes := make(chan int, clients)
@@ -413,6 +413,33 @@ func TestEntryTokenConsumedOnlyOnce(t *testing.T) {
 	}
 	if ok != 1 {
 		t.Fatalf("一次性令牌应恰好成功一次，实际 %d", ok)
+	}
+}
+
+// 多窗口：每个窗口各自持有一个入口地址，任何一个先导航都不能让另一个失效。
+//
+// 这条边界值得单独测：单令牌实现下两个窗口的代码各自看起来都对，症状却
+// 落在"后开的窗口一切正常、先开的那个白屏"——排查时会去怀疑窗口生命周期，
+// 而真正的错在令牌的发放策略。
+func TestEntryURLsCoexistAcrossWindows(t *testing.T) {
+	s := newListeningServer(t, "http://127.0.0.1:1", spaHandler("桥接入口"))
+
+	first := mustEntryURL(t, s)
+	second := mustEntryURL(t, s)
+	if first == second {
+		t.Fatal("两个窗口应各自拿到不同的入口令牌")
+	}
+
+	// 顺序反过来也要成立：后发的令牌不该顶掉先发的。
+	for i, entry := range []string{first, second} {
+		if resp := mustGet(t, newEntryClient(t), entry); resp.StatusCode != http.StatusOK {
+			t.Fatalf("第 %d 个窗口的入口地址应 200，实际 %d", i+1, resp.StatusCode)
+		}
+	}
+
+	// 两个都已消费过，第三次必须 401——并存不等于可以重复使用。
+	if resp := mustGet(t, newEntryClient(t), first); resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("已消费的入口地址应 401，实际 %d", resp.StatusCode)
 	}
 }
 
@@ -457,6 +484,19 @@ func serveWithNonce(s *Server, path string) *httptest.ResponseRecorder {
 	return rec
 }
 
+// mustEntryURL 取一个入口地址，失败即终止测试。
+//
+// 入口地址是导航的唯一来源，取不到时后续断言全无意义，直接在原地失败
+// 比让测试带着空串往下跑更好定位。
+func mustEntryURL(t *testing.T, s *Server) string {
+	t.Helper()
+	entry, err := s.EntryURL()
+	if err != nil {
+		t.Fatalf("取入口地址失败: %v", err)
+	}
+	return entry
+}
+
 // newListeningServer 起一个真正在回环端口上服务的 bridge。
 //
 // New 既监听也开始服务，因此客户端不必等：拿到 BaseURL 就能发请求。
@@ -477,7 +517,7 @@ func newListeningServer(t *testing.T, upstream string, extra http.Handler) *Serv
 func TestNewServesRequests(t *testing.T) {
 	s := newListeningServer(t, "https://upstream.example", nil)
 
-	resp, err := newEntryClient(t).Get(s.EntryURL())
+	resp, err := newEntryClient(t).Get(mustEntryURL(t, s))
 	if err != nil {
 		t.Fatalf("New 之后应立即响应请求: %v", err)
 	}

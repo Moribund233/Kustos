@@ -94,10 +94,13 @@ type Server struct {
 	// 用 atomic 而非锁，避免改写阻塞在途请求。
 	upstream atomic.Pointer[url.URL]
 
-	// entryMu 保护 entryToken 的换发与作废：作废必须是"比较并清空"的
-	// 原子动作，否则并发导航会让同一个令牌成功两次。
-	entryMu    sync.Mutex
-	entryToken string
+	// entries 管理引导令牌的换发与作废。
+	//
+	// 为什么是**一组**而不是一个：每个窗口都是一次独立的首帧导航，各自需要
+	// 自己的令牌。只留一个时，后开的窗口会在换发时把前一个的令牌顶掉，
+	// 于是先建好的窗口导航回来只拿到 401——表现是"开第二个窗口，第一个变白屏"，
+	// 而两个窗口的代码各自看起来都对。
+	entries entryTokens
 
 	// ipc 是 Wails 运行时端点（`/wails/*`）的处理器，由装配层注入。
 	// 用原子指针而非锁：装配后只读，请求路径上不该有锁。
@@ -135,12 +138,10 @@ func New(upstream string, extra http.Handler) (*Server, error) {
 	s := &Server{listener: listener, nonce: nonce}
 	s.upstream.Store(base)
 
-	entryToken, err := newNonce()
-	if err != nil {
+	if _, err := s.EntryURL(); err != nil {
 		_ = listener.Close()
 		return nil, fmt.Errorf("生成入口令牌失败: %w", err)
 	}
-	s.entryToken = entryToken
 
 	s.handler = s.buildHandler(s.newProxy(), extra)
 	// 只监听不接 Accept 循环等于不服务：WebView 的首次导航会一直挂在
@@ -251,10 +252,63 @@ func (s *Server) SetIPCHandler(h http.Handler) {
 	s.ipc.Store(&h)
 }
 
-// consumeEntryToken 判断这次请求是否携带当前的一次性引导令牌。
+// maxPendingEntries 是同时有效的引导令牌上限。
+//
+// 令牌只在"窗口刚建、还没完成首帧导航"的几秒里有效，正常同时存在的不会超过
+// 窗口数。设上限是为了让一个反复调用 EntryURL 却不导航的调用方无法把内存撑大
+// ——超出时丢弃最早的一个，那个窗口本来也已经该导航完了。
+const maxPendingEntries = 16
+
+// entryTokens 是一组尚未被消费的引导令牌。
+//
+// 为什么不是一个：每个窗口各有一次首帧导航，各自需要自己的令牌。单个令牌在
+// 后一个窗口创建时被顶掉，先建好的窗口导航回来只能拿到 401，表现为"开第二个
+// 窗口，第一个白屏"。这里按"发一次、用一次、用后即删"管理一组。
+type entryTokens struct {
+	mu sync.Mutex
+	// pending 按发放顺序保存未消费的令牌，便于超限时丢最早的。
+	pending []string
+}
+
+// issue 生成一个新令牌并登记。
+func (t *entryTokens) issue() (string, error) {
+	token, err := newNonce()
+	if err != nil {
+		return "", err
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if len(t.pending) >= maxPendingEntries {
+		t.pending = t.pending[1:]
+	}
+	t.pending = append(t.pending, token)
+	return token, nil
+}
+
+// consume 判断令牌是否有效，命中即作废。
+//
+// 判定与删除在同一个临界区里完成：分开做会让并发导航各成功一次。
+func (t *entryTokens) consume(token string) bool {
+	if token == "" {
+		return false
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	for i, candidate := range t.pending {
+		// 常量时间比较：令牌与 nonce 同源风险，不该按字节提前返回。
+		if subtle.ConstantTimeCompare([]byte(token), []byte(candidate)) != 1 {
+			continue
+		}
+		t.pending = append(t.pending[:i], t.pending[i+1:]...)
+		return true
+	}
+	return false
+}
+
+// consumeEntryToken 判断这次请求是否携带有效的引导令牌。
 //
 // 只有 `GET /` 接受它：令牌换到的是"同源身份"，不能当绕过同源校验的通行证
-// 去访问其它路径。命中即作废，与读取合成一个临界区，否则并发导航会各成功一次。
+// 去访问其它路径。命中即作废。
 //
 // Args:
 //
@@ -272,19 +326,7 @@ func (s *Server) consumeEntryToken(r *http.Request) bool {
 	if !isLoopbackHost(r.Host) {
 		return false
 	}
-	got := r.URL.Query().Get(entryTokenParam)
-	if got == "" {
-		return false
-	}
-
-	s.entryMu.Lock()
-	defer s.entryMu.Unlock()
-	// 常量时间比较：令牌与 nonce 同源风险，不该按字节提前返回。
-	if s.entryToken == "" || subtle.ConstantTimeCompare([]byte(got), []byte(s.entryToken)) != 1 {
-		return false
-	}
-	s.entryToken = ""
-	return true
+	return s.entries.consume(r.URL.Query().Get(entryTokenParam))
 }
 
 // serveLocal 把请求交给本地静态资源处理器，没有处理器时 404。
@@ -324,32 +366,28 @@ func (s *Server) BaseURL() string {
 	return "http://" + s.listener.Addr().String()
 }
 
-// EntryURL 返回带一次性引导令牌的入口地址，供 WebView 首次导航使用。
+// EntryURL 返回带一次性引导令牌的入口地址，供一个窗口首次导航使用。
 //
 // 首帧还没有 nonce cookie，直接打开 BaseURL 会被同源校验挡成 401；入口地址
 // 让浏览器先拿到 cookie，此后所有请求（含静态资源与 /api）靠 cookie 通行。
-// 令牌只对 `GET /` 有效、且用一次即废，所以每次打开窗口都应重新取一次。
+// 令牌只对 `GET /` 有效、且用一次即废，所以**每次打开窗口都应重新取一次**。
+//
+// 每次调用发放的是一个**新**令牌，且不会作废之前发出的令牌：多窗口场景下
+// 两个窗口各自持有自己的入口地址，任何一个先导航都不该让另一个失效。
 //
 // Returns:
 //
-//	形如 http://127.0.0.1:PORT/?__bridge=<token> 的完整地址。
-//	换发不会失败（新令牌来自 crypto/rand；极端失败时沿用旧值并保持可用）。
-func (s *Server) EntryURL() string {
-	token, err := newNonce()
+//	形如 http://127.0.0.1:PORT/?__bridge=<token> 的完整地址；
+//	令牌生成失败时返回错误。
+func (s *Server) EntryURL() (string, error) {
+	token, err := s.entries.issue()
 	if err != nil {
-		// 换发失败不该让窗口打不开：保留上一次未消费的令牌继续用。
-		s.entryMu.Lock()
-		token = s.entryToken
-		s.entryMu.Unlock()
-	} else {
-		s.entryMu.Lock()
-		s.entryToken = token
-		s.entryMu.Unlock()
+		return "", fmt.Errorf("换发入口令牌失败: %w", err)
 	}
 
 	q := url.Values{}
 	q.Set(entryTokenParam, token)
-	return s.BaseURL() + "/?" + q.Encode()
+	return s.BaseURL() + "/?" + q.Encode(), nil
 }
 
 // SetUpstream 在运行时更换反代上游，用于切换实例而不重建监听。
