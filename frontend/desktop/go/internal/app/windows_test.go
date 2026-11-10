@@ -1,7 +1,10 @@
 package app
 
 import (
+	"strings"
 	"testing"
+
+	"github.com/kustos/kustos-desktop/internal/bridge"
 )
 
 // 窗口种类、状态 key 与关闭语义都是纯逻辑，值得单独钉住：
@@ -131,5 +134,96 @@ func TestTrayIconIsPNG(t *testing.T) {
 		if trayIconPNG[i] != b {
 			t.Fatalf("托盘图标不是 PNG（第 %d 字节为 %#x）：非 PNG 会在 Windows 上静默不显示", i, trayIconPNG[i])
 		}
+	}
+}
+
+// 评审窗的内容标识要经 URL 片段传给前端，因此转义与拼接必须可测：
+// 标识里出现斜杠或空格时，拼错的地址会让前端读到错误的 PR 编号，
+// 而界面看起来只是"显示了另一个 PR"。
+func TestWindowEntryURLCarriesRouteFragment(t *testing.T) {
+	b, err := bridge.New("http://127.0.0.1:1", nil)
+	if err != nil {
+		t.Fatalf("创建 bridge 失败: %v", err)
+	}
+	t.Cleanup(func() { _ = b.Close() })
+
+	d := &Desktop{bridge: b}
+
+	entry, err := d.windowEntryURL("42")
+	if err != nil {
+		t.Fatalf("生成入口地址失败: %v", err)
+	}
+	if !strings.Contains(entry, "#/review/42") {
+		t.Fatalf("入口地址应带上评审窗片段，实际 %q", entry)
+	}
+	// 令牌必须在片段之前：片段的解析优先级低于查询串，把令牌放片段里
+	// 服务端根本读不到，窗口会白屏。
+	query := strings.Index(entry, "__bridge=")
+	fragment := strings.Index(entry, "#")
+	if query < 0 || fragment < 0 || query > fragment {
+		t.Fatalf("引导令牌必须出现在 URL 片段之前，实际 %q", entry)
+	}
+}
+
+func TestWindowEntryURLEscapesRoute(t *testing.T) {
+	b, err := bridge.New("http://127.0.0.1:1", nil)
+	if err != nil {
+		t.Fatalf("创建 bridge 失败: %v", err)
+	}
+	t.Cleanup(func() { _ = b.Close() })
+
+	d := &Desktop{bridge: b}
+
+	entry, err := d.windowEntryURL("a/b c")
+	if err != nil {
+		t.Fatalf("生成入口地址失败: %v", err)
+	}
+	// 斜杠与空格必须被转义，否则片段会被切成多段，前端解析出错误的编号。
+	if strings.Contains(entry, "#/review/a/b") {
+		t.Fatalf("斜杠应被转义，实际 %q", entry)
+	}
+	if strings.Contains(entry, " ") {
+		t.Fatalf("空格应被转义，实际 %q", entry)
+	}
+}
+
+func TestWindowEntryURLWithoutRouteHasNoFragment(t *testing.T) {
+	b, err := bridge.New("http://127.0.0.1:1", nil)
+	if err != nil {
+		t.Fatalf("创建 bridge 失败: %v", err)
+	}
+	t.Cleanup(func() { _ = b.Close() })
+
+	d := &Desktop{bridge: b}
+
+	entry, err := d.windowEntryURL("")
+	if err != nil {
+		t.Fatalf("生成入口地址失败: %v", err)
+	}
+	if strings.Contains(entry, "#") {
+		t.Fatalf("没有内容标识时不该带片段，实际 %q", entry)
+	}
+}
+
+// 每个窗口各取一个新令牌：共用一个会让后开的窗口把前一个顶掉。
+func TestWindowEntryURLIssuesDistinctTokens(t *testing.T) {
+	b, err := bridge.New("http://127.0.0.1:1", nil)
+	if err != nil {
+		t.Fatalf("创建 bridge 失败: %v", err)
+	}
+	t.Cleanup(func() { _ = b.Close() })
+
+	d := &Desktop{bridge: b}
+
+	first, err := d.windowEntryURL("1")
+	if err != nil {
+		t.Fatalf("生成失败: %v", err)
+	}
+	second, err := d.windowEntryURL("2")
+	if err != nil {
+		t.Fatalf("生成失败: %v", err)
+	}
+	if first == second {
+		t.Fatal("两次取入口地址应得到不同令牌")
 	}
 }

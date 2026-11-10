@@ -6,6 +6,10 @@ import { configureAuth, setAccessToken } from "@kustos/api";
 import { WorkingCopyService } from "@/bindings/github.com/kustos/kustos-desktop/internal/services";
 import { matchRepository, useRepositories, useWorkingCopySlug } from "@/lib/repos";
 import { useTrayLabels } from "@/lib/window";
+import {
+  useNotificationAuthorization,
+  useRequestNotificationAuthorization,
+} from "@/lib/notifications";
 
 import { ConnectInstance } from "@/surfaces/connect-instance";
 import {
@@ -239,6 +243,11 @@ function MainShell({
   const wc = useWorkingCopySurface();
   const code = useCodeSurface();
 
+  // 系统通知：只在用户显式点开关时才申请授权。启动就弹授权请求时，
+  // 用户还不知道会收到什么，拒绝一次之后系统就很难再让他改回来。
+  const notifyAuth = useNotificationAuthorization();
+  const requestNotifyAuth = useRequestNotificationAuthorization();
+
   // PR 与 Issue 面需要一个服务端仓库 id。它有两个来源：
   //   1. 当前工作副本的 git remote 能对上哪个仓库（"我就在这个仓库里改代码"）；
   //   2. 对不上时由各面自己退回可见仓库列表的首个，并显示仓库选择器。
@@ -330,6 +339,9 @@ function MainShell({
         conn={conn}
         offline={!online}
         badges={{ inbox: inbox.unreadCount }}
+        notificationsAuthorized={notifyAuth.data === true}
+        notificationsPending={requestNotifyAuth.isPending}
+        onEnableNotifications={() => requestNotifyAuth.mutate()}
         userName={creds?.username}
         repoChip={repoChip}
         branchChip={branchChip}
@@ -368,6 +380,9 @@ function MainShell({
         conn={conn}
         offline={!online}
         badges={{ inbox: inbox.unreadCount }}
+        notificationsAuthorized={notifyAuth.data === true}
+        notificationsPending={requestNotifyAuth.isPending}
+        onEnableNotifications={() => requestNotifyAuth.mutate()}
         userName={creds?.username}
         repoChip={repoChip}
         branchChip={branchChip}
@@ -409,6 +424,9 @@ function MainShell({
         conn={conn}
         offline={!online}
         badges={{ inbox: inbox.unreadCount }}
+        notificationsAuthorized={notifyAuth.data === true}
+        notificationsPending={requestNotifyAuth.isPending}
+        onEnableNotifications={() => requestNotifyAuth.mutate()}
         userName={creds?.username}
         repoChip={code.active ? baseNameOf(code.active.path) : repoChip}
         branchChip={branchChip}
@@ -455,6 +473,9 @@ function MainShell({
         conn={conn}
         offline={!online}
         badges={{ inbox: inbox.unreadCount }}
+        notificationsAuthorized={notifyAuth.data === true}
+        notificationsPending={requestNotifyAuth.isPending}
+        onEnableNotifications={() => requestNotifyAuth.mutate()}
         userName={creds?.username}
         repoChip={pulls.repo?.path || repoChip}
         branchChip={branchChip}
@@ -490,6 +511,9 @@ function MainShell({
         conn={conn}
         offline={!online}
         badges={{ inbox: inbox.unreadCount }}
+        notificationsAuthorized={notifyAuth.data === true}
+        notificationsPending={requestNotifyAuth.isPending}
+        onEnableNotifications={() => requestNotifyAuth.mutate()}
         userName={creds?.username}
         repoChip={issues.repo?.path || repoChip}
         branchChip={branchChip}
@@ -523,6 +547,9 @@ function MainShell({
       conn={conn}
         offline={!online}
         badges={{ inbox: inbox.unreadCount }}
+        notificationsAuthorized={notifyAuth.data === true}
+        notificationsPending={requestNotifyAuth.isPending}
+        onEnableNotifications={() => requestNotifyAuth.mutate()}
         userName={creds?.username}
         repoChip={repoChip}
         branchChip={branchChip}
@@ -562,7 +589,6 @@ function baseNameOf(path: string): string {
   const parts = path.split(/[\\/]/).filter(Boolean);
   return parts[parts.length - 1] ?? path;
 }
-
 
 
 

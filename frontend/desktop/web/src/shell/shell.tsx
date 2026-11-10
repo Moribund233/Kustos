@@ -91,6 +91,12 @@ export interface ShellProps {
   badges?: Partial<Record<Surface, number>>;
   /** 用户显示名，用于左轨底部头像。 */
   userName?: string;
+  /** 系统通知是否已获授权。 */
+  notificationsAuthorized?: boolean;
+  /** 授权请求进行中。 */
+  notificationsPending?: boolean;
+  /** 用户点击通知开关。 */
+  onEnableNotifications?: () => void;
   /** 标题栏左侧的仓库 chip 文案。 */
   repoChip?: string;
   /** 标题栏的分支 chip 文案。 */
@@ -116,6 +122,9 @@ export function Shell({
   offline,
   badges,
   userName,
+  notificationsAuthorized = false,
+  notificationsPending = false,
+  onEnableNotifications,
   repoChip,
   branchChip,
   ahead = 0,
@@ -158,6 +167,9 @@ export function Shell({
           onSelect={onSelect}
           badges={badges}
           userName={userName}
+          notificationsAuthorized={notificationsAuthorized}
+          notificationsPending={notificationsPending}
+          onEnableNotifications={onEnableNotifications ?? (() => {})}
         />
         <ListPane width={listWidth} onResize={setListWidth}>
           {list}
@@ -382,11 +394,20 @@ function IconRail({
   onSelect,
   badges,
   userName,
+  notificationsAuthorized,
+  notificationsPending,
+  onEnableNotifications,
 }: {
   active: Surface;
   onSelect: (s: Surface) => void;
   badges?: Partial<Record<Surface, number>>;
   userName?: string;
+  /** 系统通知是否已获授权。 */
+  notificationsAuthorized: boolean;
+  /** 授权请求进行中。 */
+  notificationsPending: boolean;
+  /** 用户点击通知开关。 */
+  onEnableNotifications: () => void;
 }) {
   const { t } = useTranslation();
 
@@ -433,6 +454,11 @@ function IconRail({
       <span className="flex-1" />
 
       <LanguageToggle />
+      <NotificationToggle
+        authorized={notificationsAuthorized}
+        onEnable={onEnableNotifications}
+        pending={notificationsPending}
+      />
       <button
         type="button"
         aria-label={t("nav.settings")}
@@ -448,6 +474,46 @@ function IconRail({
         {initials(userName)}
       </span>
     </nav>
+  );
+}
+
+/**
+ * 通知开关。
+ *
+ * 为什么放在左轨而不是设置页：桌面端还没有设置页，而"要不要被通知打扰"是
+ * 用户第一天就会想确认的事。放在语言开关旁边，与"这台机器上的偏好"同属一类。
+ *
+ * 只在**用户显式点击**时申请授权：启动就弹授权请求时用户还不知道会收到什么，
+ * 拒绝一次之后系统就很难再让他改回来。
+ */
+function NotificationToggle({
+  authorized,
+  onEnable,
+  pending,
+}: {
+  authorized: boolean;
+  onEnable: () => void;
+  pending: boolean;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <button
+      type="button"
+      onClick={onEnable}
+      disabled={authorized || pending}
+      aria-pressed={authorized}
+      aria-label={t(authorized ? "notifications.enabled" : "notifications.enable")}
+      title={t(authorized ? "notifications.enabled" : "notifications.enable")}
+      className={[
+        "grid h-[34px] w-[40px] place-items-center rounded-[7px]",
+        authorized
+          ? "text-[var(--color-sage)]"
+          : "text-[var(--color-muted-2)] hover:bg-[var(--color-ink-800)] hover:text-[var(--color-bone-2)]",
+      ].join(" ")}
+    >
+      <Icon name="bell" size={16} />
+    </button>
   );
 }
 

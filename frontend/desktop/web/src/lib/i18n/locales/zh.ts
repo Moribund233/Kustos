@@ -312,7 +312,7 @@ const zh = {
     emptyAllHint: "选一个仓库；没有 PR 的仓库这里会是空的。",
     total: "共 {{count}} 个",
     listFailed: "读取合并请求失败",
-    detailFailed: "读取详情失败",
+    detailFailed: "读取详情失败（{{number}}）",
     noRepo: "还没有可用的仓库。先在连接页添加实例，或确认账号对这个实例有可见仓库。",
     repoPicker: "仓库",
     draft: "草稿",
@@ -328,6 +328,7 @@ const zh = {
     commentsCount_one: "{{count}} 条评论",
     commentsCount_other: "{{count}} 条评论",
     readOnlyHint: "桌面端这一版只读：评论、评审与合并由服务端裁决，动作入口在 Web。",
+    openInWindow: "在新窗口中评审",
     errors: {
       list: "读取合并请求失败（HTTP {{status}}）",
       detail: "读取详情失败（HTTP {{status}}）",
@@ -384,6 +385,12 @@ const zh = {
       sectionNext: "下一步",
       nextHint: "议题的创建与状态流转随后续里程碑开放。",
     },
+  },
+
+  // 系统通知：开关在左轨，授权只在用户显式点击时申请。
+  notifications: {
+    enable: "开启系统通知",
+    enabled: "系统通知已开启",
   },
 
   // 多窗口与托盘：主窗口关闭只收进托盘，退出是托盘菜单里的显式动作。

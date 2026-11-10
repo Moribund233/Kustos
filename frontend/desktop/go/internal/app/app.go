@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"sync"
 
@@ -222,11 +223,24 @@ func (d *Desktop) createMainWindow() error {
 // 每个窗口都要自己的入口地址：入口令牌是一次性的，多个窗口共用同一个地址时
 // 只有先导航的那个能换到 cookie，后一个会被同源校验挡成 401。
 func (d *Desktop) createWindow(kind WindowKind) (*application.WebviewWindow, error) {
-	entryURL, err := d.bridge.EntryURL()
+	entry, err := d.bridge.EntryURL()
 	if err != nil {
 		return nil, err
 	}
+	return d.createWindowWithURL(kind, entry)
+}
 
+// createWindowWithURL 用给定地址创建窗口。
+//
+// Args:
+//
+//	kind:     窗口种类，决定窗口名、标题与状态 key
+//	entryURL: 这次导航要用的地址（带引导令牌，可能还带内容片段）
+//
+// Returns:
+//
+//	新建的窗口。
+func (d *Desktop) createWindowWithURL(kind WindowKind, entryURL string) (*application.WebviewWindow, error) {
 	st := windowstate.Restore(d.db, windowStateKey(kind), d.screens())
 
 	winOpts := application.WebviewWindowOptions{
@@ -344,24 +358,77 @@ func (d *Desktop) attachWindowPersistence(win *application.WebviewWindow, kind W
 //
 //	种类无法识别时返回错误。
 func (d *Desktop) OpenWindow(kind WindowKind) error {
+	return d.OpenWindowWith(kind, "")
+}
+
+// OpenWindowWith 打开（或聚焦）指定种类的窗口，并带上该窗口要显示的内容标识。
+//
+// 为什么需要内容标识：评审窗不是主窗口的副本，它要显示"哪一个 PR"。标识经 URL
+// 片段传给前端（`#/review/42`），而不是靠全局状态——多窗口下的全局状态由最后
+// 写入者胜出，两个评审窗会显示同一个 PR，而它们本该各看各的。
+//
+// 已存在的窗口会**替换**它当前的内容标识并重新导航：用户点了另一个 PR 的
+// "在窗口中打开"，期望是这个窗口换过去，而不是什么都不发生。
+//
+// Args:
+//
+//	kind: 窗口种类（main / review）
+//	route: 窗口内容标识，如 "42"；空串表示不带
+//
+// Returns:
+//
+//	种类无法识别或创建失败时返回错误。
+func (d *Desktop) OpenWindowWith(kind WindowKind, route string) error {
 	if kind == WindowKindMain {
 		d.ShowMainWindow()
 		return nil
 	}
 
+	entry, err := d.windowEntryURL(route)
+	if err != nil {
+		return err
+	}
+
 	if existing := d.registry.existing(d.app, kind); existing != nil {
+		// 已有窗口：换内容再唤出来。只 Show 不导航的话，用户点第二个 PR 的
+		// "在窗口中打开"会看到上一次那个 PR，还以为点错了。
+		if route != "" {
+			existing.SetURL(entry)
+		}
 		existing.Show()
 		existing.Focus()
 		return nil
 	}
 
-	win, err := d.createWindow(kind)
+	win, err := d.createWindowWithURL(kind, entry)
 	if err != nil {
 		return err
 	}
 	win.Show()
 	win.Focus()
 	return nil
+}
+
+// windowEntryURL 返回某个窗口这次导航要用的地址。
+//
+// Args:
+//
+//	route: 内容标识；非空时作为 URL 片段附加
+//
+// Returns:
+//
+//	带一次性引导令牌的完整地址；令牌换发失败时返回错误。
+func (d *Desktop) windowEntryURL(route string) (string, error) {
+	entry, err := d.bridge.EntryURL()
+	if err != nil {
+		return "", err
+	}
+	if route == "" {
+		return entry, nil
+	}
+	// 片段放在查询串之后，且不参与服务端的路径匹配——它只给前端读。
+	// 用 PathEscape 兜住标识里可能出现的斜杠与空格。
+	return entry + "#/review/" + url.PathEscape(route), nil
 }
 
 // ShowMainWindow 唤出主窗口（从托盘回来走这条路径）。

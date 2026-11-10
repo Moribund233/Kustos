@@ -50,6 +50,26 @@ export function OpenWindow(kind: string): $CancellablePromise<void> {
 }
 
 /**
+ * OpenWindowWith 打开指定种类的窗口并指定它要显示的内容。
+ * 
+ * 评审窗不是主窗口的副本：它要显示"哪一个 PR"。内容标识经 URL 片段传给前端，
+ * 而不是靠全局状态——多窗口下全局状态由最后写入者胜出，两个评审窗会显示
+ * 同一个 PR，而它们本该各看各的。
+ * 
+ * Args:
+ * 
+ * 	kind:  窗口种类，取值 main 或 review
+ * 	route: 内容标识（如 PR 编号 "42"）；空串表示不带
+ * 
+ * Returns:
+ * 
+ * 	种类无法识别、创建失败或后端未接线时返回错误。
+ */
+export function OpenWindowWith(kind: string, route: string): $CancellablePromise<void> {
+    return $Call.ByID(4218057090, kind, route);
+}
+
+/**
  * SetTrayLabels 更新托盘菜单文案。
  * 
  * 语言切换后调用一次即可：菜单项支持就地改标签，不必重建整个菜单

@@ -37,3 +37,17 @@ export function useTrayLabels(): void {
 export function openWindow(kind: "main" | "review"): void {
   void WindowService.OpenWindow(kind);
 }
+
+/**
+ * 在评审窗里打开某个 PR。
+ *
+ * 已存在的评审窗会被换成这个 PR 并唤到前面：用户点了另一个 PR 的"在窗口中
+ * 打开"，期望是那个窗口换过去，而不是什么都不发生。
+ *
+ * Args:
+ *
+ *	prNumber: 仓库内的 PR 编号
+ */
+export function openReviewWindow(prNumber: number): void {
+  void WindowService.OpenWindowWith("review", String(prNumber));
+}

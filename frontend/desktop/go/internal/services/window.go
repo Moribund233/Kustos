@@ -23,6 +23,7 @@ var errNotWired = errors.New("桌面端能力未接线")
 var (
 	backendMu     sync.RWMutex
 	backendOpen   func(kind string) error
+	backendOpenWith func(kind, route string) error
 	backendClose  func() error
 	backendGet    func() (show, review, quit, tooltip string)
 	backendSet    func(show, review, quit, tooltip string)
@@ -41,6 +42,7 @@ var (
 //	traySet:      更新托盘文案；空串表示保留原值
 func BindWindowBackend(
 	open func(kind string) error,
+	openWith func(kind, route string) error,
 	closeCurrent func() error,
 	trayGet func() (show, review, quit, tooltip string),
 	traySet func(show, review, quit, tooltip string),
@@ -48,6 +50,7 @@ func BindWindowBackend(
 	backendMu.Lock()
 	defer backendMu.Unlock()
 	backendOpen = open
+	backendOpenWith = openWith
 	backendClose = closeCurrent
 	backendGet = trayGet
 	backendSet = traySet
@@ -89,10 +92,36 @@ type WindowInfo struct {
 //
 //	种类无法识别、创建失败或后端未接线时返回错误。
 func (s *WindowService) OpenWindow(kind string) error {
+	return s.OpenWindowWith(kind, "")
+}
+
+// OpenWindowWith 打开指定种类的窗口并指定它要显示的内容。
+//
+// 评审窗不是主窗口的副本：它要显示"哪一个 PR"。内容标识经 URL 片段传给前端，
+// 而不是靠全局状态——多窗口下全局状态由最后写入者胜出，两个评审窗会显示
+// 同一个 PR，而它们本该各看各的。
+//
+// Args:
+//
+//	kind:  窗口种类，取值 main 或 review
+//	route: 内容标识（如 PR 编号 "42"）；空串表示不带
+//
+// Returns:
+//
+//	种类无法识别、创建失败或后端未接线时返回错误。
+func (s *WindowService) OpenWindowWith(kind, route string) error {
+	backendMu.RLock()
+	openWith := backendOpenWith
+	backendMu.RUnlock()
+
+	if openWith != nil {
+		return openWith(kind, route)
+	}
+
+	// 后端只接了不带内容的版本时，退化为"只开窗口"。
 	backendMu.RLock()
 	open := backendOpen
 	backendMu.RUnlock()
-
 	if open == nil {
 		return errNotWired
 	}

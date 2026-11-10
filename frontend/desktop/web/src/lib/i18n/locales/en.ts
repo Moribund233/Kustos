@@ -316,7 +316,7 @@ const en = {
     emptyAllHint: "Pick a repository; repositories without pull requests show empty here.",
     total: "{{count}} total",
     listFailed: "Could not load pull requests",
-    detailFailed: "Could not load details",
+    detailFailed: "Could not load details ({{number}})",
     noRepo: "No repository available yet. Connect an instance first, or check that your account can see a repository.",
     repoPicker: "Repository",
     draft: "Draft",
@@ -332,6 +332,7 @@ const en = {
     commentsCount_one: "{{count}} comment",
     commentsCount_other: "{{count}} comments",
     readOnlyHint: "Read-only in this build: commenting, reviewing and merging are decided by the server; act from the web UI.",
+    openInWindow: "Review in new window",
     errors: {
       list: "Could not load pull requests (HTTP {{status}})",
       detail: "Could not load details (HTTP {{status}})",
@@ -388,6 +389,13 @@ const en = {
       sectionNext: "Next",
       nextHint: "Creating issues and moving their state land in a later milestone.",
     },
+  },
+
+  // System notifications: the toggle lives on the icon rail; authorization is
+  // requested only after an explicit click.
+  notifications: {
+    enable: "Enable system notifications",
+    enabled: "System notifications on",
   },
 
   // Multi-window and tray: closing the main window only hides it to the tray;

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@/shell/icon";
 import { relativeTime } from "@/lib/relative-time";
 import { useRepositories, type Repository } from "@/lib/repos";
+import { openReviewWindow } from "@/lib/window";
 import {
   PULL_SEGMENTS,
   PullsRequestError,
@@ -266,6 +267,15 @@ export function PullsDetail({ state }: { state: PullsSurfaceState }) {
           <span className="ml-auto tracking-normal normal-case">
             {relativeTime(pr.createdAt, t)}
           </span>
+          <button
+            type="button"
+            onClick={() => openReviewWindow(pr.number)}
+            aria-label={t("pulls.openInWindow")}
+            title={t("pulls.openInWindow")}
+            className="ml-1 grid h-[20px] w-[20px] place-items-center rounded-[5px] tracking-normal text-[var(--color-muted-2)] normal-case hover:bg-[var(--color-ink-800)] hover:text-[var(--color-bone-2)]"
+          >
+            <Icon name="external" size={11} />
+          </button>
         </div>
         <h2 className="mt-1 text-[15px] font-medium tracking-[-0.01em] text-[var(--color-bone)]">
           {pr.title}
