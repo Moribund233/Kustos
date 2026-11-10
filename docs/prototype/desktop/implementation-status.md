@@ -11,12 +11,12 @@
 | 里程碑 | 状态 | 说明 |
 | --- | --- | --- |
 | M0 骨架 | ✅ 完成 | Wails v3 工程、loopback bridge、嵌入产物、单实例、窗口状态持久化、三栏外壳 |
-| M1 只读 | 🟡 大部分 | 实例连接、登录 + Keychain、Inbox、命令面板已完成；代码浏览已具备但已是可编辑的（M3）；**通知与托盘未做** |
+| M1 只读 | ✅ 完成 | 实例连接、登录 + Keychain、Inbox、命令面板、通知、托盘、PR 与 Issue 浏览 |
 | M2 工作副本 | 🟡 大部分 | 状态、未提交 diff、暂存（含逐 hunk）、提交、fetch、push 已完成；**clone、PR 评审窗未做** |
 | M3 编辑器 | 🟡 主体 | 写盘、冲突检测、崩溃恢复、`⌘P`/`⌘S` 已完成；**标签页布局恢复、diff 行标未做** |
 | M4 本地智能 | ❌ 未开始 | `internal/lsp/` 为空目录 |
 | M5 协作 | ❌ 未开始 | bridge 已预留 `/ws/collab` 白名单，无实现 |
-| M6 常驻 | ❌ 未开始 | 无通知、托盘、深链、自启、更新 |
+| M6 常驻 | 🟡 部分 | 托盘常驻、关窗收起、多窗口已完成；**深链、自启、自动更新未做** |
 | M7 深化 | ❌ 未开始 | 按需 |
 
 ## 已实现
@@ -68,25 +68,38 @@ SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 4 版：
 - 无边框窗口 + 前端自绘标题栏；拖拽区与窗口控制键按 `--wails-non-client-region` 标注。
 - 三栏外壳：标题栏（仓库/分支 chip、ahead/behind）、左轨、可拖拽列表栏、状态条。
 - 命令面板 `⌘K`：输入过滤、跨组 ↑↓ 游标、`↵` 执行、`Esc` 关闭；标题栏搜索框同入口。只列当下真能执行的动作（七个 surface 跳转、快速打开文件、在外部编辑器中打开当前文件），协作类动作依赖未实现的协作能力，不放入口。
-- 七个 surface 中已接真实数据：Inbox、Working copy、Code。其余四个保持骨架空态。
+- 七个 surface 中已接真实数据：Inbox、Working copy、Code、Pull requests、Issues。Chat 与 Agent 保持骨架空态。
 - 中英双语（i18next），资源与 Web 端独立，键一致性有测试。
+
+### 多窗口与托盘
+
+- **多窗口**：窗口按 `Name` 复用（`main` / `review`），`OpenWindow` 对已存在的窗口只唤到前面，不重复创建。每种窗口各自持有一份几何状态（`window.main` / `window.review`），复用的是既有 `windowstate` 包。
+- **关窗语义**：主窗口关闭是收进托盘（`RegisterHook` + `Cancel` + `Hide`），不是退出；退出是托盘菜单里的显式动作。评审窗关闭就是真关闭。这一条必须用 `RegisterHook` 而不是 `OnWindowEvent`——前者在 UI 线程同步执行，`Cancel` 才能挡住 Wails 内建的销毁流程；后者在独立 goroutine 里，拦不住。
+- **托盘**：内嵌 PNG 图标（非 PNG 会在 Windows 上静默不显示，有测试守着），菜单为「打开 Kustos / 评审窗 / 退出」，单击图标唤出主窗口。Wails 要求托盘在 `app.Run()` 之后创建，早于事件循环创建则托盘根本不出现。
+- **入口令牌按窗口发放**：每个窗口导航时各取一个一次性令牌。只留单个令牌时，后开的窗口会把前一个顶掉，表现为「开第二个窗口，第一个白屏」。
+- 窗口里放什么仍由服务端裁决；Go 侧只回答「本机有几个窗口、能不能再开一个」。
+
+### 通知
+
+- 系统通知走 Wails 的 `notifications` 服务，已注册为可绑定服务；授权、发送、点击回调的接口在 Go 侧就位。
+- 通知目前不自动弹：哪些事件值得打扰用户需要服务端给出「待我决策」语义（PR 是否仍待审、Issue 是否指派给我），在本地猜一套判定等于埋一条与服务端漂移的逻辑。
 
 ## 未实现
 
 ### 缺口（M1–M3 范围内）
 
-- **通知与托盘**：无系统通知、无托盘菜单、无角标。
 - **clone**：只能添加本地已有仓库，不能从远端克隆。
-- **PR 评审窗**：独立窗口、行内评论、评审草稿均未做。
+- **PR 评审窗**：独立窗口与行内评论未做；评审窗的**窗口骨架**已就绪（多窗口管理、按窗口几何、关闭语义），缺的是窗口里的评审内容与草稿。
 - **标签页布局恢复**：崩溃恢复只保内容，不保"当时打开了哪些标签"。
 - **diff 行标**：编辑器内相对 HEAD 的增删标记。
 - **协作感知的界面部分**：后端端点已就绪，`live` 圆点与在线人数预警未接。
+- **PR / Issue 的动作**：两个面当前只读。评论、评审、关闭、合并等写操作由服务端权限裁决，入口仍在 Web。
 
 ### 未开始的里程碑
 
 - **M4 本地智能**：`internal/lsp/` 是空目录。需要进程池（上限 3、空闲回收、退避重启）、`ws ↔ stdio` 帧转发（注意 LSP 是带 `Content-Length` 的帧协议，不是行协议）、三种语言服务器接入、workspace trust。
 - **M5 协作**：文档模式状态机、四步预检、`live` 编辑与远端光标、草稿保存与发布前验证。
-- **M6 常驻**：离线缓存、通知动作、深链、开机自启、自动更新。
+- **M6 剩余部分**：离线缓存、通知动作（通知里直接批准）、深链、开机自启、自动更新。托盘常驻与多窗口已完成。
 - **M7 深化**：本地搜索索引、Agent 本地复现、设备执行器。
 
 ### 发布
@@ -95,7 +108,8 @@ SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 4 版：
 
 ## 已知取舍
 
-- **服务绑定面按实际需要生长，尚未拆到设计文档 §4 的粒度**。设计文档列了 10 个服务，当前只有 `SessionService` 与 `WorkingCopyService` 两个；`FileDiff`、`ListChanges`、`ReadText`/`WriteText`、`StageHunk`/`UnstageHunk`、`OpenInEditor`、`RevealInFileManager` 都挂在 `WorkingCopyService` 上。后续能力变多时再按"用户能感知的本地能力"拆开。
+- **服务绑定面按实际需要生长，尚未拆到设计文档 §4 的粒度**。设计文档列了 10 个服务，当前有 `SessionService`、`WorkingCopyService` 与 `WindowService` 三个；`FileDiff`、`ListChanges`、`ReadText`/`WriteText`、`StageHunk`/`UnstageHunk`、`RemoteInfo`、`OpenInEditor`、`RevealInFileManager` 都挂在 `WorkingCopyService` 上。后续能力变多时再按"用户能感知的本地能力"拆开。
+- **窗口后端的接线用包级函数而非服务方法**。绑定生成器会把服务上所有导出方法都变成前端可调用的接口，接线函数一旦是方法，前端就能改写本机的窗口后端。因此 `BindWindowBackend` 是包级函数。
 - **Go 侧不做业务判断**。权限与合并策略一律回服务端，Go 只回答"本机是什么状态"。
 - **只读与只写单一真相**。磁盘模式下手动保存，不存在"自动保存到远端"的路径；协作模式（M5）会引入第二条路径，届时必须靠模式互斥保证不双写。
 - **管理控制台不做**。网关按来源白名单拦掉 `/api/app/`，桌面端出口地址不可控，结构上过不去。
@@ -103,6 +117,7 @@ SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 4 版：
 
 ## 验证方式
 
-- Go：`task test`（在 `frontend/desktop/go` 下），覆盖 bridge 安全约束、git 解析与逐 hunk 暂存、写盘冲突、崩溃恢复、窗口状态。
-- 前端：`pnpm typecheck` / `pnpm test`（`frontend/desktop/web`、`frontend/packages/editor`）。
+- Go：`go test ./...`（在 `frontend/desktop/go` 下），覆盖 bridge 安全约束（含多窗口入口令牌并存）、git 解析与逐 hunk 暂存、远端关联、写盘冲突、崩溃恢复、窗口状态、窗口种类与托盘语义。
+- 前端：`pnpm typecheck` / `pnpm test`（`frontend/desktop/web`、`frontend/packages/editor`）。当前 153 个用例，含 diff 解析、相对时间、PR/Issue 数据层与 remote 地址解析。
+- CI：`.github/workflows/ci.yml` 的 `desktop` job 跑前端 typecheck/单测与 Go 侧不依赖 cgo 的包（`internal/bridge`、`git`、`services`、`store`、`windowstate`、`platform/*`）。Wails 的 `pkg/application` 在 Linux 上需要 GTK/WebKitGTK 头文件，因此 `main`、`internal/app` 与 `singleinstance` 不在 CI 的 Go 覆盖范围内，workflow 注释里写明了原因。
 - 端到端：设 `KUSTOS_DESKTOP_CDP_PORT` 后用 CDP 驱动真实 WebView，验证编辑、保存、冲突、崩溃恢复等交互。
