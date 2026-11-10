@@ -37,7 +37,10 @@ export interface ParsedDiff {
   note: "" | "noDiff" | "binary";
 }
 
-const HUNK_RE = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/;
+const HUNK_RE = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
+
+/** 二进制标记：git 在文件头区段输出的两种形态之一行首出现。 */
+const BINARY_PREFIXES = ["Binary files ", "GIT binary patch"];
 
 /** 判断一行是否是文件头噪声（不属于 hunk 内容）。 */
 function isFileHeader(line: string): boolean {
@@ -56,8 +59,18 @@ function isFileHeader(line: string): boolean {
   );
 }
 
+/** 判断一行是否是二进制标记。 */
+function isBinaryMarker(line: string): boolean {
+  return BINARY_PREFIXES.some((p) => line.startsWith(p));
+}
+
 /**
  * 解析 unified diff 文本。
+ *
+ * hunk 的边界由 **hunk 头里的行数**决定，不由行前缀推断。这一点是必须的：
+ * 一行被删除的 SQL/Lua/Haskell 注释在 diff 里正是 `--- 注释`，按前缀判断会被
+ * 当成文件头 `--- a/file` 从而终止当前 hunk，导致该 hunk 后续内容整段消失。
+ * 同理，文本内容里出现 "Binary files" 字样不该让整个文件被当成二进制。
  *
  * Args:
  *
@@ -73,61 +86,91 @@ export function parseUnifiedDiff(raw: string | null | undefined): ParsedDiff {
     return { hunks: [], binary: false, note: "noDiff" };
   }
 
-  if (raw.includes("Binary files") || raw.includes("GIT binary patch")) {
-    return { hunks: [], binary: true, note: "binary" };
-  }
-
   const hunks: DiffHunk[] = [];
   let current: DiffHunk | null = null;
   let oldLine = 0;
   let newLine = 0;
+  // 当前 hunk 还各差多少行才算读完（取自 hunk 头）。读完即结束该 hunk，
+  // 之后的行才重新按文件头规则处理。
+  let oldLeft = 0;
+  let newLeft = 0;
+  let binary = false;
   let sawHunk = false;
 
-  for (const line of raw.split("\n")) {
-    // 末尾的空串是 split 的产物，不是内容。
-    if (line === "" && current === null) continue;
-
+  // CRLF 归一：Windows 上未规范化的 diff 输出会在每行尾部带 `\r`，
+  // 它混进 header 与内容行后是不可见字符——着色看不出问题，但折叠标题、
+  // 复制出来的文本、以及任何按行宽度的布局都会带上它。
+  for (const rawLine of raw.split("\n")) {
+    const line = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
     const m = HUNK_RE.exec(line);
     if (m) {
       sawHunk = true;
       oldLine = Number(m[1]);
-      newLine = Number(m[2]);
+      newLine = Number(m[3]);
+      // 省略行数（`@@ -1 +1 @@`）表示 1 行，不是 0 行。
+      oldLeft = m[2] === undefined ? 1 : Number(m[2]);
+      newLeft = m[4] === undefined ? 1 : Number(m[4]);
       current = { header: line, lines: [] };
       hunks.push(current);
       continue;
     }
 
-    if (isFileHeader(line)) {
-      // 文件头出现在 hunk 之间时，后续内容属于新的 hunk 区段；
-      // 把 current 置空，避免把下一段的 @@ 之前的内容错塞进上一段。
-      current = null;
+    // hunk 内一律按内容行处理，不套文件头规则——见函数头的说明。
+    if (current && (oldLeft > 0 || newLeft > 0)) {
+      if (line.startsWith("+")) {
+        current.lines.push({ kind: "add", text: line.slice(1), oldLine: null, newLine });
+        newLine++;
+        newLeft--;
+      } else if (line.startsWith("-")) {
+        current.lines.push({ kind: "remove", text: line.slice(1), oldLine, newLine: null });
+        oldLine++;
+        oldLeft--;
+      } else if (line.startsWith("\\")) {
+        // "\ No newline at end of file"：提示性质，不当成内容行，也不占行数。
+        current.lines.push({ kind: "meta", text: line, oldLine: null, newLine: null });
+      } else {
+        // 上下文行以空格开头（git 会保留这个前缀）。
+        const text = line.startsWith(" ") ? line.slice(1) : line;
+        current.lines.push({ kind: "context", text, oldLine, newLine });
+        oldLine++;
+        newLine++;
+        oldLeft--;
+        newLeft--;
+      }
       continue;
     }
 
-    if (!current) continue;
-
-    if (line.startsWith("+")) {
-      current.lines.push({ kind: "add", text: line.slice(1), oldLine: null, newLine });
-      newLine++;
-    } else if (line.startsWith("-")) {
-      current.lines.push({ kind: "remove", text: line.slice(1), oldLine, newLine: null });
-      oldLine++;
-    } else if (line.startsWith("\\")) {
-      // "\ No newline at end of file"：提示性质，不当成内容行。
+    // 行数已读完，但紧跟着的 `\ No newline at end of file` 仍属于这个 hunk：
+    // git 把标记放在它所修饰的那一行之后，而那一行正好是 hunk 的最后一行。
+    if (current && line.startsWith("\\")) {
       current.lines.push({ kind: "meta", text: line, oldLine: null, newLine: null });
-    } else {
-      // 上下文行以空格开头（git 会保留这个前缀）。
-      const text = line.startsWith(" ") ? line.slice(1) : line;
-      current.lines.push({ kind: "context", text, oldLine, newLine });
-      oldLine++;
-      newLine++;
+      continue;
     }
+
+    // hunk 已读完（或尚未开始）：此时才是文件头区段。
+    current = null;
+
+    // 二进制标记只在 hunk 之外成立：文本里出现这个词不该吞掉整份 diff。
+    if (isBinaryMarker(line)) {
+      binary = true;
+      continue;
+    }
+    if (isFileHeader(line)) continue;
+    // 末尾的空串是 split 的产物，不是内容；其余游离行（例如无 hunk 的
+    // 文件头区段里的 `literal 12`）同样不属于任何 hunk。
   }
 
-  if (!sawHunk) {
+  if (binary) {
+    return { hunks: [], binary: true, note: "binary" };
+  }
+
+  // 只有零内容行的 hunk 等于没有可显示内容：留着它会让详情区出现一块
+  // "有折叠标题、没有任何行"的空块。
+  const nonEmpty = hunks.filter((h) => h.lines.length > 0);
+  if (!sawHunk || nonEmpty.length === 0) {
     return { hunks: [], binary: false, note: "noDiff" };
   }
-  return { hunks, binary: false, note: "" };
+  return { hunks: nonEmpty, binary: false, note: "" };
 }
 
 /** 统计新增与删除行数，用于列表里的 +N/-N 徽标。 */
