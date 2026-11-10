@@ -11,8 +11,8 @@
 | 里程碑 | 状态 | 说明 |
 | --- | --- | --- |
 | M0 骨架 | ✅ 完成 | Wails v3 工程、loopback bridge、嵌入产物、单实例、窗口状态持久化、三栏外壳 |
-| M1 只读 | 🟡 大部分 | 实例连接、登录 + Keychain、Inbox 已完成；代码浏览已具备但已是可编辑的（M3）；**通知与托盘、命令面板未做** |
-| M2 工作副本 | 🟡 大部分 | 状态、未提交 diff、暂存、提交、fetch、push 已完成；**clone、hunk 级暂存、PR 评审窗未做** |
+| M1 只读 | 🟡 大部分 | 实例连接、登录 + Keychain、Inbox、命令面板已完成；代码浏览已具备但已是可编辑的（M3）；**通知与托盘未做** |
+| M2 工作副本 | 🟡 大部分 | 状态、未提交 diff、暂存（含逐 hunk）、提交、fetch、push 已完成；**clone、PR 评审窗未做** |
 | M3 编辑器 | 🟡 主体 | 写盘、冲突检测、崩溃恢复、`⌘P`/`⌘S` 已完成；**标签页布局恢复、diff 行标未做** |
 | M4 本地智能 | ❌ 未开始 | `internal/lsp/` 为空目录 |
 | M5 协作 | ❌ 未开始 | bridge 已预留 `/ws/collab` 白名单，无实现 |
@@ -34,6 +34,8 @@
 - 只用系统 git 可执行文件，不引入 go-git。
 - 读取用 `--porcelain=v1 -z` 与 `--numstat -z`，关闭 `core.quotepath` 以支持非 ASCII 路径。
 - 状态（分支 / dirty / ahead / behind / 变更列表）、暂存、取消暂存、提交、fetch、push。
+- 逐 hunk 暂存与取消暂存：按 hunk 头从当前 diff 切出"文件头 + 单块"的最小 patch，用 `git apply --cached` 写进 index。hunk 头同时充当陈旧性校验——界面列表是快照，重新读到的 diff 里找不到它就报错让界面刷新，不做"就近猜一块"。未跟踪文件与重命名区段明确拒绝并指向整文件暂存。
+- 半暂存状态可表达：同一文件可以一半在 index、一半在工作树（porcelain 的 `MM`），`Change.HasUnstaged` 让它在列表两侧都能出现。
 - 强制 push 用 `--force-with-lease`，需二次确认并展示完整命令。
 - 同一工作树的 git 调用在进程内串行化，避免用户看到 `index.lock exists`。
 
@@ -65,6 +67,7 @@ SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 4 版：
 
 - 无边框窗口 + 前端自绘标题栏；拖拽区与窗口控制键按 `--wails-non-client-region` 标注。
 - 三栏外壳：标题栏（仓库/分支 chip、ahead/behind）、左轨、可拖拽列表栏、状态条。
+- 命令面板 `⌘K`：输入过滤、跨组 ↑↓ 游标、`↵` 执行、`Esc` 关闭；标题栏搜索框同入口。只列当下真能执行的动作（七个 surface 跳转、快速打开文件、在外部编辑器中打开当前文件），协作类动作依赖未实现的协作能力，不放入口。
 - 七个 surface 中已接真实数据：Inbox、Working copy、Code。其余四个保持骨架空态。
 - 中英双语（i18next），资源与 Web 端独立，键一致性有测试。
 
@@ -73,9 +76,7 @@ SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 4 版：
 ### 缺口（M1–M3 范围内）
 
 - **通知与托盘**：无系统通知、无托盘菜单、无角标。
-- **命令面板 `⌘K`**：标题栏有提示文字，但没有对应功能。
 - **clone**：只能添加本地已有仓库，不能从远端克隆。
-- **hunk 级暂存**：`Stage` 只接受路径列表，最小粒度是整文件。
 - **PR 评审窗**：独立窗口、行内评论、评审草稿均未做。
 - **标签页布局恢复**：崩溃恢复只保内容，不保"当时打开了哪些标签"。
 - **diff 行标**：编辑器内相对 HEAD 的增删标记。
@@ -94,7 +95,7 @@ SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 4 版：
 
 ## 已知取舍
 
-- **服务绑定面按实际需要生长，尚未拆到设计文档 §4 的粒度**。设计文档列了 10 个服务，当前只有 `SessionService` 与 `WorkingCopyService` 两个；`FileDiff`、`ListChanges`、`ReadText`/`WriteText`、`OpenInEditor`、`RevealInFileManager` 都挂在 `WorkingCopyService` 上。后续能力变多时再按"用户能感知的本地能力"拆开。
+- **服务绑定面按实际需要生长，尚未拆到设计文档 §4 的粒度**。设计文档列了 10 个服务，当前只有 `SessionService` 与 `WorkingCopyService` 两个；`FileDiff`、`ListChanges`、`ReadText`/`WriteText`、`StageHunk`/`UnstageHunk`、`OpenInEditor`、`RevealInFileManager` 都挂在 `WorkingCopyService` 上。后续能力变多时再按"用户能感知的本地能力"拆开。
 - **Go 侧不做业务判断**。权限与合并策略一律回服务端，Go 只回答"本机是什么状态"。
 - **只读与只写单一真相**。磁盘模式下手动保存，不存在"自动保存到远端"的路径；协作模式（M5）会引入第二条路径，届时必须靠模式互斥保证不双写。
 - **管理控制台不做**。网关按来源白名单拦掉 `/api/app/`，桌面端出口地址不可控，结构上过不去。
@@ -102,6 +103,6 @@ SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 4 版：
 
 ## 验证方式
 
-- Go：`task test`（在 `frontend/desktop/go` 下），覆盖 bridge 安全约束、git 解析、写盘冲突、崩溃恢复、窗口状态。
+- Go：`task test`（在 `frontend/desktop/go` 下），覆盖 bridge 安全约束、git 解析与逐 hunk 暂存、写盘冲突、崩溃恢复、窗口状态。
 - 前端：`pnpm typecheck` / `pnpm test`（`frontend/desktop/web`、`frontend/packages/editor`）。
 - 端到端：设 `KUSTOS_DESKTOP_CDP_PORT` 后用 CDP 驱动真实 WebView，验证编辑、保存、冲突、崩溃恢复等交互。
