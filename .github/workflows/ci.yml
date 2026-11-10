@@ -1,9 +1,11 @@
 # =============================================================================
 # Kustos 持续集成
 #
-# 两条流水线：
+# 四条流水线：
 #   web     — 前端类型检查 / lint / 单测 / 构建（与网关镜像内的构建同源）
+#   desktop — 桌面端前端 typecheck / 单测，以及桌面端 Go 侧的 vet 与单测
 #   backend — 后端 pytest，在容器内跑，用例自建临时 PostgreSQL 库后回收
+#   collab  — 协作网关单测
 #
 # 后端测试不复用任何已部署的数据库：conftest 每个会话建唯一命名的临时库，
 # 结束时 DROP，绝不指向共享库。
@@ -61,6 +63,100 @@ jobs:
 
       - name: 构建产物
         run: pnpm --filter @kustos/web build
+
+  desktop:
+    name: 桌面端 typecheck / 单测 / Go 单测
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # 桌面端是 pnpm workspace 的一员（frontend/desktop/web），锁文件与共享包
+    # 都在仓库根，因此安装依赖也在根目录做，再用 --filter 选择具体包。
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: 安装 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 桌面端类型检查
+        run: pnpm --filter @kustos/desktop typecheck
+
+      - name: 桌面端单元测试
+        run: pnpm --filter @kustos/desktop test
+
+      # 编辑器基线层是 Web 与桌面端共用的一层，桌面端的 diff 视图与只读
+      # 视图都建在它上面，因此随桌面端一起跑。
+      - name: 编辑器基线层单元测试
+        run: pnpm --filter @kustos/editor test
+
+      # Go 版本取自 go.mod 的 go 指令，避免 workflow 里再抄一份版本号。
+      - name: 安装 Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: frontend/desktop/go/go.mod
+          cache-dependency-path: frontend/desktop/go/go.sum
+
+      # Go 侧只跑**不依赖 cgo** 的包，理由如下。
+      #
+      # Wails v3 的 pkg/application 在 Linux 上的构建标签是 `linux && cgo`，
+      # 编译它需要 GTK3 与 WebKitGTK 的开发头文件，而 ubuntu-latest 默认没有；
+      # 只跑 `go vet ./...` 会在 menu_linux.go / webview_window_linux.go 上报
+      # undefined。要跑全量就得先 apt 装 libgtk-3-dev 与 libwebkit2gtk-4.1-dev
+      # （数百 MB），并且 main 包还有 `//go:embed all:web/dist`——仓库不提交
+      # 前端产物，还得先构建一次前端才能通过编译。这条链路无法在开发机上
+      # 先行验证，写进 CI 就是让流水线承担未验证的失败风险。
+      #
+      # 因此这里用显式包列表，而不是 `./...`：这些包的依赖图里没有
+      # wailsapp/wails/v3/pkg/application，它们的 cgo 依赖只剩标准库的 net 与
+      # os-user（只需 gcc，runner 自带）。这套列表已在 GOOS=linux 下交叉编译、
+      # vet 与测试编译通过，同一份用例在 Windows 上也全绿。跨平台差异有两处，
+      # 都是用例自己处理的：权限位用例在 Windows 跳过、在 Linux 真正断言 0755；
+      # 真实 git 仓库用例在没有 git 时跳过（runner 自带 git，所以这里会执行）。
+      #
+      # 没覆盖的是 main、internal/app 与 internal/platform/singleinstance：三者的
+      # 依赖链都通向 wails 的 application 包。其中 internal/app 的用例（装配接线、
+      # 调试端口解析）本身不依赖 GUI，理论上可以用 `-tags server` 绕开 cgo 编译，
+      # 但那条路径只做过编译验证、没在 Linux 上真正跑过用例，先不放进 CI——
+      # 等有人在本地或容器里跑通再补这个 step，比现在埋一条可能红的流水线划算。
+      #
+      # 另注意 **不能把 internal/platform 写成 `./internal/platform/...`**：
+      # singleinstance 就在那层目录下，通配会把整个 job 拖回 cgo 依赖。
+      # 给单实例逻辑补用例时，要么把纯逻辑抽到不依赖 wails 的包，要么单独为它
+      # 准备 GTK 环境。
+      - name: Go 静态检查
+        working-directory: frontend/desktop/go
+        run: >-
+          go vet
+          ./internal/bridge/
+          ./internal/git/
+          ./internal/services/
+          ./internal/store/
+          ./internal/windowstate/
+          ./internal/platform/diag/
+          ./internal/platform/keychain/
+          ./internal/platform/shellopen/
+
+      - name: Go 单元测试
+        working-directory: frontend/desktop/go
+        run: >-
+          go test
+          ./internal/bridge/
+          ./internal/git/
+          ./internal/services/
+          ./internal/store/
+          ./internal/windowstate/
+          ./internal/platform/diag/
+          ./internal/platform/keychain/
+          ./internal/platform/shellopen/
 
   backend:
     name: 后端容器内 pytest
