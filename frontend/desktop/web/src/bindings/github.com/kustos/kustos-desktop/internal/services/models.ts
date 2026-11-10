@@ -199,3 +199,13 @@ export interface TreeNode {
      */
     "status": string;
 }
+
+/**
+ * WindowInfo 是一次托盘文案快照。
+ */
+export interface WindowInfo {
+    "showMain": string;
+    "review": string;
+    "quit": string;
+    "tooltip": string;
+}

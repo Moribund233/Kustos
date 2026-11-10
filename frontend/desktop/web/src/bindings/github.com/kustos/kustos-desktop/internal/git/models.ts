@@ -95,3 +95,22 @@ export enum ChangeKind {
      */
     KindConflicted = "conflicted",
 };
+
+/**
+ * Upstream 描述当前分支的上游远端。
+ * 
+ * 为什么需要它：桌面端要回答"这个本地目录对应服务端哪个仓库"，而这个对应
+ * 关系只存在于 remote 地址里（`owner/repo` 片段）。有了 remote 名与 URL，
+ * 前端才能把工作副本关联到服务端的仓库记录上，PR 与 Issue 面才有东西可取。
+ */
+export interface Upstream {
+    /**
+     * Name 是远端名（通常是 origin）；没有上游时为空。
+     */
+    "name": string;
+
+    /**
+     * URL 是该远端的原始地址；没有上游或取不到时为空。
+     */
+    "url": string;
+}

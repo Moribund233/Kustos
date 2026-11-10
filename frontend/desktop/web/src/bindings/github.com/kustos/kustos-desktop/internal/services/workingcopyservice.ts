@@ -235,6 +235,25 @@ export function ReadText(id: string, path: string): $CancellablePromise<$models.
 }
 
 /**
+ * RemoteInfo 返回当前分支上游远端的名字与地址。
+ * 
+ * 前端据此把"本机这个目录"关联到服务端的仓库记录：remote 地址里的
+ * `owner/repo` 片段是两者之间唯一可靠的桥梁。关联完之后 PR 与 Issue 面
+ * 才知道该向服务端要哪个仓库的数据。
+ * 
+ * Args:
+ * 
+ * 	id: 工作副本 ID
+ * 
+ * Returns:
+ * 
+ * 	远端名与地址；仓库还没接远端时两者皆为空字符串。
+ */
+export function RemoteInfo(id: string): $CancellablePromise<git$0.Upstream> {
+    return $Call.ByID(2705499620, id);
+}
+
+/**
  * Remove 从列表移除工作副本记录。
  * 
  * **不删除磁盘上的工作树**：用户不期望"从列表移除"等于删掉目录。

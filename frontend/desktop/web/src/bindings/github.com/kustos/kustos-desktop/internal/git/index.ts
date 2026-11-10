@@ -7,5 +7,6 @@ export {
 
 export type {
     Branch,
-    Change
+    Change,
+    Upstream
 } from "./models.js";

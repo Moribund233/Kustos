@@ -297,8 +297,113 @@ const en = {
     chat: "Chat",
     agent: "Agent",
     notImplemented:
-      "This surface is not wired yet. Inbox and Working copy work; the rest land milestone by milestone.",
+      "This surface is not wired yet. Inbox, Working copy, Code, Pull requests and Issues work; the rest land milestone by milestone.",
     signedInAs: "signed in as {{name}}",
+  },
+
+  // Pull requests and Issues share one list/detail skeleton, so the keys are
+  // grouped per surface rather than per content type.
+  pulls: {
+    title: "Pull requests",
+    segments: {
+      open: "Open",
+      merged: "Merged",
+      closed: "Closed",
+    },
+    loading: "Reading pull requests…",
+    emptySegment: "No pull requests in this segment.",
+    emptyAll: "No pull requests",
+    emptyAllHint: "Pick a repository; repositories without pull requests show empty here.",
+    total: "{{count}} total",
+    listFailed: "Could not load pull requests",
+    detailFailed: "Could not load details",
+    noRepo: "No repository available yet. Connect an instance first, or check that your account can see a repository.",
+    repoPicker: "Repository",
+    draft: "Draft",
+    author: "Author",
+    target: "Target branch",
+    source: "Source branch",
+    createdAt: "Created",
+    sectionBody: "Description",
+    noBody: "This pull request has no description.",
+    sectionComments: "Comments",
+    noComments: "No comments yet.",
+    commentsFailed: "Could not load comments",
+    commentsCount_one: "{{count}} comment",
+    commentsCount_other: "{{count}} comments",
+    readOnlyHint: "Read-only in this build: commenting, reviewing and merging are decided by the server; act from the web UI.",
+    errors: {
+      list: "Could not load pull requests (HTTP {{status}})",
+      detail: "Could not load details (HTTP {{status}})",
+      comments: "Could not load comments (HTTP {{status}})",
+    },
+    inspector: {
+      title: "Pull request facts",
+      sectionPull: "Pull request",
+      number: "Number",
+      state: "State",
+      author: "Author",
+      branch: "Branch",
+      sectionNext: "Next",
+      nextHint:
+        "The review window (a second window) and inline comments depend on review support and land in a later milestone.",
+    },
+  },
+
+  issues: {
+    title: "Issues",
+    segments: {
+      open: "Open",
+      closed: "Closed",
+    },
+    loading: "Reading issues…",
+    emptySegment: "No issues in this segment.",
+    emptyAll: "No issues",
+    emptyAllHint: "Pick a repository; repositories without issues show empty here.",
+    total: "{{count}} total",
+    listFailed: "Could not load issues",
+    detailFailed: "Could not load details",
+    author: "Author",
+    state: "State",
+    createdAt: "Created",
+    sectionBody: "Description",
+    noBody: "This issue has no description.",
+    sectionComments: "Comments",
+    noComments: "No comments yet.",
+    commentsFailed: "Could not load comments",
+    commentsCount_one: "{{count}} comment",
+    commentsCount_other: "{{count}} comments",
+    readOnlyHint: "Read-only in this build: creating and closing issues is decided by the server; act from the web UI.",
+    errors: {
+      list: "Could not load issues (HTTP {{status}})",
+      detail: "Could not load details (HTTP {{status}})",
+      comments: "Could not load comments (HTTP {{status}})",
+    },
+    inspector: {
+      title: "Issue facts",
+      sectionIssue: "Issue",
+      number: "Number",
+      state: "State",
+      author: "Author",
+      sectionNext: "Next",
+      nextHint: "Creating issues and moving their state land in a later milestone.",
+    },
+  },
+
+  // Multi-window and tray: closing the main window only hides it to the tray;
+  // quitting is the explicit action in the tray menu.
+  tray: {
+    tooltip: "Kustos",
+    showMain: "Open Kustos",
+    review: "Review window",
+    quit: "Quit",
+    hiddenHint: "Still running in the background — click the tray icon to come back.",
+  },
+
+  window: {
+    main: "Kustos",
+    review: "Review",
+    closeWindow: "Close window",
   },
 
   session: {

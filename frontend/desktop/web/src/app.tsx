@@ -4,6 +4,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { configureAuth, setAccessToken } from "@kustos/api";
 import { WorkingCopyService } from "@/bindings/github.com/kustos/kustos-desktop/internal/services";
+import { matchRepository, useRepositories, useWorkingCopySlug } from "@/lib/repos";
+import { useTrayLabels } from "@/lib/window";
 
 import { ConnectInstance } from "@/surfaces/connect-instance";
 import {
@@ -20,6 +22,18 @@ import {
   CodeTree,
   useCodeSurface,
 } from "@/surfaces/code";
+import {
+  IssuesDetail,
+  IssuesInspector,
+  IssuesList,
+  useIssuesSurface,
+} from "@/surfaces/issues";
+import {
+  PullsDetail,
+  PullsInspector,
+  PullsList,
+  usePullsSurface,
+} from "@/surfaces/pulls";
 import {
   WorkingCopyDetail,
   WorkingCopyInspector,
@@ -75,6 +89,10 @@ const queryClient = new QueryClient({
 });
 
 export function App() {
+  // 托盘在 Go 侧随应用启动就已可用，但那时用的是默认中文文案。
+  // 界面语言确定后同步一次，否则英文用户会在托盘里看到中文。
+  useTrayLabels();
+
   return (
     <QueryClientProvider client={queryClient}>
       <Root />
@@ -220,6 +238,21 @@ function MainShell({
   const inbox = useInbox();
   const wc = useWorkingCopySurface();
   const code = useCodeSurface();
+
+  // PR 与 Issue 面需要一个服务端仓库 id。它有两个来源：
+  //   1. 当前工作副本的 git remote 能对上哪个仓库（"我就在这个仓库里改代码"）；
+  //   2. 对不上时由各面自己退回可见仓库列表的首个，并显示仓库选择器。
+  // remote 地址从本机 git 读取（不经网络），解析成 owner/repo 后与仓库列表比对。
+  const activeCopyId = wc.active?.id ?? null;
+  const remoteSlug = useWorkingCopySlug(activeCopyId);
+  const repoList = useRepositories();
+  const preferredRepoId = useMemo(() => {
+    const { matched } = matchRepository(repoList.data ?? [], remoteSlug.data ?? null);
+    return matched?.id ?? null;
+  }, [repoList.data, remoteSlug.data]);
+
+  const pulls = usePullsSurface(preferredRepoId);
+  const issues = useIssuesSurface(preferredRepoId);
 
   const conn = online ? "online" : "offline";
 
@@ -409,6 +442,74 @@ function MainShell({
             <span className="text-[var(--color-faint)]">·</span>
             <StatusItem icon="database">{t("status.localGit")}</StatusItem>
           </>
+        }
+      />
+    );
+  }
+
+  if (surface === "pulls") {
+    return (
+      <Shell
+        active={surface}
+        onSelect={onSelect}
+        conn={conn}
+        offline={!online}
+        badges={{ inbox: inbox.unreadCount }}
+        userName={creds?.username}
+        repoChip={pulls.repo?.path || repoChip}
+        branchChip={branchChip}
+        ahead={ahead}
+        behind={behind}
+        paletteGroups={paletteGroups}
+        list={<PullsList state={pulls} />}
+        detail={<PullsDetail state={pulls} />}
+        inspector={<PullsInspector state={pulls} />}
+        statusLeft={
+          <>
+            <StatusItem icon="pr">{t("nav.pulls")}</StatusItem>
+            <span className="text-[var(--color-faint)]">·</span>
+            <span>
+              {pulls.repo?.path ?? t("pulls.noRepo")}
+            </span>
+          </>
+        }
+        statusRight={
+          <StatusItem icon="pulse" tone={online ? "sage" : "amber"}>
+            {online ? t("status.connected") : t("status.offline")}
+          </StatusItem>
+        }
+      />
+    );
+  }
+
+  if (surface === "issues") {
+    return (
+      <Shell
+        active={surface}
+        onSelect={onSelect}
+        conn={conn}
+        offline={!online}
+        badges={{ inbox: inbox.unreadCount }}
+        userName={creds?.username}
+        repoChip={issues.repo?.path || repoChip}
+        branchChip={branchChip}
+        ahead={ahead}
+        behind={behind}
+        paletteGroups={paletteGroups}
+        list={<IssuesList state={issues} />}
+        detail={<IssuesDetail state={issues} />}
+        inspector={<IssuesInspector state={issues} />}
+        statusLeft={
+          <>
+            <StatusItem icon="issue">{t("nav.issues")}</StatusItem>
+            <span className="text-[var(--color-faint)]">·</span>
+            <span>{issues.repo?.path ?? t("pulls.noRepo")}</span>
+          </>
+        }
+        statusRight={
+          <StatusItem icon="pulse" tone={online ? "sage" : "amber"}>
+            {online ? t("status.connected") : t("status.offline")}
+          </StatusItem>
         }
       />
     );
