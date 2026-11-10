@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Window } from "@wailsio/runtime";
 
 import { Icon, type IconName } from "@/shell/icon";
 import {
@@ -269,9 +270,15 @@ function Chip({
  * 无边框窗口没有系统标题栏，这三个按钮必须由界面提供——否则用户只能
  * 通过任务栏或快捷键操作窗口，那不是一个能用的桌面应用。
  *
- * Wails v3 靠 CSS 自定义属性识别它们（见 globals.css 的说明），
- * 因此这里用 `data-window-*` 标记，而不是自己调运行时方法：
- * 由 Wails 自己做原生命中测试，才能与拖拽区域的判定保持一致。
+ * 两件事都要做，缺一件都不成立：
+ *
+ *  1. `data-window-*` 标记（样式见 globals.css 的 `--wails-non-client-region`）：
+ *     让原生层把这些矩形识别为 caption 按钮，命中测试、悬停语义与系统
+ *     Snap Layout 才与普通标题栏一致。
+ *  2. 点击处理器显式调用 Window 运行时方法：**必须**。composition 托管下
+ *     Wails v3.0.0 会把按钮的 WM_NCLBUTTON 消息转发回 WebView 当作普通
+ *     鼠标输入，不再走 DefWindowProc，`SC_MINIMIZE/SC_MAXIMIZE/SC_CLOSE`
+ *     一个都不会发出。只挂标记不接方法，按钮看起来完全正常、点了没反应。
  */
 export function WindowControls() {
   const { t } = useTranslation();
@@ -283,6 +290,7 @@ export function WindowControls() {
         data-window-minimise
         aria-label={t("app.windowMinimise")}
         title={t("app.windowMinimise")}
+        onClick={() => void Window.Minimise()}
         className="grid h-[30px] w-[34px] place-items-center text-[var(--color-muted-2)] hover:bg-[var(--color-ink-800)] hover:text-[var(--color-bone-2)]"
       >
         <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
@@ -294,6 +302,8 @@ export function WindowControls() {
         data-window-maximise
         aria-label={t("app.windowMaximise")}
         title={t("app.windowMaximise")}
+        // 最大化与还原共用一个按钮：与系统标题栏的行为一致。
+        onClick={() => void Window.ToggleMaximise()}
         className="grid h-[30px] w-[34px] place-items-center text-[var(--color-muted-2)] hover:bg-[var(--color-ink-800)] hover:text-[var(--color-bone-2)]"
       >
         <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
@@ -314,6 +324,9 @@ export function WindowControls() {
         data-window-close
         aria-label={t("app.windowClose")}
         title={t("app.windowClose")}
+        // 关闭不做"未保存确认"拦截：未保存内容已经按文件落到恢复表，
+        // 重开时由恢复提示让用户显式选择，而不是在这里替他决定。
+        onClick={() => void Window.Close()}
         className="grid h-[30px] w-[34px] place-items-center text-[var(--color-muted-2)] hover:bg-[#c23b3b] hover:text-white"
       >
         <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
