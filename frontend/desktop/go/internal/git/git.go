@@ -55,10 +55,22 @@ type Change struct {
 	Kind ChangeKind `json:"kind"`
 	// Staged 表示这条改动已进暂存区。
 	Staged bool `json:"staged"`
+	// HasUnstaged 表示工作区侧还有未进暂存区的改动。
+	//
+	// 逐 hunk 暂存之后，同一个文件可以一半在 index、一半还在工作树
+	// （porcelain 的 `MM`）。只用 Staged 分栏会让它只出现在 Staged 组，
+	// 剩下那块就从列表里消失了——而它恰恰是用户下一步要处理的东西。
+	HasUnstaged bool `json:"hasUnstaged"`
 	// Added / Removed 是行数增删。二进制文件为 0：git 不给出行数，
 	// 而列表层显示一个假的 0 比显示空更不误导。
-	Added   int `json:"added"`
-	Removed int `json:"removed"`
+	//
+	// 已暂存与未暂存的同一文件会各自成一行，两行都得显示自己那一侧的量：
+	// Added/Removed 沿用它所在侧的语义（Staged 为真时看 index，否则看工作树），
+	// UnstagedAdded/Removed 只在两侧都有改动时补上工作树那一侧的数字。
+	Added           int `json:"added"`
+	Removed         int `json:"removed"`
+	UnstagedAdded   int `json:"unstagedAdded"`
+	UnstagedRemoved int `json:"unstagedRemoved"`
 }
 
 // StatusResult 是一次工作区扫描的结果。
@@ -372,6 +384,7 @@ func parsePorcelainZ(out string) []Change {
 
 		c := Change{Path: path}
 		c.Kind, c.Staged = classify(xy)
+		c.HasUnstaged = hasUnstaged(xy)
 
 		// 重命名/复制带原路径，紧跟在当前记录之后。
 		if strings.ContainsAny(xy, "RC") && i+1 < len(fields) {
@@ -412,6 +425,18 @@ func classify(xy string) (ChangeKind, bool) {
 	default:
 		return KindModified, staged
 	}
+}
+
+// hasUnstaged 判断工作区侧是否还有未进暂存区的改动。
+//
+// 只看第二位：`MM` 与 `AM` 都是"一半已暂存、一半还在工作树"，
+// 这正是逐 hunk 暂存产生的常态。未跟踪（`??`）不适用——它两侧都不在，
+// 由 Kind 单独成组。
+func hasUnstaged(xy string) bool {
+	if len(xy) < 2 || xy == "??" {
+		return false
+	}
+	return xy[1] != ' '
 }
 
 // Branches 列出本地分支。

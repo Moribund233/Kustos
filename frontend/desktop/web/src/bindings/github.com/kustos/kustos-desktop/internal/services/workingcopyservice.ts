@@ -302,6 +302,22 @@ export function Stage(id: string, paths: string[] | null): $CancellablePromise<v
 }
 
 /**
+ * StageHunk 把某文件中指定的一个 hunk 暂存。
+ * 
+ * Args:
+ * 
+ * 	id:     工作副本 ID
+ * 	path:   相对仓库根的路径
+ * 	header: 界面里的 hunk 头原文，例如 `@@ -112,7 +112,9 @@`
+ * 
+ * 与 Stage 共用同一把工作树锁：逐块暂存会连续改 index，与整文件暂存或提交
+ * 并发时 git 会报 `index.lock exists`，用户看到的是"点一下没反应"。
+ */
+export function StageHunk(id: string, path: string, header: string): $CancellablePromise<void> {
+    return $Call.ByID(4052151980, id, path, header);
+}
+
+/**
  * StatText 查询文件当前状态。
  * 
  * Args:
@@ -342,6 +358,13 @@ export function Status(id: string): $CancellablePromise<$models.StatusResult> {
  */
 export function Unstage(id: string, paths: string[] | null): $CancellablePromise<void> {
     return $Call.ByID(4209061977, id, paths);
+}
+
+/**
+ * UnstageHunk 把暂存区里指定的一个 hunk 撤回工作区侧（不丢弃改动）。
+ */
+export function UnstageHunk(id: string, path: string, header: string): $CancellablePromise<void> {
+    return $Call.ByID(2634325309, id, path, header);
 }
 
 /**

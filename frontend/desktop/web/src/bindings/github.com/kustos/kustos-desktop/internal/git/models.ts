@@ -34,11 +34,26 @@ export interface Change {
     "staged": boolean;
 
     /**
+     * HasUnstaged 表示工作区侧还有未进暂存区的改动。
+     * 
+     * 逐 hunk 暂存之后，同一个文件可以一半在 index、一半还在工作树
+     * （porcelain 的 `MM`）。只用 Staged 分栏会让它只出现在 Staged 组，
+     * 剩下那块就从列表里消失了——而它恰恰是用户下一步要处理的东西。
+     */
+    "hasUnstaged": boolean;
+
+    /**
      * Added / Removed 是行数增删。二进制文件为 0：git 不给出行数，
      * 而列表层显示一个假的 0 比显示空更不误导。
+     * 
+     * 已暂存与未暂存的同一文件会各自成一行，两行都得显示自己那一侧的量：
+     * Added/Removed 沿用它所在侧的语义（Staged 为真时看 index，否则看工作树），
+     * UnstagedAdded/Removed 只在两侧都有改动时补上工作树那一侧的数字。
      */
     "added": number;
     "removed": number;
+    "unstagedAdded": number;
+    "unstagedRemoved": number;
 }
 
 /**

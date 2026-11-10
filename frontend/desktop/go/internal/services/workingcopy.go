@@ -257,6 +257,43 @@ func (s *WorkingCopyService) Unstage(id string, paths []string) error {
 	return git.Unstage(wc.Path, paths)
 }
 
+// StageHunk 把某文件中指定的一个 hunk 暂存。
+//
+// Args:
+//
+//	id:     工作副本 ID
+//	path:   相对仓库根的路径
+//	header: 界面里的 hunk 头原文，例如 `@@ -112,7 +112,9 @@`
+//
+// 与 Stage 共用同一把工作树锁：逐块暂存会连续改 index，与整文件暂存或提交
+// 并发时 git 会报 `index.lock exists`，用户看到的是"点一下没反应"。
+func (s *WorkingCopyService) StageHunk(id, path, header string) error {
+	wc, err := s.get(id)
+	if err != nil {
+		return err
+	}
+
+	lock := s.lockFor(wc.Path)
+	lock.Lock()
+	defer lock.Unlock()
+
+	return git.StageHunk(wc.Path, path, header)
+}
+
+// UnstageHunk 把暂存区里指定的一个 hunk 撤回工作区侧（不丢弃改动）。
+func (s *WorkingCopyService) UnstageHunk(id, path, header string) error {
+	wc, err := s.get(id)
+	if err != nil {
+		return err
+	}
+
+	lock := s.lockFor(wc.Path)
+	lock.Lock()
+	defer lock.Unlock()
+
+	return git.UnstageHunk(wc.Path, path, header)
+}
+
 // Commit 提交暂存区内容。
 //
 // Args:
