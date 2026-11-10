@@ -7,6 +7,7 @@ import {
   useCommit,
   useFetch,
   useFileDiff,
+  useHunkStage,
   useOpenInEditor,
   usePush,
   usePushCommand,
@@ -62,6 +63,7 @@ export interface WorkingCopyState {
   addingNow: boolean;
   addErr: unknown;
   stage: ReturnType<typeof useStage>;
+  hunkStage: ReturnType<typeof useHunkStage>;
   commit: ReturnType<typeof useCommit>;
   commitMessage: string;
   setCommitMessage: (v: string) => void;
@@ -117,6 +119,7 @@ export function useWorkingCopySurface(): WorkingCopyState {
   const effectiveStaged = selectedGroup ? selectedGroup.staged || stagedSide : stagedSide;
 
   const stage = useStage(active?.id ?? null);
+  const hunkStage = useHunkStage(active?.id ?? null);
   const commit = useCommit(active?.id ?? null);
   const diff = useFileDiff(active?.id ?? null, selectedGroup?.path ?? null, effectiveStaged);
   const addMutation = useAddWorkingCopy();
@@ -153,6 +156,7 @@ export function useWorkingCopySurface(): WorkingCopyState {
     addingNow: addMutation.isPending,
     addErr: addMutation.error,
     stage,
+    hunkStage,
     commit,
     commitMessage,
     setCommitMessage,
@@ -491,6 +495,12 @@ export function WorkingCopyDetail({
 }) {
   const { t } = useTranslation();
   const path = state.selectedGroup?.path ?? null;
+  // 当前展示的是暂存区那一侧还是工作树那一侧；逐 hunk 按钮的语义随它翻转。
+  // 与 `useWorkingCopySurface` 里算 diff 用的判据保持同一条件，否则按钮说
+  // "Stage hunk"，而下面显示的根本是已暂存内容。
+  const showingStaged = state.selectedGroup
+    ? state.selectedGroup.staged || state.stagedSide
+    : state.stagedSide;
   const parsed = useMemo(() => parseUnifiedDiff(state.diff.data ?? ""), [state.diff.data]);
   const stats = useMemo(() => diffStats(parsed), [parsed]);
 
@@ -596,13 +606,28 @@ export function WorkingCopyDetail({
               <div key={hi}>
                 <div className="flex items-center gap-2 bg-[rgba(131,169,196,0.07)] px-2.5 py-[3px] text-[10.5px] text-[var(--color-sky)]">
                   <span>{hunk.header}</span>
+                  {/* 逐 hunk 的 Stage/Unstage。
+                      header 原样回传给 Go 侧做陈旧性校验：界面这份 hunk 列表是
+                      快照，文件被外部改过之后行号会漂移，静默暂存错的那一块
+                      比直接报错危险得多。 */}
                   <button
                     type="button"
-                    disabled
+                    disabled={state.hunkStage.isPending}
                     title={t("workingCopy.hunkHint")}
-                    className="ml-auto rounded-[5px] border border-[var(--color-edge-2)] px-1.5 text-[10px] opacity-40"
+                    onClick={() => {
+                      const g = state.selectedGroup;
+                      if (!g) return;
+                      state.hunkStage.mutate({
+                        path: g.path,
+                        header: hunk.header,
+                        // 当前看的是哪一侧，就在哪一侧做反向操作：
+                        // 已暂存侧展示的是 index，按钮语义是"撤回"。
+                        staged: !showingStaged,
+                      });
+                    }}
+                    className="ml-auto rounded-[5px] border border-[var(--color-edge-2)] px-1.5 text-[10px] hover:border-[var(--color-sky)] hover:text-[var(--color-bone)] disabled:opacity-40"
                   >
-                    {t("workingCopy.stageHunk")}
+                    {showingStaged ? t("workingCopy.unstageHunk") : t("workingCopy.stageHunk")}
                   </button>
                 </div>
                 {hunk.lines.map((line, li) => (

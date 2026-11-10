@@ -156,6 +156,7 @@ const zh = {
     openInEditor: "在编辑器中打开",
     discard: "放弃",
     stageHunk: "暂存此块",
+    unstageHunk: "取消暂存此块",
     commitMessage: "提交信息",
     commitMessagePlaceholder: "fix(agent): suspend job when quota is exceeded",
     commitTarget: "你 → {{branch}}",
@@ -182,7 +183,7 @@ const zh = {
     confirmForcePush: "确认强制推送",
     editorHint: "外部编辑器集成等 FileService 落地后开放",
     discardHint: "放弃改动的确认流程待补",
-    hunkHint: "逐 hunk 暂存需要把 patch 按块写入索引，等 DiffService 支持后开放",
+    hunkHint: "把这一块改动单独写进暂存区，其余部分留在工作区",
     beforePush: "推送之前",
     beforePushHint:
       "本地验证会在推送前显示这里。它需要 FileService 与任务执行能力，目前还没接入。",

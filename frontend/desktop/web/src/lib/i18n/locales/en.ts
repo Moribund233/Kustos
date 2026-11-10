@@ -154,6 +154,7 @@ const en = {
     openInEditor: "Open in editor",
     discard: "Discard",
     stageHunk: "Stage hunk",
+    unstageHunk: "Unstage hunk",
     commitMessage: "Commit message",
     commitMessagePlaceholder: "fix(agent): suspend job when quota is exceeded",
     commitTarget: "you → {{branch}}",
@@ -182,7 +183,7 @@ const en = {
     confirmForcePush: "Force push",
     editorHint: "External editor integration lands with FileService",
     discardHint: "Discard confirmation flow is not built yet",
-    hunkHint: "Hunk staging needs patch-level index writes; waits on DiffService",
+    hunkHint: "Stage just this hunk; the rest stays in your worktree",
     beforePush: "Before you push",
     beforePushHint:
       "Local checks will show up here before pushing. They need FileService and task execution, neither wired yet.",

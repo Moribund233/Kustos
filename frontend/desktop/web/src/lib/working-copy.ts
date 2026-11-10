@@ -77,6 +77,42 @@ export function useRemoveWorkingCopy() {
   });
 }
 
+/**
+ * 逐 hunk 暂存 / 取消暂存。
+ *
+ * 与 `useStage` 分开而不是给它加一个可选参数：两者的失效范围不同。
+ * 整文件暂存后那个文件在列表里换组即可，而逐块暂存会让**同一个文件**
+ * 同时出现在 Staged 与 Changes 两组（`MM`），且已暂存侧的 hunk 数会变少，
+ * 因此必须连 diff 一起重取，否则用户会看到"点了没反应"。
+ *
+ * `header` 是界面里那行 hunk 头的原文。Go 侧拿它去当前 diff 里核对，
+ * 对不上就报错——这是刻意的：界面列表是快照，用户点下按钮时文件可能
+ * 已被外部改动，静默暂存错的那一块比报错危险得多。
+ */
+export function useHunkStage(id: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { path: string; header: string; staged: boolean }) => {
+      if (vars.staged) {
+        await WorkingCopyService.StageHunk(id as string, vars.path, vars.header);
+      } else {
+        await WorkingCopyService.UnstageHunk(id as string, vars.path, vars.header);
+      }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: workingCopyKeys.status(id ?? "") });
+      void qc.invalidateQueries({ queryKey: workingCopyKeys.list });
+      void qc.invalidateQueries({ queryKey: ["working-copy", id ?? "", "diff"] });
+    },
+    // 失败时同样要刷新：header 失配意味着界面拿的是旧快照，
+    // 不重取的话用户会对着同一块内容反复点同一个会失败的按钮。
+    onError: () => {
+      void qc.invalidateQueries({ queryKey: workingCopyKeys.status(id ?? "") });
+      void qc.invalidateQueries({ queryKey: ["working-copy", id ?? "", "diff"] });
+    },
+  });
+}
+
 /** 暂存 / 取消暂存。 */
 export function useStage(id: string | null) {
   const qc = useQueryClient();
