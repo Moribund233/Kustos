@@ -172,6 +172,11 @@ CLAUDE.md
 # node_modules
 node_modules/
 
+# pnpm 内容寻址库。真实 store 在盘根（storeDir 见 node_modules/.modules.yaml），
+# 但在子目录里跑 pnpm 时，pnpm 从 cwd 向上找不到它，就在项目根新建一份空壳。
+# 它既占空间又会被 git add -A 顺手带进仓库，一律忽略。
+.pnpm-store/
+
 # 桌面端（Wails）构建产物
 # go/web/dist 是 go:embed 的输入，构建期由 Taskfile 从 web/dist 复制进来，
 # 属于中间产物，不提交。
