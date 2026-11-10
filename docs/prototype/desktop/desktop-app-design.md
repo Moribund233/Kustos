@@ -2,6 +2,8 @@
 
 > 目标读者：负责 `frontend/desktop` 的前端 / Go 工程师。
 > 本文回答两件事：**桌面端凭什么存在**，以及**它为什么不能是 Web 的复制品**。
+>
+> 本文只写设计意图与理由。**已经实现了什么、还差什么**见 [implementation-status.md](./implementation-status.md)——两份文档职责分开，免得设计文档随进度反复变脏。
 
 ---
 
@@ -175,14 +177,14 @@ sequenceDiagram
 
 - **刷新必须全局 single-flight**。后端 refresh 带重用检测，并发刷新会吊销整个 family。Web 端多标签页各刷一次就已经踩过这个坑；桌面端所有窗口共享一个 Go 进程，天然只需一把锁——这是桌面架构的便宜收益，别浪费。
 - **每个窗口都要感知会话失效**。`onAuthLost` 不能只通知主窗口：Go 用 `app.Event.Emit("session:lost")` 广播，所有窗口各自决定（主窗口回登录页，评审窗口关闭）。
-- **探活由 Go 直连上游**。`Probe(url)` 在自己的进程里请求 `GET /` 与 `GET /health`，不走 bridge——bridge 的 `/` 是桌面端的 SPA，两者不能共用同一个路径。这也是为什么版本兼容判断放在 Go 而不是前端。
+- **探活由 Go 直连上游**。`Probe(url)` 在自己的进程里请求 `GET /api/v1/client-compat` 与 `GET /health`，不走 bridge——bridge 的 `/` 是桌面端的 SPA，两者不能共用同一个路径。这也是为什么版本兼容判断放在 Go 而不是前端。兼容性声明是判据主依据，根路径只在没有该端点的老实例上兜底，且要求响应不是 HTML（真实部署的 `/` 返回前端 SPA）。
 
 ### 2.4 需要后端补的能力（按优先级）
 
 | 优先级 | 能力 | 现状 | 影响 |
 | --- | --- | --- | --- |
 | P0 | refresh token 记 `device_name` / `client_id` | ✅ 已实现（`user_devices` + `/auth/sessions`） | 用户在"已登录设备"里能辨认会话并按设备定向吊销 |
-| P1 | `GET /api/v1/repositories/{id}/collab/active` | ✅ 已实现（网关内部端点 + app 聚合多副本） | 桌面的"协作感知"（文件树 live 圆点、进入前预警）可用（§8.4） |
+| P1 | `GET /api/v1/repositories/{id}/collab/active` | ✅ 已实现（网关内部端点 + app 聚合多副本） | 桌面的"协作感知"（文件树 live 圆点、进入前预警）所需数据已就绪，界面侧待接入（§8.4） |
 | P1 | 设备码 / PKCE 浏览器授权 | ✅ 已实现（PKCE 授权码流 `/auth/pkce/*`） | 密码型 SSO、2FA 环境不必再开浏览器输密码，体验连贯 |
 | P2 | 幂等键（`Idempotency-Key`） | ✅ 已实现（`idempotency_records`，评论/Issue 已接入） | 离线 outbox 可做"自动补发"，不会产生重复评论/Issue |
 | P3 | `GET /api/v1/client-compat` | ✅ 已实现（公开面，声明 api_version/api_min/features） | 桌面端按能力开关降级，不再靠 version 猜 |
@@ -627,7 +629,7 @@ Web 天然在线：打开页面即连网关，编辑器从头就是 CRDT。桌�
 - 文件树里给这些文件打 `live` 圆点，hover 显示"2 人正在编辑"
 - 这样"进入协作"不再是一个突然的模态对话框，而是用户在树上早就看见的事
 
-现状缺口：网关只在内存里维护 `connectionsByDoc`，没有对外查询接口。需要后端补一个轻量端点，如 `GET /api/v1/repositories/{id}/collab/active`，返回 `{docKey, connections}`，**不含身份信息**（身份仍从 awareness 里来）。
+后端已提供 `GET /api/v1/repositories/{id}/collab/active`（见 §2.4）：网关把本副本的 `connectionsByDoc` 暴露为只读内部端点，app 并发查询各副本并按 `docKey` 求和，响应区分 `documents` 与 `degraded`，**不含身份信息**（身份仍从 awareness 里来）。桌面端界面侧的 `live` 圆点与在线人数预警尚未接入。
 
 ### 8.5 保存、发布，以及桌面端多做的一步
 
@@ -733,6 +735,8 @@ Linux 别忘：WebKitGTK 是运行期依赖，主流发行版版本差异会影�
 | **M7 深化**（按需） | 本地搜索索引、Agent 本地复现、"设备执行器"（需后端） | 视投入决定 |
 
 M3 与 M4 可以并行（前者是前端扩展，后者是 Go 进程管理 + 一个前端 LSP 客户端），但 **M4 不要晚于 M5**：协作模式下的诊断质量取决于 LSP 是否稳，先做协作会让"在线编辑没有类型提示"变成常态体验。
+
+各阶段的实际落地情况见 [implementation-status.md](./implementation-status.md)。表中的周数是初始估算，不随实施进度修订。
 
 ---
 
