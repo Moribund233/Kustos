@@ -165,7 +165,6 @@ Web 原型在 `docs/prototype/web`，桌面原型在 `docs/prototype/desktop`；
 - **权限唯一裁决点**：`app/core/permissions.py`（纯策略）。全局管理员（`User.is_admin`）与仓库角色（owner/admin/developer/readonly）是两套授权，互不推导。组装成 FastAPI 依赖的工厂在 `app/api/guards.py`。
 - **迁移**：模型改动必须配 Alembic 版本（`alembic/versions/`），`tests/test_schema_drift.py` 会比对模型与实际 schema。
 - **注释**：模块与函数使用中文 docstring（用途 / `Args` / `Returns` / `Raises`）；行内注释解释“为什么”，不转述实现。错误码与标识符保持英文。
-- **提交**：Conventional Commits，一个逻辑变更一个提交，subject 说清改了什么，body 说明原因与影响。
 
 ## License
 

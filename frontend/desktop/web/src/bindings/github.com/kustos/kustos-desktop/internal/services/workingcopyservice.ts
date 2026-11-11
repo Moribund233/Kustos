@@ -149,6 +149,18 @@ export function ListTree(id: string, path: string): $CancellablePromise<$models.
 }
 
 /**
+ * LoadCodeLayout 读取上次离开 Code 面时的布局。
+ * 
+ * Returns:
+ * 
+ * 	布局与错误。从未保存过、或保存的内容已不可用时返回零值布局而不是错误：
+ * 	布局恢复是锦上添花，读不到就该安静地从空白开始。
+ */
+export function LoadCodeLayout(): $CancellablePromise<$models.CodeLayout> {
+    return $Call.ByID(2121171885);
+}
+
+/**
  * OpenInEditor 在用户配置的编辑器中打开仓库内的文件。
  * 
  * Args:
@@ -269,6 +281,22 @@ export function Remove(id: string): $CancellablePromise<void> {
  */
 export function RevealInFileManager(id: string, path: string): $CancellablePromise<void> {
     return $Call.ByID(1966271729, id, path);
+}
+
+/**
+ * SaveCodeLayout 保存 Code 面布局。
+ * 
+ * Args:
+ * 
+ * 	layout: 当前打开的工作副本、标签页、当前文件与展开目录
+ * 
+ * Returns:
+ * 
+ * 	工作副本不存在或写入失败时返回错误。调用方可以忽略失败——存不下布局
+ * 	不影响用户继续编辑。
+ */
+export function SaveCodeLayout(layout: $models.CodeLayout): $CancellablePromise<void> {
+    return $Call.ByID(1407687336, layout);
 }
 
 /**

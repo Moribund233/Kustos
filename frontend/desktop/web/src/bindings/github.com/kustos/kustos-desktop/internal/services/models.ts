@@ -44,6 +44,19 @@ export interface BufferDraft {
 }
 
 /**
+ * CodeLayout 是 Code 面布局的扁平 DTO。
+ * 
+ * 直接给前端用的类型，所以不暴露 internal 结构体：绑定生成器会把这里的
+ * 字段原样变成 TS 定义，字段名一旦泄漏内部命名就改不动了。
+ */
+export interface CodeLayout {
+    "workingCopyId": string;
+    "tabs": string[] | null;
+    "activePath": string;
+    "expanded": string[] | null;
+}
+
+/**
  * Credentials 是登录结果中返回给前端的部分。
  * 
  * **不含 refresh token**：它只进 Keychain。这条边界写在这里而不是注释里，

@@ -4,7 +4,7 @@
 
 这份文档只陈述**代码里已经有什么**，不复述设计理由——设计意图看设计文档。每条状态都对应仓库里可查的实现，新增能力时同步更新本页，避免设计与实现对不上之后没人知道以哪个为准。
 
-最后更新：2026-11-10
+最后更新：2026-11-11
 
 ## 里程碑总览
 
@@ -13,7 +13,7 @@
 | M0 骨架 | ✅ 完成 | Wails v3 工程、loopback bridge、嵌入产物、单实例、窗口状态持久化、三栏外壳 |
 | M1 只读 | ✅ 完成 | 实例连接、登录 + Keychain、Inbox、命令面板、通知、托盘、PR 与 Issue 浏览 |
 | M2 工作副本 | 🟡 大部分 | 状态、未提交 diff、暂存（含逐 hunk）、提交、fetch、push 已完成；**clone、PR 评审窗未做** |
-| M3 编辑器 | 🟡 主体 | 写盘、冲突检测、崩溃恢复、`⌘P`/`⌘S` 已完成；**标签页布局恢复、diff 行标未做** |
+| M3 编辑器 | 🟡 主体 | 写盘、冲突检测、崩溃恢复、标签页布局恢复、`⌘P`/`⌘S` 已完成；**diff 行标未做** |
 | M4 本地智能 | ❌ 未开始 | `internal/lsp/` 为空目录 |
 | M5 协作 | ❌ 未开始 | bridge 已预留 `/ws/collab` 白名单，无实现 |
 | M6 常驻 | 🟡 部分 | 托盘常驻、关窗收起、多窗口已完成；**深链、自启、自动更新未做** |
@@ -48,6 +48,7 @@
 - 写盘先写临时文件再改名，保留原文件权限位。
 - `⌘P` 快速打开，按路径匹配、键盘选择。
 - 崩溃恢复：未保存内容按（工作副本，路径）落到 `buffer_recovery` 表，重开后提示「恢复 / 丢弃」，不自动套用。
+- 标签页布局恢复：打开的标签（含顺序）、当前文件与展开的目录落 `ui_state` 的 `code.layout` 一条，切回仓库或重开应用时原位复原。只保一份、记录里带工作副本 id，对不上就整份作废——`ui_state` 没有过期清理，按仓库存会留下永远读不到的记录。写入去抖 400ms，窗口隐藏/关闭时立即落盘。切到空仓库不会清掉上一个仓库的记录。
 - 外部编辑器互跳与在文件管理器中定位。
 
 ### 本地存储
@@ -92,7 +93,6 @@ SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 4 版：
 
 - **clone**：只能添加本地已有仓库，不能从远端克隆。
 - **PR 评审窗的行内评论**：窗口骨架与单 PR 视图已就绪；行内评论、评审草稿与提交评审未做（动作由服务端裁决，入口仍在 Web）。
-- **标签页布局恢复**：崩溃恢复只保内容，不保"当时打开了哪些标签"。
 - **diff 行标**：编辑器内相对 HEAD 的增删标记。
 - **协作感知的界面部分**：后端端点已就绪，`live` 圆点与在线人数预警未接。
 - **PR / Issue 的动作**：两个面当前只读。评论、评审、关闭、合并等写操作由服务端权限裁决，入口仍在 Web。
@@ -111,7 +111,7 @@ SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 4 版：
 
 ## 已知取舍
 
-- **服务绑定面按实际需要生长，尚未拆到设计文档 §4 的粒度**。设计文档列了 10 个服务，当前有 `SessionService`、`WorkingCopyService` 与 `WindowService` 三个；`FileDiff`、`ListChanges`、`ReadText`/`WriteText`、`StageHunk`/`UnstageHunk`、`RemoteInfo`、`OpenInEditor`、`RevealInFileManager` 都挂在 `WorkingCopyService` 上。后续能力变多时再按"用户能感知的本地能力"拆开。
+- **服务绑定面按实际需要生长，尚未拆到设计文档 §4 的粒度**。设计文档列了 10 个服务，当前有 `SessionService`、`WorkingCopyService`、`WindowService` 与 `NotificationService` 四个；`FileDiff`、`ListChanges`、`ReadText`/`WriteText`、`StageHunk`/`UnstageHunk`、`RemoteInfo`、`OpenInEditor`、`RevealInFileManager`、`LoadCodeLayout`/`SaveCodeLayout` 都挂在 `WorkingCopyService` 上。后续能力变多时再按"用户能感知的本地能力"拆开。
 - **窗口后端的接线用包级函数而非服务方法**。绑定生成器会把服务上所有导出方法都变成前端可调用的接口，接线函数一旦是方法，前端就能改写本机的窗口后端。因此 `BindWindowBackend` 是包级函数。
 - **Go 侧不做业务判断**。权限与合并策略一律回服务端，Go 只回答"本机是什么状态"。
 - **只读与只写单一真相**。磁盘模式下手动保存，不存在"自动保存到远端"的路径；协作模式（M5）会引入第二条路径，届时必须靠模式互斥保证不双写。
@@ -120,7 +120,7 @@ SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 4 版：
 
 ## 验证方式
 
-- Go：`go test ./...`（在 `frontend/desktop/go` 下），覆盖 bridge 安全约束（含多窗口入口令牌并存）、git 解析与逐 hunk 暂存、远端关联、写盘冲突、崩溃恢复、窗口状态、窗口种类与托盘语义、评审窗路由与通知校验。
-- 前端：`pnpm typecheck` / `pnpm test`（`frontend/desktop/web`、`frontend/packages/editor`）。当前 159 个用例，含 diff 解析、相对时间、PR/Issue 数据层、remote 地址解析与窗口路由。
-- CI：`.github/workflows/ci.yml` 的 `desktop` job 跑前端 typecheck/单测与 Go 侧不依赖 cgo 的包（`internal/bridge`、`git`、`services`、`store`、`windowstate`、`platform/*`）。Wails 的 `pkg/application` 在 Linux 上需要 GTK/WebKitGTK 头文件，因此 `main`、`internal/app` 与 `singleinstance` 不在 CI 的 Go 覆盖范围内，workflow 注释里写明了原因。
+- Go：`go test ./...`（在 `frontend/desktop/go` 下），覆盖 bridge 安全约束（含多窗口入口令牌并存）、git 解析与逐 hunk 暂存、远端关联、写盘冲突、崩溃恢复、标签页布局归一化、窗口状态、窗口种类与托盘语义、评审窗路由与通知校验。
+- 前端：`pnpm typecheck` / `pnpm test`（`frontend/desktop/web`、`frontend/packages/editor`）。当前 176 个用例，含 diff 解析、相对时间、PR/Issue 数据层、remote 地址解析、窗口路由与布局还原。
+- CI：`.github/workflows/ci.yml` 的 `desktop` job 跑前端 typecheck/单测与 Go 侧不依赖 cgo 的包（`internal/bridge`、`internal/codestate`、`git`、`services`、`store`、`windowstate`、`platform/*`）。Wails 的 `pkg/application` 在 Linux 上需要 GTK/WebKitGTK 头文件，因此 `main`、`internal/app` 与 `singleinstance` 不在 CI 的 Go 覆盖范围内，workflow 注释里写明了原因。
 - 端到端：设 `KUSTOS_DESKTOP_CDP_PORT` 后用 CDP 驱动真实 WebView，验证编辑、保存、冲突、崩溃恢复等交互。

@@ -137,6 +137,7 @@ jobs:
         run: >-
           go vet
           ./internal/bridge/
+          ./internal/codestate/
           ./internal/git/
           ./internal/services/
           ./internal/store/
@@ -150,6 +151,7 @@ jobs:
         run: >-
           go test
           ./internal/bridge/
+          ./internal/codestate/
           ./internal/git/
           ./internal/services/
           ./internal/store/

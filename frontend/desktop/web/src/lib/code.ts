@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { WorkingCopyService } from "@/bindings/github.com/kustos/kustos-desktop/internal/services";
 import type {
   BufferDraft,
+  CodeLayout,
   FileText,
   TreeNode,
 } from "@/bindings/github.com/kustos/kustos-desktop/internal/services/models";
@@ -24,6 +25,7 @@ export const codeKeys = {
   changes: (id: string) => ["code", id, "changes"] as const,
   search: (id: string, query: string) => ["code", id, "search", query] as const,
   drafts: (id: string) => ["code", id, "drafts"] as const,
+  layout: ["code", "layout"] as const,
 };
 
 /** 列举某一层目录。 */
@@ -105,6 +107,36 @@ export function useDrafts(workingCopyId: string | null) {
     // 草稿只在启动或切换仓库时需要看一次，不做轮询。
     staleTime: Infinity,
   });
+}
+
+/**
+ * 读取上次离开 Code 面时的布局（标签页、当前文件、展开的目录）。
+ *
+ * 只读一次：布局是"过去的快照"，同一个会话里没有别的写入者会改它，
+ * 反复取只会让恢复逻辑在用户已经手动调整过标签之后又把它拽回去。
+ */
+export function useCodeLayout() {
+  return useQuery({
+    queryKey: codeKeys.layout,
+    queryFn: () => WorkingCopyService.LoadCodeLayout() as Promise<CodeLayout>,
+    staleTime: Infinity,
+    // 读布局失败只意味着这次没有可恢复的东西，重试无意义。
+    retry: false,
+  });
+}
+
+/**
+ * 直接写入布局，供去抖写回与关闭前兜底调用。
+ *
+ * 不经过 react-query：布局不是需要缓存与失效的查询结果，
+ * 每次变化都整份覆盖，失败也不该把界面拖进错误态。
+ */
+export async function persistCodeLayout(layout: CodeLayout): Promise<void> {
+  try {
+    await WorkingCopyService.SaveCodeLayout(layout);
+  } catch {
+    // 存不下布局只影响下次打开时的标签，静默即可。
+  }
 }
 
 /** 保存结果。 */

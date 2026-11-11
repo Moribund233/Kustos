@@ -7,7 +7,9 @@ import {
   languageLabel,
   languageOf,
   pathSegments,
+  persistCodeLayout,
   useChangedFiles,
+  useCodeLayout,
   useDirectory,
   useDiscardDraft,
   useDrafts,
@@ -17,6 +19,8 @@ import {
   useSaveDraft,
   type TreeNode,
 } from "@/lib/code";
+import { buildLayout, restoreLayout, tabName, type RestoredLayout } from "@/lib/code-layout";
+import type { CodeLayout } from "@/bindings/github.com/kustos/kustos-desktop/internal/services/models";
 import { useWorkingCopies, type WorkingCopy } from "@/lib/working-copy";
 
 /**
@@ -93,11 +97,12 @@ export function useCodeSurface() {
   const saveDraft = useSaveDraft(workingCopyId);
   const drafts = useDrafts(workingCopyId);
   const discardDraft = useDiscardDraft(workingCopyId);
+  const storedLayout = useCodeLayout();
 
   const openPath = useCallback((path: string) => {
     setTabs((prev) => {
       if (prev.some((t) => t.path === path)) return prev;
-      return [...prev, { path, name: baseName(path) }];
+      return [...prev, { path, name: tabName(path) }];
     });
     setActivePath(path);
   }, []);
@@ -138,6 +143,117 @@ export function useCodeSurface() {
       else next.add(path);
       return next;
     });
+  }, []);
+
+  /**
+   * 本次会话里每个仓库的布局快照。
+   *
+   * 切走再切回来时从这里取，而不是回到库里的旧记录：库里的记录是上次
+   * 启动时的样子，拿它覆盖当前会话已经打开的标签等于把用户的工作抹掉。
+   * 库里只保留最后活跃的一个仓库（`ui_state` 只存一份布局）。
+   */
+  const sessionLayouts = useRef(new Map<string, RestoredLayout>());
+
+  /**
+   * 最近一次套用布局的仓库。
+   *
+   * 记它有两件事要做：一是套用只做一次——套完立刻按新状态写回，重复套用会把
+   * 用户刚打开的标签又冲掉；二是写回要等套用完——切仓库那一帧标签已经被
+   * `setActiveId` 清空，这时候写就等于把空白盖到记录上。
+   */
+  const appliedFor = useRef<string | null>(null);
+
+  const applyLayout = useCallback((layout: RestoredLayout) => {
+    setTabs(layout.tabs);
+    setActivePath(layout.activePath);
+    setExpanded(layout.expanded);
+  }, []);
+
+  // 切换仓库时套用布局。属于别的仓库的布局一律不套：路径相对的是原仓库根。
+  useEffect(() => {
+    if (!workingCopyId) return;
+    if (appliedFor.current === workingCopyId) return;
+
+    // 本会话里打开过：用会话快照，库里的那条记录是上次启动时的样子。
+    const session = sessionLayouts.current.get(workingCopyId);
+    if (session) {
+      appliedFor.current = workingCopyId;
+      applyLayout(session);
+      return;
+    }
+
+    // 库里那份还没读出来，等下一次渲染。读失败也照样往下走：没有布局可用时
+    // 仍要能存新的，否则读一次失败就让这个会话再也不记录标签页。
+    if (!storedLayout.isFetched) return;
+
+    appliedFor.current = workingCopyId;
+    const restored = restoreLayout(storedLayout.data, workingCopyId);
+    if (restored) applyLayout(restored);
+  }, [workingCopyId, storedLayout.isFetched, storedLayout.data, applyLayout]);
+
+  /**
+   * 把当前布局写回本地库。
+   *
+   * 去抖 400ms：切标签、展开目录都是高频动作，每次都整份重写没有必要，
+   * 而 400ms 之后崩溃丢失的也只是最后几次点击。
+   */
+  const pendingLayout = useRef<CodeLayout | null>(null);
+
+  useEffect(() => {
+    // 上一轮排下的那次写入已经作废：状态变了就等这一轮重新排，否则窗口隐藏时
+    // 会把一份过期的布局写回库里。
+    pendingLayout.current = null;
+
+    if (!workingCopyId) return;
+    // 还没套用布局时写，会把"空白布局"盖到上次的记录上；刚切过来那一帧
+    // 标签也还是空的，同样要等套用完再写。
+    if (appliedFor.current !== workingCopyId) return;
+
+    const snapshot: RestoredLayout = {
+      tabs,
+      activePath,
+      expanded,
+    };
+    sessionLayouts.current.set(workingCopyId, snapshot);
+
+    const layout = buildLayout(workingCopyId, tabs, activePath, expanded);
+    if (!layout) return;
+
+    // 只是切过来看一眼、一个标签都没开：别用空白覆盖另一个仓库的记录。
+    // 否则「切到空仓库再退出」会把上一天的标签页悄悄清掉。
+    const storedOwner = storedLayout.data?.workingCopyId;
+    if (tabs.length === 0 && storedOwner && storedOwner !== workingCopyId) return;
+
+    pendingLayout.current = layout;
+    const id = window.setTimeout(() => {
+      pendingLayout.current = null;
+      void persistCodeLayout(layout);
+    }, 400);
+    return () => window.clearTimeout(id);
+  }, [workingCopyId, tabs, activePath, expanded, storedLayout.data]);
+
+  // 窗口被关掉或最小化时不等去抖，立刻写一次：
+  // 「打开一堆标签后马上关应用」是最常见的离开方式，丢掉它最扎眼。
+  useEffect(() => {
+    const flush = () => {
+      const layout = pendingLayout.current;
+      if (!layout) return;
+      pendingLayout.current = null;
+      void persistCodeLayout(layout);
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("beforeunload", flush);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      flush();
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("beforeunload", flush);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, []);
 
   // 文件读回来时建立缓冲区基准。
@@ -326,7 +442,7 @@ export function CodeTree({ state }: { state: CodeState }) {
         <div className="flex items-center gap-2">
           <h1 className="text-[13px] font-medium text-[var(--color-bone)]">{t("code.title")}</h1>
           <span className="ml-auto truncate font-mono text-[10.5px] text-[var(--color-faint)]">
-            {state.active ? baseName(state.active.path) : "—"}
+            {state.active ? tabName(state.active.path) : "—"}
           </span>
         </div>
         {state.copies.length > 1 && (
@@ -337,7 +453,7 @@ export function CodeTree({ state }: { state: CodeState }) {
           >
             {state.copies.map((c) => (
               <option key={c.id} value={c.id}>
-                {baseName(c.path)}
+                {tabName(c.path)}
               </option>
             ))}
           </select>
@@ -973,17 +1089,3 @@ function KV({ k, v, mono }: { k: string; v: string; mono?: boolean }) {
 function Hint({ children }: { children: React.ReactNode }) {
   return <p className="px-3 py-3 text-[11.5px] leading-relaxed text-[var(--color-muted)]">{children}</p>;
 }
-
-/** 取路径最后一段作为显示名（Windows 与 POSIX 分隔符都处理）。 */
-function baseName(path: string): string {
-  const parts = path.split(/[\\/]/).filter(Boolean);
-  return parts[parts.length - 1] ?? path;
-}
-
-
-
-
-
-
-
-

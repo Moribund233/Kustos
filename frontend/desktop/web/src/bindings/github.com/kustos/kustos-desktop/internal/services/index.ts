@@ -15,6 +15,7 @@ export {
 export type {
     APICompat,
     BufferDraft,
+    CodeLayout,
     Credentials,
     FileStat,
     FileText,
