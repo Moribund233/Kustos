@@ -44,6 +44,14 @@ export interface CodeViewProps {
   onChange?: (value: string) => void;
   /** 需要滚动到并选中的行号（1 起）。 */
   revealLine?: number;
+  /**
+   * 调用方注入的扩展（语言服务器、diff 行标这类宿主相关能力）。
+   *
+   * 这个包被 Web 与桌面端共用，所以代码里不写死任何 LSP 依赖：谁需要
+   * 谁把扩展数组传进来。传进来的数组要稳定（用 `useMemo` 或模块级常量），
+   * 每次渲染新建一个数组会让下面的 effect 反复重配扩展。
+   */
+  extensions?: readonly Extension[];
 }
 
 /**
@@ -63,10 +71,12 @@ export function CodeView({
   readOnly = true,
   onChange,
   revealLine,
+  extensions: injectedExtensions,
 }: CodeViewProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
   const languageCompartment = useRef(new Compartment());
+  const injectedCompartment = useRef(new Compartment());
   const onChangeRef = useRef(onChange);
 
   onChangeRef.current = onChange;
@@ -93,6 +103,7 @@ export function CodeView({
       EditorView.editable.of(!readOnly),
       kustosEditorTheme,
       languageCompartment.current.of([]),
+      injectedCompartment.current.of([]),
       EditorView.updateListener.of((update) => {
         if (!update.docChanged) return;
         // 程序化回灌不算用户编辑：见 `externalSync` 的说明。
@@ -169,6 +180,19 @@ export function CodeView({
       annotations: externalSync.of(true),
     });
   }, [content]);
+
+  // 注入的扩展变化时重配（不重建编辑器，否则会丢滚动位置与选区）。
+  //
+  // 顺序有讲究：必须排在内容同步之后。切文件时内容与扩展会在同一帧变化，
+  // 语言服务器插件在构造时就把当前文档当作"已打开的内容"发给服务器——
+  // 先重配扩展再灌内容，等于先告诉服务器上一份文件的内容属于新文件。
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    view.dispatch({
+      effects: injectedCompartment.current.reconfigure(injectedExtensions ?? []),
+    });
+  }, [injectedExtensions]);
 
   // 跳到指定行。
   useEffect(() => {

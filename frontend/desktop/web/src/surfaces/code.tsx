@@ -30,6 +30,8 @@ import {
   useSetWorkspaceTrust,
   useWorkspaceTrust,
 } from "@/lib/lsp";
+import { useDocumentSymbols, useLSPClient, type FlatSymbol } from "@/lib/lsp-client";
+import { toFileUri } from "@/lib/lsp-uri";
 import { useWorkingCopies, type WorkingCopy } from "@/lib/working-copy";
 
 /**
@@ -102,6 +104,13 @@ export function useCodeSurface() {
   const [buffers, setBuffers] = useState<Record<string, Buffer>>({});
   const [saveError, setSaveError] = useState<string | null>(null);
   const [conflict, setConflict] = useState<string | null>(null);
+  /**
+   * 要滚动到的那一行（符号列表点击）。
+   *
+   * 带上路径：只记行号的话，切到别的标签时会拿着上一份文件的行号去跳，
+   * 落在哪一行纯看运气。
+   */
+  const [reveal, setReveal] = useState<{ path: string; line: number } | null>(null);
 
   // 过滤输入去抖：每敲一个字就遍历一次全树，在大仓库上是肉眼可见的卡顿。
   const [debouncedFilter, setDebouncedFilter] = useState("");
@@ -148,6 +157,20 @@ export function useCodeSurface() {
     },
     [openPath],
   );
+
+  /**
+   * 协议层的连接：只有服务器真的在跑时才连。
+   *
+   * 不看"已信任 + 已装"就建连接是错的——`/lsp/attach` 拿不到会话会直接
+   * 回 404，用户看到的是一条莫名其妙的连接失败。服务器状态（进程池那边报
+   * 上来的）才是这条连接该不该存在的唯一依据。
+   */
+  const lsp = useLSPClient({
+    root: workspaceRoot,
+    language: languageID === "" ? null : languageID,
+    enabled: trusted && Boolean(detected.data?.installed) && session?.state === "running",
+    onOpenFile: openPath,
+  });
 
   const closeTab = useCallback(
     (path: string) => {
@@ -538,6 +561,19 @@ export function useCodeSurface() {
     recheckLanguage: () => void detected.refetch(),
     restartLSP: () => restartLSP.mutate(),
     restartingLSP: restartLSP.isPending,
+    // 协议层：编辑器挂载时用它拿插件，符号分段用它发 documentSymbol。
+    lspClient: lsp.client,
+    lspConnectError: lsp.error,
+    // 符号点击后跳到那一行：先切到那个标签，再把行号交给编辑器。
+    // 中间插一拍清空，是为了让"再点同一个符号"也能重新跳一次——
+    // 编辑器的跳转 effect 只在行号数值变化时触发，值不变等于什么都没发生。
+    revealLine: (line: number) => {
+      if (!activePath) return;
+      const target = activePath;
+      setReveal(null);
+      window.setTimeout(() => setReveal({ path: target, line }), 0);
+    },
+    revealTarget: reveal,
   };
 }
 
@@ -550,6 +586,8 @@ type CodeState = ReturnType<typeof useCodeSurface>;
 export function CodeTree({ state }: { state: CodeState }) {
   const { t } = useTranslation();
   const id = state.active?.id ?? null;
+  const path = state.activePath ?? state.tabs[0]?.path ?? null;
+  const symbols = useDocumentSymbols(state.lspClient, state.workspaceRoot, path, state.segment === "symbols");
 
   const segments: { id: CodeSegment; label: string }[] = [
     { id: "files", label: t("code.segments.files") },
@@ -622,11 +660,7 @@ export function CodeTree({ state }: { state: CodeState }) {
           <SearchResults state={state} />
         )}
 
-        {id && state.segment === "symbols" && (
-          <p className="px-3 py-3 text-[11.5px] leading-relaxed text-[var(--color-muted)]">
-            {t("code.symbolsHint")}
-          </p>
-        )}
+        {id && state.segment === "symbols" && <SymbolList state={state} symbols={symbols} />}
 
         {id && state.segment === "changes" && <ChangeList state={state} />}
       </div>
@@ -670,6 +704,62 @@ function SearchResults({ state }: { state: CodeState }) {
         >
           <Icon name="file" size={13} className="shrink-0 text-[var(--color-faint)]" />
           <span className="truncate font-mono text-[11px]">{node.path}</span>
+        </button>
+      ))}
+    </>
+  );
+}
+
+/**
+ * 符号列表：当前文件的文档符号，按层级缩进，点击跳到那一行。
+ *
+ * 这条路径完全依赖语言服务器：没有连接、服务器不支持 `documentSymbol`、
+ * 或还没握手完，都只会得到一个空列表。所以"为什么是空的"必须写清楚，
+ * 否则用户会以为是文件没有符号。
+ */
+function SymbolList({
+  state,
+  symbols,
+}: {
+  state: CodeState;
+  symbols: { symbols: FlatSymbol[]; loading: boolean; error: string | null };
+}) {
+  const { t } = useTranslation();
+
+  if (!state.lspClient) {
+    return <Hint>{t("code.symbolsNoServer")}</Hint>;
+  }
+  if (symbols.loading) {
+    return <Hint>{t("code.symbolsLoading")}</Hint>;
+  }
+  if (symbols.error != null) {
+    return <Hint>{symbols.error}</Hint>;
+  }
+  if (symbols.symbols.length === 0) {
+    return <Hint>{t("code.symbolsEmpty")}</Hint>;
+  }
+
+  return (
+    <>
+      {symbols.symbols.map((symbol, index) => (
+        <button
+          key={`${symbol.line}:${symbol.name}:${index}`}
+          type="button"
+          onClick={() => state.revealLine(symbol.line)}
+          // 缩进用 padding 而不是嵌套列表：符号层级可以很深，
+          // 每层加一个 div 会让左栏在窄窗口里被挤成一条竖线。
+          style={{ paddingLeft: 10 + Math.min(symbol.depth, 6) * 12 }}
+          className="flex h-[24px] w-full items-center gap-1.5 border-l-2 border-l-transparent pr-2.5 text-left text-[11.5px] text-[var(--color-muted)] hover:bg-[var(--color-ink-850)] hover:text-[var(--color-bone-2)]"
+        >
+          <span className="truncate">{symbol.name}</span>
+          {symbol.detail !== "" && (
+            <span className="truncate font-mono text-[9.5px] text-[var(--color-faint)]">
+              {symbol.detail}
+            </span>
+          )}
+          <span className="ml-auto shrink-0 font-mono text-[9.5px] text-[var(--color-faint)]">
+            {symbol.line}
+          </span>
         </button>
       ))}
     </>
@@ -825,6 +915,18 @@ export function CodeDetail({ state }: { state: CodeState }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [state, editable]);
+
+  // 这个 useMemo 必须排在下面那个"没有标签页"的提前返回之前：标签页是从 0
+  // 变成非 0 的（恢复上次布局那一帧），把 hook 放在 return 之后会让两次渲染的
+  // hook 数量不一样，React 直接抛 #300 卸载整棵树。
+  const pendingPath = state.activePath ?? state.tabs[0]?.path ?? null;
+  const lspExtensions = useMemo(() => {
+    if (!state.lspClient || !state.workspaceRoot || !pendingPath) return undefined;
+    const languageId = state.detectedLanguage?.id;
+    // `plugin()` 的返回类型标的是单个 Extension，实际是"插件 + 主题 + 客户端
+    // 附带的一组扩展"的数组，统一摊成数组交给 CodeView 的插槽。
+    return [state.lspClient.plugin(toFileUri(state.workspaceRoot, pendingPath), languageId)];
+  }, [state.lspClient, state.workspaceRoot, pendingPath, state.detectedLanguage?.id]);
 
   if (state.tabs.length === 0) {
     return (
@@ -992,6 +1094,10 @@ export function CodeDetail({ state }: { state: CodeState }) {
             readOnly={!editable}
             onChange={(value) => state.edit(path, value)}
             className="h-full overflow-auto"
+            extensions={lspExtensions}
+            // 行号只在它属于当前文件时才生效：符号列表记的是它自己那份文件的行，
+            // 切标签之后拿它去跳会落到别的文件上。
+            revealLine={state.revealTarget?.path === path ? state.revealTarget.line : undefined}
           />
         )}
       </div>
@@ -1117,6 +1223,27 @@ function LSPBar({ state }: { state: CodeState }) {
 
   if (session?.state === "restarting") {
     return <LSPNote>{t("code.lsp.restarting", { count: session.restarts })}</LSPNote>;
+  }
+
+  // 进程在跑，但编辑器这边的协议连接没建起来：两件事是分开的，
+  // 只报"服务器在运行"会让补全失灵显得毫无理由。
+  if (session && state.lspClient == null && state.lspConnectError != null) {
+    return (
+      <div className="flex shrink-0 items-start gap-2 border-b border-[var(--color-edge-1)] bg-[rgba(232,163,58,0.1)] px-3 py-1.5">
+        <Icon name="alert" size={12} className="mt-px shrink-0 text-[var(--color-amber)]" />
+        <span className="min-w-0 text-[10.5px] leading-relaxed text-[var(--color-bone-2)]">
+          {t("code.lsp.connectFailed", { server: detected.server, error: state.lspConnectError })}
+        </span>
+        <button
+          type="button"
+          onClick={() => state.restartLSP()}
+          disabled={state.restartingLSP}
+          className="ml-auto shrink-0 text-[10.5px] text-[var(--color-amber)] hover:underline disabled:opacity-40"
+        >
+          {t("common.retry")}
+        </button>
+      </div>
+    );
   }
 
   if (session) {

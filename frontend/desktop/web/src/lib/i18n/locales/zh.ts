@@ -262,6 +262,9 @@ const zh = {
     matches_one: "{{count}} 个结果",
     matches_other: "{{count}} 个结果",
     symbolsHint: "符号大纲需要语言服务器提供语法树，属于后续里程碑。",
+    symbolsNoServer: "没有连上语言服务器，所以没有符号大纲可列。",
+    symbolsLoading: "正在读取符号…",
+    symbolsEmpty: "这个文件没有报告任何符号。",
     noChanges: "工作树是干净的，没有变更文件。",
     save: "保存",
     saving: "保存中…",
@@ -296,6 +299,7 @@ const zh = {
       failed: "语言服务器已放弃重试：{{error}}",
       ready: "{{server}} 运行中（{{language}}）。",
       notStarted: "{{server}} 当前没有运行。",
+      connectFailed: "编辑器连不上 {{server}}：{{error}}",
     },
     inspector: {
       title: "文件事实",
@@ -307,7 +311,7 @@ const zh = {
       lines: "行数",
       sectionNext: "下一步",
       nextHint:
-        "可编辑、语法高亮与 LSP 诊断属于后续里程碑。这一版先保证能读懂一个仓库：树、标签页、完整内容。",
+        "允许这个仓库后，补全、hover、跳转定义、重命名与诊断都由本地语言服务器提供。行级 diff、blame 与协作编辑仍在后续里程碑。",
     },
   },
 

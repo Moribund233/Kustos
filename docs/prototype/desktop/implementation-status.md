@@ -14,7 +14,7 @@
 | M1 只读 | ✅ 完成 | 实例连接、登录 + Keychain、Inbox、命令面板、通知、托盘、PR 与 Issue 浏览 |
 | M2 工作副本 | 🟡 大部分 | 状态、未提交 diff、暂存（含逐 hunk）、提交、fetch、push 已完成；**clone、PR 评审窗未做** |
 | M3 编辑器 | 🟡 主体 | 写盘、冲突检测、崩溃恢复、标签页布局恢复、`⌘P`/`⌘S` 已完成；**diff 行标未做** |
-| M4 本地智能 | 🟡 起步 | 进程池、`ws ↔ stdio` 转发、workspace trust、四种语言探测与状态条已完成；**诊断、补全、定义、重命名未接进编辑器** |
+| M4 本地智能 | 🟡 走近 | 进程池、`ws ↔ stdio` 转发、workspace trust、四种语言探测与状态条已完成；编辑器里已接 CodeMirror LSP 客户端（诊断、补全、hover、跳定义、重命名、文档符号）。行级 diff 与 blame 未做 |
 | M5 协作 | ❌ 未开始 | bridge 已预留 `/ws/collab` 白名单，无实现 |
 | M6 常驻 | 🟡 部分 | 托盘常驻、关窗收起、多窗口已完成；**深链、自启、自动更新未做** |
 | M7 深化 | ❌ 未开始 | 按需 |
@@ -61,6 +61,7 @@
 - **workspace trust**：语言服务器会执行工作区里的代码（解析 import、加载 `package.json`、跑 `go list`），因此首次打开工作副本要先确认一次。信任记在 SQLite 的 `workspace_trust` 表（键是收敛后的绝对路径），未信任时既不启动服务器，编辑器也退回只读、`⌘S` 与保存按钮禁用；撤销信任会顺手停掉正在跑的进程。
 - **语言探测**：按仓库根的 marker 文件判定，TypeScript / Python / Go / Rust 四种；服务器不在 PATH 上时只给出安装命令与"重新探测"，不静默下载二进制。
 - **状态条**：信任确认、没探测到语言、服务器未安装、启动中、重启中、已停止重试、运行中各自一句话，不把它们合并成"未就绪"——四种状态用户该做的下一步完全不同。
+- **编辑器侧**（`lib/lsp-client.ts`）：用 `@codemirror/lsp-client`，自己实现一个 WebSocket `Transport` 与一个 `Workspace` 子类。只有"连上哪个 client + 打开哪个文件"变化时才重建插件，否则每帧重发 `didOpen`/`didClose`。跨文件跳定义要靠 `displayFile`——它把 LSP 的 `file://` URI 换回仓库相对路径、让 Code 面打开那个标签，等编辑器挂载后再把 `EditorView` 交还给客户端（2 秒超时后退回"跳不过去"）。`symbols` 分段取 `textDocument/documentSymbol`，点条目跳到对应行。共享包 `@kustos/editor` 只开一个扩展插槽，不依赖任何 LSP 包：语言服务器连接是桌面专有的。
 
 ### 本地存储
 
@@ -112,7 +113,7 @@ SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 5 版：
 
 ### 未开始的里程碑
 
-- **M4 本地智能（余下部分）**：编辑器侧还没接 LSP 客户端扩展，因此诊断、补全、跳定义、重命名都还没有；`symbols` 分段仍是占位提示。协作模式下的文档同步（`version` 单调、最小 diff 只发变更区间、切模式 `didClose`+`didOpen`）也要等 M5。
+- **M4 本地智能（余下部分）**：行级 diff 行标与 blame 未做；跨文件跳定义依赖 Code 面能打开目标文件，指向仓库外的位置会安静地不跳。协作模式下的文档同步（`version` 单调、最小 diff 只发变更区间、切模式 `didClose`+`didOpen`）也要等 M5。
 - **M5 协作**：文档模式状态机、四步预检、`live` 编辑与远端光标、草稿保存与发布前验证。
 - **M6 剩余部分**：离线缓存、通知动作（通知里直接批准）、深链、开机自启、自动更新。托盘常驻与多窗口已完成。
 - **M7 深化**：本地搜索索引、Agent 本地复现、设备执行器。
@@ -134,6 +135,6 @@ SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 5 版：
 ## 验证方式
 
 - Go：`go test ./...`（在 `frontend/desktop/go` 下），覆盖 bridge 安全约束（含多窗口入口令牌并存与 `/lsp/` 不外发）、git 解析与逐 hunk 暂存、远端关联、写盘冲突、崩溃恢复、标签页布局归一化、窗口状态、窗口种类与托盘语义、评审窗路由、通知校验、LSP 帧编解码与进程池生命周期（含崩溃退避与重试用尽）。
-- 前端：`pnpm typecheck` / `pnpm test`（`frontend/desktop/web`、`frontend/packages/editor`）。当前 web 176 个、编辑器包 18 个用例，含 diff 解析、相对时间、PR/Issue 数据层、remote 地址解析、窗口路由、布局还原与换行符归一。
+- 前端：`pnpm typecheck` / `pnpm test`（`frontend/desktop/web`、`frontend/packages/editor`）。当前 web 188 个、编辑器包 18 个用例，含 diff 解析、相对时间、PR/Issue 数据层、remote 地址解析、窗口路由、布局还原、换行符归一与 `file://` URI 往返。
 - CI：`.github/workflows/ci.yml` 的 `desktop` job 跑前端 typecheck/单测与 Go 侧不依赖 cgo 的包（`internal/bridge`、`internal/codestate`、`internal/git`、`internal/lsp`、`internal/services`、`internal/store`、`internal/windowstate`、`internal/platform/*`）。Wails 的 `pkg/application` 在 Linux 上需要 GTK/WebKitGTK 头文件，因此 `main`、`internal/app` 与 `singleinstance` 不在 CI 的 Go 覆盖范围内，workflow 注释里写明了原因。
-- 端到端：设 `KUSTOS_DESKTOP_CDP_PORT` 后用 CDP 驱动真实 WebView，验证编辑、保存、冲突、崩溃恢复、信任确认与语言服务器启停等交互。
+- 端到端：设 `KUSTOS_DESKTOP_CDP_PORT` 后用 CDP 驱动真实 WebView，验证编辑、保存、冲突、崩溃恢复、信任确认、语言服务器启停与编辑器内的补全 / 跳定义 / 诊断。

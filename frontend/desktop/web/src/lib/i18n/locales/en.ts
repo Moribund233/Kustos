@@ -263,6 +263,9 @@ const en = {
     matches_one: "{{count}} result",
     matches_other: "{{count}} results",
     symbolsHint: "A symbol outline needs the language server's syntax tree; that lands in a later milestone.",
+    symbolsNoServer: "No language server is connected, so there is no outline to show.",
+    symbolsLoading: "Reading symbols…",
+    symbolsEmpty: "This file reports no symbols.",
     noChanges: "The working tree is clean — no changed files.",
     save: "Save",
     saving: "Saving…",
@@ -299,6 +302,7 @@ const en = {
       failed: "The language server gave up: {{error}}",
       ready: "{{server}} is running ({{language}}).",
       notStarted: "{{server}} is not running right now.",
+      connectFailed: "The editor could not talk to {{server}}: {{error}}",
     },
     inspector: {
       title: "File facts",
@@ -310,7 +314,7 @@ const en = {
       lines: "Lines",
       sectionNext: "Next",
       nextHint:
-        "Editing, syntax highlighting and LSP diagnostics belong to later milestones. This version makes a repository readable first: tree, tabs, full content.",
+        "Completion, hover, go to definition, rename and diagnostics come from the local language server once you allow the repository. Line-level diff, blame and collaborative editing are still ahead.",
     },
   },
 
