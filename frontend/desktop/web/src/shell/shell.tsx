@@ -106,6 +106,14 @@ export interface ShellProps {
   behind?: number;
   /** 命令面板的动作组；不传则 `⌘K` 无内容可开。 */
   paletteGroups?: PaletteGroup[];
+  /**
+   * 窗口级覆盖层（对话框等）。
+   *
+   * 挂在根节点这一层而不是 detail 里：失败提示要挡住整个操作区，
+   * 而且它不属于某个 surface 的内部布局。由调用方决定渲染什么，
+   * 外壳只负责给它一个铺满窗口的定位上下文。
+   */
+  overlay?: React.ReactNode;
 }
 
 /** 窗口外壳。 */
@@ -130,6 +138,7 @@ export function Shell({
   ahead = 0,
   behind = 0,
   paletteGroups,
+  overlay,
 }: ShellProps) {
   const { t } = useTranslation();
   const [listWidth, setListWidth] = useState(LIST_DEFAULT);
@@ -190,6 +199,7 @@ export function Shell({
           groups={paletteGroups}
         />
       )}
+      {overlay}
     </div>
   );
 }

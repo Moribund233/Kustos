@@ -40,6 +40,7 @@ import {
 } from "@/surfaces/pulls";
 import {
   WorkingCopyDetail,
+  WorkingCopyErrorOverlay,
   WorkingCopyInspector,
   WorkingCopyList,
   useWorkingCopySurface,
@@ -392,6 +393,7 @@ function MainShell({
         list={<WorkingCopyList state={wc} />}
         detail={<WorkingCopyDetail state={wc} />}
         inspector={<WorkingCopyInspector state={wc} />}
+        overlay={<WorkingCopyErrorOverlay state={wc} />}
         statusLeft={
           <>
             <StatusItem icon="branch">

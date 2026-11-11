@@ -219,7 +219,11 @@ const en = {
       operation: "Operation failed",
       add: "Failed to add",
       commit: "Commit failed",
+      push: "Push failed",
       statusFailed: "Failed to read status ({{error}})",
+      dialogHint: "Git printed the following. It is shown verbatim so you can act on it or paste it elsewhere.",
+      copyDetail: "Copy",
+      copied: "Copied",
     },
     kinds: {
       added: "added",

@@ -219,7 +219,11 @@ const zh = {
       operation: "操作失败",
       add: "添加失败",
       commit: "提交失败",
+      push: "推送失败",
       statusFailed: "读取状态失败（{{error}}）",
+      dialogHint: "以下是 git 的原始输出，保持原样以便你判断下一步，或复制出去。",
+      copyDetail: "复制",
+      copied: "已复制",
     },
     kinds: {
       added: "新增",

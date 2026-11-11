@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ErrorDialog } from "@/shell/error-dialog";
 import { Icon } from "@/shell/icon";
 import {
   useAddWorkingCopy,
@@ -470,17 +471,40 @@ function CommitBar({ state }: { state: ReturnType<typeof useWorkingCopySurface> 
           {state.push.isPending ? t("workingCopy.pushing") : t("workingCopy.commitAndPush")}
         </button>
       </div>
-      {state.commit.error != null && (
-        <p className="mt-1 text-[10.5px] leading-relaxed text-[var(--color-rose)]">
-          {errorText(state.commit.error, t("workingCopy.errors.commit"))}
-        </p>
-      )}
-      {state.push.error != null && (
-        <p className="mt-1 text-[10.5px] leading-relaxed text-[var(--color-rose)]">
-          {errorText(state.push.error, t("workingCopy.errors.operation"))}
-        </p>
-      )}
     </div>
+  );
+}
+
+/**
+ * 提交 / 推送失败的居中对话框。
+ *
+ * 挂在 Shell 的 overlay 槽里，而不是写在按钮下方：git 的失败输出动辄
+ * 十几行，塞在提交栏里会把变更列表顶掉，而且这段文本正是用户要读完
+ * 再决定下一步的内容。三个入口（提交、推送、强制推送）共用这两个
+ * mutation，所以只需要在这里按"哪个先报错"选标题。
+ */
+export function WorkingCopyErrorOverlay({
+  state,
+}: {
+  state: ReturnType<typeof useWorkingCopySurface>;
+}) {
+  const { t } = useTranslation();
+  const commitError = state.commit.error;
+  const pushError = state.push.error;
+
+  if (commitError == null && pushError == null) return null;
+
+  // 先出现的错更接近根因：提交失败后推送本来就不会发起。
+  const isCommit = commitError != null;
+  return (
+    <ErrorDialog
+      title={isCommit ? t("workingCopy.errors.commit") : t("workingCopy.errors.push")}
+      detail={errorText(isCommit ? commitError : pushError, t("workingCopy.errors.operation"))}
+      onClose={() => {
+        if (isCommit) state.commit.reset();
+        else state.push.reset();
+      }}
+    />
   );
 }
 
