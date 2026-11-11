@@ -56,8 +56,13 @@ var allowedPrefixes = []string{
 	"/api/v1/",
 	"/ws",
 	"/ws/collab",
-	"/lsp/",
 }
+
+// lspPrefix 是本地语言服务器的 WebSocket 端点前缀。
+//
+// 它**不在** allowedPrefixes 里，也永远不会反代到上游：语言服务器跑在用户
+// 这台机器的进程池里，上游没有任何东西能服务它。
+const lspPrefix = "/lsp/"
 
 // publicExactPaths 是前缀白名单之外、按精确匹配放行的只读公开面。
 //
@@ -105,6 +110,13 @@ type Server struct {
 	// ipc 是 Wails 运行时端点（`/wails/*`）的处理器，由装配层注入。
 	// 用原子指针而非锁：装配后只读，请求路径上不该有锁。
 	ipc atomic.Pointer[http.Handler]
+
+	// lsp 是本地语言服务器的 WebSocket 端点（`/lsp/*`）的处理器。
+	//
+	// 同样用原子指针：进程池在装配阶段才建好，而 bridge 先于它存在。
+	// 没有注入处理器时这些路径返回 501 而不是去反代——上游没有语言服务器，
+	// 让请求打过去只会得到一个与真相无关的 404。
+	lsp atomic.Pointer[http.Handler]
 }
 
 // New 创建并开始监听 bridge。
@@ -221,13 +233,25 @@ func (s *Server) buildHandler(proxy http.Handler, extra http.Handler) http.Handl
 			return
 		}
 
-		// 5. 前缀白名单与只读公开面之外，走本地静态资源（桌面端自有产物）。
+		// 5. 本地语言服务器端点：走进程内的 WebSocket 处理器，绝不反代。
+		if strings.HasPrefix(path, lspPrefix) {
+			if handler := s.lsp.Load(); handler != nil {
+				(*handler).ServeHTTP(w, r)
+				return
+			}
+			// 没接线时明确 501：说"没接"比伪装成"没有这个端点"更有用，
+			// 这层只在装配漏了的时候出现。
+			http.Error(w, "lsp handler not attached", http.StatusNotImplemented)
+			return
+		}
+
+		// 6. 前缀白名单与只读公开面之外，走本地静态资源（桌面端自有产物）。
 		if !hasAnyPrefix(path, allowedPrefixes) && !hasAnyExact(path, publicExactPaths) {
 			serveLocal(w, r, extra)
 			return
 		}
 
-		// 6. 白名单前缀反代到上游。不设置任何 CORS 头——没有
+		// 7. 白名单前缀反代到上游。不设置任何 CORS 头——没有
 		//    Access-Control-Allow-Origin 就等于只接受同源。
 		proxy.ServeHTTP(w, r)
 	})
@@ -250,6 +274,22 @@ func (s *Server) SetIPCHandler(h http.Handler) {
 		return
 	}
 	s.ipc.Store(&h)
+}
+
+// SetLSPHandler 注入本地语言服务器端点（`/lsp/*`）的处理器。
+//
+// Args:
+//
+//	h: 处理 WebSocket 升级的处理器；传 nil 会断开 LSP
+//
+// 与 SetIPCHandler 同理：bridge 是传输层，构造时不该知道进程池的存在；
+// 这些请求同样要过同源校验——它能拉起本机进程并读写工作区文件。
+func (s *Server) SetLSPHandler(h http.Handler) {
+	if h == nil {
+		s.lsp.Store(nil)
+		return
+	}
+	s.lsp.Store(&h)
 }
 
 // maxPendingEntries 是同时有效的引导令牌上限。

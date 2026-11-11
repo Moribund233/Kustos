@@ -267,3 +267,95 @@ func TestMigrateIsIdempotent(t *testing.T) {
 		t.Fatalf("重复迁移失败: %v", err)
 	}
 }
+
+// 信任是"允不允许在这个目录里跑别人的代码"的唯一依据，读错方向就等于默认放行。
+func TestSetWorkspaceTrustRoundTrip(t *testing.T) {
+	db := newTestDB(t)
+
+	if err := db.SetWorkspaceTrust(`D:\work\demo`, true); err != nil {
+		t.Fatalf("写入信任失败: %v", err)
+	}
+	got, ok, err := db.GetWorkspaceTrust(`D:\work\demo`)
+	if err != nil {
+		t.Fatalf("读取信任失败: %v", err)
+	}
+	if !ok {
+		t.Fatal("应当命中")
+	}
+	if !got.Trusted {
+		t.Error("应当记成已信任")
+	}
+	if got.DecidedAt == 0 {
+		t.Error("应当记下决定时间")
+	}
+}
+
+// 拒绝也是一种决定，必须能和"还没问过"区分开。
+func TestSetWorkspaceTrustRecordsRejection(t *testing.T) {
+	db := newTestDB(t)
+
+	if err := db.SetWorkspaceTrust("/work/demo", false); err != nil {
+		t.Fatalf("写入信任失败: %v", err)
+	}
+	got, ok, err := db.GetWorkspaceTrust("/work/demo")
+	if err != nil {
+		t.Fatalf("读取信任失败: %v", err)
+	}
+	if !ok {
+		t.Fatal("拒绝也应当留下记录")
+	}
+	if got.Trusted {
+		t.Error("应当记成未信任")
+	}
+}
+
+func TestGetWorkspaceTrustMissing(t *testing.T) {
+	db := newTestDB(t)
+
+	_, ok, err := db.GetWorkspaceTrust("/work/never-asked")
+	if err != nil {
+		t.Fatalf("读取信任失败: %v", err)
+	}
+	if ok {
+		t.Fatal("没有记录时不应命中")
+	}
+}
+
+func TestSetWorkspaceTrustRequiresPath(t *testing.T) {
+	db := newTestDB(t)
+	if err := db.SetWorkspaceTrust("", true); err == nil {
+		t.Fatal("空路径应当报错")
+	}
+}
+
+func TestSetWorkspaceTrustOverwrites(t *testing.T) {
+	db := newTestDB(t)
+
+	if err := db.SetWorkspaceTrust("/work/demo", true); err != nil {
+		t.Fatalf("写入信任失败: %v", err)
+	}
+	if err := db.SetWorkspaceTrust("/work/demo", false); err != nil {
+		t.Fatalf("改写信任失败: %v", err)
+	}
+	got, ok, err := db.GetWorkspaceTrust("/work/demo")
+	if err != nil {
+		t.Fatalf("读取信任失败: %v", err)
+	}
+	if !ok || got.Trusted {
+		t.Fatalf("应当被改成未信任，实际 %+v（命中 %v）", got, ok)
+	}
+}
+
+func TestClearWorkspaceTrustRemovesDecision(t *testing.T) {
+	db := newTestDB(t)
+
+	if err := db.SetWorkspaceTrust("/work/demo", true); err != nil {
+		t.Fatalf("写入信任失败: %v", err)
+	}
+	if err := db.ClearWorkspaceTrust("/work/demo"); err != nil {
+		t.Fatalf("删除信任失败: %v", err)
+	}
+	if _, ok, _ := db.GetWorkspaceTrust("/work/demo"); ok {
+		t.Fatal("删除后不应命中")
+	}
+}

@@ -572,3 +572,104 @@ func spaHandler(marker string) http.Handler {
 		_, _ = w.Write([]byte("<html><body>" + marker + "</body></html>"))
 	})
 }
+
+// newTestServerWithLSP 起一个注入了 LSP 处理器的 bridge。
+func newTestServerWithLSP(t *testing.T, upstream string, lspHandler http.Handler) *Server {
+	t.Helper()
+	s, err := New(upstream, nil)
+	if err != nil {
+		t.Fatalf("创建 bridge 失败: %v", err)
+	}
+	s.SetLSPHandler(lspHandler)
+	t.Cleanup(func() { _ = s.Close() })
+	return s
+}
+
+// /lsp/ 必须走本地处理器，绝不能反代到上游。
+//
+// 上游没有任何东西能服务语言服务器：真让它打过去，用户看到的是一个与真相无关
+// 的 404，而真正的问题（装配漏了、或者处理器没挂上）完全没有痕迹。
+func TestLSPPathsReachLocalHandler(t *testing.T) {
+	var gotPaths []string
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPaths = append(gotPaths, r.URL.Path)
+		w.WriteHeader(http.StatusOK)
+	})
+	s := newTestServerWithLSP(t, "http://127.0.0.1:1", handler)
+
+	req := httptest.NewRequest(http.MethodGet, "http://127.0.0.1/lsp/attach", nil)
+	req.AddCookie(s.NonceCookie())
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("应当由本地处理器应答，实际 %d", rec.Code)
+	}
+	if len(gotPaths) != 1 || gotPaths[0] != "/lsp/attach" {
+		t.Fatalf("本地处理器应收到原始路径，实际 %v", gotPaths)
+	}
+}
+
+// 没注入处理器时明确 501，而不是悄悄反代。
+func TestLSPWithoutHandlerReturnsNotImplemented(t *testing.T) {
+	s := newTestServer(t)
+
+	req := httptest.NewRequest(http.MethodGet, "http://127.0.0.1/lsp/attach", nil)
+	req.AddCookie(s.NonceCookie())
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotImplemented {
+		t.Fatalf("应当返回 501，实际 %d", rec.Code)
+	}
+}
+
+// LSP 端点能拉起本机进程、读写工作区文件，必须和 IPC 一样过同源校验。
+func TestLSPRequiresSameOrigin(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	s := newTestServerWithLSP(t, "http://127.0.0.1:1", handler)
+
+	req := httptest.NewRequest(http.MethodGet, "http://127.0.0.1/lsp/attach", nil)
+	// 故意不带 nonce cookie。
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("缺 nonce 的 LSP 请求应 401，实际 %d", rec.Code)
+	}
+}
+
+// 早期版本把 /lsp/ 放进了反代白名单，导致请求打到上游。
+// 这条断言把"它不再属于反代面"固定下来。
+func TestLSPNotProxiedToUpstream(t *testing.T) {
+	var upstreamHits int
+	var mu sync.Mutex
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		mu.Lock()
+		upstreamHits++
+		mu.Unlock()
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer upstream.Close()
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+	s := newTestServerWithLSP(t, upstream.URL, handler)
+
+	req := httptest.NewRequest(http.MethodGet, "http://127.0.0.1/lsp/attach", nil)
+	req.AddCookie(s.NonceCookie())
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("应当由本地处理器应答，实际 %d", rec.Code)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if upstreamHits != 0 {
+		t.Fatalf("上游不该收到 LSP 请求，实际 %d 次", upstreamHits)
+	}
+}

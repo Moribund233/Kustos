@@ -139,6 +139,7 @@ jobs:
           ./internal/bridge/
           ./internal/codestate/
           ./internal/git/
+          ./internal/lsp/
           ./internal/services/
           ./internal/store/
           ./internal/windowstate/
@@ -153,6 +154,7 @@ jobs:
           ./internal/bridge/
           ./internal/codestate/
           ./internal/git/
+          ./internal/lsp/
           ./internal/services/
           ./internal/store/
           ./internal/windowstate/

@@ -111,6 +111,22 @@ var migrationSteps = [][]string{
 			PRIMARY KEY (working_copy_id, path)
 		)`,
 	},
+	// v5：工作区信任。
+	//
+	// 语言服务器会执行工作区里的代码（pyright 解析 import、tsserver 加载
+	// package.json 里的脚本、gopls 跑 go list），所以"要不要在工作区里启动
+	// 本地语言服务器"必须是用户点过头的决定，不能默认开。
+	//
+	// 键是工作区根的绝对路径，而不是工作副本 id：信任的对象是磁盘上那个目录，
+	// 换一个工作副本指向同一目录时不该再问一遍；反过来，同一 id 换了目录
+	// （用户搬了目录再添加）就必须重新确认。
+	{
+		`CREATE TABLE IF NOT EXISTS workspace_trust (
+			path       TEXT PRIMARY KEY,
+			trusted    INTEGER NOT NULL DEFAULT 0,
+			decided_at INTEGER NOT NULL DEFAULT 0
+		)`,
+	},
 }
 
 // Open 打开（必要时创建）本地库。
@@ -648,6 +664,81 @@ func (d *DB) ClearBufferRecoveriesFor(workingCopyID string) error {
 	_, err := d.sql.Exec(`DELETE FROM buffer_recovery WHERE working_copy_id = ?`, workingCopyID)
 	if err != nil {
 		return fmt.Errorf("删除 buffer 失败: %w", err)
+	}
+	return nil
+}
+
+// WorkspaceTrust 是一个工作区目录的信任决定。
+type WorkspaceTrust struct {
+	// Path 是工作区根的绝对路径。
+	Path string `json:"path"`
+	// Trusted 表示用户是否允许在该目录里运行本地语言服务器。
+	Trusted bool `json:"trusted"`
+	// DecidedAt 是做出决定的 Unix 秒时间戳；0 表示还没问过。
+	DecidedAt int64 `json:"decidedAt"`
+}
+
+// SetWorkspaceTrust 记录用户对一个工作区目录的信任决定。
+//
+// Args:
+//
+//	path:    工作区根的绝对路径
+//	trusted: 是否允许运行本地语言服务器
+//
+// Returns:
+//
+//	路径为空或写入失败时返回错误。
+func (d *DB) SetWorkspaceTrust(path string, trusted bool) error {
+	if path == "" {
+		return errors.New("工作区路径不能为空")
+	}
+	flag := 0
+	if trusted {
+		flag = 1
+	}
+	_, err := d.sql.Exec(`
+		INSERT INTO workspace_trust (path, trusted, decided_at)
+		VALUES (?, ?, ?)
+		ON CONFLICT(path) DO UPDATE SET
+			trusted    = excluded.trusted,
+			decided_at = excluded.decided_at`,
+		path, flag, time.Now().Unix())
+	if err != nil {
+		return fmt.Errorf("保存工作区信任失败: %w", err)
+	}
+	return nil
+}
+
+// GetWorkspaceTrust 读取一个工作区目录的信任记录。
+//
+// Returns:
+//
+//	记录、是否存在、错误。没有记录时返回零值与 false——"还没问过"和
+//	"问过但拒绝了"是两种状态，调用方要据此决定是弹确认还是直接降级。
+func (d *DB) GetWorkspaceTrust(path string) (WorkspaceTrust, bool, error) {
+	var (
+		flag      int
+		decidedAt int64
+	)
+	err := d.sql.QueryRow(
+		`SELECT trusted, decided_at FROM workspace_trust WHERE path = ?`, path,
+	).Scan(&flag, &decidedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return WorkspaceTrust{}, false, nil
+	}
+	if err != nil {
+		return WorkspaceTrust{}, false, fmt.Errorf("读取工作区信任失败: %w", err)
+	}
+	return WorkspaceTrust{Path: path, Trusted: flag != 0, DecidedAt: decidedAt}, true, nil
+}
+
+// ClearWorkspaceTrust 忘掉一个工作区目录的信任决定。
+//
+// 工作副本被移除时用；也用于"重新确认"。
+func (d *DB) ClearWorkspaceTrust(path string) error {
+	_, err := d.sql.Exec(`DELETE FROM workspace_trust WHERE path = ?`, path)
+	if err != nil {
+		return fmt.Errorf("删除工作区信任失败: %w", err)
 	}
 	return nil
 }

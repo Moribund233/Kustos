@@ -81,6 +81,39 @@ export interface Credentials {
 }
 
 /**
+ * DetectedLanguage 是按工作区里的 marker 探测出的语言。
+ * 
+ * 字段摊平而不是嵌一个 LanguageHint：绑定生成器会把这里原样变成 TS 类型，
+ * 多一层嵌套只是让前端的取值路径更长。
+ */
+export interface DetectedLanguage {
+    /**
+     * Found 表示工作区里有认得的 marker。
+     */
+    "found": boolean;
+
+    /**
+     * ID 是语言标识；未识别时为空。
+     */
+    "id": string;
+
+    /**
+     * Server 是这类语言要用的服务器可执行文件名。
+     */
+    "server": string;
+
+    /**
+     * Installed 表示这台机器上现在找不找得到它。
+     */
+    "installed": boolean;
+
+    /**
+     * InstallHint 是安装命令，原样给用户复制。
+     */
+    "installHint": string;
+}
+
+/**
  * FileStat 返回仓库内某个文件的当前状态。
  * 
  * 编辑器用它判断"磁盘上的文件是不是在我编辑期间变过"，
@@ -157,6 +190,31 @@ export interface InstanceInfo {
      * Error 是失败原因（可达时为空）。
      */
     "error"?: string;
+}
+
+/**
+ * LanguageHint 是一种语言及其语言服务器的安装状态。
+ */
+export interface LanguageHint {
+    /**
+     * ID 是语言标识（typescript / python / go / rust）。
+     */
+    "id": string;
+
+    /**
+     * Server 是语言服务器的可执行文件名。
+     */
+    "server": string;
+
+    /**
+     * Installed 表示这台机器上现在找不找得到它。
+     */
+    "installed": boolean;
+
+    /**
+     * InstallHint 是安装命令，原样给用户复制。
+     */
+    "installHint": string;
 }
 
 /**
@@ -240,6 +298,26 @@ export interface TreeNode {
      * Status 是工作区变更标记（M/A/D/U…），无改动时为空。
      */
     "status": string;
+}
+
+/**
+ * TrustState 是一个工作区的信任状态。
+ */
+export interface TrustState {
+    /**
+     * Path 是收敛后的工作区绝对路径。
+     */
+    "path": string;
+
+    /**
+     * Trusted 表示用户已允许在该目录运行语言服务器。
+     */
+    "trusted": boolean;
+
+    /**
+     * Decided 区分"问过并拒绝"与"还没问过"。
+     */
+    "decided": boolean;
 }
 
 /**

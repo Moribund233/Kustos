@@ -44,6 +44,11 @@ type Options struct {
 	// Upstream 是默认实例地址；为空时 bridge 仍会启动，指向一个占位地址，
 	// 由 SetUpstream 在用户选定实例后替换。
 	Upstream string
+	// LSP 是本地语言服务器端点（`/lsp/*`）的处理器；nil 时这些路径返回 501。
+	//
+	// 由装配层构造后注入，而不是在 app 内部建：进程池要用到"能不能在这个
+	// 工作区里跑代码"的判断，那依赖本地库，属于服务层的职责。
+	LSP http.Handler
 }
 
 // Desktop 是装配好的桌面端。
@@ -113,6 +118,12 @@ func New(opts Options) (*Desktop, error) {
 		return nil, fmt.Errorf("启动 bridge 失败: %w", err)
 	}
 	d.bridge = b
+
+	// 语言服务器端点在这里就接上：它是进程内的 WebSocket 处理器，不依赖
+	// Wails 的启动阶段（与 IPC 端点不同），早接上早能用。
+	if opts.LSP != nil {
+		b.SetLSPHandler(opts.LSP)
+	}
 
 	app := application.New(application.Options{
 		Name:        "Kustos Desktop",

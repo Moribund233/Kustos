@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 
 	"github.com/kustos/kustos-desktop/internal/app"
+	"github.com/kustos/kustos-desktop/internal/lsp"
 	"github.com/kustos/kustos-desktop/internal/platform/diag"
 	"github.com/kustos/kustos-desktop/internal/platform/keychain"
 	"github.com/kustos/kustos-desktop/internal/services"
@@ -55,6 +56,15 @@ func main() {
 	sessionSvc := services.NewSessionServiceWith(db, keychain.NewComposite())
 	workingCopySvc := services.NewWorkingCopyService(db)
 
+	// 语言服务器：进程池 + 本地端点。进程归 Go、协议归前端（见设计文档 §7.3），
+	// 中间这一段只做 ws ↔ stdio 的转发。
+	lspPool := lsp.NewPool(lsp.Options{})
+	defer lspPool.Close()
+	lspSvc := services.NewLSPService(db, lspPool)
+	lspHandler := lsp.NewHandler(lspPool, func(root string) error {
+		return services.AuthorizeWorkspace(db, root)
+	})
+
 	// 窗口与托盘服务的动作要等 desktop 建好才能接上，所以先声明再回填。
 	windowSvc := services.NewWindowService()
 	notificationSvc := services.NewNotificationService()
@@ -69,11 +79,13 @@ func main() {
 		DB:       db,
 		DataDir:  dir,
 		Logger:   logger,
+		LSP:      lspHandler,
 		Services: []application.Service{
 			application.NewService(sessionSvc),
 			application.NewService(workingCopySvc),
 			application.NewService(windowSvc),
 			application.NewService(notificationSvc),
+			application.NewService(lspSvc),
 		},
 	})
 	if err != nil {
