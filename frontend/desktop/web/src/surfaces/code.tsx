@@ -21,6 +21,15 @@ import {
 } from "@/lib/code";
 import { buildLayout, restoreLayout, tabName, type RestoredLayout } from "@/lib/code-layout";
 import type { CodeLayout } from "@/bindings/github.com/kustos/kustos-desktop/internal/services/models";
+import {
+  sessionFor,
+  useDetectedLanguage,
+  useEnsureLSP,
+  useLSPSessions,
+  useRestartLSP,
+  useSetWorkspaceTrust,
+  useWorkspaceTrust,
+} from "@/lib/lsp";
 import { useWorkingCopies, type WorkingCopy } from "@/lib/working-copy";
 
 /**
@@ -107,6 +116,23 @@ export function useCodeSurface() {
   const drafts = useDrafts(workingCopyId);
   const discardDraft = useDiscardDraft(workingCopyId);
   const storedLayout = useCodeLayout();
+
+  // 本地智能：探测这个工作区该用哪种语言服务器，以及用户是否允许在它上面跑。
+  //
+  // 信任管两件事：语言服务器会执行工作区里的代码（解析 import、加载
+  // package.json 里的脚本、跑 go list），所以没被信任之前它不启动；同时编辑器
+  // 退回只读，让"还没有语言服务器"这件事在界面上有明确交代，而不是让人以为
+  // 补全坏了。
+  const workspaceRoot = active?.path ?? null;
+  const detected = useDetectedLanguage(workspaceRoot);
+  const trust = useWorkspaceTrust(workspaceRoot);
+  const setTrust = useSetWorkspaceTrust(workspaceRoot);
+  const ensureLSP = useEnsureLSP(workspaceRoot);
+  const restartLSP = useRestartLSP(workspaceRoot);
+  const sessions = useLSPSessions();
+  const session = sessionFor(sessions.data, workspaceRoot);
+  const trusted = trust.data?.trusted ?? false;
+  const languageID = detected.data?.found ? detected.data.id : "";
 
   const openPath = useCallback((path: string) => {
     setTabs((prev) => {
@@ -416,6 +442,29 @@ export function useCodeSurface() {
     [activePath, buffers, save],
   );
 
+  /**
+   * 已信任 + 服务器已装时把语言服务器拉起来。
+   *
+   * 每个工作区只试一次：失败（超并发上限、重试用尽）时界面上会显示原因和
+   * 重试按钮，而不是在这个 effect 里反复重试——那会变成看不见的重启循环。
+   */
+  const ensuredFor = useRef<string | null>(null);
+  const startLSP = useCallback(() => {
+    if (!workspaceRoot || languageID === "") return;
+    ensuredFor.current = workspaceRoot;
+    ensureLSP.mutate({ root: workspaceRoot, language: languageID });
+  }, [workspaceRoot, languageID, ensureLSP]);
+
+  useEffect(() => {
+    if (!workspaceRoot || !trusted || languageID === "") return;
+    if (!detected.data?.installed) return;
+    if (ensuredFor.current === workspaceRoot) return;
+    ensuredFor.current = workspaceRoot;
+    ensureLSP.mutate({ root: workspaceRoot, language: languageID });
+    // ensureLSP 是 mutation 对象，每次渲染都是新引用；这里只关心输入。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaceRoot, trusted, languageID, detected.data?.installed]);
+
   const search = useFileSearch(workingCopyId, debouncedFilter, segment === "files");
   const changes = useChangedFiles(workingCopyId, segment === "changes");
 
@@ -470,6 +519,25 @@ export function useCodeSurface() {
     searchLoading: search.isFetching,
     changes: changes.data ?? [],
     changesLoading: changes.isLoading,
+
+    // 本地智能
+    workspaceRoot,
+    detectedLanguage: detected.data?.found ? detected.data : null,
+    detectedLoading: detected.isLoading,
+    trusted,
+    trustDecided: trust.data?.decided ?? false,
+    trustLoading: trust.isLoading,
+    setTrusted: (ok: boolean) => setTrust.mutate(ok),
+    trusting: setTrust.isPending,
+    lspSession: session,
+    lspSessions: sessions.data ?? [],
+    lspStarting: ensureLSP.isPending,
+    lspError: ensureLSP.error instanceof Error ? ensureLSP.error.message : null,
+    startLSP,
+    // 装好服务器之后要能重新探测一次，否则 Infinity 的缓存会一直说"没装"。
+    recheckLanguage: () => void detected.refetch(),
+    restartLSP: () => restartLSP.mutate(),
+    restartingLSP: restartLSP.isPending,
   };
 }
 
@@ -564,7 +632,9 @@ export function CodeTree({ state }: { state: CodeState }) {
       </div>
 
       <div className="shrink-0 border-t border-[var(--color-edge-1)] px-3 py-1.5 text-[10px] text-[var(--color-faint)]">
-        {t("code.readOnlyHint")}
+        {state.active && !state.trusted
+          ? t("code.untrustedHint")
+          : t("code.readOnlyHint")}
       </div>
     </section>
   );
@@ -739,17 +809,22 @@ function TreeLevel({
 export function CodeDetail({ state }: { state: CodeState }) {
   const { t } = useTranslation();
 
+  // 未信任的工作区退回只读（§7.6）：语言服务器会执行这里的项目代码，
+  // 在用户点头之前，连"改这个文件"也不该顺手发生——读得到就够判断要不要信。
+  const editable = state.trusted;
+
   // ⌘S / Ctrl+S 保存。必须显式接管：WebView 的默认行为是弹"另存为"。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() !== "s") return;
       if (!(e.metaKey || e.ctrlKey)) return;
       e.preventDefault();
+      if (!editable) return;
       void state.saveActive();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [state]);
+  }, [state, editable]);
 
   if (state.tabs.length === 0) {
     return (
@@ -833,11 +908,13 @@ export function CodeDetail({ state }: { state: CodeState }) {
           type="button"
           onClick={() => void state.saveActive()}
           // 没有改动时禁用：一个永远可点但没有效果的按钮会让人怀疑保存没生效。
-          disabled={!dirty || state.saving}
-          title={dirty ? t("code.saveHint") : t("code.noChangesToSave")}
+          disabled={!editable || !dirty || state.saving}
+          title={
+            !editable ? t("code.untrustedHint") : dirty ? t("code.saveHint") : t("code.noChangesToSave")
+          }
           className={[
             "h-[22px] shrink-0 rounded-[7px] border px-2 text-[10.5px]",
-            dirty
+            dirty && editable
               ? "border-[var(--color-amber)] text-[var(--color-amber)] hover:bg-[rgba(232,163,58,0.12)]"
               : "border-[var(--color-edge-2)] text-[var(--color-bone-2)] opacity-40",
           ].join(" ")}
@@ -845,6 +922,11 @@ export function CodeDetail({ state }: { state: CodeState }) {
           {state.saving ? t("code.saving") : t("code.save")}
         </button>
       </div>
+
+      {/* 语言服务器现状：这里必须一直有交代。
+          没有它，用户看到的是"补全怎么不动"，而有它才看得出是未信任、
+          没装服务器，还是进程崩了正在重启。 */}
+      <LSPBar state={state} />
 
       {/* 遗留草稿提示：崩溃/强杀后重开，未保存的内容还在本地库里。
           不自动套用——磁盘可能已被外部改过，等于替用户做了合并决定。 */}
@@ -907,13 +989,175 @@ export function CodeDetail({ state }: { state: CodeState }) {
           <CodeView
             content={content}
             path={path}
-            readOnly={false}
+            readOnly={!editable}
             onChange={(value) => state.edit(path, value)}
             className="h-full overflow-auto"
           />
         )}
       </div>
     </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* 语言服务器状态条                                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 语言服务器的当前交代。
+ *
+ * 五种状态各自有话说，界面不能把它们混成一句"未就绪"：
+ * 没探测到语言 / 探测到了但服务器没装 / 装好了但目录未信任 /
+ * 正在启动或重启 / 已跑起来。用户看到的下一步动作完全不同。
+ */
+function LSPBar({ state }: { state: CodeState }) {
+  const { t } = useTranslation();
+
+  if (!state.workspaceRoot) return null;
+
+  const detected = state.detectedLanguage;
+  const session = state.lspSession;
+
+  // 信任闸门优先于一切：没点头之前，别的都是"以后再说"。
+  if (!state.trusted) {
+    return (
+      <div className="flex shrink-0 items-start gap-2 border-b border-[var(--color-edge-1)] bg-[linear-gradient(180deg,rgba(19,32,39,0.6),rgba(12,21,26,0.7))] px-3 py-1.5">
+        <Icon name="alert" size={12} className="mt-px shrink-0 text-[var(--color-muted-2)]" />
+        <span className="text-[10.5px] leading-relaxed text-[var(--color-bone-2)]">
+          {detected ? t("code.lsp.trustPrompt") : t("code.lsp.trustPromptNoLanguage")}
+        </span>
+        <button
+          type="button"
+          onClick={() => state.setTrusted(true)}
+          disabled={state.trusting}
+          className="ml-auto shrink-0 text-[10.5px] text-[var(--color-amber)] hover:underline disabled:opacity-40"
+        >
+          {t("code.lsp.allow")}
+        </button>
+        <button
+          type="button"
+          onClick={() => state.setTrusted(false)}
+          disabled={state.trusting}
+          className="shrink-0 text-[10.5px] text-[var(--color-muted-2)] hover:underline disabled:opacity-40"
+        >
+          {t("code.lsp.deny")}
+        </button>
+      </div>
+    );
+  }
+
+  if (!detected) {
+    return <LSPNote>{t("code.lsp.noLanguage")}</LSPNote>;
+  }
+
+  // 不静默下载：装不了的时候唯一出路就是把这条命令给出去，
+  // 再给一个"装完重探"，否则这条提示会挂到窗口关掉为止。
+  if (!detected.installed) {
+    return (
+      <div className="flex shrink-0 items-start gap-2 border-b border-[var(--color-edge-1)] bg-[linear-gradient(180deg,rgba(19,32,39,0.6),rgba(12,21,26,0.7))] px-3 py-1.5">
+        <Icon name="alert" size={12} className="mt-px shrink-0 text-[var(--color-amber)]" />
+        <span className="min-w-0 text-[10.5px] leading-relaxed text-[var(--color-bone-2)]">
+          {t("code.lsp.missingServer", { server: detected.server })}
+          <code className="mt-1 block truncate font-mono text-[10.5px] text-[var(--color-amber)]">
+            {detected.installHint}
+          </code>
+        </span>
+        <button
+          type="button"
+          onClick={() => state.recheckLanguage()}
+          className="ml-auto shrink-0 text-[10.5px] text-[var(--color-muted-2)] hover:underline"
+        >
+          {t("code.lsp.recheck")}
+        </button>
+      </div>
+    );
+  }
+
+  if (state.lspError != null) {
+    return (
+      <div className="flex shrink-0 items-start gap-2 border-b border-[var(--color-edge-1)] bg-[rgba(232,163,58,0.1)] px-3 py-1.5">
+        <Icon name="alert" size={12} className="mt-px shrink-0 text-[var(--color-amber)]" />
+        <span className="min-w-0 text-[10.5px] leading-relaxed text-[var(--color-bone-2)]">
+          {state.lspError}
+        </span>
+        <button
+          type="button"
+          onClick={() => state.restartLSP()}
+          disabled={state.restartingLSP}
+          className="ml-auto shrink-0 text-[10.5px] text-[var(--color-amber)] hover:underline disabled:opacity-40"
+        >
+          {t("common.retry")}
+        </button>
+      </div>
+    );
+  }
+
+  if (state.lspStarting) {
+    return <LSPNote>{t("code.lsp.starting", { server: detected.server })}</LSPNote>;
+  }
+
+  if (session?.state === "failed") {
+    return (
+      <div className="flex shrink-0 items-start gap-2 border-b border-[var(--color-edge-1)] bg-[rgba(232,163,58,0.1)] px-3 py-1.5">
+        <Icon name="alert" size={12} className="mt-px shrink-0 text-[var(--color-amber)]" />
+        <span className="min-w-0 text-[10.5px] leading-relaxed text-[var(--color-bone-2)]">
+          {t("code.lsp.failed", { error: session.lastError })}
+        </span>
+        <button
+          type="button"
+          onClick={() => state.restartLSP()}
+          disabled={state.restartingLSP}
+          className="ml-auto shrink-0 text-[10.5px] text-[var(--color-amber)] hover:underline disabled:opacity-40"
+        >
+          {t("common.retry")}
+        </button>
+      </div>
+    );
+  }
+
+  if (session?.state === "restarting") {
+    return <LSPNote>{t("code.lsp.restarting", { count: session.restarts })}</LSPNote>;
+  }
+
+  if (session) {
+    return (
+      <LSPNote>
+        {t("code.lsp.ready", { server: detected.server, language: detected.id })}
+      </LSPNote>
+    );
+  }
+
+  // 已信任、已装，但没有会话：可能被空闲回收了，也可能上一次拉起就没成功。
+  // 给一个按钮而不是干等——用户没理由知道"下次编辑会自动拉起"。
+  return (
+    <div className="flex shrink-0 items-center gap-2 border-b border-[var(--color-edge-1)] px-3 py-1.5">
+      <span aria-hidden className="shrink-0 text-[8px] text-[var(--color-faint)]">
+        ●
+      </span>
+      <span className="min-w-0 truncate text-[10.5px] text-[var(--color-muted-2)]">
+        {t("code.lsp.notStarted", { server: detected.server })}
+      </span>
+      <button
+        type="button"
+        onClick={() => state.startLSP()}
+        disabled={state.lspStarting}
+        className="ml-auto shrink-0 text-[10.5px] text-[var(--color-amber)] hover:underline disabled:opacity-40"
+      >
+        {t("code.lsp.start", { server: detected.server })}
+      </button>
+    </div>
+  );
+}
+
+/** 状态条里那种只有一句话的行。 */
+function LSPNote({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex shrink-0 items-center gap-2 border-b border-[var(--color-edge-1)] px-3 py-1.5">
+      <span aria-hidden className="shrink-0 text-[8px] text-[var(--color-faint)]">
+        ●
+      </span>
+      <span className="min-w-0 truncate text-[10.5px] text-[var(--color-muted-2)]">{children}</span>
+    </div>
   );
 }
 

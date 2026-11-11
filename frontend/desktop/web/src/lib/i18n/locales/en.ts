@@ -239,6 +239,7 @@ const en = {
     title: "Code",
     fileTree: "File tree",
     readOnlyHint: "Local working tree · ⌘S writes to disk",
+    untrustedHint: "Read-only until you allow this repository",
     noRepository: "No repository yet. Add a local git repository on the Working copy surface first.",
     plainText: "Plain text",
     emptyRepository: "This repository is empty.",
@@ -279,6 +280,25 @@ const en = {
       title: "Quick open",
       placeholder: "Type a file name or path…",
       hint: "Matches on path fragments; ↑↓ to move, ↵ to open.",
+    },
+    // The language server's states each need their own line: "not ready" alone
+    // leaves the user unable to tell "install it" from "approve it".
+    lsp: {
+      trustPrompt:
+        "This repository can run a local language server. It executes project code (parsing imports, loading package.json, running go list), so it waits for your go-ahead.",
+      trustPromptNoLanguage:
+        "This repository can run a local language server. It executes project code, so it waits for your go-ahead.",
+      allow: "Allow",
+      deny: "Don't allow",
+      noLanguage: "No language server is configured for this repository type.",
+      missingServer: "{{server}} is not installed. Install it, then reopen this repository.",
+      recheck: "Check again",
+      start: "Start {{server}}",
+      starting: "Starting {{server}}…",
+      restarting: "The language server crashed; restarting (attempt {{count}}).",
+      failed: "The language server gave up: {{error}}",
+      ready: "{{server}} is running ({{language}}).",
+      notStarted: "{{server}} is not running right now.",
     },
     inspector: {
       title: "File facts",

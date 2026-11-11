@@ -14,7 +14,7 @@
 | M1 只读 | ✅ 完成 | 实例连接、登录 + Keychain、Inbox、命令面板、通知、托盘、PR 与 Issue 浏览 |
 | M2 工作副本 | 🟡 大部分 | 状态、未提交 diff、暂存（含逐 hunk）、提交、fetch、push 已完成；**clone、PR 评审窗未做** |
 | M3 编辑器 | 🟡 主体 | 写盘、冲突检测、崩溃恢复、标签页布局恢复、`⌘P`/`⌘S` 已完成；**diff 行标未做** |
-| M4 本地智能 | ❌ 未开始 | `internal/lsp/` 为空目录 |
+| M4 本地智能 | 🟡 起步 | 进程池、`ws ↔ stdio` 转发、workspace trust、四种语言探测与状态条已完成；**诊断、补全、定义、重命名未接进编辑器** |
 | M5 协作 | ❌ 未开始 | bridge 已预留 `/ws/collab` 白名单，无实现 |
 | M6 常驻 | 🟡 部分 | 托盘常驻、关窗收起、多窗口已完成；**深链、自启、自动更新未做** |
 | M7 深化 | ❌ 未开始 | 按需 |
@@ -53,9 +53,18 @@
 - 标签页布局恢复：打开的标签（含顺序）、当前文件与展开的目录落 `ui_state` 的 `code.layout` 一条，切回仓库或重开应用时原位复原。只保一份、记录里带工作副本 id，对不上就整份作废——`ui_state` 没有过期清理，按仓库存会留下永远读不到的记录。写入去抖 400ms，窗口隐藏/关闭时立即落盘。切到空仓库不会清掉上一个仓库的记录。
 - 外部编辑器互跳与在文件管理器中定位。
 
+### 本地智能
+
+- **进程池**（`internal/lsp`）：每个工作区根一个语言服务器进程，上限 3 个、空闲 10 分钟回收、崩溃按 1s / 2s / 4s 退避重启，三次失败后停在 `failed` 并保留最后一次 stderr 尾部作为原因。进程归 Go，协议归前端：池子只管"拉起来、转发帧、盯着退出"，不认识任何 LSP 方法。
+- **帧协议**：按 `Content-Length` 头逐帧读写，不是按行切；头长与帧长都有上限（4 KiB / 64 MiB）。stderr 单独抽干到环形缓冲，否则子进程写满管道会自己卡死。
+- **`ws ↔ stdio` 转发**：`/lsp/attach?root=<绝对路径>`，走 bridge 的 `/lsp/` 前缀到进程内处理器，不再是反代目标。准入判断在 WebSocket 升级之前完成——握手一旦成功客户端就能发任意 LSP 请求。客户端发裸 JSON 或带帧头的消息都接受。
+- **workspace trust**：语言服务器会执行工作区里的代码（解析 import、加载 `package.json`、跑 `go list`），因此首次打开工作副本要先确认一次。信任记在 SQLite 的 `workspace_trust` 表（键是收敛后的绝对路径），未信任时既不启动服务器，编辑器也退回只读、`⌘S` 与保存按钮禁用；撤销信任会顺手停掉正在跑的进程。
+- **语言探测**：按仓库根的 marker 文件判定，TypeScript / Python / Go / Rust 四种；服务器不在 PATH 上时只给出安装命令与"重新探测"，不静默下载二进制。
+- **状态条**：信任确认、没探测到语言、服务器未安装、启动中、重启中、已停止重试、运行中各自一句话，不把它们合并成"未就绪"——四种状态用户该做的下一步完全不同。
+
 ### 本地存储
 
-SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 4 版：
+SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 5 版：
 
 | 版本 | 表 |
 | --- | --- |
@@ -63,6 +72,7 @@ SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 4 版：
 | v2 | `ui_state` |
 | v3 | `working_copies` |
 | v4 | `buffer_recovery` |
+| v5 | `workspace_trust` |
 
 启动期的失败处理：日志落到数据目录的 `desktop.log`，致命错误弹窗说明原因（`KUSTOS_DESKTOP_NO_DIALOG` 可在自动化里关掉）；本地库打开失败先重试，损坏才改名隔离后重建。
 
@@ -102,7 +112,7 @@ SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 4 版：
 
 ### 未开始的里程碑
 
-- **M4 本地智能**：`internal/lsp/` 是空目录。需要进程池（上限 3、空闲回收、退避重启）、`ws ↔ stdio` 帧转发（注意 LSP 是带 `Content-Length` 的帧协议，不是行协议）、三种语言服务器接入、workspace trust。
+- **M4 本地智能（余下部分）**：编辑器侧还没接 LSP 客户端扩展，因此诊断、补全、跳定义、重命名都还没有；`symbols` 分段仍是占位提示。协作模式下的文档同步（`version` 单调、最小 diff 只发变更区间、切模式 `didClose`+`didOpen`）也要等 M5。
 - **M5 协作**：文档模式状态机、四步预检、`live` 编辑与远端光标、草稿保存与发布前验证。
 - **M6 剩余部分**：离线缓存、通知动作（通知里直接批准）、深链、开机自启、自动更新。托盘常驻与多窗口已完成。
 - **M7 深化**：本地搜索索引、Agent 本地复现、设备执行器。
@@ -113,16 +123,17 @@ SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 4 版：
 
 ## 已知取舍
 
-- **服务绑定面按实际需要生长，尚未拆到设计文档 §4 的粒度**。设计文档列了 10 个服务，当前有 `SessionService`、`WorkingCopyService`、`WindowService` 与 `NotificationService` 四个；`FileDiff`、`ListChanges`、`ReadText`/`WriteText`、`StageHunk`/`UnstageHunk`、`RemoteInfo`、`OpenInEditor`、`RevealInFileManager`、`LoadCodeLayout`/`SaveCodeLayout` 都挂在 `WorkingCopyService` 上。后续能力变多时再按"用户能感知的本地能力"拆开。
+- **服务绑定面按实际需要生长，尚未拆到设计文档 §4 的粒度**。设计文档列了 10 个服务，当前有 `SessionService`、`WorkingCopyService`、`WindowService`、`NotificationService` 与 `LSPService` 五个；`FileDiff`、`ListChanges`、`ReadText`/`WriteText`、`StageHunk`/`UnstageHunk`、`RemoteInfo`、`OpenInEditor`、`RevealInFileManager`、`LoadCodeLayout`/`SaveCodeLayout` 都挂在 `WorkingCopyService` 上。后续能力变多时再按"用户能感知的本地能力"拆开。
 - **窗口后端的接线用包级函数而非服务方法**。绑定生成器会把服务上所有导出方法都变成前端可调用的接口，接线函数一旦是方法，前端就能改写本机的窗口后端。因此 `BindWindowBackend` 是包级函数。
 - **Go 侧不做业务判断**。权限与合并策略一律回服务端，Go 只回答"本机是什么状态"。
 - **只读与只写单一真相**。磁盘模式下手动保存，不存在"自动保存到远端"的路径；协作模式（M5）会引入第二条路径，届时必须靠模式互斥保证不双写。
+- **workspace trust 只按路径记**。设计文档要求"路径变化、切仓库、远端 origin 变化都要重新确认"，当前只做了路径这一维：信任的主键是收敛后的绝对路径，远端 origin 改了不会让已有信任失效。补这一维需要把 origin 一并存进 `workspace_trust`，属 M4 余下部分。
 - **管理控制台不做**。网关按来源白名单拦掉 `/api/app/`，桌面端出口地址不可控，结构上过不去。
 - **mtime 用毫秒而非纳秒**。纳秒时间戳超出 JS 的安全整数范围（`Number.MAX_SAFE_INTEGER`），经绑定层往返会被舍入，导致冲突检测永远失败。已有测试守住这个单位。
 
 ## 验证方式
 
-- Go：`go test ./...`（在 `frontend/desktop/go` 下），覆盖 bridge 安全约束（含多窗口入口令牌并存）、git 解析与逐 hunk 暂存、远端关联、写盘冲突、崩溃恢复、标签页布局归一化、窗口状态、窗口种类与托盘语义、评审窗路由与通知校验。
+- Go：`go test ./...`（在 `frontend/desktop/go` 下），覆盖 bridge 安全约束（含多窗口入口令牌并存与 `/lsp/` 不外发）、git 解析与逐 hunk 暂存、远端关联、写盘冲突、崩溃恢复、标签页布局归一化、窗口状态、窗口种类与托盘语义、评审窗路由、通知校验、LSP 帧编解码与进程池生命周期（含崩溃退避与重试用尽）。
 - 前端：`pnpm typecheck` / `pnpm test`（`frontend/desktop/web`、`frontend/packages/editor`）。当前 web 176 个、编辑器包 18 个用例，含 diff 解析、相对时间、PR/Issue 数据层、remote 地址解析、窗口路由、布局还原与换行符归一。
-- CI：`.github/workflows/ci.yml` 的 `desktop` job 跑前端 typecheck/单测与 Go 侧不依赖 cgo 的包（`internal/bridge`、`internal/codestate`、`git`、`services`、`store`、`windowstate`、`platform/*`）。Wails 的 `pkg/application` 在 Linux 上需要 GTK/WebKitGTK 头文件，因此 `main`、`internal/app` 与 `singleinstance` 不在 CI 的 Go 覆盖范围内，workflow 注释里写明了原因。
-- 端到端：设 `KUSTOS_DESKTOP_CDP_PORT` 后用 CDP 驱动真实 WebView，验证编辑、保存、冲突、崩溃恢复等交互。
+- CI：`.github/workflows/ci.yml` 的 `desktop` job 跑前端 typecheck/单测与 Go 侧不依赖 cgo 的包（`internal/bridge`、`internal/codestate`、`internal/git`、`internal/lsp`、`internal/services`、`internal/store`、`internal/windowstate`、`internal/platform/*`）。Wails 的 `pkg/application` 在 Linux 上需要 GTK/WebKitGTK 头文件，因此 `main`、`internal/app` 与 `singleinstance` 不在 CI 的 Go 覆盖范围内，workflow 注释里写明了原因。
+- 端到端：设 `KUSTOS_DESKTOP_CDP_PORT` 后用 CDP 驱动真实 WebView，验证编辑、保存、冲突、崩溃恢复、信任确认与语言服务器启停等交互。

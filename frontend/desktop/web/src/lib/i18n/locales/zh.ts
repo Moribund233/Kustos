@@ -239,6 +239,7 @@ const zh = {
     title: "代码",
     fileTree: "文件树",
     readOnlyHint: "本地工作树 · ⌘S 保存到磁盘",
+    untrustedHint: "只读：允许这个仓库后才能编辑",
     noRepository: "还没有仓库。先在工作副本面添加一个本地 git 仓库。",
     plainText: "纯文本",
     emptyRepository: "这个仓库是空的。",
@@ -277,6 +278,24 @@ const zh = {
       title: "快速打开文件",
       placeholder: "输入文件名或路径…",
       hint: "输入片段按路径匹配；↑↓ 选择，↵ 打开。",
+    },
+    // 语言服务器的几种状态各有去处：只写"未就绪"会让人分不清
+    // 该去装服务器，还是该先点允许。
+    lsp: {
+      trustPrompt:
+        "这个仓库可以启动本地语言服务器。它会执行项目里的代码（解析导入、读取 package.json、跑 go list），所以要先经你同意。",
+      trustPromptNoLanguage: "这个仓库可以启动本地语言服务器。它会执行项目里的代码，所以要先经你同意。",
+      allow: "允许",
+      deny: "不允许",
+      noLanguage: "这个仓库类型没有对应的本地语言服务器。",
+      missingServer: "没有装 {{server}}。装好后重新打开这个仓库。",
+      recheck: "重新探测",
+      start: "启动 {{server}}",
+      starting: "正在启动 {{server}}…",
+      restarting: "语言服务器中断了，正在第 {{count}} 次重启。",
+      failed: "语言服务器已放弃重试：{{error}}",
+      ready: "{{server}} 运行中（{{language}}）。",
+      notStarted: "{{server}} 当前没有运行。",
     },
     inspector: {
       title: "文件事实",
