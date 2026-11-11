@@ -442,6 +442,15 @@ const en = {
     closeWindow: "Close window",
   },
 
+  // The review window with no pull request selected yet: opened straight from
+  // the tray, before the user picks a PR. It must explain what the window is
+  // for instead of looking like a second main window.
+  reviewWindow: {
+    emptyTitle: "No pull request selected",
+    emptyHint:
+      "Review windows show a single pull request. Pick one from the Pull requests surface in the main window and choose “Review in new window”.",
+  },
+
   session: {
     restoring: "Reading local instances…",
     preparingLogin: "Preparing login…",

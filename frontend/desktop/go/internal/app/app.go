@@ -234,7 +234,9 @@ func (d *Desktop) createMainWindow() error {
 // 每个窗口都要自己的入口地址：入口令牌是一次性的，多个窗口共用同一个地址时
 // 只有先导航的那个能换到 cookie，后一个会被同源校验挡成 401。
 func (d *Desktop) createWindow(kind WindowKind) (*application.WebviewWindow, error) {
-	entry, err := d.bridge.EntryURL()
+	// 走同一个地址构造函数：片段由种类决定，不在这里另抄一份拼接逻辑，
+	// 否则主窗口与评审窗迟早会有一边漏掉片段。
+	entry, err := d.windowEntryURL(kind, "")
 	if err != nil {
 		return nil, err
 	}
@@ -395,7 +397,7 @@ func (d *Desktop) OpenWindowWith(kind WindowKind, route string) error {
 		return nil
 	}
 
-	entry, err := d.windowEntryURL(route)
+	entry, err := d.windowEntryURL(kind, route)
 	if err != nil {
 		return err
 	}
@@ -422,24 +424,34 @@ func (d *Desktop) OpenWindowWith(kind WindowKind, route string) error {
 
 // windowEntryURL 返回某个窗口这次导航要用的地址。
 //
+// 片段是窗口内容的唯一真相：前端只认地址里的 `#/review/...` 决定这一屏显示
+// 什么，因此**每种窗口都必须带上自己的片段**，包括还不知道要显示哪个 PR 的
+// 评审窗（托盘直接唤出的那种）。不带片段时前端无法区分"这是评审窗"和"这是
+// 主窗口"，只会渲染成第二个主界面。
+//
 // Args:
 //
-//	route: 内容标识；非空时作为 URL 片段附加
+//	kind:  窗口种类，决定片段里的 scope
+//	route: 内容标识（如 PR 编号）；评审窗为空时仍带 `#/review`
 //
 // Returns:
 //
 //	带一次性引导令牌的完整地址；令牌换发失败时返回错误。
-func (d *Desktop) windowEntryURL(route string) (string, error) {
+func (d *Desktop) windowEntryURL(kind WindowKind, route string) (string, error) {
 	entry, err := d.bridge.EntryURL()
 	if err != nil {
 		return "", err
 	}
-	if route == "" {
+	scope := windowRouteScope(kind)
+	if scope == "" {
 		return entry, nil
 	}
 	// 片段放在查询串之后，且不参与服务端的路径匹配——它只给前端读。
 	// 用 PathEscape 兜住标识里可能出现的斜杠与空格。
-	return entry + "#/review/" + url.PathEscape(route), nil
+	if route == "" {
+		return entry + "#/" + scope, nil
+	}
+	return entry + "#/" + scope + "/" + url.PathEscape(route), nil
 }
 
 // ShowMainWindow 唤出主窗口（从托盘回来走这条路径）。

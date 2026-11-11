@@ -17,7 +17,7 @@ import { WindowFrame } from "@/shell/window-frame";
  * （多窗口下全局状态由最后写入者胜出），因此这里独立取列表并按编号找第一个
  * 能命中的仓库。
  */
-export function ReviewWindow({ prNumber }: { prNumber: number }) {
+export function ReviewWindow({ prNumber }: { prNumber: number | null }) {
   const repos = useRepositories();
 
   // 逐个仓库试取这个编号的 PR。仓库数通常是个位数，且查询结果会被缓存，
@@ -26,8 +26,33 @@ export function ReviewWindow({ prNumber }: { prNumber: number }) {
 
   return (
     <WindowFrame>
-      <ReviewBody prNumber={prNumber} repoIds={candidates.map((r) => r.id)} reposLoading={repos.isLoading} />
+      {prNumber === null ? (
+        <NoPullRequestSelected />
+      ) : (
+        <ReviewBody prNumber={prNumber} repoIds={candidates.map((r) => r.id)} reposLoading={repos.isLoading} />
+      )}
     </WindowFrame>
+  );
+}
+
+/**
+ * 评审窗还没选中 PR 时的空态。
+ *
+ * 从托盘菜单直接唤出评审窗走的就是这条路径。这里说清两件事：这个窗口是干什么的
+ * （单独看一个 PR），以及接下来该去哪（回主窗口的合并请求列表里挑）。
+ * 不能退化成第二个主界面——那会让用户以为应用开错了窗。
+ */
+function NoPullRequestSelected() {
+  const { t } = useTranslation();
+
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-2.5 px-6 text-center">
+      <Icon name="pr" size={20} className="text-[var(--color-faint)]" />
+      <p className="text-[13px] text-[var(--color-bone)]">{t("reviewWindow.emptyTitle")}</p>
+      <p className="max-w-[42ch] text-[11.5px] leading-relaxed text-[var(--color-muted)]">
+        {t("reviewWindow.emptyHint")}
+      </p>
+    </div>
   );
 }
 

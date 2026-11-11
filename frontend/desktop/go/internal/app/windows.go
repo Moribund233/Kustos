@@ -63,6 +63,28 @@ func hidableOnClose(kind WindowKind) bool {
 	return kind == WindowKindMain
 }
 
+// windowRouteScope 返回某个窗口种类在 URL 片段里用的 scope。
+//
+// 片段是前端判定"这一屏是什么窗"的唯一依据（见 window-route.ts 的
+// parseWindowRoute）。主窗口不带片段——空片段就是主窗口，这样既有地址
+// 不会被改动，旧记录也仍然有效。
+//
+// Args:
+//
+//	kind: 窗口种类
+//
+// Returns:
+//
+//	片段里的 scope 关键字；主窗口返回空串（表示不带片段）。
+func windowRouteScope(kind WindowKind) string {
+	switch kind {
+	case WindowKindReview:
+		return "review"
+	default:
+		return ""
+	}
+}
+
 // parseWindowKind 把前端传来的字符串收敛为已知的窗口种类。
 //
 // Args:

@@ -435,6 +435,13 @@ const zh = {
     closeWindow: "关闭窗口",
   },
 
+  // 评审窗还没选中 PR 时的空态：从托盘直接唤出就会走到这里。
+  // 它要说明这个窗口是干什么的，而不是看起来又像一个主界面。
+  reviewWindow: {
+    emptyTitle: "还没有选中合并请求",
+    emptyHint: "评审窗一次只显示一个合并请求。在主窗口的「合并请求」面里选一个，再点「在新窗口中评审」。",
+  },
+
   session: {
     restoring: "正在读取本机实例…",
     preparingLogin: "正在准备登录…",

@@ -6,12 +6,14 @@ import { configureAuth, setAccessToken } from "@kustos/api";
 import { WorkingCopyService } from "@/bindings/github.com/kustos/kustos-desktop/internal/services";
 import { matchRepository, useRepositories, useWorkingCopySlug } from "@/lib/repos";
 import { useTrayLabels } from "@/lib/window";
+import { currentWindowRoute, onWindowRouteChange, type WindowRoute } from "@/lib/window-route";
 import {
   useNotificationAuthorization,
   useRequestNotificationAuthorization,
 } from "@/lib/notifications";
 
 import { ConnectInstance } from "@/surfaces/connect-instance";
+import { ReviewWindow } from "@/surfaces/review-window";
 import {
   InboxDetail,
   InboxInspector,
@@ -114,6 +116,13 @@ function Root() {
   const [phase, setPhase] = useState<Phase>("loading");
   // 手动"切换实例"时强制回到连接页，即使已有实例档案。
   const [forceConnect, setForceConnect] = useState(false);
+  // 这个窗口要显示什么，完全由它自己的 URL 片段决定。
+  //
+  // 不能用全局状态：多窗口下全局状态由最后写入者胜出，两个评审窗会显示同一个
+  // PR。片段随窗口自己走，各看各的。同窗口内改片段时靠 hashchange 跟进。
+  const [route, setRoute] = useState<WindowRoute>(() => currentWindowRoute());
+
+  useEffect(() => onWindowRouteChange(() => setRoute(currentWindowRoute())), []);
 
   const instances = useInstances();
   const activeInstance = useActiveInstance();
@@ -207,6 +216,13 @@ function Root() {
         />
       </WindowFrame>
     );
+  }
+
+  // 评审窗在会话就绪后走自己的渲染分支：它没有左轨与列表栏，也不该落进
+  // 主界面外壳。放在会话判定之后是有意的——评审窗同样要登录才拉得到 PR，
+  // 未登录时它和主窗口一样先给连接页/登录页。
+  if (route.kind === "review") {
+    return <ReviewWindow prNumber={route.prNumber} />;
   }
 
   return (

@@ -20,6 +20,13 @@ describe("parseWindowRoute", () => {
     expect(parseWindowRoute("#/review/42")).toEqual({ kind: "review", prNumber: 42 });
   });
 
+  it("评审窗可以还没有 PR", () => {
+    // 托盘菜单直接唤出的评审窗没有编号。它仍是评审窗，不能退化成主窗口——
+    // 否则用户在第二个窗口里看到的是又一个 Inbox。
+    expect(parseWindowRoute("#/review")).toEqual({ kind: "review", prNumber: null });
+    expect(parseWindowRoute("#/review/")).toEqual({ kind: "review", prNumber: null });
+  });
+
   it("编号里的转义字符被还原", () => {
     // 生成侧用 PathEscape，解析侧必须解回来：%34%32 就是 "42"。
     expect(parseWindowRoute("#/review/%34%32")).toEqual({ kind: "review", prNumber: 42 });
@@ -30,13 +37,12 @@ describe("parseWindowRoute", () => {
     expect(parseWindowRoute("#/unknown")).toEqual({ kind: "main" });
   });
 
-  it("编号非法时退回主窗口", () => {
-    // 显示一个不存在的 PR 比回到主界面更令人困惑。
-    expect(parseWindowRoute("#/review/abc")).toEqual({ kind: "main" });
-    expect(parseWindowRoute("#/review/0")).toEqual({ kind: "main" });
-    expect(parseWindowRoute("#/review/-1")).toEqual({ kind: "main" });
-    expect(parseWindowRoute("#/review/1.5")).toEqual({ kind: "main" });
-    expect(parseWindowRoute("#/review/")).toEqual({ kind: "main" });
+  it("编号非法时退回未选中 PR", () => {
+    // 显示一个不存在的 PR 比让用户重新选一个更令人困惑；但窗口仍应是评审窗。
+    expect(parseWindowRoute("#/review/abc")).toEqual({ kind: "review", prNumber: null });
+    expect(parseWindowRoute("#/review/0")).toEqual({ kind: "review", prNumber: null });
+    expect(parseWindowRoute("#/review/-1")).toEqual({ kind: "review", prNumber: null });
+    expect(parseWindowRoute("#/review/1.5")).toEqual({ kind: "review", prNumber: null });
   });
 
   it("多段片段只取前两段", () => {

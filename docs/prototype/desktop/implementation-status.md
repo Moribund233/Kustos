@@ -12,7 +12,7 @@
 | --- | --- | --- |
 | M0 骨架 | ✅ 完成 | Wails v3 工程、loopback bridge、嵌入产物、单实例、窗口状态持久化、三栏外壳 |
 | M1 只读 | ✅ 完成 | 实例连接、登录 + Keychain、Inbox、命令面板、通知、托盘、PR 与 Issue 浏览 |
-| M2 工作副本 | 🟡 大部分 | 状态、未提交 diff、暂存（含逐 hunk）、提交、fetch、push 已完成；**clone、PR 评审窗未做** |
+| M2 工作副本 | 🟡 大部分 | 状态、未提交 diff、暂存（含逐 hunk）、提交、fetch、push、PR 评审窗已完成；**clone 未做** |
 | M3 编辑器 | 🟡 主体 | 写盘、冲突检测、崩溃恢复、标签页布局恢复、`⌘P`/`⌘S` 已完成；**diff 行标未做** |
 | M4 本地智能 | 🟡 走近 | 进程池、`ws ↔ stdio` 转发、workspace trust、四种语言探测与状态条已完成；编辑器里已接 CodeMirror LSP 客户端（诊断、补全、hover、跳定义、重命名、文档符号）。行级 diff 与 blame 未做 |
 | M5 协作 | ❌ 未开始 | bridge 已预留 `/ws/collab` 白名单，无实现 |
@@ -89,6 +89,7 @@ SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 5 版：
 
 - **多窗口**：窗口按 `Name` 复用（`main` / `review`），`OpenWindow` 对已存在的窗口只唤到前面，不重复创建。每种窗口各自持有一份几何状态（`window.main` / `window.review`），复用的是既有 `windowstate` 包。
 - **评审窗是真正的第二个窗口**：它显示单个 PR，且**没有左轨与列表栏**——打开它是"把某个 PR 拎出来单独看"，再放一层列表只会让人以为能在窗口里切换 PR。PR 编号经 URL 片段（`#/review/42`）随窗口自己走，而不是靠全局状态：多窗口下全局状态由最后写入者胜出，两个评审窗会显示同一个 PR。对已存在的评审窗再次打开另一个 PR 会替换内容并重新导航。
+- **窗口内容由片段决定，且每种窗口都带着自己的片段**：`window-route.ts` 解析片段得到这一屏该渲染什么，`app.tsx` 在会话就绪后按它分流（评审窗不进主界面外壳）。评审窗即使还没有 PR 也带 `#/review`——托盘菜单直接唤出的就是这个状态，缺了片段前端无法把它和主窗口区分开，只会渲染出第二个 Inbox。空态给出"回主窗口选一个 PR"的指引。同窗口内改片段靠 `hashchange` 跟进。
 - **关窗语义**：主窗口关闭是收进托盘（`RegisterHook` + `Cancel` + `Hide`），不是退出；退出是托盘菜单里的显式动作。评审窗关闭就是真关闭。这一条必须用 `RegisterHook` 而不是 `OnWindowEvent`——前者在 UI 线程同步执行，`Cancel` 才能挡住 Wails 内建的销毁流程；后者在独立 goroutine 里，拦不住。
 - **托盘**：内嵌 PNG 图标（非 PNG 会在 Windows 上静默不显示，有测试守着），菜单为「打开 Kustos / 评审窗 / 退出」，单击图标唤出主窗口。Wails 要求托盘在 `app.Run()` 之后创建，早于事件循环创建则托盘根本不出现。
 - **入口令牌按窗口发放**：每个窗口导航时各取一个一次性令牌。只留单个令牌时，后开的窗口会把前一个顶掉，表现为「开第二个窗口，第一个白屏」。
@@ -135,6 +136,6 @@ SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 5 版：
 ## 验证方式
 
 - Go：`go test ./...`（在 `frontend/desktop/go` 下），覆盖 bridge 安全约束（含多窗口入口令牌并存与 `/lsp/` 不外发）、git 解析与逐 hunk 暂存、远端关联、写盘冲突、崩溃恢复、标签页布局归一化、窗口状态、窗口种类与托盘语义、评审窗路由、通知校验、LSP 帧编解码与进程池生命周期（含崩溃退避与重试用尽）。
-- 前端：`pnpm typecheck` / `pnpm test`（`frontend/desktop/web`、`frontend/packages/editor`）。当前 web 188 个、编辑器包 18 个用例，含 diff 解析、相对时间、PR/Issue 数据层、remote 地址解析、窗口路由、布局还原、换行符归一与 `file://` URI 往返。
+- 前端：`pnpm typecheck` / `pnpm test`（`frontend/desktop/web`、`frontend/packages/editor`）。当前 web 189 个、编辑器包 18 个用例，含 diff 解析、相对时间、PR/Issue 数据层、remote 地址解析、窗口路由（含未选中 PR 的评审窗）、布局还原、换行符归一与 `file://` URI 往返。
 - CI：`.github/workflows/ci.yml` 的 `desktop` job 跑前端 typecheck/单测与 Go 侧不依赖 cgo 的包（`internal/bridge`、`internal/codestate`、`internal/git`、`internal/lsp`、`internal/services`、`internal/store`、`internal/windowstate`、`internal/platform/*`）。Wails 的 `pkg/application` 在 Linux 上需要 GTK/WebKitGTK 头文件，因此 `main`、`internal/app` 与 `singleinstance` 不在 CI 的 Go 覆盖范围内，workflow 注释里写明了原因。
 - 端到端：设 `KUSTOS_DESKTOP_CDP_PORT` 后用 CDP 驱动真实 WebView，验证编辑、保存、冲突、崩溃恢复、信任确认、语言服务器启停与编辑器内的补全 / 跳定义 / 诊断。

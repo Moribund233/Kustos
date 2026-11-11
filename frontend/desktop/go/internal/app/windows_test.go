@@ -149,7 +149,7 @@ func TestWindowEntryURLCarriesRouteFragment(t *testing.T) {
 
 	d := &Desktop{bridge: b}
 
-	entry, err := d.windowEntryURL("42")
+	entry, err := d.windowEntryURL(WindowKindReview, "42")
 	if err != nil {
 		t.Fatalf("生成入口地址失败: %v", err)
 	}
@@ -174,7 +174,7 @@ func TestWindowEntryURLEscapesRoute(t *testing.T) {
 
 	d := &Desktop{bridge: b}
 
-	entry, err := d.windowEntryURL("a/b c")
+	entry, err := d.windowEntryURL(WindowKindReview, "a/b c")
 	if err != nil {
 		t.Fatalf("生成入口地址失败: %v", err)
 	}
@@ -187,6 +187,7 @@ func TestWindowEntryURLEscapesRoute(t *testing.T) {
 	}
 }
 
+// 主窗口不带片段：空片段就是主窗口，既有地址与用户已保存的状态都不受影响。
 func TestWindowEntryURLWithoutRouteHasNoFragment(t *testing.T) {
 	b, err := bridge.New("http://127.0.0.1:1", nil)
 	if err != nil {
@@ -196,12 +197,47 @@ func TestWindowEntryURLWithoutRouteHasNoFragment(t *testing.T) {
 
 	d := &Desktop{bridge: b}
 
-	entry, err := d.windowEntryURL("")
+	entry, err := d.windowEntryURL(WindowKindMain, "")
 	if err != nil {
 		t.Fatalf("生成入口地址失败: %v", err)
 	}
 	if strings.Contains(entry, "#") {
-		t.Fatalf("没有内容标识时不该带片段，实际 %q", entry)
+		t.Fatalf("主窗口不该带片段，实际 %q", entry)
+	}
+}
+
+// 评审窗即使还不知道要显示哪个 PR，也必须带片段。
+//
+// 托盘菜单直接唤出的评审窗没有 PR 编号；不带片段时前端无法把它和主窗口
+// 区分开，只会渲染出第二个主界面——那正是"开了评审窗却显示 Inbox"的原因。
+func TestWindowEntryURLReviewWithoutRouteKeepsScope(t *testing.T) {
+	b, err := bridge.New("http://127.0.0.1:1", nil)
+	if err != nil {
+		t.Fatalf("创建 bridge 失败: %v", err)
+	}
+	t.Cleanup(func() { _ = b.Close() })
+
+	d := &Desktop{bridge: b}
+
+	entry, err := d.windowEntryURL(WindowKindReview, "")
+	if err != nil {
+		t.Fatalf("生成入口地址失败: %v", err)
+	}
+	if !strings.HasSuffix(entry, "#/review") {
+		t.Fatalf("没有 PR 编号的评审窗仍应带 #/review 片段，实际 %q", entry)
+	}
+}
+
+// 窗口种类决定片段 scope，未知种类不造片段（回落到主窗口语义）。
+func TestWindowRouteScopeIsPerKind(t *testing.T) {
+	if got := windowRouteScope(WindowKindReview); got != "review" {
+		t.Fatalf("评审窗 scope 应为 review，实际 %q", got)
+	}
+	if got := windowRouteScope(WindowKindMain); got != "" {
+		t.Fatalf("主窗口不该有 scope，实际 %q", got)
+	}
+	if got := windowRouteScope(WindowKind("nope")); got != "" {
+		t.Fatalf("未知种类不该有 scope，实际 %q", got)
 	}
 }
 
@@ -215,11 +251,11 @@ func TestWindowEntryURLIssuesDistinctTokens(t *testing.T) {
 
 	d := &Desktop{bridge: b}
 
-	first, err := d.windowEntryURL("1")
+	first, err := d.windowEntryURL(WindowKindReview, "1")
 	if err != nil {
 		t.Fatalf("生成失败: %v", err)
 	}
-	second, err := d.windowEntryURL("2")
+	second, err := d.windowEntryURL(WindowKindReview, "2")
 	if err != nil {
 		t.Fatalf("生成失败: %v", err)
 	}
