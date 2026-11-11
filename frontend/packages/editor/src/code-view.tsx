@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { bracketMatching, indentOnInput } from "@codemirror/language";
 import { highlightSelectionMatches } from "@codemirror/search";
-import { Compartment, EditorState, type Extension } from "@codemirror/state";
+import { Annotation, Compartment, EditorState, type Extension } from "@codemirror/state";
 import {
   EditorView,
   drawSelection,
@@ -16,7 +16,21 @@ import {
 import { languages } from "@codemirror/language-data";
 
 import { detectLanguage } from "./language";
+import { normalizeEol } from "./eol";
 import { kustosEditorTheme } from "./theme";
+
+/**
+ * 程序化写入的标记。
+ *
+ * 编辑器里只有一种"内容变了"的信号（`docChanged`），但来源有两种：
+ * 用户敲键盘，和我们把 prop 里的内容回灌进来。两者在调用方意义完全不同——
+ * 前者是"用户改了文件"，要标脏、要记草稿；后者只是把磁盘内容摆上去。
+ *
+ * 不区分时，切一次标签就多一个假脏点：同步 effect 覆盖文档 → 监听器
+ * 回调 → 调用方标脏 → 存草稿。所以程序化 dispatch 一律带上这个 annotation，
+ * 监听器见到它就闭嘴。
+ */
+const externalSync = Annotation.define<boolean>();
 
 export interface CodeViewProps {
   /** 文件内容原文。 */
@@ -80,9 +94,10 @@ export function CodeView({
       kustosEditorTheme,
       languageCompartment.current.of([]),
       EditorView.updateListener.of((update) => {
-        if (update.docChanged) {
-          onChangeRef.current?.(update.state.doc.toString());
-        }
+        if (!update.docChanged) return;
+        // 程序化回灌不算用户编辑：见 `externalSync` 的说明。
+        if (update.transactions.some((tr) => tr.annotation(externalSync))) return;
+        onChangeRef.current?.(update.state.doc.toString());
       }),
     ];
 
@@ -140,13 +155,19 @@ export function CodeView({
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;
+    // CodeMirror 的文档只存 `\n`，而磁盘上可能是 CRLF。不归一就直接比较，
+    // 两边永远不相等：每次挂载都走覆盖分支，并且把一次假编辑报给调用方。
+    const wanted = normalizeEol(content);
     const current = view.state.doc.toString();
-    if (current === content) return;
+    if (current === wanted) return;
     // 只有"外部确实换了另一份内容"才覆盖：可编辑模式下用户可能已经改过，
     // 此时把一个陈旧的 prop 回灌进去会直接吞掉用户刚敲的字。
     // 调用方在每次 onChange 后都同步更新 content，因此两者一致时不会走到这里；
     // 走到这里意味着来源真的变了（切文件、外部刷新），覆盖才是对的。
-    view.dispatch({ changes: { from: 0, to: current.length, insert: content } });
+    view.dispatch({
+      changes: { from: 0, to: current.length, insert: wanted },
+      annotations: externalSync.of(true),
+    });
   }, [content]);
 
   // 跳到指定行。

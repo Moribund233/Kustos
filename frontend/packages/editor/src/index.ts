@@ -19,3 +19,4 @@ export {
   useTheme,
 } from "./theme";
 export { detectLanguage, looksBinary } from "./language";
+export { applyEol, detectEol, normalizeEol, type Eol } from "./eol";

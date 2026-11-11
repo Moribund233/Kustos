@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/shell/icon";
-import { CodeView } from "@kustos/editor";
+import { applyEol, CodeView, detectEol, normalizeEol, type Eol } from "@kustos/editor";
 import {
   languageLabel,
   languageOf,
@@ -59,12 +59,21 @@ export interface CodeParts {
 
 /** 编辑器里一份打开了的内容。 */
 interface Buffer {
-  /** 编辑器当前内容。 */
+  /** 编辑器当前内容，换行一律是 `\n`（CodeMirror 的文档模型只存这个）。 */
   text: string;
+  /** 上次与磁盘同步时的内容，同样已归一成 `\n`；判断"改没改"只跟它比。 */
+  saved: string;
+  /** 磁盘文件用的换行符，保存时按它还原。 */
+  eol: Eol;
   /** 打开时磁盘上的 mtime；保存时作为冲突检测基准。 */
   baseMtime: number;
   /** 是否与磁盘内容不同。 */
   dirty: boolean;
+}
+
+/** 比较"改没改"必须归一换行：编辑器只存 `\n`，磁盘可能是 CRLF。 */
+function sameText(a: string, b: string): boolean {
+  return normalizeEol(a) === normalizeEol(b);
 }
 
 /** 汇总 Code 面的状态；由外层装配进 Shell。 */
@@ -261,12 +270,32 @@ export function useCodeSurface() {
     if (!file.data || !activePath) return;
     setBuffers((prev) => {
       const existing = prev[activePath];
-      // 已经有缓冲区就不覆盖：用户可能正在编辑，重设会吞掉改动。
-      if (existing) return prev;
+      // 编辑器文档只存 `\n`，磁盘上的换行符单独记下来，保存时按原样还原。
+      const eol = detectEol(file.data.content);
+      const text = normalizeEol(file.data.content);
+      if (existing) {
+        // 已经有缓冲区就不覆盖：用户可能正在编辑，重设会吞掉改动。
+        // 例外是基准还空着——草稿先于磁盘内容恢复时会出现这种情况，
+        // 补上基准之后"改回原样"才认得出。
+        if (existing.saved !== "") return prev;
+        return {
+          ...prev,
+          [activePath]: {
+            ...existing,
+            saved: text,
+            eol,
+            baseMtime: existing.baseMtime,
+            // 基准补上之后重新判定：草稿内容与磁盘一致就不该再标脏。
+            dirty: !sameText(existing.text, text),
+          },
+        };
+      }
       return {
         ...prev,
         [activePath]: {
-          text: file.data.content,
+          text,
+          saved: text,
+          eol,
           baseMtime: file.data.mtime,
           dirty: false,
         },
@@ -302,10 +331,21 @@ export function useCodeSurface() {
       const list = drafts.data ?? [];
       const d = list.find((x) => x.path === path);
       if (!d) return;
-      setBuffers((prev) => ({
-        ...prev,
-        [path]: { text: d.content, baseMtime: d.baseMtime, dirty: true },
-      }));
+      // 草稿存的是编辑器文本（已经是 `\n`），换行符沿用当前磁盘上的写法。
+      const text = normalizeEol(d.content);
+      setBuffers((prev) => {
+        const existing = prev[path];
+        return {
+          ...prev,
+          [path]: {
+            text,
+            saved: existing?.saved ?? "",
+            eol: existing?.eol ?? "\n",
+            baseMtime: d.baseMtime,
+            dirty: true,
+          },
+        };
+      });
       openPath(path);
     },
     [drafts.data, openPath],
@@ -316,14 +356,22 @@ export function useCodeSurface() {
       setBuffers((prev) => {
         const buf = prev[path];
         if (!buf) return prev;
-        const next: Buffer = { ...buf, text, dirty: true };
-        // 内容一变就记草稿（去抖在下面的 effect 里做）：
-        // 真崩溃时，最后几秒的改动也应当能恢复。
-        saveDraft.mutate({ path, content: text, baseMtime: buf.baseMtime });
+        // 只有内容真的跟磁盘不一样才算脏：编辑器把外部内容摆上去时也会
+        // 触发 onChange，无条件标脏会让"切一次标签"变成"改过一次文件"。
+        const dirty = !sameText(text, buf.saved);
+        const next: Buffer = { ...buf, text, dirty };
+        if (dirty) {
+          // 内容一变就记草稿（去抖在下面的 effect 里做）：
+          // 真崩溃时，最后几秒的改动也应当能恢复。
+          saveDraft.mutate({ path, content: text, baseMtime: buf.baseMtime });
+        } else if (buf.dirty) {
+          // 改回原样就把草稿撤掉，别让崩溃恢复列表里留一份"其实没改"的内容。
+          discardDraft.mutate(path);
+        }
         return { ...prev, [path]: next };
       });
     },
-    [saveDraft],
+    [discardDraft, saveDraft],
   );
 
   const activeBuffer = activePath ? (buffers[activePath] ?? null) : null;
@@ -345,7 +393,9 @@ export function useCodeSurface() {
 
       const outcome = await save.mutateAsync({
         path,
-        content: buf.text,
+        // 编辑器里一律是 `\n`，落盘时还原成这个文件原本的换行符，
+        // 否则在 CRLF 仓库里保存一次就等于把整个文件重写成 LF。
+        content: applyEol(buf.text, buf.eol),
         expectedMtime: force ? 0 : buf.baseMtime,
       });
 
@@ -357,7 +407,10 @@ export function useCodeSurface() {
       setBuffers((prev) => {
         const cur = prev[path];
         if (!cur) return prev;
-        return { ...prev, [path]: { ...cur, baseMtime: outcome.mtime, dirty: false } };
+        return {
+          ...prev,
+          [path]: { ...cur, saved: cur.text, baseMtime: outcome.mtime, dirty: false },
+        };
       });
     },
     [activePath, buffers, save],
@@ -713,7 +766,8 @@ export function CodeDetail({ state }: { state: CodeState }) {
   const language = languageOf(path);
   const buffer = state.activeBuffer;
   // 编辑器以缓冲区为准；缓冲区还没建立时退回磁盘内容，避免闪一帧空白。
-  const content = buffer?.text ?? state.file.data?.content ?? "";
+  // 磁盘内容带的可能是 CRLF，先归一成 `\n` 才知道"改没改"。
+  const content = buffer?.text ?? normalizeEol(state.file.data?.content ?? "");
   const dirty = buffer?.dirty ?? false;
   const lines = content === "" ? [] : content.split("\n");
   // 文件末尾的换行会产生一个空行，界面上多一个空行号没有意义。
@@ -1017,7 +1071,7 @@ export function CodeQuickOpen({ state }: { state: CodeState }) {
 
   // 行数与文件事实都以缓冲区为准：用户改了几行就该看到几行，
   // 而不是磁盘上那份旧内容的行数。
-  const content = state.activeBuffer?.text ?? state.file.data?.content ?? "";
+  const content = state.activeBuffer?.text ?? normalizeEol(state.file.data?.content ?? "");
   const lineCount = content === "" ? 0 : content.replace(/\n$/, "").split("\n").length;
 
   return (

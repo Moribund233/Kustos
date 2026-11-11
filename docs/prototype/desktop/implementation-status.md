@@ -42,9 +42,10 @@
 ### 编辑器（Code 面）
 
 - 文件树逐层列举，目录在前并带变更标记；文件/符号/变更三段；路径过滤走 `SearchFiles` 并做去抖。
-- 标签页可关闭并把焦点落到相邻标签，未保存的带圆点标记。
+- 标签页可关闭并把焦点落到相邻标签，未保存的带圆点标记。圆点只表示"内容与磁盘不同"：编辑器把外部内容摆上去时也走同一条 `docChanged` 通道，因此同步用的 dispatch 带一个标注，监听器据此区分程序化写入与键盘输入——否则切一次标签就会多一个圆点。
 - CodeMirror 6 + 按需加载语言包，语法高亮；`@kustos/editor` 包与 Web 端共用。
 - `⌘S` 写盘；磁盘在编辑期间被外部改过时拒绝写入并提示，由用户选择是否覆盖。
+- 换行符按文件原样保留：CodeMirror 的文档模型只存 `\n`，读入时记下磁盘用的是 LF 还是 CRLF，保存时再还原回去；判断"改没改"也在归一后比较，避免 CRLF 文件一打开就被当成改过。
 - 写盘先写临时文件再改名，保留原文件权限位。
 - `⌘P` 快速打开，按路径匹配、键盘选择。
 - 崩溃恢复：未保存内容按（工作副本，路径）落到 `buffer_recovery` 表，重开后提示「恢复 / 丢弃」，不自动套用。
@@ -121,6 +122,6 @@ SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 4 版：
 ## 验证方式
 
 - Go：`go test ./...`（在 `frontend/desktop/go` 下），覆盖 bridge 安全约束（含多窗口入口令牌并存）、git 解析与逐 hunk 暂存、远端关联、写盘冲突、崩溃恢复、标签页布局归一化、窗口状态、窗口种类与托盘语义、评审窗路由与通知校验。
-- 前端：`pnpm typecheck` / `pnpm test`（`frontend/desktop/web`、`frontend/packages/editor`）。当前 176 个用例，含 diff 解析、相对时间、PR/Issue 数据层、remote 地址解析、窗口路由与布局还原。
+- 前端：`pnpm typecheck` / `pnpm test`（`frontend/desktop/web`、`frontend/packages/editor`）。当前 web 176 个、编辑器包 18 个用例，含 diff 解析、相对时间、PR/Issue 数据层、remote 地址解析、窗口路由、布局还原与换行符归一。
 - CI：`.github/workflows/ci.yml` 的 `desktop` job 跑前端 typecheck/单测与 Go 侧不依赖 cgo 的包（`internal/bridge`、`internal/codestate`、`git`、`services`、`store`、`windowstate`、`platform/*`）。Wails 的 `pkg/application` 在 Linux 上需要 GTK/WebKitGTK 头文件，因此 `main`、`internal/app` 与 `singleinstance` 不在 CI 的 Go 覆盖范围内，workflow 注释里写明了原因。
 - 端到端：设 `KUSTOS_DESKTOP_CDP_PORT` 后用 CDP 驱动真实 WebView，验证编辑、保存、冲突、崩溃恢复等交互。
