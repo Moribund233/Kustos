@@ -19,7 +19,12 @@ from app.models.branch import Branch
 from app.models.repository_member import RepositoryMember
 from app.services.auth.token_service import create_access_token
 from app.services.collaboration.doc_key import draft_branch_name
-from app.utils.git_utils import commit_file_changes, init_bare_repo, publish_draft_changes
+from app.utils.git_utils import (
+    commit_file_changes,
+    delete_file_changes,
+    init_bare_repo,
+    publish_draft_changes,
+)
 from tests.test_helpers import create_test_repo
 from tests.test_repo_browser_controller import create_commit_in_repo, create_repo_with_content
 
@@ -141,6 +146,61 @@ class TestPublishDraftChanges:
             publish_draft_changes(
                 path, "no-such-branch", draft_branch_name("no-such-branch"), "pub", "pub@example.com", "publish"
             )
+
+    def test_publish_modifies_file_in_existing_subdir(self, tmp_path):
+        """已有子目录里的文件被改 → 路径要带目录前缀, 不能落到仓库根
+
+        子目录里的改动走的是"两棵子树同名、id 不同 → 递归"这条分支。递归时若丢掉
+        目录前缀, 返回的就是根目录下的 `notes.md` 而不是 `docs/notes.md`,
+        应用变更时会去根树里删一个不存在的条目并抛 GitError（HTTP 500）。
+        """
+        path = str(tmp_path / "repo.git")
+        init_bare_repo(path)
+        commit_file_changes(path, "master", "docs/notes.md", "base", "seed", "seed@example.com", "init")
+
+        draft = draft_branch_name("master")
+        commit_file_changes(path, draft, "docs/notes.md", "draft v2", "u", "u@example.com", "save")
+
+        result = publish_draft_changes(path, "master", draft, "pub", "pub@example.com", "publish")
+        assert result["commit_id"]
+        assert result["paths"] == ["docs/notes.md"]
+        assert _file_at(path, "master", "docs/notes.md") == "draft v2"
+
+    def test_publish_keeps_untouched_files_in_same_subdir(self, tmp_path):
+        """子目录里只改一个文件 → 同目录其它文件不受影响"""
+        path = str(tmp_path / "repo.git")
+        init_bare_repo(path)
+        commit_file_changes(path, "master", "docs/a.md", "a base", "seed", "seed@example.com", "init a")
+        commit_file_changes(path, "master", "docs/b.md", "b base", "seed", "seed@example.com", "init b")
+
+        draft = draft_branch_name("master")
+        commit_file_changes(path, draft, "docs/a.md", "a draft", "u", "u@example.com", "save")
+
+        result = publish_draft_changes(path, "master", draft, "pub", "pub@example.com", "publish")
+        assert result["paths"] == ["docs/a.md"]
+        assert _file_at(path, "master", "docs/a.md") == "a draft"
+        assert _file_at(path, "master", "docs/b.md") == "b base"
+
+    def test_publish_deletes_file_in_existing_subdir(self, tmp_path):
+        """子目录里的文件被删 → 目标分支上真的删掉"""
+        path = str(tmp_path / "repo.git")
+        init_bare_repo(path)
+        commit_file_changes(path, "master", "docs/keep.md", "keep", "seed", "seed@example.com", "init keep")
+        commit_file_changes(path, "master", "docs/gone.md", "gone", "seed", "seed@example.com", "init gone")
+
+        draft = draft_branch_name("master")
+        # 先让草稿分支存在（真实流程里草稿总是从一次保存开始）。
+        commit_file_changes(path, draft, "docs/keep.md", "keep", "u", "u@example.com", "open draft")
+        delete_file_changes(path, draft, "docs/gone.md", "u", "u@example.com", "delete gone")
+
+        result = publish_draft_changes(path, "master", draft, "pub", "pub@example.com", "publish")
+        assert result["paths"] == ["docs/gone.md"]
+
+        repo = pygit2.Repository(path)
+        tree = repo.revparse_single("master").peel(pygit2.Commit).tree
+        names = [e.name for e in repo[tree["docs"].id]]
+        assert "keep.md" in names
+        assert "gone.md" not in names
 
 
 # ==================== HTTP 端点 ====================

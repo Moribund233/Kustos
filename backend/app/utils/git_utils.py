@@ -1307,9 +1307,20 @@ def _all_leaf_paths(repo: "pygit2.Repository", tree: "pygit2.Tree", prefix: str)
 
 
 def _tree_changed_paths(
-    repo: "pygit2.Repository", base_tree: "pygit2.Tree", draft_tree: "pygit2.Tree"
+    repo: "pygit2.Repository",
+    base_tree: "pygit2.Tree",
+    draft_tree: "pygit2.Tree",
+    prefix: str = "",
 ) -> List[str]:
-    """递归对比两棵树, 返回草稿侧内容不同的文件路径 (含新增/删除)"""
+    """递归对比两棵树, 返回草稿侧内容不同的文件路径 (含新增/删除)
+
+    Args:
+        prefix: 当前子树在仓库内的目录前缀（带结尾 `/`，根为空）
+
+    返回的路径**始终是相对仓库根**的完整路径: 调用方拿它去两棵树里定位条目，
+    递归时丢掉目录前缀会让 `docs/a.md` 变成 `a.md`，于是去根树里删一个不存在的
+    条目并抛 GitError。
+    """
     changed: List[str] = []
     base_map = {entry.name: entry for entry in base_tree}
     draft_map = {entry.name: entry for entry in draft_tree}
@@ -1319,15 +1330,22 @@ def _tree_changed_paths(
             # 条目整体新增/删除: 收集其下全部文件 (或该文件本身)
             node = draft_entry if draft_entry is not None else base_entry
             if node.type == pygit2.GIT_OBJECT_TREE:
-                changed.extend(_all_leaf_paths(repo, repo[node.id], name + "/"))
+                changed.extend(_all_leaf_paths(repo, repo[node.id], prefix + name + "/"))
             else:
-                changed.append(name)
+                changed.append(prefix + name)
         elif base_entry.type == pygit2.GIT_OBJECT_TREE and draft_entry.type == pygit2.GIT_OBJECT_TREE:
             if base_entry.id != draft_entry.id:
-                changed.extend(_tree_changed_paths(repo, repo[base_entry.id], repo[draft_entry.id]))
+                changed.extend(
+                    _tree_changed_paths(
+                        repo,
+                        repo[base_entry.id],
+                        repo[draft_entry.id],
+                        prefix + name + "/",
+                    )
+                )
         elif base_entry.id != draft_entry.id:
             # 文件内容变化, 或 文件<->子树 类型切换
-            changed.append(name)
+            changed.append(prefix + name)
     return changed
 
 
