@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/kustos/kustos-desktop/internal/git"
 	"github.com/kustos/kustos-desktop/internal/lsp"
 	"github.com/kustos/kustos-desktop/internal/store"
 )
@@ -28,6 +29,14 @@ func normalizeRoot(root string) (string, error) {
 	return filepath.Clean(abs), nil
 }
 
+// workspaceOrigin 读出工作区当前的远端地址，没有远端时返回空串。
+//
+// 只用于和信任记录里记下的来源比对：读不到（不是仓库、没配远端、git 不在）
+// 都按空串处理，不往外抛错——这些状态下本来就不该改变信任判定。
+func workspaceOrigin(root string) string {
+	return git.RemoteInfo(root).URL
+}
+
 // AuthorizeWorkspace 判断某个工作区是否允许运行语言服务器。
 //
 // **必须是包级函数而不是服务方法**：Wails 的绑定生成器会把服务上所有导出方法
@@ -35,6 +44,9 @@ func normalizeRoot(root string) (string, error) {
 //
 // 只查信任记录，不查"是不是我们的工作副本"：能打开编辑器的目录都已经通过了
 // 工作副本校验，这里再查一次只会让两条路径的判定逐渐漂开。
+//
+// 信任记录带来源：remote url 改指到另一个仓库之后，同一个目录里的代码就换
+// 出处了，旧点头不再作数（见 store.WorkspaceTrust.AppliesTo）。
 func AuthorizeWorkspace(db *store.DB, root string) error {
 	normalized, err := normalizeRoot(root)
 	if err != nil {
@@ -48,6 +60,9 @@ func AuthorizeWorkspace(db *store.DB, root string) error {
 		return ErrWorkspaceUntrusted
 	}
 	if !trust.Trusted {
+		return ErrWorkspaceUntrusted
+	}
+	if !trust.AppliesTo(workspaceOrigin(normalized)) {
 		return ErrWorkspaceUntrusted
 	}
 	return nil
@@ -73,6 +88,14 @@ type TrustState struct {
 	Trusted bool `json:"trusted"`
 	// Decided 区分"问过并拒绝"与"还没问过"。
 	Decided bool `json:"decided"`
+	// Origin 是做出决定时记下的远端地址；空表示当时没有远端。
+	Origin string `json:"origin"`
+	// CurrentOrigin 是工作区现在的远端地址；界面用来说明"换成了哪个"。
+	CurrentOrigin string `json:"currentOrigin"`
+	// OriginChanged 表示远端地址与做出决定时不一致，需要重新确认。
+	//
+	// 单独给出而不是让前端自己比：判断规则（任一侧为空算未变）只该有一份。
+	OriginChanged bool `json:"originChanged"`
 }
 
 // DetectedLanguage 是按工作区里的 marker 探测出的语言。
@@ -208,6 +231,12 @@ func (s *LSPService) DetectLanguage(root string) (DetectedLanguage, error) {
 }
 
 // TrustStatus 查询一个工作区是否已获信任。
+//
+// 远端地址变了时 Trusted 返回 false 并置 OriginChanged：界面据此把"从没问过"
+// 与"问过但这批代码换出处了"分开说，后者要能解释为什么又弹一次。
+//
+// 发现换源时顺手停掉已经跑起来的服务器：只剩"说不许但进程还在跑"这一种
+// 更难看的中间态。停不掉不是错误——大多数时候本来就没有会话。
 func (s *LSPService) TrustStatus(root string) (TrustState, error) {
 	normalized, err := normalizeRoot(root)
 	if err != nil {
@@ -217,13 +246,27 @@ func (s *LSPService) TrustStatus(root string) (TrustState, error) {
 	if err != nil {
 		return TrustState{}, err
 	}
-	return TrustState{Path: normalized, Trusted: ok && trust.Trusted, Decided: ok}, nil
+	origin := workspaceOrigin(normalized)
+	applies := trust.AppliesTo(origin)
+	if ok && trust.Trusted && !applies {
+		_ = s.pool.Stop(normalized)
+	}
+	return TrustState{
+		Path:          normalized,
+		Trusted:       ok && trust.Trusted && applies,
+		Decided:       ok,
+		Origin:        trust.Origin,
+		CurrentOrigin: origin,
+		OriginChanged: ok && !applies,
+	}, nil
 }
 
 // SetTrust 记录用户对一个工作区的信任决定。
 //
 // 撤销信任时顺手停掉该工作区已经跑起来的语言服务器：留着它等于"用户说不许，
 // 但进程还在跑"，那比不问更糟。
+//
+// 决定按当前的远端地址存：用户这次看到并同意的是"这个来源的代码"。
 //
 // Args:
 //
@@ -234,7 +277,7 @@ func (s *LSPService) SetTrust(root string, trusted bool) error {
 	if err != nil {
 		return err
 	}
-	if err := s.store.SetWorkspaceTrust(normalized, trusted); err != nil {
+	if err := s.store.SetWorkspaceTrust(normalized, workspaceOrigin(normalized), trusted); err != nil {
 		return err
 	}
 	if !trusted {

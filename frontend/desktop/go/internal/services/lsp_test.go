@@ -232,6 +232,82 @@ func TestStopRequiresNoTrust(t *testing.T) {
 	}
 }
 
+// 信任绑定的是"这个目录里来自某个远端的代码"：把 remote url 改指到另一个
+// 仓库之后，同一个目录里的代码就换出处了，旧的点头不该顺延。
+func TestTrustInvalidatedWhenOriginChanges(t *testing.T) {
+	svc, cleanup := newTestLSPService(t)
+	defer cleanup()
+
+	dir := initRepo(t)
+	gitIn(t, dir, "remote", "add", "origin", "https://example.invalid/acme/atlas.git")
+
+	if err := svc.SetTrust(dir, true); err != nil {
+		t.Fatalf("记录信任失败: %v", err)
+	}
+	state, err := svc.TrustStatus(dir)
+	if err != nil {
+		t.Fatalf("查询信任失败: %v", err)
+	}
+	if !state.Trusted || state.OriginChanged {
+		t.Fatalf("同源时应当仍是信任状态，实际 %+v", state)
+	}
+	if state.Origin != "https://example.invalid/acme/atlas.git" {
+		t.Errorf("应当记下远端来源，实际 %q", state.Origin)
+	}
+
+	gitIn(t, dir, "remote", "set-url", "origin", "https://example.invalid/other/atlas.git")
+	state, err = svc.TrustStatus(dir)
+	if err != nil {
+		t.Fatalf("查询信任失败: %v", err)
+	}
+	if state.Trusted {
+		t.Error("远端换了之后不该继续算信任")
+	}
+	if !state.Decided || !state.OriginChanged {
+		t.Errorf("应当标记成'问过但来源变了'，实际 %+v", state)
+	}
+	if state.CurrentOrigin != "https://example.invalid/other/atlas.git" {
+		t.Errorf("应当回报当前来源，实际 %q", state.CurrentOrigin)
+	}
+}
+
+// 换源之后语言服务器要真的起不来，而不只是界面显示成未信任。
+func TestEnsureRejectsWorkspaceAfterOriginChanges(t *testing.T) {
+	svc, cleanup := newTestLSPService(t)
+	defer cleanup()
+
+	dir := initRepo(t)
+	writeFile(t, dir, "go.mod", "module example.invalid/demo\n")
+	gitIn(t, dir, "remote", "add", "origin", "https://example.invalid/acme/atlas.git")
+	if err := svc.SetTrust(dir, true); err != nil {
+		t.Fatalf("记录信任失败: %v", err)
+	}
+
+	gitIn(t, dir, "remote", "set-url", "origin", "https://example.invalid/other/atlas.git")
+	if _, err := svc.Ensure(dir, "go"); !errors.Is(err, ErrWorkspaceUntrusted) {
+		t.Fatalf("换源之后应当拒绝启动，实际 %v", err)
+	}
+}
+
+// 本地仓库没有远端，信任不该因为"找不到来源"而失效——那会让每个本地项目
+// 每次打开都被再问一遍。
+func TestTrustHoldsWithoutOrigin(t *testing.T) {
+	svc, cleanup := newTestLSPService(t)
+	defer cleanup()
+
+	dir := initRepo(t)
+	if err := svc.SetTrust(dir, true); err != nil {
+		t.Fatalf("记录信任失败: %v", err)
+	}
+	state, err := svc.TrustStatus(dir)
+	if err != nil {
+		t.Fatalf("查询信任失败: %v", err)
+	}
+	if !state.Trusted || state.OriginChanged {
+		t.Errorf("没有远端的仓库应当保持信任，实际 %+v", state)
+	}
+}
+
 func TestDetectLanguageFromMarkers(t *testing.T) {
 	svc, cleanup := newTestLSPService(t)
 	defer cleanup()

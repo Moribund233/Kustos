@@ -302,6 +302,10 @@ const zh = {
       trustPrompt:
         "这个仓库可以启动本地语言服务器。它会执行项目里的代码（解析导入、读取 package.json、跑 go list），所以要先经你同意。",
       trustPromptNoLanguage: "这个仓库可以启动本地语言服务器。它会执行项目里的代码，所以要先经你同意。",
+      trustPromptOriginChanged:
+        "这个仓库的远端换成了 {{origin}}。里面的代码已经不是上次同意的那一批，所以要再确认一次。",
+      trustPromptOriginChangedNoOrigin:
+        "这个仓库的远端地址变了。里面的代码已经不是上次同意的那一批，所以要再确认一次。",
       allow: "允许",
       deny: "不允许",
       noLanguage: "这个仓库类型没有对应的本地语言服务器。",

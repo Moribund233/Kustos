@@ -41,13 +41,24 @@ export function useDetectedLanguage(root: string | null) {
   });
 }
 
-/** 一个工作区是否已被信任运行语言服务器。 */
+/**
+ * 一个工作区是否已被信任运行语言服务器。
+ *
+ * 不能永久缓存：信任按目录记，但答案还取决于这个目录当前的远端地址——
+ * 用户可能在别处把 remote url 改指到另一个仓库，代码出处变了旧点头就不作数。
+ *
+ * 这里必须轮询。桌面端的窗口一直持有焦点，用户在我们的编辑器旁边改完远端回来时
+ * 窗口从未失焦，`refetchOnWindowFocus` 不会触发；Code 面又始终挂着，切面也不重建组件。
+ * 只靠聚焦重查的话，换了远端界面会一直显示"已信任"，权限就这么留在原地了。
+ */
 export function useWorkspaceTrust(root: string | null) {
   return useQuery({
     queryKey: lspKeys.trust(root ?? ""),
     queryFn: () => LSPService.TrustStatus(root as string) as Promise<TrustState>,
     enabled: Boolean(root),
-    staleTime: Infinity,
+    staleTime: 10_000,
+    refetchOnWindowFocus: true,
+    refetchInterval: 15_000,
   });
 }
 

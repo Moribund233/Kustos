@@ -318,6 +318,23 @@ export interface TrustState {
      * Decided 区分"问过并拒绝"与"还没问过"。
      */
     "decided": boolean;
+
+    /**
+     * Origin 是做出决定时记下的远端地址；空表示当时没有远端。
+     */
+    "origin": string;
+
+    /**
+     * CurrentOrigin 是工作区现在的远端地址；界面用来说明"换成了哪个"。
+     */
+    "currentOrigin": string;
+
+    /**
+     * OriginChanged 表示远端地址与做出决定时不一致，需要重新确认。
+     * 
+     * 单独给出而不是让前端自己比：判断规则（任一侧为空算未变）只该有一份。
+     */
+    "originChanged": boolean;
 }
 
 /**

@@ -272,7 +272,7 @@ func TestMigrateIsIdempotent(t *testing.T) {
 func TestSetWorkspaceTrustRoundTrip(t *testing.T) {
 	db := newTestDB(t)
 
-	if err := db.SetWorkspaceTrust(`D:\work\demo`, true); err != nil {
+	if err := db.SetWorkspaceTrust(`D:\work\demo`, "https://example.invalid/acme/atlas.git", true); err != nil {
 		t.Fatalf("写入信任失败: %v", err)
 	}
 	got, ok, err := db.GetWorkspaceTrust(`D:\work\demo`)
@@ -285,6 +285,9 @@ func TestSetWorkspaceTrustRoundTrip(t *testing.T) {
 	if !got.Trusted {
 		t.Error("应当记成已信任")
 	}
+	if got.Origin != "https://example.invalid/acme/atlas.git" {
+		t.Errorf("应当记下远端来源，实际 %q", got.Origin)
+	}
 	if got.DecidedAt == 0 {
 		t.Error("应当记下决定时间")
 	}
@@ -294,7 +297,7 @@ func TestSetWorkspaceTrustRoundTrip(t *testing.T) {
 func TestSetWorkspaceTrustRecordsRejection(t *testing.T) {
 	db := newTestDB(t)
 
-	if err := db.SetWorkspaceTrust("/work/demo", false); err != nil {
+	if err := db.SetWorkspaceTrust("/work/demo", "", false); err != nil {
 		t.Fatalf("写入信任失败: %v", err)
 	}
 	got, ok, err := db.GetWorkspaceTrust("/work/demo")
@@ -323,7 +326,7 @@ func TestGetWorkspaceTrustMissing(t *testing.T) {
 
 func TestSetWorkspaceTrustRequiresPath(t *testing.T) {
 	db := newTestDB(t)
-	if err := db.SetWorkspaceTrust("", true); err == nil {
+	if err := db.SetWorkspaceTrust("", "", true); err == nil {
 		t.Fatal("空路径应当报错")
 	}
 }
@@ -331,10 +334,10 @@ func TestSetWorkspaceTrustRequiresPath(t *testing.T) {
 func TestSetWorkspaceTrustOverwrites(t *testing.T) {
 	db := newTestDB(t)
 
-	if err := db.SetWorkspaceTrust("/work/demo", true); err != nil {
+	if err := db.SetWorkspaceTrust("/work/demo", "https://example.invalid/a.git", true); err != nil {
 		t.Fatalf("写入信任失败: %v", err)
 	}
-	if err := db.SetWorkspaceTrust("/work/demo", false); err != nil {
+	if err := db.SetWorkspaceTrust("/work/demo", "https://example.invalid/b.git", false); err != nil {
 		t.Fatalf("改写信任失败: %v", err)
 	}
 	got, ok, err := db.GetWorkspaceTrust("/work/demo")
@@ -344,12 +347,15 @@ func TestSetWorkspaceTrustOverwrites(t *testing.T) {
 	if !ok || got.Trusted {
 		t.Fatalf("应当被改成未信任，实际 %+v（命中 %v）", got, ok)
 	}
+	if got.Origin != "https://example.invalid/b.git" {
+		t.Errorf("来源应当一起更新，实际 %q", got.Origin)
+	}
 }
 
 func TestClearWorkspaceTrustRemovesDecision(t *testing.T) {
 	db := newTestDB(t)
 
-	if err := db.SetWorkspaceTrust("/work/demo", true); err != nil {
+	if err := db.SetWorkspaceTrust("/work/demo", "", true); err != nil {
 		t.Fatalf("写入信任失败: %v", err)
 	}
 	if err := db.ClearWorkspaceTrust("/work/demo"); err != nil {
@@ -357,5 +363,30 @@ func TestClearWorkspaceTrustRemovesDecision(t *testing.T) {
 	}
 	if _, ok, _ := db.GetWorkspaceTrust("/work/demo"); ok {
 		t.Fatal("删除后不应命中")
+	}
+}
+
+// 远端换到别的仓库，旧点头不该顺延——代码出处变了，要重新问。
+func TestWorkspaceTrustAppliesToRejectsOtherOrigin(t *testing.T) {
+	trust := WorkspaceTrust{Origin: "https://example.invalid/a.git"}
+	if trust.AppliesTo("https://example.invalid/b.git") {
+		t.Error("换了远端不应继续适用")
+	}
+	if !trust.AppliesTo("https://example.invalid/a.git") {
+		t.Error("同一个远端应当继续适用")
+	}
+}
+
+// 任一侧为空都算来源未变：旧版记录没有来源，本地仓库也没有远端，
+// 这两种都不该让用户重答一次。
+func TestWorkspaceTrustAppliesToToleratesMissingOrigin(t *testing.T) {
+	if !(WorkspaceTrust{}).AppliesTo("https://example.invalid/a.git") {
+		t.Error("旧记录（无来源）应当继续适用")
+	}
+	if !(WorkspaceTrust{Origin: "https://example.invalid/a.git"}).AppliesTo("") {
+		t.Error("远端被删掉时应当继续适用")
+	}
+	if !(WorkspaceTrust{}).AppliesTo("") {
+		t.Error("两边都空应当适用")
 	}
 }

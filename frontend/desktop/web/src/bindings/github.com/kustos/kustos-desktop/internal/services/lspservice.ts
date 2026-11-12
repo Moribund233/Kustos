@@ -84,6 +84,8 @@ export function Sessions(): $CancellablePromise<lsp$0.Info[] | null> {
  * 撤销信任时顺手停掉该工作区已经跑起来的语言服务器：留着它等于"用户说不许，
  * 但进程还在跑"，那比不问更糟。
  * 
+ * 决定按当前的远端地址存：用户这次看到并同意的是"这个来源的代码"。
+ * 
  * Args:
  * 
  * 	root:    工作区根目录
@@ -102,6 +104,9 @@ export function Stop(root: string): $CancellablePromise<void> {
 
 /**
  * TrustStatus 查询一个工作区是否已获信任。
+ * 
+ * 远端地址变了时 Trusted 返回 false 并置 OriginChanged：界面据此把"从没问过"
+ * 与"问过但这批代码换出处了"分开说，后者要能解释为什么又弹一次。
  */
 export function TrustStatus(root: string): $CancellablePromise<$models.TrustState> {
     return $Call.ByID(4286524289, root);

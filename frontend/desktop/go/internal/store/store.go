@@ -127,6 +127,17 @@ var migrationSteps = [][]string{
 			decided_at INTEGER NOT NULL DEFAULT 0
 		)`,
 	},
+	// v6：信任记录绑定远端 origin。
+	//
+	// 信任的对象不是"这个磁盘目录"，而是"这个目录里来自某个远端的代码"：
+	// 语言服务器执行的是目录里的代码，而把 remote url 改指另一个仓库之后，
+	// 同一个目录里的代码就换来源了。这时旧的点头不该顺延，得再问一次。
+	//
+	// 旧记录（本版之前做出的决定）origin 为空，表示"当时没有记录来源"，
+	// 与空 origin 比较视为未变化——升级不能把所有既有信任一次性作废。
+	{
+		`ALTER TABLE workspace_trust ADD COLUMN origin TEXT NOT NULL DEFAULT ''`,
+	},
 }
 
 // Open 打开（必要时创建）本地库。
@@ -674,8 +685,26 @@ type WorkspaceTrust struct {
 	Path string `json:"path"`
 	// Trusted 表示用户是否允许在该目录里运行本地语言服务器。
 	Trusted bool `json:"trusted"`
+	// Origin 是做出决定时该目录的远端地址；空表示当时没有远端，
+	// 或是本版之前记下的决定（那时还不记来源）。
+	Origin string `json:"origin"`
 	// DecidedAt 是做出决定的 Unix 秒时间戳；0 表示还没问过。
 	DecidedAt int64 `json:"decidedAt"`
+}
+
+// AppliesTo 判断一条信任决定是否仍适用于给定的远端地址。
+//
+// 信任的对象是"这个目录里来自某个远端的代码"而不是"这个磁盘目录"：把
+// remote url 改指到另一个仓库之后，同一个目录里的代码就换来源了，旧的点头
+// 不该顺延。
+//
+// 任何一侧为空都按"来源未变"放行：空出现在两种正常场合——本版之前做出的
+// 决定，以及本地仓库还没配远端。两种都不该让用户重答一次。
+func (t WorkspaceTrust) AppliesTo(origin string) bool {
+	if t.Origin == "" || origin == "" {
+		return true
+	}
+	return t.Origin == origin
 }
 
 // SetWorkspaceTrust 记录用户对一个工作区目录的信任决定。
@@ -683,12 +712,13 @@ type WorkspaceTrust struct {
 // Args:
 //
 //	path:    工作区根的绝对路径
+//	origin:  做出决定时的远端地址；没有远端时传空串
 //	trusted: 是否允许运行本地语言服务器
 //
 // Returns:
 //
 //	路径为空或写入失败时返回错误。
-func (d *DB) SetWorkspaceTrust(path string, trusted bool) error {
+func (d *DB) SetWorkspaceTrust(path, origin string, trusted bool) error {
 	if path == "" {
 		return errors.New("工作区路径不能为空")
 	}
@@ -697,12 +727,13 @@ func (d *DB) SetWorkspaceTrust(path string, trusted bool) error {
 		flag = 1
 	}
 	_, err := d.sql.Exec(`
-		INSERT INTO workspace_trust (path, trusted, decided_at)
-		VALUES (?, ?, ?)
+		INSERT INTO workspace_trust (path, trusted, origin, decided_at)
+		VALUES (?, ?, ?, ?)
 		ON CONFLICT(path) DO UPDATE SET
 			trusted    = excluded.trusted,
+			origin     = excluded.origin,
 			decided_at = excluded.decided_at`,
-		path, flag, time.Now().Unix())
+		path, flag, origin, time.Now().Unix())
 	if err != nil {
 		return fmt.Errorf("保存工作区信任失败: %w", err)
 	}
@@ -718,18 +749,19 @@ func (d *DB) SetWorkspaceTrust(path string, trusted bool) error {
 func (d *DB) GetWorkspaceTrust(path string) (WorkspaceTrust, bool, error) {
 	var (
 		flag      int
+		origin    string
 		decidedAt int64
 	)
 	err := d.sql.QueryRow(
-		`SELECT trusted, decided_at FROM workspace_trust WHERE path = ?`, path,
-	).Scan(&flag, &decidedAt)
+		`SELECT trusted, origin, decided_at FROM workspace_trust WHERE path = ?`, path,
+	).Scan(&flag, &origin, &decidedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return WorkspaceTrust{}, false, nil
 	}
 	if err != nil {
 		return WorkspaceTrust{}, false, fmt.Errorf("读取工作区信任失败: %w", err)
 	}
-	return WorkspaceTrust{Path: path, Trusted: flag != 0, DecidedAt: decidedAt}, true, nil
+	return WorkspaceTrust{Path: path, Trusted: flag != 0, Origin: origin, DecidedAt: decidedAt}, true, nil
 }
 
 // ClearWorkspaceTrust 忘掉一个工作区目录的信任决定。

@@ -305,6 +305,10 @@ const en = {
         "This repository can run a local language server. It executes project code (parsing imports, loading package.json, running go list), so it waits for your go-ahead.",
       trustPromptNoLanguage:
         "This repository can run a local language server. It executes project code, so it waits for your go-ahead.",
+      trustPromptOriginChanged:
+        "This repository's remote now points at {{origin}}. It is no longer the code you approved, so it needs your go-ahead again.",
+      trustPromptOriginChangedNoOrigin:
+        "This repository's remote has changed. It is no longer the code you approved, so it needs your go-ahead again.",
       allow: "Allow",
       deny: "Don't allow",
       noLanguage: "No language server is configured for this repository type.",

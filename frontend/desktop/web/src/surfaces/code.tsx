@@ -624,6 +624,10 @@ export function useCodeSurface() {
     detectedLoading: detected.isLoading,
     trusted,
     trustDecided: trust.data?.decided ?? false,
+    // 远端换了出处时要重新确认：界面得说清"为什么又问一遍"，
+    // 否则用户会以为上次点的同意丢了。
+    trustOriginChanged: trust.data?.originChanged ?? false,
+    trustCurrentOrigin: trust.data?.currentOrigin ?? "",
     trustLoading: trust.isLoading,
     setTrusted: (ok: boolean) => setTrust.mutate(ok),
     trusting: setTrust.isPending,
@@ -1309,11 +1313,23 @@ function LSPBar({ state }: { state: CodeState }) {
 
   // 信任闸门优先于一切：没点头之前，别的都是"以后再说"。
   if (!state.trusted) {
+    // 远端换出处时要说清"为什么又问一遍"：不解释的话，用户会以为上次的
+    // 同意丢了，或者干脆把所有仓库都点一遍允许。
+    let prompt: string;
+    if (state.trustDecided && state.trustOriginChanged) {
+      prompt = state.trustCurrentOrigin
+        ? t("code.lsp.trustPromptOriginChanged", { origin: state.trustCurrentOrigin })
+        : t("code.lsp.trustPromptOriginChangedNoOrigin");
+    } else if (detected) {
+      prompt = t("code.lsp.trustPrompt");
+    } else {
+      prompt = t("code.lsp.trustPromptNoLanguage");
+    }
     return (
       <div className="flex shrink-0 items-start gap-2 border-b border-[var(--color-edge-1)] bg-[linear-gradient(180deg,rgba(19,32,39,0.6),rgba(12,21,26,0.7))] px-3 py-1.5">
         <Icon name="alert" size={12} className="mt-px shrink-0 text-[var(--color-muted-2)]" />
-        <span className="text-[10.5px] leading-relaxed text-[var(--color-bone-2)]">
-          {detected ? t("code.lsp.trustPrompt") : t("code.lsp.trustPromptNoLanguage")}
+        <span className="min-w-0 text-[10.5px] leading-relaxed text-[var(--color-bone-2)]">
+          {prompt}
         </span>
         <button
           type="button"
