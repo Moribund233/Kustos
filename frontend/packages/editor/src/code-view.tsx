@@ -78,8 +78,14 @@ export function CodeView({
   const languageCompartment = useRef(new Compartment());
   const injectedCompartment = useRef(new Compartment());
   const onChangeRef = useRef(onChange);
+  // 建实例的 effect 只依赖 `readOnly`：它重建编辑器时读不到 effect 之外的
+  // 最新注入扩展。信任状态一翻转就会重建（只读 → 可编辑），若此时从空数组
+  // 起步，LSP 插件、diff 行标与 blame 都会凭空消失，且后续没有变化能把它们
+  // 补回来——用户看到的是"点了允许，行标没了"。
+  const injectedRef = useRef(injectedExtensions);
 
   onChangeRef.current = onChange;
+  injectedRef.current = injectedExtensions;
 
   useEffect(() => {
     const host = hostRef.current;
@@ -103,7 +109,7 @@ export function CodeView({
       EditorView.editable.of(!readOnly),
       kustosEditorTheme,
       languageCompartment.current.of([]),
-      injectedCompartment.current.of([]),
+      injectedCompartment.current.of(injectedRef.current ?? []),
       EditorView.updateListener.of((update) => {
         if (!update.docChanged) return;
         // 程序化回灌不算用户编辑：见 `externalSync` 的说明。
