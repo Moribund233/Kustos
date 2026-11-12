@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/kustos/kustos-desktop/internal/platform/noconsole"
 )
 
 // 默认参数。数字都来自设计文档 §7.3，改动前先看那里的理由。
@@ -422,6 +424,9 @@ func (s *session) start() error {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	cmd := s.pool.command(ctx, s.server, s.language.Args()...)
+	// 语言服务器都是控制台程序：桌面端是 GUI 子系统进程，不隐藏就会
+	// 每起一个会话闪一个黑框。
+	noconsole.Hide(cmd)
 	cmd.Dir = s.root
 
 	stdin, err := cmd.StdinPipe()

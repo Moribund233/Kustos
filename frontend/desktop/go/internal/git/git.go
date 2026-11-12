@@ -19,6 +19,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/kustos/kustos-desktop/internal/platform/noconsole"
 )
 
 // execTimeout 是单条 git 命令的上限。
@@ -100,6 +102,7 @@ func execGit(dir string, args ...string) (string, error) {
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
 	cmd.Env = gitEnv()
+	noconsole.Hide(cmd)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -635,6 +638,7 @@ func execGitNetwork(dir string, args ...string) (string, error) {
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
 	cmd.Env = gitEnv()
+	noconsole.Hide(cmd)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

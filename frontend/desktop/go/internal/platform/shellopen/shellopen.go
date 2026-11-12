@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/kustos/kustos-desktop/internal/platform/noconsole"
 )
 
 // ErrNotFound 表示目标路径不存在。调用方应把它与"打开失败"区分开：
@@ -67,6 +69,8 @@ func startEditor(cmdline, path string) error {
 	}
 	args := append(fields[1:], path)
 	cmd := exec.Command(fields[0], args...)
+	// 控制台程序（vim、nvim）在 GUI 里拉起时不能带控制台窗口。
+	noconsole.Hide(cmd)
 	// 断开与父进程的 stdio：终端编辑器（vim/nano）在 GUI 进程里
 	// 拿不到 TTY 会立即退出或行为异常。
 	cmd.Stdin = nil
@@ -94,6 +98,7 @@ func openWithDefaultApp(path string) error {
 		cmd = exec.Command("xdg-open", path)
 	}
 
+	noconsole.Hide(cmd)
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("打开失败: %w", err)
 	}
@@ -168,6 +173,7 @@ func Reveal(path string) error {
 		cmd = exec.Command("xdg-open", filepath.Dir(abs))
 	}
 
+	noconsole.Hide(cmd)
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("定位文件失败: %w", err)
 	}

@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+
+	"github.com/kustos/kustos-desktop/internal/platform/noconsole"
 )
 
 // 逐 hunk 暂存。
@@ -323,6 +325,7 @@ func applyPatch(dir, patch string, reverse bool) error {
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
 	cmd.Env = gitEnv()
+	noconsole.Hide(cmd)
 	cmd.Stdin = strings.NewReader(patch)
 
 	var stdout, stderr bytes.Buffer
