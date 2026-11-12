@@ -22,6 +22,18 @@ import {
 import { buildLayout, restoreLayout, tabName, type RestoredLayout } from "@/lib/code-layout";
 import type { CodeLayout } from "@/bindings/github.com/kustos/kustos-desktop/internal/services/models";
 import {
+  blameGutter,
+  createMarksSource,
+  cursorLineReporter,
+  diffGutter,
+  type BlameLabels,
+  type DiffMarkLabels,
+  type MutableMarksSource,
+} from "@/lib/diff-gutter";
+import type { BlameLine } from "@/bindings/github.com/kustos/kustos-desktop/internal/git/models";
+import { compareWithHead, type HeadDiff } from "@/lib/head-diff";
+import { relativeTime } from "@/lib/relative-time";
+import {
   sessionFor,
   useDetectedLanguage,
   useEnsureLSP,
@@ -32,7 +44,12 @@ import {
 } from "@/lib/lsp";
 import { useDocumentSymbols, useLSPClient, type FlatSymbol } from "@/lib/lsp-client";
 import { toFileUri } from "@/lib/lsp-uri";
-import { useWorkingCopies, type WorkingCopy } from "@/lib/working-copy";
+import {
+  useFileBlame,
+  useHeadText,
+  useWorkingCopies,
+  type WorkingCopy,
+} from "@/lib/working-copy";
 
 /**
  * Code 面：文件树 + 标签页 + 编辑器。
@@ -491,10 +508,68 @@ export function useCodeSurface() {
   const search = useFileSearch(workingCopyId, debouncedFilter, segment === "files");
   const changes = useChangedFiles(workingCopyId, segment === "changes");
 
+  /**
+   * 行标的基准：文件在 HEAD 里的原文。
+   *
+   * 只在有活动文件时取；拿不到（新文件、仓库还没提交）时 `exists` 为 false，
+   * 此时整个文件都算新增——这正是新文件该有的样子。
+   */
+  const headFile = useHeadText(workingCopyId, activePath);
+
+  /**
+   * blame 按需取：它不是每时每刻都要看的东西，默认关着。
+   *
+   * 开着时也只算一次（结果只随提交变化），但第一次跑 blame 在深历史上并不便宜，
+   * 所以不能默认打开。
+   */
+  const [blameOn, setBlameOn] = useState(false);
+  const blame = useFileBlame(workingCopyId, activePath, blameOn);
+
+  /** 光标所在行，由编辑器上报；blame 的「当前行是谁写的」跟着它走。 */
+  const [cursorLine, setCursorLine] = useState(1);
+
   const dirtyPaths = useMemo(
     () => new Set(Object.entries(buffers).filter(([, b]) => b.dirty).map(([p]) => p)),
     [buffers],
   );
+
+  /**
+   * 编辑器行标的数据。
+   *
+   * 以**缓冲区**（可能未保存）和 HEAD 原文在本地逐行对齐，而不是用 Go 侧给的
+   * diff 文本：用户一边打字，标记必须一边跟着走，diff 文本只在磁盘干净时对得上。
+   */
+  const headDiff = useMemo<HeadDiff | null>(() => {
+    if (headFile.data === undefined) return null;
+    // 二进制文件没有"行"这回事，塞进逐行对齐只会得到满屏标记。
+    if (headFile.data.binary) return null;
+    const text = activeBuffer?.text ?? normalizeEol(file.data?.content ?? "");
+    return compareWithHead(headFile.data.exists ? headFile.data.text : null, text);
+  }, [headFile.data, activeBuffer?.text, file.data?.content]);
+
+  // 数据源身份必须稳定：它是编辑器扩展的一部分，换了实例等于重配整个扩展。
+  const diffSource = useRef<MutableMarksSource<HeadDiff | null>>(createMarksSource<HeadDiff | null>(null));
+  const blameSource = useRef<MutableMarksSource<BlameLine[] | null>>(createMarksSource<BlameLine[] | null>(null));
+
+  useEffect(() => {
+    diffSource.current.set(headDiff);
+  }, [headDiff]);
+
+  useEffect(() => {
+    blameSource.current.set(blameOn ? (blame.data ?? null) : null);
+  }, [blameOn, blame.data]);
+
+  // 切换文件时光标行归零：上一份文件的行号对这份文件没有意义。
+  useEffect(() => {
+    setCursorLine(1);
+  }, [activePath]);
+
+  /** 当前行在 blame 结果里的那一条；没有 blame 或该行未提交时为 null。 */
+  const cursorBlame = useMemo(() => {
+    if (!blameOn) return null;
+    const line = (blame.data ?? []).find((b) => b.line === cursorLine);
+    return line ?? null;
+  }, [blameOn, blame.data, cursorLine]);
 
   return {
     copies: list,
@@ -574,6 +649,21 @@ export function useCodeSurface() {
       window.setTimeout(() => setReveal({ path: target, line }), 0);
     },
     revealTarget: reveal,
+
+    // 版本对照：diff 行标与 blame。
+    //
+    // 两者都挂在编辑器上，但数据源（`diffSource` / `blameSource`）在状态层持有：
+    // 编辑器只负责把行画出来，React 这边负责决定画什么。`null` 表示这一项关着、
+    // 或者还没算出来——两种情况下编辑器都只是不画，不需要各自的特例分支。
+    headDiff,
+    diffSource: diffSource.current,
+    blameOn,
+    toggleBlame: () => setBlameOn((on) => !on),
+    blameSource: blameSource.current,
+    /** 当前行的 blame 归属；没开 blame、文件不在历史里、或该行未提交时为 null。 */
+    cursorBlame,
+    /** 编辑器上报光标行；blame 的当前行说明靠它跟随。 */
+    setCursorLine,
   };
 }
 
@@ -928,6 +1018,50 @@ export function CodeDetail({ state }: { state: CodeState }) {
     return [state.lspClient.plugin(toFileUri(state.workspaceRoot, pendingPath), languageId)];
   }, [state.lspClient, state.workspaceRoot, pendingPath, state.detectedLanguage?.id]);
 
+  /**
+   * 行标与 blame 的文字。
+   *
+   * 这两个对象会进到扩展里，同样必须按引用稳定：每次渲染新建一份等于让
+   * CodeView 反复重配注入的扩展，光标都会被打断。
+   */
+  const diffLabels = useMemo<DiffMarkLabels>(
+    () => ({
+      added: t("code.diff.added"),
+      modified: t("code.diff.modified"),
+      removed: t("code.diff.removed"),
+    }),
+    [t],
+  );
+  const blameLabels = useMemo<BlameLabels>(
+    () => ({
+      uncommitted: t("code.blame.uncommitted"),
+      describe: (line: BlameLine) => {
+        // 未提交的行没有作者，说明文字也不能编一个出来。
+        if (line.commit === "") return t("code.blame.uncommittedHint");
+        const when = line.time > 0 ? relativeTime(new Date(line.time).toISOString(), t) : "";
+        const head = when === "" ? line.author : `${line.author} · ${when}`;
+        return line.summary === "" ? head : `${head}\n${line.summary}`;
+      },
+    }),
+    [t],
+  );
+
+  /**
+   * 渲染进编辑器的扩展：语言服务器 + 行标 + blame + 光标行上报。
+   *
+   * 数组按依赖重建，但**数组里的扩展实例本身是稳定的**（行标读的是状态层手里
+   * 那个不会变的 `diffSource`），所以重建只影响引用，不会让编辑器丢掉状态。
+   *
+   * blame 只在开关打开时才注入：gutter 只要挂上去就会占住自己的最小宽度，
+   * 关掉开关还留着一条空条，看起来像界面漏了一块。
+   */
+  const editorExtensions = useMemo(() => {
+    const list = [diffGutter(state.diffSource, diffLabels), cursorLineReporter((cursor) => state.setCursorLine(cursor.line))];
+    if (state.blameOn) list.push(blameGutter(state.blameSource, blameLabels));
+    if (lspExtensions) list.push(...lspExtensions);
+    return list;
+  }, [state.diffSource, state.blameSource, state.blameOn, state.setCursorLine, diffLabels, blameLabels, lspExtensions]);
+
   if (state.tabs.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
@@ -997,10 +1131,31 @@ export function CodeDetail({ state }: { state: CodeState }) {
         })}
       </div>
 
-      {/* ed-bar：面包屑 + 文档事实 + 保存。 */}
+      {/* ed-bar：面包屑 + 相对 HEAD 的增删 + 文档事实 + 保存。 */}
       <div className="flex h-[34px] shrink-0 items-center gap-2 border-b border-[var(--color-edge-1)] bg-[var(--color-ink-950)] px-2.5">
         <Breadcrumb path={path} />
-        <span className="ml-auto shrink-0 text-[10.5px] text-[var(--color-faint)]">
+        {/* 增删统计：与左侧行标同源（都是缓冲区对 HEAD 的结果），
+            扫一眼就知道这个文件改了多少，不用去看工作副本面。 */}
+        {state.headDiff != null && state.headDiff.added + state.headDiff.removed > 0 && (
+          <span className="shrink-0 font-mono text-[10.5px]">
+            <span className="text-[var(--color-sage)]">+{state.headDiff.added}</span>{" "}
+            <span className="text-[var(--color-rose)]">−{state.headDiff.removed}</span>
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={state.toggleBlame}
+          title={t("code.blame.toggleHint")}
+          className={[
+            "ml-auto h-[20px] shrink-0 rounded-[5px] border px-1.5 text-[10.5px]",
+            state.blameOn
+              ? "border-[var(--color-sky)] text-[var(--color-sky)]"
+              : "border-[var(--color-edge-2)] text-[var(--color-muted-2)] hover:text-[var(--color-bone-2)]",
+          ].join(" ")}
+        >
+          {t("code.blame.toggle")}
+        </button>
+        <span className="shrink-0 text-[10.5px] text-[var(--color-faint)]">
           {languageLabel(language, t)}
         </span>
         <span className="shrink-0 text-[10.5px] text-[var(--color-faint)]">
@@ -1078,6 +1233,34 @@ export function CodeDetail({ state }: { state: CodeState }) {
         </div>
       )}
 
+      {/* 当前行的归属：行标只能看到"这一行是谁"的缩写，完整的提交信息放在这里。
+          未提交的行也照样说明——它本来就没有作者可查，静默留白反而像没加载完。 */}
+      {state.blameOn && (
+        <div className="flex h-[24px] shrink-0 items-center gap-2 overflow-hidden border-b border-[var(--color-edge-1)] px-3 text-[10.5px]">
+          <Icon name="clock" size={11} className="shrink-0 text-[var(--color-faint)]" />
+          {state.cursorBlame == null ? (
+            <span className="truncate text-[var(--color-faint)]">{t("code.blame.noLine")}</span>
+          ) : state.cursorBlame.commit === "" ? (
+            <span className="truncate text-[var(--color-amber-3)] italic">
+              {t("code.blame.uncommittedHint")}
+            </span>
+          ) : (
+            <>
+              <span className="shrink-0 text-[var(--color-bone-2)]">{state.cursorBlame.author}</span>
+              <span className="shrink-0 font-mono text-[var(--color-faint)]">
+                {state.cursorBlame.commit.slice(0, 8)}
+              </span>
+              <span className="truncate text-[var(--color-muted-2)]">{state.cursorBlame.summary}</span>
+              {state.cursorBlame.time > 0 && (
+                <span className="ml-auto shrink-0 text-[var(--color-faint)]">
+                  {relativeTime(new Date(state.cursorBlame.time).toISOString(), t)}
+                </span>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
       <div className="min-h-0 flex-1 bg-[var(--color-ink-950)]">
         {state.file.isLoading && <Hint>{t("code.loadingFile")}</Hint>}
         {state.file.error != null && (
@@ -1094,7 +1277,7 @@ export function CodeDetail({ state }: { state: CodeState }) {
             readOnly={!editable}
             onChange={(value) => state.edit(path, value)}
             className="h-full overflow-auto"
-            extensions={lspExtensions}
+            extensions={editorExtensions}
             // 行号只在它属于当前文件时才生效：符号列表记的是它自己那份文件的行，
             // 切标签之后拿它去跳会落到别的文件上。
             revealLine={state.revealTarget?.path === path ? state.revealTarget.line : undefined}

@@ -284,6 +284,20 @@ const en = {
       placeholder: "Type a file name or path…",
       hint: "Matches on path fragments; ↑↓ to move, ↵ to open.",
     },
+    // A 4px colour bar cannot say which kind of change it is on its own;
+    // the wording lives in the hover title that translates colour into words.
+    diff: {
+      added: "Line added relative to HEAD",
+      modified: "Line changed relative to HEAD",
+      removed: "Lines removed relative to HEAD (marked at the deletion point)",
+    },
+    blame: {
+      toggle: "Blame",
+      toggleHint: "Show who last touched each line, and when",
+      uncommitted: "uncommitted",
+      uncommittedHint: "This line has no commit yet",
+      noLine: "No blame for the cursor line",
+    },
     // The language server's states each need their own line: "not ready" alone
     // leaves the user unable to tell "install it" from "approve it".
     lsp: {
@@ -314,7 +328,7 @@ const en = {
       lines: "Lines",
       sectionNext: "Next",
       nextHint:
-        "Completion, hover, go to definition, rename and diagnostics come from the local language server once you allow the repository. Line-level diff, blame and collaborative editing are still ahead.",
+        "Completion, hover, go to definition, rename and diagnostics come from the local language server once you allow the repository. The gutter marks lines added, changed and removed relative to HEAD, and Blame in the toolbar shows who last touched each line.",
     },
   },
 

@@ -19,6 +19,8 @@ export const workingCopyKeys = {
   status: (id: string) => ["working-copy", id, "status"] as const,
   diff: (id: string, path: string, staged: boolean) =>
     ["working-copy", id, "diff", path, staged] as const,
+  headText: (id: string, path: string) => ["working-copy", id, "head-text", path] as const,
+  blame: (id: string, path: string) => ["working-copy", id, "blame", path] as const,
   branches: (id: string) => ["working-copy", id, "branches"] as const,
 };
 
@@ -52,6 +54,37 @@ export function useFileDiff(id: string | null, path: string | null, staged: bool
     queryFn: async () => WorkingCopyService.FileDiff(id as string, path as string, staged),
     enabled: Boolean(id && path),
     staleTime: 10_000,
+  });
+}
+
+/**
+ * 文件在 HEAD 里的原文。
+ *
+ * 行标要在本地和**编辑器缓冲区**逐行对齐，所以需要的是原文而不是 diff 文本。
+ * 磁盘上的文件随时可能被外部工具改动，但 HEAD 版本只随提交变化，缓存可以放长。
+ */
+export function useHeadText(id: string | null, path: string | null, enabled = true) {
+  return useQuery({
+    queryKey: workingCopyKeys.headText(id ?? "", path ?? ""),
+    queryFn: async () => WorkingCopyService.HeadText(id as string, path as string),
+    enabled: enabled && Boolean(id && path),
+    // HEAD 版本只在提交/切换分支后变化，长时间缓存不会显示过期内容。
+    staleTime: 60_000,
+  });
+}
+
+/**
+ * 文件的逐行归属。
+ *
+ * blame 只读本地对象库，断网也能用；它同样只在提交后变化，缓存放长。
+ * 文件不在 HEAD 里时 Go 侧返回空列表（不是错误），因此没有 error 分支要处理。
+ */
+export function useFileBlame(id: string | null, path: string | null, enabled = true) {
+  return useQuery({
+    queryKey: workingCopyKeys.blame(id ?? "", path ?? ""),
+    queryFn: async () => (await WorkingCopyService.FileBlame(id as string, path as string)) ?? [],
+    enabled: enabled && Boolean(id && path),
+    staleTime: 60_000,
   });
 }
 
@@ -143,6 +176,10 @@ export function useCommit(id: string | null) {
       void qc.invalidateQueries({ queryKey: workingCopyKeys.status(id ?? "") });
       void qc.invalidateQueries({ queryKey: workingCopyKeys.list });
       void qc.invalidateQueries({ queryKey: ["working-copy", id ?? "", "diff"] });
+      // 提交会移动 HEAD：行标的基准与 blame 的归属都跟着变，这两份缓存必须作废。
+      // 按前缀作废整组（键的最后一段是文件路径，逐个拼不出来）。
+      void qc.invalidateQueries({ queryKey: ["working-copy", id ?? "", "head-text"] });
+      void qc.invalidateQueries({ queryKey: ["working-copy", id ?? "", "blame"] });
     },
   });
 }
