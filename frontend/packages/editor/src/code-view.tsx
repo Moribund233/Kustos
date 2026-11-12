@@ -52,6 +52,16 @@ export interface CodeViewProps {
    * 每次渲染新建一个数组会让下面的 effect 反复重配扩展。
    */
   extensions?: readonly Extension[];
+  /**
+   * 是否把 `content` 当作唯一真相同步进编辑器（默认 true）。
+   *
+   * 协作模式下文档的真相在共享 CRDT 里：本地缓冲每次键入都会先写进 Y.Text，
+   * 再以"外部更新"的形式回来。此时若仍按 `content` 覆盖，两份真相会互相打架
+   * ——要么覆盖掉刚从远端合进来的内容，要么把本地输入重复写一遍。
+   *
+   * 关掉之后 `content` 只是**初始挂载**的内容，之后由注入的扩展自己维护文档。
+   */
+  syncContent?: boolean;
 }
 
 /**
@@ -72,6 +82,7 @@ export function CodeView({
   onChange,
   revealLine,
   extensions: injectedExtensions,
+  syncContent = true,
 }: CodeViewProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -170,6 +181,7 @@ export function CodeView({
 
   // 外部内容变化时同步。
   useEffect(() => {
+    if (!syncContent) return;
     const view = viewRef.current;
     if (!view) return;
     // CodeMirror 的文档只存 `\n`，而磁盘上可能是 CRLF。不归一就直接比较，
@@ -185,7 +197,7 @@ export function CodeView({
       changes: { from: 0, to: current.length, insert: wanted },
       annotations: externalSync.of(true),
     });
-  }, [content]);
+  }, [content, syncContent]);
 
   // 注入的扩展变化时重配（不重建编辑器，否则会丢滚动位置与选区）。
   //

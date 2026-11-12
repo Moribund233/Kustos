@@ -258,7 +258,8 @@ function MainShell({
   const { t } = useTranslation();
   const inbox = useInbox();
   const wc = useWorkingCopySurface();
-  const code = useCodeSurface();
+  // 用户名只用于协作感知层的光标标签：网关会用令牌里的身份再盖一次章。
+  const code = useCodeSurface(creds?.username ?? "");
 
   // 系统通知：只在用户显式点开关时才申请授权。启动就弹授权请求时，
   // 用户还不知道会收到什么，拒绝一次之后系统就很难再让他改回来。
@@ -293,9 +294,8 @@ function MainShell({
   // 命令面板的动作组。
   //
   // 只组装**当下真的能执行**的动作：七个 surface 的跳转，以及工作副本与
-  // 当前文件存在时的两个本地动作。协作类动作（加入实时会话、只读观察、
-  // 复制行链接）依赖尚未实现的协作能力，不在此列出——留一个点了没反应的
-  // 条目比没有这个入口更糟。
+  // 当前文件存在时的几个本地动作。复制行链接依赖服务端链接接口，不在此列出
+  // ——留一个点了没反应的条目比没有这个入口更糟。
   //
   // 前提不满足时整组不出现，而不是渲染成禁用态：命令面板是"我能做什么"的
   // 清单，塞满灰掉的条目会让它变成一份功能目录。
@@ -340,12 +340,35 @@ function MainShell({
         },
       });
     }
+    // 协作只有两种动作值得进面板：进入（要过预检）与退出。
+    // "保存草稿"不在此列——它属于 ⌘S，面板里再放一份只会让人以为有两条路。
+    if (activeCopy && code.activePath && code.collabReady && code.mode === "disk") {
+      local.push({
+        id: "local-collab-enter",
+        group: "local",
+        label: t("palette.startCollab"),
+        icon: "users",
+        run: () => {
+          onSelect("code");
+          code.beginCollab();
+        },
+      });
+    }
+    if (code.mode !== "disk") {
+      local.push({
+        id: "local-collab-leave",
+        group: "local",
+        label: t("palette.leaveCollab"),
+        icon: "users",
+        run: () => code.leaveCollab(),
+      });
+    }
     if (local.length > 0) {
       groups.push({ key: "local", label: t("palette.groupLocal"), actions: local });
     }
 
     return groups;
-  }, [t, onSelect, wc.active, code.activePath]);
+  }, [t, onSelect, wc.active, code.activePath, code.collabReady, code.mode, code.beginCollab, code.leaveCollab]);
 
   // 收件箱与工作副本已接真实数据；其余面保持骨架。
   if (surface === "inbox") {

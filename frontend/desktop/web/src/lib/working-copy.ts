@@ -21,6 +21,7 @@ export const workingCopyKeys = {
     ["working-copy", id, "diff", path, staged] as const,
   headText: (id: string, path: string) => ["working-copy", id, "head-text", path] as const,
   blame: (id: string, path: string) => ["working-copy", id, "blame", path] as const,
+  draftAhead: (id: string, branch: string) => ["working-copy", id, "draft-ahead", branch] as const,
   branches: (id: string) => ["working-copy", id, "branches"] as const,
 };
 
@@ -85,6 +86,24 @@ export function useFileBlame(id: string | null, path: string | null, enabled = t
     queryFn: async () => (await WorkingCopyService.FileBlame(id as string, path as string)) ?? [],
     enabled: enabled && Boolean(id && path),
     staleTime: 60_000,
+  });
+}
+
+/**
+ * 协作草稿相对本地分支领先几次保存。
+ *
+ * 进入协作前的第三步预检：在线可能已经有别人没发布的保存，界面要提示
+ * "有 N 次未发布的在线保存"，而不是静默地把本地的旧内容当基准。
+ *
+ * 只比较本地已有的引用，不 fetch：预检不该在用户改到一半时动网络。
+ */
+export function useDraftAhead(id: string | null, branch: string | null, enabled = true) {
+  return useQuery({
+    queryKey: workingCopyKeys.draftAhead(id ?? "", branch ?? ""),
+    queryFn: async () => (await WorkingCopyService.DraftAhead(id as string, branch as string)) ?? 0,
+    enabled: enabled && Boolean(id && branch),
+    // 草稿只在别的客户端显式保存时前进，缓存放短一点就够。
+    staleTime: 15_000,
   });
 }
 

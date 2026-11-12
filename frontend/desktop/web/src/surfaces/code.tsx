@@ -46,10 +46,35 @@ import { useDocumentSymbols, useLSPClient, type FlatSymbol } from "@/lib/lsp-cli
 import { toFileUri } from "@/lib/lsp-uri";
 import {
   useFileBlame,
+  useDraftAhead,
   useHeadText,
+  useCommit,
+  useStage,
   useWorkingCopies,
+  useWorkingCopyStatus,
   type WorkingCopy,
 } from "@/lib/working-copy";
+import {
+  collabDocumentKey,
+  collabDraftBranch,
+  collabEditorExtension,
+  collabPeerCount,
+  createCollabSession,
+  saveCollabDocument,
+  type CollabSession,
+  type CollabStatus,
+} from "@/lib/collab";
+import { activePathCounts, connectionsFor, useActiveCollabDocs } from "@/lib/collab-active";
+import {
+  isWritable,
+  precheck,
+  saveSemantics,
+  transition,
+  type DocMode,
+  type PrecheckResolution,
+  type PrecheckResult,
+} from "@/lib/doc-mode";
+import { matchRepository, useRepositories, useWorkingCopySlug } from "@/lib/repos";
 
 /**
  * Code 面：文件树 + 标签页 + 编辑器。
@@ -104,8 +129,27 @@ function sameText(a: string, b: string): boolean {
   return normalizeEol(a) === normalizeEol(b);
 }
 
-/** 汇总 Code 面的状态；由外层装配进 Shell。 */
-export function useCodeSurface() {
+/**
+ * 网关广播的保存回执。
+ *
+ * 保存是异步落 Git 的，界面只能等这条广播才知道有没有真的存下来；
+ * `commit_id` 为空表示内容与草稿分支一致，没有产生新提交。
+ */
+interface CollabSavedPayload {
+  type?: string;
+  docKey?: string;
+  commit_id?: string;
+  version?: number;
+}
+
+/**
+ * 汇总 Code 面的状态；由外层装配进 Shell。
+ *
+ * userName 只用于协作感知层的光标标签：网关会用令牌里的身份盖章，
+ * 这里传的只是本地显示名。
+ */
+export function useCodeSurface(userName = "") {
+  const { t } = useTranslation();
   const copies = useWorkingCopies();
   const list = copies.data ?? [];
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -571,6 +615,255 @@ export function useCodeSurface() {
     return line ?? null;
   }, [blameOn, blame.data, cursorLine]);
 
+  /* ---------------------------------------------------------------- */
+  /* 协作                                                              */
+  /* ---------------------------------------------------------------- */
+
+  // 工作副本的远端决定它对得上哪个服务端仓库；对不上就没有可开的协作文档。
+  const remoteSlug = useWorkingCopySlug(workingCopyId);
+  const repoList = useRepositories();
+  const repo = useMemo(
+    () => matchRepository(repoList.data ?? [], remoteSlug.data ?? null).matched,
+    [repoList.data, remoteSlug.data],
+  );
+
+  const copyStatus = useWorkingCopyStatus(workingCopyId);
+  const localBranch = copyStatus.data?.branch ?? active?.branch ?? "";
+
+  /**
+   * 协作文档挂在**仓库默认分支**上，而不是本地当前分支。
+   *
+   * 共享编辑发生在大家共同的那条线上：本地停在自己的功能分支时，
+   * 预检第一步就该要求先对齐，而不是悄悄在你的分支上开一份只有自己能看到的文档。
+   */
+  const collabBranch = repo?.defaultBranch ?? localBranch;
+  const draftAhead = useDraftAhead(workingCopyId, collabBranch);
+  const activeDocs = useActiveCollabDocs(repo?.id ?? null);
+
+  const [mode, setMode] = useState<DocMode>("disk");
+  const [collab, setCollab] = useState<CollabSession | null>(null);
+  const [collabStatus, setCollabStatus] = useState<CollabStatus | null>(null);
+  const [collabError, setCollabError] = useState<string | null>(null);
+  const [collabSaving, setCollabSaving] = useState(false);
+  const [collabSaved, setCollabSaved] = useState<string | null>(null);
+  const [peers, setPeers] = useState(0);
+  const [precheckResult, setPrecheckResult] = useState<PrecheckResult | null>(null);
+  const [precheckBusy, setPrecheckBusy] = useState(false);
+  const [precheckError, setPrecheckError] = useState<string | null>(null);
+  const [commitMessage, setCommitMessage] = useState("");
+  // 预检选了"先写盘"：保存是异步落地的，得等缓冲区不再脏再重新判定，
+  // 否则紧接着调预检读到的还是旧的 dirty，对话框会原地再弹一次。
+  const [pendingJoin, setPendingJoin] = useState(false);
+
+  const stage = useStage(workingCopyId);
+  const commit = useCommit(workingCopyId);
+  // 预检的"本地有改动"要的是全量变更，与文件树用的那份共用缓存。
+  const pendingChanges = useChangedFiles(workingCopyId, true);
+
+  const collabKey = repo && activePath ? collabDocumentKey(repo.id, collabBranch, activePath) : "";
+
+  /** 同一分支下每个路径有多少人在编辑；文件树的 live 圆点用它。 */
+  const livePaths = useMemo(
+    () => activePathCounts(activeDocs.data?.documents ?? [], collabBranch),
+    [activeDocs.data, collabBranch],
+  );
+
+  const collabEnabled = mode !== "disk" && collabKey !== "";
+
+  /**
+   * 会话的生命周期由这一段独占。
+   *
+   * `mode` 决定"要不要连"，`collabKey` 决定"连哪一份"：进入协作只要把 mode
+   * 从 disk 换掉，换文件则因键变化自动重连，退出时 cleanup 负责销毁。
+   */
+  useEffect(() => {
+    if (!collabEnabled) return;
+    setCollabStatus("connecting");
+    setCollabError(null);
+    const session = createCollabSession({
+      documentName: collabKey,
+      username: userName,
+      onStatus: (status) => setCollabStatus(status),
+    });
+    setCollab(session);
+    return () => {
+      session.destroy();
+      setCollab(null);
+      setCollabStatus(null);
+      setCollabSaved(null);
+      setPeers(0);
+    };
+  }, [collabEnabled, collabKey, userName]);
+
+  // 在线人数（含自己）：感知层不可用时显示 0，而不是假装"1 人"。
+  useEffect(() => {
+    const awareness = collab?.provider.awareness;
+    if (!awareness) return;
+    const update = () => setPeers(collabPeerCount(awareness));
+    update();
+    awareness.on("change", update);
+    return () => {
+      awareness.off("change", update);
+    };
+  }, [collab]);
+
+  /**
+   * 共享文本的当前快照。
+   *
+   * 直接读 Y.Text，不缓存：编辑器挂载那一刻要拿到的正是"此刻"的共享文本。
+   * yCollab 的同步插件不会用 Y.Text 初始化 CodeMirror，也不会把 CodeMirror
+   * 写进 Y.Text——它只转达之后发生的变化。所以文档对不上的话，两份真相会各写各的，
+   * 编辑器里的磁盘内容会被当成"本地新增"整段插进共享文本。挂载时对齐，之后才安全。
+   */
+  const collabText = useCallback(() => collab?.text.toString() ?? "", [collab]);
+
+  // 网关的保存回执：只有真落了草稿提交，界面才敢说"已保存"。
+  useEffect(() => {
+    const provider = collab?.provider;
+    if (!provider) return;
+    const onStateless = (data: { payload?: string }) => {
+      let message: CollabSavedPayload | null = null;
+      try {
+        message = JSON.parse(data.payload ?? "") as CollabSavedPayload;
+      } catch {
+        return;
+      }
+      if (message?.type !== "collab-saved" || message.docKey !== collabKey) return;
+      setCollabSaving(false);
+      setCollabSaved(message.commit_id ?? "");
+    };
+    provider.on("stateless", onStateless);
+    return () => {
+      provider.off("stateless", onStateless);
+    };
+  }, [collab, collabKey]);
+
+  /** 进入协作：先跑四步预检，有问题摊开让用户决定，能过就直接连。 */
+  const beginCollab = useCallback(() => {
+    const result = precheck({
+      localBranch,
+      docBranch: collabBranch,
+      changed: (pendingChanges.data ?? []).length > 0,
+      // 缓冲区里没写盘的字 git 看不见，进协作会被共享文本顶掉，也算阻塞。
+      unsaved: activeBuffer?.dirty ?? false,
+      draftAhead: draftAhead.data ?? 0,
+      peers: connectionsFor(activeDocs.data?.documents ?? [], collabKey),
+      peersKnown: !(activeDocs.data?.degraded ?? false),
+    });
+    setPrecheckError(null);
+    setCommitMessage(t("code.collab.defaultCommit", { path: activePath ?? "" }));
+    // 四步都过就直接连：把"预检通过"也做成一个要点的对话框，只会让人以为有件事没做完。
+    if (result.action === "blocked") {
+      setPrecheckResult(result);
+      return;
+    }
+    setPrecheckResult(null);
+    setMode(transition("disk", "enter"));
+  }, [
+    activeBuffer?.dirty,
+    activeDocs.data,
+    activePath,
+    pendingChanges.data,
+    collabBranch,
+    collabKey,
+    draftAhead.data,
+    localBranch,
+    t,
+  ]);
+
+  /** 只读观察：连上、能看到别人改什么，但一个字也写不出去。 */
+  const observeCollab = useCallback(() => {
+    setPrecheckError(null);
+    setMode("observe");
+  }, []);
+
+  /** 退出协作：live 的内容写回缓冲区标脏，由用户决定要不要落盘。 */
+  const leaveCollab = useCallback(() => {
+    const text = collab?.text.toString() ?? "";
+    if (activePath && text !== "") {
+      const saved = buffers[activePath]?.saved ?? "";
+      // 改回原样就别标脏：退出协作不该把"没改动"的文件变成"待提交"。
+      if (!sameText(text, saved)) edit(activePath, normalizeEol(text));
+    }
+    setMode(transition(mode, "leave"));
+    setCollabSaved(null);
+    setPrecheckResult(null);
+  }, [activePath, buffers, collab, edit, mode]);
+
+  /** 协作模式下的保存：存成草稿分支的一次提交，不碰工作树。 */
+  const saveCollab = useCallback(() => {
+    if (!collab || !activePath) return;
+    if (collabStatus !== "connected") {
+      // 断开时说"已保存"就是骗人：网关根本没收到这条请求。
+      setCollabError(t("code.collab.notConnected"));
+      return;
+    }
+    setCollabError(null);
+    setCollabSaving(true);
+    setCollabSaved(null);
+    saveCollabDocument(collab.provider, t("code.collab.saveMessage", { path: activePath }));
+  }, [activePath, collab, collabStatus, t]);
+
+  /** 预检对话框里选定的处置。只做当下真能执行的几种。 */
+  const resolvePrecheck = useCallback(
+    async (resolution: PrecheckResolution) => {
+      if (resolution === "observe") {
+        observeCollab();
+        return;
+      }
+      if (resolution === "save") {
+        setPrecheckBusy(true);
+        setPrecheckError(null);
+        try {
+          setPendingJoin(true);
+          setPrecheckResult(null);
+          // 缓冲区的内容只有写进磁盘，git 才看得见、提交才带得走。
+          await saveActive();
+        } catch (err) {
+          setPendingJoin(false);
+          setPrecheckError(err instanceof Error ? err.message : String(err));
+        } finally {
+          setPrecheckBusy(false);
+        }
+        return;
+      }
+      if (resolution !== "commit") return;
+
+      const paths = (pendingChanges.data ?? []).map((c) => c.path);
+      if (!workingCopyId || paths.length === 0) return;
+      setPrecheckBusy(true);
+      setPrecheckError(null);
+      try {
+        // 先全部暂存再提交：预检说的是"把本地改动收进提交"，
+        // 不替用户挑选文件——挑哪些文件是他的决定，不是这一屏的。
+        await stage.mutateAsync({ paths, staged: true });
+        await commit.mutateAsync({ message: commitMessage.trim(), amend: false });
+        setPrecheckResult(null);
+        setMode(transition("disk", "enter"));
+      } catch (err) {
+        setPrecheckError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setPrecheckBusy(false);
+      }
+    },
+    [pendingChanges.data, beginCollab, commit, commitMessage, observeCollab, saveActive, stage, workingCopyId],
+  );
+
+  const closePrecheck = useCallback(() => {
+    setPrecheckResult(null);
+    setPrecheckError(null);
+    setPendingJoin(false);
+  }, []);
+
+  // 写盘落地之后再进：缓冲区干净了才重新判预检，脏着判定只会原地弹回同一个对话框。
+  useEffect(() => {
+    if (!pendingJoin) return;
+    if (activeBuffer?.dirty) return;
+    setPendingJoin(false);
+    if (conflict !== null) return;
+    beginCollab();
+  }, [pendingJoin, activeBuffer?.dirty, conflict, beginCollab]);
+
   return {
     copies: list,
     active,
@@ -668,6 +961,42 @@ export function useCodeSurface() {
     cursorBlame,
     /** 编辑器上报光标行；blame 的当前行说明靠它跟随。 */
     setCursorLine,
+
+    // 协作：模式、会话与预检。
+    //
+    // 模式是这三个状态里唯一由用户直接决定的东西（进入/退出）；其余都是它的
+    // 派生结果——会话按文档键自动挂载销毁，保存语义由 `saveSemantics` 给出。
+    mode,
+    beginCollab,
+    observeCollab,
+    leaveCollab,
+    saveCollab,
+    collab,
+    collabStatus,
+    collabError,
+    collabSaving,
+    collabSaved,
+    peers,
+    /** 当前共享文本的快照，编辑器挂载与重建实例时用它对齐。 */
+    collabText,
+    /** 同一分支下各路径的在线人数，供文件树画 live 圆点。 */
+    livePaths,
+    /** 协作文档挂的分支（仓库默认分支）与它的草稿分支名。 */
+    collabBranch,
+    collabDraftBranch: collabDraftBranch(collabBranch),
+    /** 草稿分支比本地领先多少次未发布的保存。 */
+    draftAhead: draftAhead.data ?? 0,
+    collabReady: Boolean(repo) && activePath != null,
+    precheck: precheckResult,
+    precheckBusy,
+    precheckError,
+    commitMessage,
+    setCommitMessage,
+    resolvePrecheck,
+    closePrecheck,
+    /** ⌘S 的语义：由模式决定写盘、存草稿，还是什么都不写。 */
+    saveMode: saveSemantics(mode),
+    writable: mode === "disk" ? true : isWritable(mode),
   };
 }
 
@@ -762,7 +1091,11 @@ export function CodeTree({ state }: { state: CodeState }) {
       <div className="shrink-0 border-t border-[var(--color-edge-1)] px-3 py-1.5 text-[10px] text-[var(--color-faint)]">
         {state.active && !state.trusted
           ? t("code.untrustedHint")
-          : t("code.readOnlyHint")}
+          : state.mode === "live"
+            ? t("code.collab.saveHint")
+            : state.mode === "observe"
+              ? t("code.collab.observeHint")
+              : t("code.readOnlyHint")}
       </div>
     </section>
   );
@@ -965,6 +1298,15 @@ function TreeLevel({
                 <Icon name="file" size={13} className="shrink-0 text-[var(--color-faint)]" />
               )}
               <span className="truncate">{node.name}</span>
+              {/* 有人正在这个文件上编辑：文件树里必须看得见，否则会两个人
+                  闷头改同一份文件，直到保存时才发现对方也在。 */}
+              {!node.isDir && (state.livePaths.get(node.path) ?? 0) > 0 && (
+                <span
+                  aria-label={t("code.collab.liveDot", { count: state.livePaths.get(node.path) ?? 0 })}
+                  title={t("code.collab.liveDot", { count: state.livePaths.get(node.path) ?? 0 })}
+                  className="ml-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-sage)]"
+                />
+              )}
               {node.status !== "" && (
                 <span className="ml-auto shrink-0 pr-2.5 font-mono text-[9.5px] text-[var(--color-amber)]">
                   {node.status}
@@ -995,14 +1337,26 @@ export function CodeDetail({ state }: { state: CodeState }) {
 
   // 未信任的工作区退回只读（§7.6）：语言服务器会执行这里的项目代码，
   // 在用户点头之前，连"改这个文件"也不该顺手发生——读得到就够判断要不要信。
-  const editable = state.trusted;
+  //
+  // 协作的"观察"态同样只读：此时文档真相在别人的 Y.Doc 里，能看不能写。
+  const editable = state.trusted && state.writable;
+  // 文档真相在哪：disk 在磁盘缓冲区，live/observe 在共享文本里。
+  const live = state.mode !== "disk";
 
   // ⌘S / Ctrl+S 保存。必须显式接管：WebView 的默认行为是弹"另存为"。
+  //
+  // 按下去做什么由模式决定：本地模式写盘，协作模式存草稿分支，观察模式什么也不做。
+  // 同一条快捷键在两种模式下含义不同，所以徽标必须一直看得见。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() !== "s") return;
       if (!(e.metaKey || e.ctrlKey)) return;
       e.preventDefault();
+      if (state.saveMode === "draft") {
+        state.saveCollab();
+        return;
+      }
+      if (state.saveMode === "none") return;
       if (!editable) return;
       void state.saveActive();
     };
@@ -1060,11 +1414,29 @@ export function CodeDetail({ state }: { state: CodeState }) {
    * 关掉开关还留着一条空条，看起来像界面漏了一块。
    */
   const editorExtensions = useMemo(() => {
-    const list = [diffGutter(state.diffSource, diffLabels), cursorLineReporter((cursor) => state.setCursorLine(cursor.line))];
-    if (state.blameOn) list.push(blameGutter(state.blameSource, blameLabels));
+    const list = [cursorLineReporter((cursor) => state.setCursorLine(cursor.line))];
+    // 行标与 blame 都是"本地文件对 HEAD"的读数：协作时文档真相在共享文本里，
+    // 磁盘上那份是旧的，照着它画出来的标记会指着错误的位置，所以只在本地模式挂。
+    if (state.mode === "disk") {
+      list.push(diffGutter(state.diffSource, diffLabels));
+      if (state.blameOn) list.push(blameGutter(state.blameSource, blameLabels));
+    }
+    // 协作的共享文本与远端光标只在会话活着时挂：会话一销毁，插件也得跟着走，
+    // 否则编辑器会继续往一个已经没人同步的 Y.Text 里写。
+    if (state.mode !== "disk" && state.collab) list.push(collabEditorExtension(state.collab));
     if (lspExtensions) list.push(...lspExtensions);
     return list;
-  }, [state.diffSource, state.blameSource, state.blameOn, state.setCursorLine, diffLabels, blameLabels, lspExtensions]);
+  }, [
+    state.diffSource,
+    state.blameSource,
+    state.blameOn,
+    state.setCursorLine,
+    state.mode,
+    state.collab,
+    diffLabels,
+    blameLabels,
+    lspExtensions,
+  ]);
 
   if (state.tabs.length === 0) {
     return (
@@ -1084,7 +1456,9 @@ export function CodeDetail({ state }: { state: CodeState }) {
   // 磁盘内容带的可能是 CRLF，先归一成 `\n` 才知道"改没改"。
   const content = buffer?.text ?? normalizeEol(state.file.data?.content ?? "");
   const dirty = buffer?.dirty ?? false;
-  const lines = content === "" ? [] : content.split("\n");
+  // 行数跟着文档真相走：协作时缓冲区是旧的，报磁盘那份行数会跟屏幕上差几十行。
+  const shown = live ? state.collabText() : content;
+  const lines = shown === "" ? [] : shown.split("\n");
   // 文件末尾的换行会产生一个空行，界面上多一个空行号没有意义。
   if (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
 
@@ -1140,49 +1514,126 @@ export function CodeDetail({ state }: { state: CodeState }) {
         <Breadcrumb path={path} />
         {/* 增删统计：与左侧行标同源（都是缓冲区对 HEAD 的结果），
             扫一眼就知道这个文件改了多少，不用去看工作副本面。 */}
-        {state.headDiff != null && state.headDiff.added + state.headDiff.removed > 0 && (
+        {state.mode === "disk" &&
+          state.headDiff != null &&
+          state.headDiff.added + state.headDiff.removed > 0 && (
           <span className="shrink-0 font-mono text-[10.5px]">
             <span className="text-[var(--color-sage)]">+{state.headDiff.added}</span>{" "}
             <span className="text-[var(--color-rose)]">−{state.headDiff.removed}</span>
           </span>
         )}
-        <button
-          type="button"
-          onClick={state.toggleBlame}
-          title={t("code.blame.toggleHint")}
-          className={[
-            "ml-auto h-[20px] shrink-0 rounded-[5px] border px-1.5 text-[10.5px]",
-            state.blameOn
-              ? "border-[var(--color-sky)] text-[var(--color-sky)]"
-              : "border-[var(--color-edge-2)] text-[var(--color-muted-2)] hover:text-[var(--color-bone-2)]",
-          ].join(" ")}
-        >
-          {t("code.blame.toggle")}
-        </button>
+        {/* 模式与协作开关：⌘S 在两种模式下含义不同（写盘 / 存草稿），
+            所以"现在是什么模式"必须一直看得见，不能藏在菜单里。 */}
+        {state.mode === "disk" ? (
+          <button
+            type="button"
+            onClick={state.beginCollab}
+            disabled={!state.trusted || !state.collabReady}
+            title={
+              !state.trusted
+                ? t("code.untrustedHint")
+                : !state.collabReady
+                  ? t("code.collab.noRepository")
+                  : t("code.collab.enterHint")
+            }
+            className={[
+              "ml-auto h-[20px] shrink-0 rounded-[5px] border px-1.5 text-[10.5px]",
+              state.trusted && state.collabReady
+                ? "border-[var(--color-edge-2)] text-[var(--color-muted-2)] hover:text-[var(--color-bone-2)]"
+                : "border-[var(--color-edge-1)] text-[var(--color-faint)] opacity-50",
+            ].join(" ")}
+          >
+            {t("code.collab.enter")}
+          </button>
+        ) : (
+          <span className="ml-auto flex h-[20px] shrink-0 items-center gap-1.5 rounded-[5px] border border-[var(--color-sky)] px-1.5 text-[10.5px] text-[var(--color-sky)]">
+            <span
+              aria-hidden
+              className={[
+                "h-1.5 w-1.5 rounded-full",
+                state.mode === "observe"
+                  ? "bg-[var(--color-muted-2)]"
+                  : state.collabStatus === "connected"
+                    ? "bg-[var(--color-sage)]"
+                    : "bg-[var(--color-amber)]",
+              ].join(" ")}
+            />
+            {state.mode === "observe" ? t("code.collab.observing") : t("code.collab.live")}
+            {state.mode === "live" && state.peers > 0 && (
+              <span className="text-[var(--color-muted-2)]">{t("code.collab.peers", { count: state.peers })}</span>
+            )}
+            <button type="button" onClick={state.leaveCollab} className="text-[var(--color-muted-2)] hover:text-[var(--color-bone-2)]">
+              {t("code.collab.leave")}
+            </button>
+          </span>
+        )}
+        {state.mode === "disk" && (
+          <button
+            type="button"
+            onClick={state.toggleBlame}
+            title={t("code.blame.toggleHint")}
+            className={[
+              "h-[20px] shrink-0 rounded-[5px] border px-1.5 text-[10.5px]",
+              state.blameOn
+                ? "border-[var(--color-sky)] text-[var(--color-sky)]"
+                : "border-[var(--color-edge-2)] text-[var(--color-muted-2)] hover:text-[var(--color-bone-2)]",
+            ].join(" ")}
+          >
+            {t("code.blame.toggle")}
+          </button>
+        )}
         <span className="shrink-0 text-[10.5px] text-[var(--color-faint)]">
           {languageLabel(language, t)}
         </span>
         <span className="shrink-0 text-[10.5px] text-[var(--color-faint)]">
           {t("code.lineCount", { count: lines.length })}
         </span>
-        <button
-          type="button"
-          onClick={() => void state.saveActive()}
-          // 没有改动时禁用：一个永远可点但没有效果的按钮会让人怀疑保存没生效。
-          disabled={!editable || !dirty || state.saving}
-          title={
-            !editable ? t("code.untrustedHint") : dirty ? t("code.saveHint") : t("code.noChangesToSave")
-          }
-          className={[
-            "h-[22px] shrink-0 rounded-[7px] border px-2 text-[10.5px]",
-            dirty && editable
-              ? "border-[var(--color-amber)] text-[var(--color-amber)] hover:bg-[rgba(232,163,58,0.12)]"
-              : "border-[var(--color-edge-2)] text-[var(--color-bone-2)] opacity-40",
-          ].join(" ")}
-        >
-          {state.saving ? t("code.saving") : t("code.save")}
-        </button>
+        {state.mode === "disk" ? (
+          <button
+            type="button"
+            onClick={() => void state.saveActive()}
+            // 没有改动时禁用：一个永远可点但没有效果的按钮会让人怀疑保存没生效。
+            disabled={!editable || !dirty || state.saving}
+            title={
+              !editable ? t("code.untrustedHint") : dirty ? t("code.saveHint") : t("code.noChangesToSave")
+            }
+            className={[
+              "h-[22px] shrink-0 rounded-[7px] border px-2 text-[10.5px]",
+              dirty && editable
+                ? "border-[var(--color-amber)] text-[var(--color-amber)] hover:bg-[rgba(232,163,58,0.12)]"
+                : "border-[var(--color-edge-2)] text-[var(--color-bone-2)] opacity-40",
+            ].join(" ")}
+          >
+            {state.saving ? t("code.saving") : t("code.save")}
+          </button>
+        ) : (
+          // 协作模式的保存是"存成草稿提交"：它不改工作树，所以也不看 dirty。
+          <button
+            type="button"
+            onClick={state.saveCollab}
+            disabled={state.mode !== "live" || state.collabSaving}
+            title={
+              state.mode !== "live"
+                ? t("code.collab.observeHint")
+                : state.collabStatus === "connected"
+                  ? t("code.collab.saveHint")
+                  : t("code.collab.notConnected")
+            }
+            className={[
+              "h-[22px] shrink-0 rounded-[7px] border px-2 text-[10.5px]",
+              state.mode === "live"
+                ? "border-[var(--color-sky)] text-[var(--color-sky)] hover:bg-[rgba(131,169,196,0.12)]"
+                : "border-[var(--color-edge-2)] text-[var(--color-bone-2)] opacity-40",
+            ].join(" ")}
+          >
+            {state.collabSaving ? t("code.saving") : t("code.collab.saveDraft")}
+          </button>
+        )}
       </div>
+
+      {/* 协作现状：连接状态、在线人数、保存回执。
+          断开时不能说"已保存"——网关根本没收到那条请求。 */}
+      <CollabBar state={state} />
 
       {/* 语言服务器现状：这里必须一直有交代。
           没有它，用户看到的是"补全怎么不动"，而有它才看得出是未信任、
@@ -1274,12 +1725,22 @@ export function CodeDetail({ state }: { state: CodeState }) {
               : t("code.loadFailed")}
           </p>
         )}
-        {state.file.data !== undefined && (
+        {state.file.data !== undefined && live && state.collab === null && (
+          <Hint>{t("code.collab.statusConnecting")}</Hint>
+        )}
+        {state.file.data !== undefined && (!live || state.collab !== null) && (
           <CodeView
-            content={content}
+            // 换文档模式就换一个新的编辑器实例：yCollab 的同步插件既不会用共享文本
+            // 初始化 CodeMirror，也不会把 CodeMirror 写进共享文本。挂载时两边必须已经对齐，
+            // 否则磁盘内容会被当成"本地新增"整段插进共享文档。
+            key={live ? `collab:${path}` : `disk:${path}`}
+            content={live ? state.collabText() : content}
             path={path}
             readOnly={!editable}
-            onChange={(value) => state.edit(path, value)}
+            // 协作模式不把编辑写回磁盘缓冲区：写回去就等于承认两份真相，
+            // 退出协作时再把共享文本一次性交还缓冲区。
+            onChange={live ? undefined : (value) => state.edit(path, value)}
+            syncContent={!live}
             className="h-full overflow-auto"
             extensions={editorExtensions}
             // 行号只在它属于当前文件时才生效：符号列表记的是它自己那份文件的行，
@@ -1288,7 +1749,183 @@ export function CodeDetail({ state }: { state: CodeState }) {
           />
         )}
       </div>
+
+      {/* 预检对话框：只在按下"进入协作"之后出现，遮蔽整个编辑区——
+          预检没过就动文档，等于先改再问。 */}
+      <PrecheckDialog state={state} />
     </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* 协作状态条与预检对话框                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 协作的当前交代。
+ *
+ * 断开不等于退出：编辑还能继续，改动攒在本地 Y.Doc 里，重连后自动合并。
+ * 所以断线用琥珀色"离线，改动还在本地"表达，而不是红色错误——
+ * 红条会让人以为刚写的东西丢了。
+ */
+function CollabBar({ state }: { state: CodeState }) {
+  const { t } = useTranslation();
+
+  if (state.mode === "disk") return null;
+
+  let text: string;
+  let tone = "text-[var(--color-muted-2)]";
+  if (state.collabError) {
+    text = state.collabError;
+    tone = "text-[var(--color-rose)]";
+  } else if (state.collabStatus === "error") {
+    text = t("code.collab.statusError");
+    tone = "text-[var(--color-rose)]";
+  } else if (state.collabStatus === "disconnected") {
+    text = t("code.collab.statusOffline");
+    tone = "text-[var(--color-amber-3)]";
+  } else if (state.collabStatus === "connecting") {
+    text = t("code.collab.statusConnecting");
+  } else {
+    text = state.mode === "observe" ? t("code.collab.statusObserving") : t("code.collab.statusLive");
+  }
+
+  return (
+    <div className="flex h-[24px] shrink-0 items-center gap-2 border-b border-[var(--color-edge-1)] bg-[var(--color-ink-850)] px-3 text-[10.5px]">
+      <Icon name="users" size={11} className="shrink-0 text-[var(--color-faint)]" />
+      <span className={`truncate ${tone}`}>{text}</span>
+      {/* 草稿比本地领先时提醒一句：不阻断，但不说的话发布时会莫名其妙多出几条提交。 */}
+      {state.draftAhead > 0 && (
+        <span className="shrink-0 text-[var(--color-amber-3)]">
+          {t("code.collab.draftPending", { count: state.draftAhead })}
+        </span>
+      )}
+      {/* 保存只落草稿分支：这里把分支名写出来，免得下次打开工作副本面找不到东西。 */}
+      <span className="ml-auto shrink-0 font-mono text-[var(--color-faint)]">
+        {t("code.collab.draftBranch", { branch: state.collabDraftBranch })}
+      </span>
+      {state.collabSaved !== null && (
+        <span className="shrink-0 text-[var(--color-sage)]">
+          {state.collabSaved === ""
+            ? t("code.collab.savedNothing")
+            : t("code.collab.savedDraft", { commit: state.collabSaved.slice(0, 8) })}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * 进入协作前的四步预检（分支对齐 → 本地改动 → 在线草稿 → 在线人数）。
+ *
+ * 只摆出当下真能执行的处置：把本地改动提交、或只读观察。切分支、stash、
+ * 放弃改动在桌面端还没有对应能力，画一个点了没反应的按钮比不给入口更糟，
+ * 所以这里只写一句话，让人回工作副本面或本地 git 去处理。
+ */
+function PrecheckDialog({ state }: { state: CodeState }) {
+  const { t } = useTranslation();
+  const result = state.precheck;
+  if (!result) return null;
+
+  const needsCommit = result.issues.some((i) => i.code === "local-changes");
+  const needsBranch = result.issues.some((i) => i.code === "branch-mismatch");
+  const needsSave = result.issues.some((i) => i.code === "unsaved-buffer");
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(6,9,11,0.62)] p-6">
+      <div className="w-[460px] max-w-full rounded-[10px] border border-[var(--color-edge-2)] bg-[var(--color-ink-900)] p-4 shadow-2xl">
+        <p className="text-[13px] text-[var(--color-bone)]">{t("code.collab.precheckTitle")}</p>
+        <p className="mt-1 text-[11px] leading-relaxed text-[var(--color-muted)]">
+          {t("code.collab.precheckHint")}
+        </p>
+
+        <ul className="mt-3 space-y-2">
+          {result.issues.map((issue) => (
+            <li key={issue.code} className="flex items-start gap-2">
+              <Icon
+                name={
+                  issue.code === "branch-mismatch"
+                    ? "branch"
+                    : issue.code === "local-changes"
+                      ? "git-commit"
+                      : issue.code === "unsaved-buffer"
+                        ? "edit"
+                        : issue.code === "draft-ahead"
+                          ? "clock"
+                          : "users"
+                }
+                size={12}
+                className={`mt-px shrink-0 ${issue.blocking ? "text-[var(--color-amber)]" : "text-[var(--color-muted-2)]"}`}
+              />
+              <span className="text-[11px] leading-relaxed text-[var(--color-bone-2)]">
+                {issue.code === "branch-mismatch" && t("code.collab.issueBranch")}
+                {issue.code === "local-changes" && t("code.collab.issueLocal", { count: issue.count ?? 0 })}
+                {issue.code === "unsaved-buffer" && t("code.collab.issueUnsaved")}
+                {issue.code === "draft-ahead" && t("code.collab.issueDraft", { count: issue.count ?? 0 })}
+                {issue.code === "peers-unknown" && t("code.collab.issuePeersUnknown")}
+              </span>
+            </li>
+          ))}
+        </ul>
+
+        {needsCommit && (
+          <label className="mt-3 block">
+            <span className="text-[10.5px] text-[var(--color-faint)]">{t("code.collab.commitMessage")}</span>
+            <input
+              value={state.commitMessage}
+              onChange={(e) => state.setCommitMessage(e.target.value)}
+              className="mt-1 h-[26px] w-full rounded-[6px] border border-[var(--color-edge-2)] bg-[var(--color-ink-950)] px-2 text-[11px] text-[var(--color-bone)] outline-none focus:border-[var(--color-amber)]"
+            />
+          </label>
+        )}
+
+        {(needsBranch || needsCommit) && (
+          <p className="mt-2 text-[10.5px] leading-relaxed text-[var(--color-faint)]">
+            {needsBranch ? t("code.collab.manualBranchHint") : t("code.collab.manualCommitHint")}
+          </p>
+        )}
+        {state.precheckError != null && (
+          <p className="mt-2 text-[10.5px] leading-relaxed text-[var(--color-rose)]">{state.precheckError}</p>
+        )}
+
+        <div className="mt-3 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={state.closePrecheck}
+            className="h-[26px] rounded-[7px] border border-[var(--color-edge-2)] px-2.5 text-[11px] text-[var(--color-muted-2)] hover:text-[var(--color-bone-2)]"
+          >
+            {t("code.collab.cancel")}
+          </button>
+          <button
+            type="button"
+            onClick={() => void state.resolvePrecheck("observe")}
+            className="h-[26px] rounded-[7px] border border-[var(--color-edge-2)] px-2.5 text-[11px] text-[var(--color-bone-2)] hover:text-[var(--color-bone)]"
+          >
+            {t("code.collab.observeOnly")}
+          </button>
+          {needsSave && (
+            <button
+              type="button"
+              disabled={state.precheckBusy}
+              onClick={() => void state.resolvePrecheck("save")}
+              className="h-[26px] rounded-[7px] border border-[var(--color-amber)] px-2.5 text-[11px] text-[var(--color-amber)] hover:bg-[rgba(242,174,91,0.12)] disabled:opacity-40"
+            >
+              {state.precheckBusy ? t("code.collab.saving") : t("code.collab.saveAndJoin")}
+            </button>
+          )}
+          {needsCommit && (
+            <button
+              type="button"
+              disabled={state.precheckBusy || state.commitMessage.trim() === ""}
+              onClick={() => void state.resolvePrecheck("commit")}
+              className="h-[26px] rounded-[7px] border border-[var(--color-amber)] px-2.5 text-[11px] text-[var(--color-amber)] hover:bg-[rgba(232,163,58,0.12)] disabled:opacity-40"
+            >
+              {state.precheckBusy ? t("code.collab.committing") : t("code.collab.commitAndJoin")}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1639,9 +2276,11 @@ export function CodeQuickOpen({ state }: { state: CodeState }) {
     return { path, language: languageOf(path) };
   }, [path]);
 
-  // 行数与文件事实都以缓冲区为准：用户改了几行就该看到几行，
-  // 而不是磁盘上那份旧内容的行数。
-  const content = state.activeBuffer?.text ?? normalizeEol(state.file.data?.content ?? "");
+  // 行数与文件事实都以**文档真相**为准：本地模式是缓冲区（用户改了几行就该看到几行），
+  // 协作模式是共享文本——磁盘那份是旧的，照着它报行数会跟屏幕上差几十行。
+  const content = state.mode === "disk"
+    ? (state.activeBuffer?.text ?? normalizeEol(state.file.data?.content ?? ""))
+    : state.collabText();
   const lineCount = content === "" ? 0 : content.replace(/\n$/, "").split("\n").length;
 
   return (
