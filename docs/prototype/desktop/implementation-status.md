@@ -4,7 +4,7 @@
 
 这份文档只陈述**代码里已经有什么**，不复述设计理由——设计意图看设计文档。每条状态都对应仓库里可查的实现，新增能力时同步更新本页，避免设计与实现对不上之后没人知道以哪个为准。
 
-最后更新：2026-11-11
+最后更新：2026-11-12
 
 ## 里程碑总览
 
@@ -13,8 +13,8 @@
 | M0 骨架 | ✅ 完成 | Wails v3 工程、loopback bridge、嵌入产物、单实例、窗口状态持久化、三栏外壳 |
 | M1 只读 | ✅ 完成 | 实例连接、登录 + Keychain、Inbox、命令面板、通知、托盘、PR 与 Issue 浏览 |
 | M2 工作副本 | 🟡 大部分 | 状态、未提交 diff、暂存（含逐 hunk）、提交、fetch、push、PR 评审窗（含行内评论与投票）已完成；**clone 未做** |
-| M3 编辑器 | 🟡 主体 | 写盘、冲突检测、崩溃恢复、标签页布局恢复、`⌘P`/`⌘S` 已完成；**diff 行标未做** |
-| M4 本地智能 | 🟡 走近 | 进程池、`ws ↔ stdio` 转发、workspace trust、四种语言探测与状态条已完成；编辑器里已接 CodeMirror LSP 客户端（诊断、补全、hover、跳定义、重命名、文档符号）。行级 diff 与 blame 未做 |
+| M3 编辑器 | ✅ 完成 | 写盘、冲突检测、崩溃恢复、标签页布局恢复、`⌘P`/`⌘S`、diff 行标已完成 |
+| M4 本地智能 | 🟡 走近 | 进程池、`ws ↔ stdio` 转发、workspace trust、四种语言探测与状态条已完成；编辑器里已接 CodeMirror LSP 客户端（诊断、补全、hover、跳定义、重命名、文档符号）；行级 diff 行标与 blame 已完成 |
 | M5 协作 | ❌ 未开始 | bridge 已预留 `/ws/collab` 白名单，无实现 |
 | M6 常驻 | 🟡 部分 | 托盘常驻、关窗收起、多窗口已完成；**深链、自启、自动更新未做** |
 | M7 深化 | ❌ 未开始 | 按需 |
@@ -38,6 +38,7 @@
 - 半暂存状态可表达：同一文件可以一半在 index、一半在工作树（porcelain 的 `MM`），`Change.HasUnstaged` 让它在列表两侧都能出现。
 - 强制 push 用 `--force-with-lease`，需二次确认并展示完整命令。
 - 同一工作树的 git 调用在进程内串行化，避免用户看到 `index.lock exists`。
+- 相对 HEAD 的读取有三条：`HeadDiff`（`git diff HEAD --`，含已暂存与未暂存）、`HeadText`（`git show HEAD:<path>`，取原文给编辑器逐行比较）、`Blame`（`git blame --line-porcelain`）。`HeadText` 在路径不在 HEAD 里时返回 `Exists=false` 且不报错——新文件在编辑中是常态。
 - 提交与推送失败走居中弹窗：git 的原始输出原样放进可滚动的等宽区域，配一个复制按钮。这类输出常常是多行、带缩进的操作提示，塞在按钮下面既挤断布局又没法复制。
 
 ### 编辑器（Code 面）
@@ -52,6 +53,9 @@
 - 崩溃恢复：未保存内容按（工作副本，路径）落到 `buffer_recovery` 表，重开后提示「恢复 / 丢弃」，不自动套用。
 - 标签页布局恢复：打开的标签（含顺序）、当前文件与展开的目录落 `ui_state` 的 `code.layout` 一条，切回仓库或重开应用时原位复原。只保一份、记录里带工作副本 id，对不上就整份作废——`ui_state` 没有过期清理，按仓库存会留下永远读不到的记录。写入去抖 400ms，窗口隐藏/关闭时立即落盘。切到空仓库不会清掉上一个仓库的记录。
 - 外部编辑器互跳与在文件管理器中定位。
+- **diff 行标**：编辑器左侧 4px 色条标出相对 HEAD 的新增（sage）、改动（sky）与删除（rose，挂在删除位置之后那一行）。基准取 HEAD 而不是索引——用户的心智基准是上次提交，不是他刚才 stage 过什么。行标与**当前缓冲区**逐行比较（`HeadText` 取 HEAD 原文，`lib/head-diff.ts` 做 LCS 对齐），因此打字时标记跟着实时移动；换成拿文本 diff 对齐，缓冲区一脏就整体错位。纯逻辑可单测，不依赖编辑器。
+- **blame 行**：顶栏「Blame」开关，每行显示作者缩写；未提交的行显示 "uncommitted" 并用琥珀色斜体标出。取 `git blame --line-porcelain`（每行都带完整作者信息），时间统一毫秒跨进程边界。开关打开时工具栏下多一条当前光标行的归属：作者、短哈希、提交标题与相对时间。数据随开关懒加载，关掉就不注入 gutter——挂着一条 84px 的空条看起来像界面漏了一块。
+- 行标与 blame 都做成 CodeMirror 扩展、经共享包 `@kustos/editor` 的同一个扩展插槽注入：数据不通过 props 传，而是由 React 侧持有一个数据源、编辑器侧订阅后用 `StateEffect` 推进状态。注入的扩展数组保持稳定，编辑器才不会因为重渲染丢掉内部状态。
 
 ### 本地智能
 
@@ -110,14 +114,13 @@ SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 5 版：
 ### 缺口（M1–M3 范围内）
 
 - **clone**：只能添加本地已有仓库，不能从远端克隆。
-- **diff 行标**：编辑器内相对 HEAD 的增删标记。
 - **协作感知的界面部分**：后端端点已就绪，`live` 圆点与在线人数预警未接。
 - **PR / Issue 的动作**：两个列表面当前只读，评论、关闭、合并等写操作仍在 Web。评审窗已有"行内评论 + 投票"两条写路径，见下。
 - **通知的自动触发**：发送通道已通，但"什么事件值得弹"要等后端给出待决策语义。
 
 ### 未开始的里程碑
 
-- **M4 本地智能（余下部分）**：行级 diff 行标与 blame 未做；跨文件跳定义依赖 Code 面能打开目标文件，指向仓库外的位置会安静地不跳。协作模式下的文档同步（`version` 单调、最小 diff 只发变更区间、切模式 `didClose`+`didOpen`）也要等 M5。
+- **M4 本地智能（余下部分）**：跨文件跳定义依赖 Code 面能打开目标文件，指向仓库外的位置会安静地不跳。协作模式下的文档同步（`version` 单调、最小 diff 只发变更区间、切模式 `didClose`+`didOpen`）也要等 M5。
 - **M5 协作**：文档模式状态机、四步预检、`live` 编辑与远端光标、草稿保存与发布前验证。
 - **M6 剩余部分**：离线缓存、通知动作（通知里直接批准）、深链、开机自启、自动更新。托盘常驻与多窗口已完成。
 - **M7 深化**：本地搜索索引、Agent 本地复现、设备执行器。
@@ -135,10 +138,11 @@ SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 5 版：
 - **workspace trust 只按路径记**。设计文档要求"路径变化、切仓库、远端 origin 变化都要重新确认"，当前只做了路径这一维：信任的主键是收敛后的绝对路径，远端 origin 改了不会让已有信任失效。补这一维需要把 origin 一并存进 `workspace_trust`，属 M4 余下部分。
 - **管理控制台不做**。网关按来源白名单拦掉 `/api/app/`，桌面端出口地址不可控，结构上过不去。
 - **mtime 用毫秒而非纳秒**。纳秒时间戳超出 JS 的安全整数范围（`Number.MAX_SAFE_INTEGER`），经绑定层往返会被舍入，导致冲突检测永远失败。已有测试守住这个单位。
+- **拉子进程一律隐藏控制台窗口**（`internal/platform/noconsole`）。桌面端是 GUI 子系统进程，每次 `exec` 控制台程序都会新建一个窗口；状态轮询与行标刷新频率很高，不隐藏就是连续闪黑框。git、`git apply`、语言服务器、外部编辑器与文件管理器打开都走这一个助手。
 
 ## 验证方式
 
-- Go：`go test ./...`（在 `frontend/desktop/go` 下），覆盖 bridge 安全约束（含多窗口入口令牌并存与 `/lsp/` 不外发）、git 解析与逐 hunk 暂存、远端关联、写盘冲突、崩溃恢复、标签页布局归一化、窗口状态、窗口种类与托盘语义、评审窗路由、通知校验、LSP 帧编解码与进程池生命周期（含崩溃退避与重试用尽）。
-- 前端：`pnpm typecheck` / `pnpm test`（`frontend/desktop/web`、`frontend/packages/editor`）。当前 web 272 个、编辑器包 18 个用例，含 diff 解析与按文件切分、行内意见锚点、草稿存取、PR 评审数据层、相对时间、PR/Issue 数据层、remote 地址解析、窗口路由（含未选中 PR 的评审窗与旧片段兼容）、布局还原、换行符归一与 `file://` URI 往返。
+- Go：`go test ./...`（在 `frontend/desktop/go` 下），覆盖 bridge 安全约束（含多窗口入口令牌并存与 `/lsp/` 不外发）、git 解析与逐 hunk 暂存、远端关联、相对 HEAD 的 diff 与文件内容、blame 的 porcelain 解析、写盘冲突、崩溃恢复、标签页布局归一化、窗口状态、窗口种类与托盘语义、评审窗路由、通知校验、LSP 帧编解码与进程池生命周期（含崩溃退避与重试用尽）、子进程隐藏控制台窗口的进程属性。
+- 前端：`pnpm typecheck` / `pnpm test`（`frontend/desktop/web`、`frontend/packages/editor`）。当前 web 285 个、编辑器包 18 个用例，含 diff 解析与按文件切分、相对 HEAD 的行标对齐（新增 / 改动 / 删除三态与退化分支）、行内意见锚点、草稿存取、PR 评审数据层、相对时间、PR/Issue 数据层、remote 地址解析、窗口路由（含未选中 PR 的评审窗与旧片段兼容）、布局还原、换行符归一与 `file://` URI 往返。
 - CI：`.github/workflows/ci.yml` 的 `desktop` job 跑前端 typecheck/单测与 Go 侧不依赖 cgo 的包（`internal/bridge`、`internal/codestate`、`internal/git`、`internal/lsp`、`internal/services`、`internal/store`、`internal/windowstate`、`internal/platform/*`）。Wails 的 `pkg/application` 在 Linux 上需要 GTK/WebKitGTK 头文件，因此 `main`、`internal/app` 与 `singleinstance` 不在 CI 的 Go 覆盖范围内，workflow 注释里写明了原因。
-- 端到端：设 `KUSTOS_DESKTOP_CDP_PORT` 后用 CDP 驱动真实 WebView，验证编辑、保存、冲突、崩溃恢复、信任确认、语言服务器启停与编辑器内的补全 / 跳定义 / 诊断，以及评审窗的 diff 渲染、单栏/双栏切换、已查看标记、行内草稿、草稿提交、对话回复与投票拒绝。
+- 端到端：设 `KUSTOS_DESKTOP_CDP_PORT` 后用 CDP 驱动真实 WebView，验证编辑、保存、冲突、崩溃恢复、信任确认、语言服务器启停与编辑器内的补全 / 跳定义 / 诊断、diff 行标与 blame（含点「允许」后行标不丢），以及评审窗的 diff 渲染、单栏/双栏切换、已查看标记、行内草稿、草稿提交、对话回复与投票拒绝。
