@@ -6,7 +6,9 @@ export {
 } from "./models.js";
 
 export type {
+    BlameLine,
     Branch,
     Change,
+    HeadFile,
     Upstream
 } from "./models.js";

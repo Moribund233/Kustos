@@ -355,6 +355,81 @@ func (s *WorkingCopyService) FileDiff(id, path string, staged bool) (string, err
 	return git.FileDiff(wc.Path, path, staged)
 }
 
+// HeadDiff 返回文件相对 HEAD 的 diff。
+//
+// Args:
+//
+//	id:   工作副本 ID
+//	path: 相对仓库根的路径
+//
+// 与 FileDiff 的 staged=false 不同：基准是 HEAD 而不是索引，因此已暂存与
+// 未暂存的改动都会出现在结果里。编辑器用它在行号旁标记"相对上次提交的增删"，
+// 用户的心智基准是那次提交，而不是他刚才 stage 过什么。
+//
+// 与所有未提交 diff 一样在本地算，不走网络。
+func (s *WorkingCopyService) HeadDiff(id, path string) (string, error) {
+	wc, err := s.get(id)
+	if err != nil {
+		return "", err
+	}
+
+	lock := s.lockFor(wc.Path)
+	lock.Lock()
+	defer lock.Unlock()
+
+	return git.HeadDiff(wc.Path, path)
+}
+
+// HeadText 返回文件在 HEAD 里的完整内容。
+//
+// Args:
+//
+//	id:   工作副本 ID
+//	path: 相对仓库根的路径
+//
+// 与 HeadDiff 返回 diff 不同，这里给的是原文：编辑器要把它和**当前缓冲区**
+// （可能已改、甚至还没保存）逐行对比，才能随着打字实时给出行标。文本 diff
+// 只能在缓冲区干净时对齐，用户一动键盘标记就整体错位。
+//
+// HEAD 里没有这个路径时返回 Exists=false 且不报错：新文件在编辑中是常态。
+func (s *WorkingCopyService) HeadText(id, path string) (git.HeadFile, error) {
+	wc, err := s.get(id)
+	if err != nil {
+		return git.HeadFile{}, err
+	}
+
+	lock := s.lockFor(wc.Path)
+	lock.Lock()
+	defer lock.Unlock()
+
+	return git.HeadText(wc.Path, path)
+}
+
+// FileBlame 返回文件每一行的归属提交。
+//
+// Args:
+//
+//	id:   工作副本 ID
+//	path: 相对仓库根的路径
+//
+// Returns:
+//
+//	按行号升序的归属列表；文件不在 HEAD 里时返回空列表而不是错误。
+//
+// blame 只读本地对象库，不走网络：断网时也能看到"这行是谁写的"。
+func (s *WorkingCopyService) FileBlame(id, path string) ([]git.BlameLine, error) {
+	wc, err := s.get(id)
+	if err != nil {
+		return nil, err
+	}
+
+	lock := s.lockFor(wc.Path)
+	lock.Lock()
+	defer lock.Unlock()
+
+	return git.Blame(wc.Path, path)
+}
+
 // Branches 列出本地分支。
 func (s *WorkingCopyService) Branches(id string) ([]git.Branch, error) {
 	wc, err := s.get(id)

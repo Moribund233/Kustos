@@ -82,6 +82,24 @@ export function Fetch(id: string): $CancellablePromise<void> {
 }
 
 /**
+ * FileBlame 返回文件每一行的归属提交。
+ * 
+ * Args:
+ * 
+ * 	id:   工作副本 ID
+ * 	path: 相对仓库根的路径
+ * 
+ * Returns:
+ * 
+ * 	按行号升序的归属列表；文件不在 HEAD 里时返回空列表而不是错误。
+ * 
+ * blame 只读本地对象库，不走网络：断网时也能看到"这行是谁写的"。
+ */
+export function FileBlame(id: string, path: string): $CancellablePromise<git$0.BlameLine[] | null> {
+    return $Call.ByID(341446227, id, path);
+}
+
+/**
  * FileDiff 返回单个文件的 diff。
  * 
  * Args:
@@ -95,6 +113,42 @@ export function Fetch(id: string): $CancellablePromise<void> {
  */
 export function FileDiff(id: string, path: string, staged: boolean): $CancellablePromise<string> {
     return $Call.ByID(1692538499, id, path, staged);
+}
+
+/**
+ * HeadDiff 返回文件相对 HEAD 的 diff。
+ * 
+ * Args:
+ * 
+ * 	id:   工作副本 ID
+ * 	path: 相对仓库根的路径
+ * 
+ * 与 FileDiff 的 staged=false 不同：基准是 HEAD 而不是索引，因此已暂存与
+ * 未暂存的改动都会出现在结果里。编辑器用它在行号旁标记"相对上次提交的增删"，
+ * 用户的心智基准是那次提交，而不是他刚才 stage 过什么。
+ * 
+ * 与所有未提交 diff 一样在本地算，不走网络。
+ */
+export function HeadDiff(id: string, path: string): $CancellablePromise<string> {
+    return $Call.ByID(4199702523, id, path);
+}
+
+/**
+ * HeadText 返回文件在 HEAD 里的完整内容。
+ * 
+ * Args:
+ * 
+ * 	id:   工作副本 ID
+ * 	path: 相对仓库根的路径
+ * 
+ * 与 HeadDiff 返回 diff 不同，这里给的是原文：编辑器要把它和**当前缓冲区**
+ * （可能已改、甚至还没保存）逐行对比，才能随着打字实时给出行标。文本 diff
+ * 只能在缓冲区干净时对齐，用户一动键盘标记就整体错位。
+ * 
+ * HEAD 里没有这个路径时返回 Exists=false 且不报错：新文件在编辑中是常态。
+ */
+export function HeadText(id: string, path: string): $CancellablePromise<git$0.HeadFile> {
+    return $Call.ByID(432387435, id, path);
 }
 
 /**
