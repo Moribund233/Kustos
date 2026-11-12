@@ -222,7 +222,7 @@ function Root() {
   // 主界面外壳。放在会话判定之后是有意的——评审窗同样要登录才拉得到 PR，
   // 未登录时它和主窗口一样先给连接页/登录页。
   if (route.kind === "review") {
-    return <ReviewWindow prNumber={route.prNumber} />;
+    return <ReviewWindow prNumber={route.prNumber} repoId={route.repoId} />;
   }
 
   return (

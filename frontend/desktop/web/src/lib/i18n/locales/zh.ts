@@ -437,9 +437,72 @@ const zh = {
 
   // 评审窗还没选中 PR 时的空态：从托盘直接唤出就会走到这里。
   // 它要说明这个窗口是干什么的，而不是看起来又像一个主界面。
+  //
+  // 其余键对应原型 review.html：文件头、行内意见、底部草稿栏、右侧的
+  // 评审人/检查/对话三块。凡是原型里靠假数据撑起来的区块（CI 检查项），
+  // 这里只有"没有数据"的诚实空态，不编造记录。
   reviewWindow: {
     emptyTitle: "还没有选中合并请求",
     emptyHint: "评审窗一次只显示一个合并请求。在主窗口的「合并请求」面里选一个，再点「在新窗口中评审」。",
+
+    eyebrow: "合并请求",
+    targetPrefix: "要合入",
+    unresolvedRepo: "没有哪个仓库里能找到这个合并请求。可能是它已被删除，或当前账号看不到。",
+
+    diffLoading: "正在读取改动…",
+    diffFailed: "改动加载失败：{{error}}",
+    viewed: "已看",
+    notViewed: "未看",
+    viewedHint: "点一下标记为已看；只是本机状态，不会同步。",
+    noTextDiff: "{{count}} 个文件没有文本差异（二进制或空改动）。",
+
+    lineComment: "在这个位置写意见",
+    commentPlaceholder: "写一条评审意见…",
+    commentAdd: "添加",
+    commentCancel: "取消",
+    draftChip: "草稿",
+    draftWho: "你 · 草稿",
+    deleteDraft: "删除这条草稿",
+
+    draftsKept: "{{count}} 条评审意见留在本机，提交之前不会上传。",
+    draftsDiscard: "丢弃草稿",
+    draftsSubmit: "提交 {{count}} 条意见",
+    draftsSavedHint: "草稿已保存在本机，关掉窗口也不会丢。",
+    submitting: "提交中…",
+    submitFailed: "提交失败：{{error}}",
+    submitted: "已提交 {{count}} 条意见",
+
+    sideTitle: "对话与检查",
+    tabConversation: "对话",
+    tabChecks: "检查",
+    sectionReviewers: "评审人",
+    sectionChecks: "检查",
+    sectionConversation: "评论",
+    reviewerPending: "待评审",
+    reviewerApproved: "已通过",
+    reviewerChanges: "要求修改",
+    reviewerDrafts: "{{count}} 条草稿",
+    noReviewers: "还没有指定评审人",
+    noChecks: "这个实例没有接入 CI，所以没有可显示的检查记录。",
+    noComments: "还没有评论",
+    replyPlaceholder: "添加一条评论…",
+    replySend: "评论",
+    commentFailed: "评论失败：{{error}}",
+
+    verdict: "你的结论",
+    approve: "通过",
+    requestChanges: "要求修改",
+    verdictSubmitted: "结论：{{verdict}}",
+    verdictFailed: "提交结论失败：{{error}}",
+    selfApprove: "不能给自己的合并请求投票。",
+
+    protectionTitle: "合并规则",
+    protectedBranch: "受保护分支",
+    requireCodeReview: "合并前需要至少 1 个非作者的通过",
+    requireStatusChecks: "合并前需要检查通过（本实例没有 CI，视为通过）",
+    noProtection: "目标分支没有保护规则",
+    splitView: "双栏",
+    unifiedView: "单栏",
   },
 
   session: {

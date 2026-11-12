@@ -13,7 +13,19 @@
 /** 当前窗口要显示的内容。 */
 export type WindowRoute =
   | { kind: "main" }
-  | { kind: "review"; prNumber: number | null };
+  | { kind: "review"; prNumber: number | null; repoId: string | null };
+
+/**
+ * 评审窗片段里仓库与编号的分隔符。
+ *
+ * 为什么要带仓库：PR 编号只在单个仓库内唯一，`#/review/3` 本身不足以定位
+ * 一个 PR——用户可能同时在三个仓库里都有 #3。窗口是在某个仓库的列表里被
+ * 打开的，那个仓库必须跟着窗口一起走。
+ *
+ * 用 `|` 而不是 `/`：片段按 `/` 切段，`|` 在 Go 侧会被 `url.PathEscape`
+ * 转义成 `%7C`，到这里再 `decodeURIComponent` 还原，不会多切出字段。
+ */
+const ROUTE_SEPARATOR = "|";
 
 /** 解析 URL 片段。 */
 export function parseWindowRoute(hash: string): WindowRoute {
@@ -28,13 +40,32 @@ export function parseWindowRoute(hash: string): WindowRoute {
   // `#/review` 没有编号：这是"评审窗，但还没选中 PR"。
   // 不能退化成主窗口——从托盘唤出的评审窗本来就是这种状态，退化成主窗口
   // 会让用户看到第二个 Inbox，而不是一个说明"去选个 PR"的评审窗。
-  if (value === undefined) return { kind: "review", prNumber: null };
+  if (value === undefined) return { kind: "review", prNumber: null, repoId: null };
 
-  const prNumber = Number(decodeURIComponent(value));
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(value);
+  } catch {
+    // 片段里有孤立的 `%`：当作没指定 PR，而不是让整个窗口渲染失败。
+    return { kind: "review", prNumber: null, repoId: null };
+  }
+
+  // 新格式 `#/review/<repoId>|<n>`；旧格式 `#/review/<n>` 仍然接受，
+  // 只是没有仓库，调用方需要自己去解析（见 ReviewWindow 的说明）。
+  const sep = decoded.lastIndexOf(ROUTE_SEPARATOR);
+  const repoId = sep >= 0 ? decoded.slice(0, sep) : "";
+  const numberText = sep >= 0 ? decoded.slice(sep + 1) : decoded;
+
+  const prNumber = Number(numberText);
   // 编号必须是正整数：解析失败时退回"未选中 PR"，而不是显示一个不存在的 PR。
-  if (!Number.isInteger(prNumber) || prNumber <= 0) return { kind: "review", prNumber: null };
+  if (!Number.isInteger(prNumber) || prNumber <= 0) return { kind: "review", prNumber: null, repoId: null };
 
-  return { kind: "review", prNumber };
+  return { kind: "review", prNumber, repoId: repoId === "" ? null : repoId };
+}
+
+/** 把仓库与编号拼成片段里的路由值；与 `parseWindowRoute` 互为逆运算。 */
+export function reviewRouteValue(repoId: string, prNumber: number): string {
+  return `${repoId}${ROUTE_SEPARATOR}${prNumber}`;
 }
 
 /** 当前窗口的片段（在浏览器环境里安全读取）。 */

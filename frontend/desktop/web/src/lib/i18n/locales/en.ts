@@ -445,10 +445,75 @@ const en = {
   // The review window with no pull request selected yet: opened straight from
   // the tray, before the user picks a PR. It must explain what the window is
   // for instead of looking like a second main window.
+  //
+  // The rest mirrors the prototype's review.html: file headers, inline notes,
+  // the draft bar and the reviewers/checks/conversation sidebar. Any block the
+  // prototype filled with invented data (CI checks) is only an honest empty
+  // state here — no fabricated records.
   reviewWindow: {
     emptyTitle: "No pull request selected",
     emptyHint:
       "Review windows show a single pull request. Pick one from the Pull requests surface in the main window and choose “Review in new window”.",
+
+    eyebrow: "Pull request",
+    targetPrefix: "wants to merge into",
+    unresolvedRepo:
+      "This pull request was not found in any repository. It may have been deleted, or your account cannot see it.",
+
+    diffLoading: "Reading changes…",
+    diffFailed: "Could not load the changes: {{error}}",
+    viewed: "viewed",
+    notViewed: "not viewed",
+    viewedHint: "Click to mark as viewed; this is local only and is not synced.",
+    noTextDiff: "{{count}} file(s) have no textual diff (binary or empty change).",
+
+    lineComment: "Comment on this line",
+    commentPlaceholder: "Write a review comment…",
+    commentAdd: "Add",
+    commentCancel: "Cancel",
+    draftChip: "draft",
+    draftWho: "you · draft",
+    deleteDraft: "Delete this draft",
+
+    draftsKept: "{{count}} review comment(s) are kept on this machine until you submit.",
+    draftsDiscard: "Discard drafts",
+    draftsSubmit: "Submit {{count}} comment(s)",
+    draftsSavedHint: "Drafts are saved on this machine and survive closing the window.",
+    submitting: "Submitting…",
+    submitFailed: "Could not submit: {{error}}",
+    submitted: "Submitted {{count}} comment(s)",
+
+    sideTitle: "Conversation and checks",
+    tabConversation: "Conversation",
+    tabChecks: "Checks",
+    sectionReviewers: "Reviewers",
+    sectionChecks: "Checks",
+    sectionConversation: "Comments",
+    reviewerPending: "pending",
+    reviewerApproved: "approved",
+    reviewerChanges: "changes requested",
+    reviewerDrafts: "{{count}} drafts",
+    noReviewers: "No reviewers requested yet",
+    noChecks: "This instance has no CI integration, so there are no check runs to show.",
+    noComments: "No comments yet",
+    replyPlaceholder: "Add a comment…",
+    replySend: "Comment",
+    commentFailed: "Could not comment: {{error}}",
+
+    verdict: "Your verdict",
+    approve: "Approve",
+    requestChanges: "Request changes",
+    verdictSubmitted: "Verdict: {{verdict}}",
+    verdictFailed: "Could not submit the verdict: {{error}}",
+    selfApprove: "You cannot vote on your own pull request.",
+
+    protectionTitle: "Merge rules",
+    protectedBranch: "Protected branch",
+    requireCodeReview: "Needs at least one approval from a non-author",
+    requireStatusChecks: "Needs checks to pass (no CI on this instance, so this passes)",
+    noProtection: "The target branch has no protection rules",
+    splitView: "Split",
+    unifiedView: "Unified",
   },
 
   session: {

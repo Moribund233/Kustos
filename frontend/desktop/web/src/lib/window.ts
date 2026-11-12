@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
 import { WindowService } from "@/bindings/github.com/kustos/kustos-desktop/internal/services";
+import { reviewRouteValue } from "@/lib/window-route";
 
 /**
  * 把托盘菜单的文案同步成当前界面语言。
@@ -44,10 +45,14 @@ export function openWindow(kind: "main" | "review"): void {
  * 已存在的评审窗会被换成这个 PR 并唤到前面：用户点了另一个 PR 的"在窗口中
  * 打开"，期望是那个窗口换过去，而不是什么都不发生。
  *
+ * 仓库必须一起带上：PR 编号只在单个仓库内唯一，只凭编号无法定位到用户
+ * 点的那一个 PR。片段格式见 `lib/window-route.ts`。
+ *
  * Args:
  *
+ *	repoId: PR 所属仓库
  *	prNumber: 仓库内的 PR 编号
  */
-export function openReviewWindow(prNumber: number): void {
-  void WindowService.OpenWindowWith("review", String(prNumber));
+export function openReviewWindow(repoId: string, prNumber: number): void {
+  void WindowService.OpenWindowWith("review", reviewRouteValue(repoId, prNumber));
 }

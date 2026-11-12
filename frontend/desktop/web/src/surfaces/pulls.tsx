@@ -254,6 +254,9 @@ export function PullsDetail({ state }: { state: PullsSurfaceState }) {
     return <EmptyAll title={t("pulls.emptyAll")} hint={t("pulls.emptyAllHint")} />;
   }
 
+  // 上面的 `!state.repo` 已保证存在；先取出来，闭包里就不用再判空。
+  const repoId = state.repo.id;
+
   // 详情接口才带 comments；列表快照里是空数组，两者取其有。
   const comments = pr.comments ?? [];
 
@@ -269,7 +272,7 @@ export function PullsDetail({ state }: { state: PullsSurfaceState }) {
           </span>
           <button
             type="button"
-            onClick={() => openReviewWindow(pr.number)}
+            onClick={() => openReviewWindow(repoId, pr.number)}
             aria-label={t("pulls.openInWindow")}
             title={t("pulls.openInWindow")}
             className="ml-1 grid h-[20px] w-[20px] place-items-center rounded-[5px] tracking-normal text-[var(--color-muted-2)] normal-case hover:bg-[var(--color-ink-800)] hover:text-[var(--color-bone-2)]"
