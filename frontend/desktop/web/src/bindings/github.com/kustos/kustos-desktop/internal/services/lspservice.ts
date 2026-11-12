@@ -107,6 +107,9 @@ export function Stop(root: string): $CancellablePromise<void> {
  * 
  * 远端地址变了时 Trusted 返回 false 并置 OriginChanged：界面据此把"从没问过"
  * 与"问过但这批代码换出处了"分开说，后者要能解释为什么又弹一次。
+ * 
+ * 发现换源时顺手停掉已经跑起来的服务器：只剩"说不许但进程还在跑"这一种
+ * 更难看的中间态。停不掉不是错误——大多数时候本来就没有会话。
  */
 export function TrustStatus(root: string): $CancellablePromise<$models.TrustState> {
     return $Call.ByID(4286524289, root);

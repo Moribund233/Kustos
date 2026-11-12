@@ -444,6 +444,30 @@ func (s *WorkingCopyService) Branches(id string) ([]git.Branch, error) {
 	return git.Branches(wc.Path)
 }
 
+// DraftAhead 返回协作草稿分支相对本地分支的领先提交数。
+//
+// Args:
+//
+//	id:     工作副本 ID
+//	branch: 草稿对应的分支名（不是草稿分支名本身）
+//
+// 进入协作前用它提示"在线有 N 次未发布的保存"。只比较已有的引用，不 fetch、
+// 不 checkout：用户可能正改到一半，进协作的预检不该动他的工作树。
+//
+// 没保存过草稿时返回 0，不报错。
+func (s *WorkingCopyService) DraftAhead(id, branch string) (int, error) {
+	wc, err := s.get(id)
+	if err != nil {
+		return 0, err
+	}
+
+	lock := s.lockFor(wc.Path)
+	lock.Lock()
+	defer lock.Unlock()
+
+	return git.DraftAhead(wc.Path, branch)
+}
+
 /* ------------------------------------------------------------------ */
 /* 远端同步                                                            */
 /* ------------------------------------------------------------------ */

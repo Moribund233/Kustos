@@ -499,6 +499,41 @@ func TestBranchesViaService(t *testing.T) {
 	}
 }
 
+// 进入协作前的预检要知道"在线草稿领先本地几次"，
+// 这条路径走的是工作副本服务而不是裸 git 函数。
+func TestDraftAheadViaService(t *testing.T) {
+	svc := newTestWorkingCopyService(t)
+	dir := initRepo(t)
+	writeFile(t, dir, "a.txt", "1\n")
+	gitIn(t, dir, "add", ".")
+	gitIn(t, dir, "commit", "-m", "init")
+
+	wc, _ := svc.Add(dir)
+
+	ahead, err := svc.DraftAhead(wc.ID, "main")
+	if err != nil {
+		t.Fatalf("没有草稿分支不算错误: %v", err)
+	}
+	if ahead != 0 {
+		t.Fatalf("没有草稿分支时应为 0，实际 %d", ahead)
+	}
+
+	// 草稿分支上的一次在线保存。
+	gitIn(t, dir, "checkout", "-q", "-b", "collab/draft-main")
+	writeFile(t, dir, "a.txt", "2\n")
+	gitIn(t, dir, "add", ".")
+	gitIn(t, dir, "commit", "-m", "save")
+	gitIn(t, dir, "checkout", "-q", "main")
+
+	ahead, err = svc.DraftAhead(wc.ID, "main")
+	if err != nil {
+		t.Fatalf("统计草稿提交失败: %v", err)
+	}
+	if ahead != 1 {
+		t.Fatalf("草稿应领先 1 次保存，实际 %d", ahead)
+	}
+}
+
 /* ------------------------------------------------------------------ */
 /* 远端关联                                                            */
 /* ------------------------------------------------------------------ */
