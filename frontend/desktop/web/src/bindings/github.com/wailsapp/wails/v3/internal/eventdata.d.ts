@@ -5,9 +5,14 @@
 // @ts-ignore: Unused imports
 import type { Events } from "@wailsio/runtime";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import type * as services$0 from "../../../../kustos/kustos-desktop/internal/services/models.js";
+
 declare module "@wailsio/runtime" {
     namespace Events {
         interface CustomEvents {
+            "clone:progress": services$0.CloneProgressEvent;
             "session:lost": string;
         }
     }

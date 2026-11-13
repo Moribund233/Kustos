@@ -9,6 +9,11 @@ import type {} from "../github.com/wailsapp/wails/v3/internal/eventdata.js";
 import "../github.com/wailsapp/wails/v3/internal/eventcreate.js";
 
 /**
+ * Name of the custom event "clone:progress".
+ */
+export const CloneProgress = "clone:progress";
+
+/**
  * Name of the custom event "session:lost".
  */
 export const SessionLost = "session:lost";

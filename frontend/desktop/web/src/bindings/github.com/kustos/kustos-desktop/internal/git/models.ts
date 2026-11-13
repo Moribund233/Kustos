@@ -133,6 +133,46 @@ export enum ChangeKind {
 };
 
 /**
+ * ClonePhase 是克隆进度所处的阶段。
+ */
+export enum ClonePhase {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    /**
+     * ClonePhaseStarting 表示 git 已经启动、正在连远端。
+     */
+    ClonePhaseStarting = "starting",
+
+    /**
+     * ClonePhaseCounting 表示远端在统计要传多少对象。
+     */
+    ClonePhaseCounting = "counting",
+
+    /**
+     * ClonePhaseCompressing 表示远端在压缩对象。
+     */
+    ClonePhaseCompressing = "compressing",
+
+    /**
+     * ClonePhaseReceiving 表示正在下载对象，这是耗时最长的一段。
+     */
+    ClonePhaseReceiving = "receiving",
+
+    /**
+     * ClonePhaseResolving 表示正在解析增量。
+     */
+    ClonePhaseResolving = "resolving",
+
+    /**
+     * ClonePhaseCheckout 表示正在落盘、检出工作区。
+     */
+    ClonePhaseCheckout = "checkout",
+};
+
+/**
  * HeadFile 是文件在 HEAD 里的版本。
  * 
  * 编辑器拿它和当前缓冲区在本地逐行对比，才能给出"随打字实时更新"的行标：

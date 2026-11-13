@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
@@ -33,11 +34,21 @@ type WorkingCopyService struct {
 	// git 自己会用 index.lock 拒绝并发，但那会让用户看到 "index.lock exists"
 	// 这种内部错误；在进程内串行化能把它变成"稍等一下"。
 	pathLocks map[string]*sync.Mutex
+
+	// clonesMu 保护 clones 的登记。
+	clonesMu sync.Mutex
+	// clones 记录进行中的克隆，键是目标目录。用户可能同时拉两个仓库，
+	// 所以按目录登记而不是全局单飞；同一个目录重复发起则拒绝。
+	clones map[string]context.CancelFunc
 }
 
 // NewWorkingCopyService 构造工作副本服务。
 func NewWorkingCopyService(db *store.DB) *WorkingCopyService {
-	return &WorkingCopyService{store: db, pathLocks: make(map[string]*sync.Mutex)}
+	return &WorkingCopyService{
+		store:     db,
+		pathLocks: make(map[string]*sync.Mutex),
+		clones:    make(map[string]context.CancelFunc),
+	}
 }
 
 // lockFor 返回某个工作树的锁。

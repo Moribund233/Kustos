@@ -44,6 +44,59 @@ export interface BufferDraft {
 }
 
 /**
+ * CloneProgressEvent 是一次克隆进度事件。
+ * 
+ * 事件而不是返回值：clone 可能跑几分钟，前端要把进度画在界面上，
+ * 而 Wails 的一次调用只在结束时返回。
+ */
+export interface CloneProgressEvent {
+    /**
+     * Dir 是目标目录，用来让前端确认这条进度属于自己发起的克隆。
+     */
+    "dir": string;
+
+    /**
+     * Phase 是当前阶段。
+     */
+    "phase": git$0.ClonePhase;
+
+    /**
+     * Percent 是当前阶段百分比；-1 表示该阶段没有百分比。
+     */
+    "percent": number;
+}
+
+/**
+ * CloneTarget 描述一次克隆的来源与去处。
+ * 
+ * 两个来源二选一：
+ *   - RepoPath 非空：克隆当前实例上的仓库，凭据由桌面端注入；
+ *   - URL 非空：克隆任意 git 地址，凭据完全交给用户自己的 git 配置。
+ */
+export interface CloneTarget {
+    /**
+     * RepoPath 是实例上的 owner/repo（不含 .git）。前端只传这个，
+     * 地址拼接在 Go 侧做，免得前端能拼出指向别处的地址。
+     */
+    "repoPath": string;
+
+    /**
+     * URL 是任意外部 git 地址（https 或 scp 形式的 ssh）。
+     */
+    "url": string;
+
+    /**
+     * Branch 为空时用远端默认分支。
+     */
+    "branch": string;
+
+    /**
+     * Dir 是目标目录的绝对路径；必须不存在。
+     */
+    "dir": string;
+}
+
+/**
  * CodeLayout 是 Code 面布局的扁平 DTO。
  * 
  * 直接给前端用的类型，所以不暴露 internal 结构体：绑定生成器会把这里的
@@ -159,6 +212,26 @@ export interface FileText {
      * Size 是文件字节数。
      */
     "size": number;
+}
+
+/**
+ * GitStatus 描述本机 git 的可用性。
+ */
+export interface GitStatus {
+    /**
+     * Available 表示找得到 git 且能跑起来。
+     */
+    "available": boolean;
+
+    /**
+     * Version 是解析后的版本号，形如 "2.55.0.windows.5"。
+     */
+    "version": string;
+
+    /**
+     * Error 是失败原因；可用时为空。
+     */
+    "error": string;
 }
 
 /**

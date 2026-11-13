@@ -4,12 +4,14 @@
 import * as LSPService from "./lspservice.js";
 import * as NotificationService from "./notificationservice.js";
 import * as SessionService from "./sessionservice.js";
+import * as SystemService from "./systemservice.js";
 import * as WindowService from "./windowservice.js";
 import * as WorkingCopyService from "./workingcopyservice.js";
 export {
     LSPService,
     NotificationService,
     SessionService,
+    SystemService,
     WindowService,
     WorkingCopyService
 };
@@ -17,11 +19,14 @@ export {
 export type {
     APICompat,
     BufferDraft,
+    CloneProgressEvent,
+    CloneTarget,
     CodeLayout,
     Credentials,
     DetectedLanguage,
     FileStat,
     FileText,
+    GitStatus,
     InstanceInfo,
     LanguageHint,
     LoginResult,

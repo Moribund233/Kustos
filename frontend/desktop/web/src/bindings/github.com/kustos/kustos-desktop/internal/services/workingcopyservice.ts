@@ -53,6 +53,50 @@ export function Branches(id: string): $CancellablePromise<git$0.Branch[] | null>
 }
 
 /**
+ * CancelClone 取消目标目录上正在进行的克隆。
+ * 
+ * Args:
+ * 
+ * 	dir: 目标目录（与 CloneRemote 传入的一致）
+ * 
+ * Returns:
+ * 
+ * 	没有正在进行的克隆时返回错误，让界面能区分"点了但没反应"。
+ */
+export function CancelClone(dir: string): $CancellablePromise<void> {
+    return $Call.ByID(1565112141, dir);
+}
+
+/**
+ * CloneRemote 把仓库克隆到本地并登记为工作副本。
+ * 
+ * 为什么单独一条而不是复用 Add：Add 只接受"已经存在的仓库目录"，而克隆要
+ * 先把目录建出来。用户的心智是"从实例拿一个仓库到本机"，中间那一步不该
+ * 让他先去终端敲 git clone 再回来加路径。
+ * 
+ * 凭据处理分两种：
+ *   - 本实例仓库：用内存里的 access token，经 `GIT_CONFIG_*` 环境变量以
+ *     Authorization 头交给 git，**不拼进 URL、不写进 .git/config**；
+ *   - 外部地址：不注入任何凭据，沿用用户自己的 SSH agent / git 配置。
+ * 
+ * 目标目录必须由用户明确给出：桌面端不替他挑位置。曾经默认放到 `~/Kustos`，
+ * 结果在"主目录在系统盘"或"安全软件拦住普通进程建目录"的机器上一点克隆就
+ * 吃权限错误——承担一个它无法判断的磁盘决策，还不如让用户只说一次。
+ * 
+ * Args:
+ * 
+ * 	target: 来源（RepoPath 或 URL）与目标目录
+ * 
+ * Returns:
+ * 
+ * 	登记好的工作副本；目录已存在、参数非法、git 失败或用户取消时返回错误。
+ * 	取消返回的是 context.Canceled，且不会留下半成品目录。
+ */
+export function CloneRemote(target: $models.CloneTarget): $CancellablePromise<store$0.WorkingCopy> {
+    return $Call.ByID(2167837461, target);
+}
+
+/**
  * Commit 提交暂存区内容。
  * 
  * Args:

@@ -16,6 +16,7 @@ import (
 
 	"github.com/kustos/kustos-desktop/internal/bridge"
 	"github.com/kustos/kustos-desktop/internal/platform/singleinstance"
+	"github.com/kustos/kustos-desktop/internal/services"
 	"github.com/kustos/kustos-desktop/internal/store"
 	"github.com/kustos/kustos-desktop/internal/windowstate"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -611,3 +612,51 @@ func (d *Desktop) SetUpstream(raw string) error {
 	}
 	return d.bridge.SetUpstream(raw)
 }
+
+// PickDirectory 打开系统目录选择框。
+//
+// 挂在 Desktop 上而不是服务层直接取 application.Get()：对话框要挂在具体窗口下，
+// 否则 macOS 上会变成一个没有父窗口的浮动面板，Windows 上则可能被主窗口盖住。
+//
+// Args:
+//
+//	title: 对话框标题
+//	start: 起始目录；为空则由系统决定
+//
+// Returns:
+//
+//	选中的绝对路径；用户取消时返回空字符串与 nil。
+func (d *Desktop) PickDirectory(title, start string) (string, error) {
+	if d.app == nil {
+		return "", fmt.Errorf("桌面端尚未就绪")
+	}
+	dialog := d.app.Dialog.OpenFile()
+	// 选择目录必须显式关掉"选文件"：Wails 默认是选文件的。
+	dialog.CanChooseFiles(false)
+	dialog.CanChooseDirectories(true)
+	dialog.CanCreateDirectories(true)
+	if title != "" {
+		dialog.SetTitle(title)
+	}
+	if start != "" {
+		dialog.SetDirectory(start)
+	}
+	if d.window != nil {
+		dialog.AttachToWindow(d.window)
+	}
+	return dialog.PromptForSingleSelection()
+}
+
+// EmitCloneProgress 把克隆进度广播给界面。
+//
+// 由装配层转发而不是服务层直接调 application：服务层要能在没有 Wails 运行时的
+// 测试里跑，而那里的 application.Get() 是 nil。
+func (d *Desktop) EmitCloneProgress(ev services.CloneProgressEvent) {
+	if d.app == nil {
+		return
+	}
+	d.app.Event.Emit(cloneProgressEvent, ev)
+}
+
+// cloneProgressEvent 是克隆进度事件名，与 main.go 里 RegisterEvent 的一致。
+const cloneProgressEvent = "clone:progress"

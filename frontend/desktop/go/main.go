@@ -37,6 +37,9 @@ func main() {
 	// 事件类型注册：绑定生成器据此产出强类型 TS API。
 	// 会话失效要广播到所有窗口，不只是主窗口。
 	application.RegisterEvent[string]("session:lost")
+	// 克隆进度：一次 clone 可能跑几分钟，进度要靠事件逐帧推给界面，
+	// 因为 Wails 的一次方法调用只在结束时返回。
+	application.RegisterEvent[services.CloneProgressEvent]("clone:progress")
 
 	// 本地事实库与凭据存储：SQLite 存本机事实，凭据进系统钥匙串。
 	dir, err := localDataDir()
@@ -68,6 +71,7 @@ func main() {
 	// 窗口与托盘服务的动作要等 desktop 建好才能接上，所以先声明再回填。
 	windowSvc := services.NewWindowService()
 	notificationSvc := services.NewNotificationService()
+	systemSvc := services.NewSystemService()
 
 	// 通知后端先接上再启动：Wails 在启动时初始化这个服务，
 	// 晚于它接线会让第一批通知静默失败。
@@ -86,6 +90,7 @@ func main() {
 			application.NewService(windowSvc),
 			application.NewService(notificationSvc),
 			application.NewService(lspSvc),
+			application.NewService(systemSvc),
 		},
 	})
 	if err != nil {
@@ -108,6 +113,22 @@ func main() {
 		desktop.TrayLabels,
 		desktop.SetTrayLabels,
 	)
+
+	// 目录选择与克隆进度同样回填：服务层要能在没有 Wails 运行时的测试里跑，
+	// 那里 application.Get() 是 nil，直连会让测试段疯狂。用包级绑定函数而不是
+	// 服务方法，也是为了不让接线动作出现在前端可调用的绑定里。
+	services.BindDirectoryPicker(desktop.PickDirectory)
+	services.BindCloneProgress(desktop.EmitCloneProgress)
+
+	// 克隆到本实例仓库时用的凭据：从会话服务现取，不缓存。clone 可能跑几分钟，
+	// 期间令牌会被刷新，缓存下来就等于拿一个过期的令牌去拉代码。
+	services.BindCloneAuth(func() services.CloneAuth {
+		it, ok, err := sessionSvc.ActiveInstance()
+		if err != nil || !ok {
+			return services.CloneAuth{}
+		}
+		return services.CloneAuth{BaseURL: it.BaseURL, Token: sessionSvc.AccessToken()}
+	})
 
 	// 会话层负责决定"现在用哪台实例"，bridge 负责把请求发过去。把后者注入
 	// 给前者，用户添加或切换实例时上游才会跟着变；否则界面能登录成功，
