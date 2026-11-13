@@ -440,6 +440,26 @@ export function SaveDraft(id: string, path: string, content: string, baseMtime: 
 }
 
 /**
+ * SearchContent 在工作树里做全文搜索。
+ * 
+ * Args:
+ * 
+ * 	id: 工作副本 ID
+ * 	q:  查询参数
+ * 
+ * Returns:
+ * 
+ * 	命中列表与截断标记。空白查询返回空结果；非法正则、目录前缀越界、
+ * 	搜索超时返回错误。"没有命中"是空结果不是错误。
+ * 
+ * 与联网命令不同，这里不进工作树锁：git grep 只读，且一次宽泛查询可能跑
+ * 十几秒，把它挡在提交与暂存前面是纯粹的伤害。
+ */
+export function SearchContent(id: string, q: $models.ContentSearchQuery): $CancellablePromise<$models.ContentSearchResult> {
+    return $Call.ByID(3231911907, id, q);
+}
+
+/**
  * SearchFiles 按文件名或路径片段搜索工作树。
  * 
  * Args:

@@ -21,6 +21,13 @@ import {
   type TreeNode,
 } from "@/lib/code";
 import { buildLayout, restoreLayout, tabName, type RestoredLayout } from "@/lib/code-layout";
+import {
+  MIN_CONTENT_QUERY,
+  groupMatchesByFile,
+  highlightRanges,
+  shouldSearchContent,
+  useContentSearch,
+} from "@/lib/content-search";
 import type { CodeLayout } from "@/bindings/github.com/kustos/kustos-desktop/internal/services/models";
 import {
   blameGutter,
@@ -111,8 +118,8 @@ export interface OpenTab {
   name: string;
 }
 
-/** 左栏的三个分段：与原型一致。 */
-export type CodeSegment = "files" | "symbols" | "changes";
+/** 左栏的分段：原型有文件/符号/变更三段，内容分段是工作树全文搜索（后补）。 */
+export type CodeSegment = "files" | "content" | "symbols" | "changes";
 
 export interface CodeParts {
   list: React.ReactNode;
@@ -583,6 +590,59 @@ export function useCodeSurface(userName = "") {
 
   const search = useFileSearch(workingCopyId, debouncedFilter, segment === "files");
   const changes = useChangedFiles(workingCopyId, segment === "changes");
+
+  /**
+   * 全文内容搜索（内容分段）。
+   *
+   * 查询复用文件分段那套去抖后的 filter 输入——切分段不必重打一遍；
+   * 目录范围有自己更长的去抖：它是逐字敲出来的路径，中途的半个目录名
+   * 会报"目录不存在"。
+   */
+  const [contentRegex, setContentRegex] = useState(false);
+  const [contentCase, setContentCase] = useState(false);
+  const [contentScope, setContentScope] = useState("");
+  const [debouncedScope, setDebouncedScope] = useState("");
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebouncedScope(contentScope), 350);
+    return () => window.clearTimeout(id);
+  }, [contentScope]);
+  const content = useContentSearch(
+    workingCopyId,
+    { query: debouncedFilter, regex: contentRegex, caseSensitive: contentCase, scope: debouncedScope },
+    segment === "content",
+  );
+
+  /**
+   * 从搜索结果跳到（文件, 行）。
+   *
+   * 不能直接 `revealLine`：那条路走的是"文件已经打开"的前提。这里目标文件
+   * 可能还没读回来，等它落地的那一帧再交行号，否则编辑器拿着上一份文档的
+   * 行数做钳制，跳到错的位置。
+   */
+  const [pendingJump, setPendingJump] = useState<{ path: string; line: number } | null>(null);
+  const jumpToLine = useCallback(
+    (path: string, line: number) => {
+      openPath(path);
+      if (activePath === path && file.data !== undefined) {
+        // 与符号列表同一个手法：先清空再赋值，让"再点同一条结果"也能重跳。
+        setReveal(null);
+        window.setTimeout(() => setReveal({ path, line }), 0);
+        return;
+      }
+      setPendingJump({ path, line });
+    },
+    [activePath, file.data, openPath],
+  );
+  useEffect(() => {
+    if (!pendingJump) return;
+    if (pendingJump.path !== activePath || file.data === undefined) return;
+    const jump = pendingJump;
+    setPendingJump(null);
+    // 与 revealLine 同一个手法：先清空再赋值，让"再点同一个结果"也能重跳——
+    // CodeView 的跳转 effect 只在行号数值变化时触发。
+    setReveal(null);
+    window.setTimeout(() => setReveal(jump), 0);
+  }, [pendingJump, activePath, file.data]);
 
   /**
    * 行标的基准：文件在 HEAD 里的原文。
@@ -1098,6 +1158,10 @@ export function useCodeSurface(userName = "") {
       setBuffers({});
       setSaveError(null);
       setConflict(null);
+      // 目录范围是相对仓库根的，换仓库后多半不存在；留着它只会让
+      // 下一次搜索报"目录不存在"，而用户看不出这和刚切的仓库有什么关系。
+      setContentScope("");
+      setPendingJump(null);
     },
     expanded,
     toggleDir,
@@ -1132,6 +1196,20 @@ export function useCodeSurface(userName = "") {
     searchLoading: search.isFetching,
     changes: changes.data ?? [],
     changesLoading: changes.isLoading,
+
+    // 全文内容搜索（内容分段）。
+    contentMatches: content.data?.matches ?? [],
+    contentTruncated: content.data?.truncated ?? false,
+    contentLoading: content.isFetching,
+    contentError: content.error instanceof Error ? content.error.message : null,
+    contentRegex,
+    setContentRegex,
+    contentCase,
+    setContentCase,
+    contentScope,
+    setContentScope,
+    /** 点一条搜索结果：打开那个文件并跳到那一行。 */
+    jumpToLine,
 
     // 本地智能
     workspaceRoot,
@@ -1263,6 +1341,7 @@ export function CodeTree({ state }: { state: CodeState }) {
 
   const segments: { id: CodeSegment; label: string }[] = [
     { id: "files", label: t("code.segments.files") },
+    { id: "content", label: t("code.segments.content") },
     { id: "symbols", label: t("code.segments.symbols") },
     { id: "changes", label: t("code.segments.changes") },
   ];
@@ -1290,7 +1369,7 @@ export function CodeTree({ state }: { state: CodeState }) {
           </select>
         )}
 
-        {/* 三个分段：与原型一致。 */}
+        {/* 分段切换。 */}
         <div className="mt-2 flex gap-0.5 rounded-[7px] border border-[var(--color-edge-1)] bg-[rgba(8,13,16,0.55)] p-0.5">
           {segments.map((s) => (
             <button
@@ -1309,15 +1388,23 @@ export function CodeTree({ state }: { state: CodeState }) {
           ))}
         </div>
 
-        {/* 过滤框只在文件分段有意义：变更与符号都有自己的过滤语义。 */}
-        {state.segment === "files" && (
+        {/* 过滤/搜索框：文件分段按路径过滤，内容分段扫工作树全文；
+            变更与符号有自己的过滤语义，不给输入框。 */}
+        {(state.segment === "files" || state.segment === "content") && (
           <input
             value={state.filter}
             onChange={(e) => state.setFilter(e.target.value)}
-            placeholder={t("code.filterPlaceholder")}
-            aria-label={t("code.filterPlaceholder")}
+            placeholder={
+              state.segment === "content" ? t("code.content.placeholder") : t("code.filterPlaceholder")
+            }
+            aria-label={
+              state.segment === "content" ? t("code.content.placeholder") : t("code.filterPlaceholder")
+            }
             className="mt-1.5 h-[22px] w-full rounded-[5px] border border-[var(--color-edge-2)] bg-[var(--color-ink-850)] px-1.5 text-[11px] text-[var(--color-bone)] outline-none focus:border-[var(--color-amber)]"
           />
+        )}
+        {state.segment === "content" && (
+          <ContentSearchControls state={state} />
         )}
       </div>
 
@@ -1331,6 +1418,8 @@ export function CodeTree({ state }: { state: CodeState }) {
         {id && state.segment === "files" && state.debouncedFilter.trim() !== "" && (
           <SearchResults state={state} />
         )}
+
+        {id && state.segment === "content" && <ContentResults state={state} />}
 
         {id && state.segment === "symbols" && <SymbolList state={state} symbols={symbols} />}
 
@@ -1384,6 +1473,158 @@ function SearchResults({ state }: { state: CodeState }) {
       ))}
     </>
   );
+}
+
+/**
+ * 内容分段的搜索选项：正则 / 大小写 / 目录范围。
+ *
+ * 两个开关做成可切换的"按下态"而不是复选框：这一列只有 22px 高，
+ * 且它们是查询的修饰而不是独立设置。
+ */
+function ContentSearchControls({ state }: { state: CodeState }) {
+  const { t } = useTranslation();
+
+  const toggleClass = (on: boolean) =>
+    [
+      "h-[20px] shrink-0 rounded-[5px] border px-1.5 font-mono text-[10px]",
+      on
+        ? "border-[var(--color-amber)] text-[var(--color-amber)]"
+        : "border-[var(--color-edge-2)] text-[var(--color-muted-2)] hover:text-[var(--color-bone-2)]",
+    ].join(" ");
+
+  return (
+    <div className="mt-1.5 flex items-center gap-1">
+      <button
+        type="button"
+        onClick={() => state.setContentRegex(!state.contentRegex)}
+        title={t("code.content.regexHint")}
+        aria-pressed={state.contentRegex}
+        className={toggleClass(state.contentRegex)}
+      >
+        {t("code.content.regex")}
+      </button>
+      <button
+        type="button"
+        onClick={() => state.setContentCase(!state.contentCase)}
+        title={t("code.content.caseHint")}
+        aria-pressed={state.contentCase}
+        className={toggleClass(state.contentCase)}
+      >
+        {t("code.content.case")}
+      </button>
+      <input
+        value={state.contentScope}
+        onChange={(e) => state.setContentScope(e.target.value)}
+        placeholder={t("code.content.scopePlaceholder")}
+        aria-label={t("code.content.scopePlaceholder")}
+        className="h-[20px] min-w-0 flex-1 rounded-[5px] border border-[var(--color-edge-2)] bg-[var(--color-ink-850)] px-1.5 font-mono text-[10px] text-[var(--color-bone)] outline-none focus:border-[var(--color-amber)]"
+      />
+    </div>
+  );
+}
+
+/**
+ * 内容分段的结果列表。
+ *
+ * 按文件分节：几十条命中平铺时，"集中在哪几个文件"这个最重要的信息
+ * 反而看不见。点一条命中 = 打开那个文件并跳到那一行。
+ */
+function ContentResults({ state }: { state: CodeState }) {
+  const { t } = useTranslation();
+  const query = state.debouncedFilter;
+
+  if (!shouldSearchContent(query)) {
+    // 上一次查询短到不该搜时给出提示；已有结果仍然显示（占位数据），
+    // 否则每删一个字符列表就闪空一次。
+    if (state.contentMatches.length === 0) {
+      return <Hint>{t("code.content.tooShort", { count: MIN_CONTENT_QUERY })}</Hint>;
+    }
+  }
+  if (state.contentLoading && state.contentMatches.length === 0) {
+    return <Hint>{t("code.content.searching")}</Hint>;
+  }
+  if (state.contentError != null) {
+    // 非法正则、越界目录、超时都在这一支：错误原样上屏，
+    // 空结果表达不了"你的表达式写错了"。
+    return (
+      <p className="px-3 py-1 text-[10.5px] leading-relaxed text-[var(--color-rose)]">
+        {state.contentError}
+      </p>
+    );
+  }
+  if (state.contentMatches.length === 0) {
+    return <Hint>{t("code.content.empty", { query })}</Hint>;
+  }
+
+  const groups = groupMatchesByFile(state.contentMatches);
+  return (
+    <>
+      <p className="flex items-center gap-1.5 px-3 pt-2 pb-1 text-[9.5px] tracking-[0.15em] text-[var(--color-faint)] uppercase">
+        {t("code.matches", { count: state.contentMatches.length })}
+        <span>{t("code.content.files", { count: groups.length })}</span>
+      </p>
+      {state.contentTruncated && (
+        <p className="px-3 pb-1 text-[10px] leading-relaxed text-[var(--color-amber-3)]">
+          {t("code.content.truncated", { count: state.contentMatches.length })}
+        </p>
+      )}
+      {groups.map((group, gi) => (
+        <div key={`${group.path}:${gi}`}>
+          <div className="flex h-[22px] items-center gap-1 bg-[var(--color-ink-900)] px-2.5">
+            <Icon name="file" size={11} className="shrink-0 text-[var(--color-faint)]" />
+            <span className="truncate font-mono text-[10.5px] text-[var(--color-bone-2)]">{group.path}</span>
+            <span className="ml-auto shrink-0 font-mono text-[9.5px] text-[var(--color-faint)]">
+              {group.matches.length}
+            </span>
+          </div>
+          {group.matches.map((m, i) => (
+            <button
+              key={`${group.path}:${m.line}:${i}`}
+              type="button"
+              onClick={() => state.jumpToLine(group.path, m.line)}
+              className="flex w-full items-baseline gap-2 border-l-2 border-l-transparent px-2.5 py-0.5 text-left hover:bg-[var(--color-ink-850)]"
+            >
+              <span className="shrink-0 font-mono text-[9.5px] text-[var(--color-faint)]">{m.line}</span>
+              <span className="min-w-0 truncate font-mono text-[10.5px] text-[var(--color-muted)]">
+                <HighlightedLine text={m.text} query={query} regex={state.contentRegex} caseSensitive={state.contentCase} />
+              </span>
+            </button>
+          ))}
+        </div>
+      ))}
+    </>
+  );
+}
+
+/** 结果行里把命中的片段标出来；区间算法与 Go 侧的大小写规则一致。 */
+function HighlightedLine({
+  text,
+  query,
+  regex,
+  caseSensitive,
+}: {
+  text: string;
+  query: string;
+  regex: boolean;
+  caseSensitive: boolean;
+}) {
+  const ranges = highlightRanges(text, query, { regex, caseSensitive });
+  if (ranges.length === 0) return <>{text}</>;
+
+  const parts: React.ReactNode[] = [];
+  let cursor = 0;
+  ranges.forEach((r, i) => {
+    if (r.start > cursor) parts.push(text.slice(cursor, r.start));
+    parts.push(
+      // 结果行是深色底，默认 mark 的黄底黑字会闪成一块亮斑，所以自带配色。
+      <mark key={i} className="bg-[rgba(232,163,58,0.28)] text-[var(--color-bone)]">
+        {text.slice(r.start, r.end)}
+      </mark>,
+    );
+    cursor = r.end;
+  });
+  if (cursor < text.length) parts.push(text.slice(cursor));
+  return <>{parts}</>;
 }
 
 /**

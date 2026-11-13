@@ -137,6 +137,51 @@ export interface CodeLayout {
 }
 
 /**
+ * ContentSearchQuery 是一次全文搜索的参数。
+ */
+export interface ContentSearchQuery {
+    /**
+     * Query 是查询文本；空或纯空白返回空结果。
+     */
+    "query": string;
+
+    /**
+     * Regex 为真时按扩展正则解释，否则按字面量。
+     */
+    "regex": boolean;
+
+    /**
+     * CaseSensitive 为真时区分大小写。
+     */
+    "caseSensitive": boolean;
+
+    /**
+     * Path 是可选的目录/文件前缀（相对仓库根）；空表示全仓库。
+     */
+    "path": string;
+
+    /**
+     * Limit 是总命中上限；<= 0 时用默认值。
+     */
+    "limit": number;
+}
+
+/**
+ * ContentSearchResult 是一次全文搜索的结果。
+ */
+export interface ContentSearchResult {
+    /**
+     * Matches 是命中列表（文件名字序、文件内行号序）。
+     */
+    "matches": git$0.ContentMatch[] | null;
+
+    /**
+     * Truncated 表示触到了上限、结果不完整；界面据此提示缩小范围。
+     */
+    "truncated": boolean;
+}
+
+/**
  * Credentials 是登录结果中返回给前端的部分。
  * 
  * **不含 refresh token**：它只进 Keychain。这条边界写在这里而不是注释里，

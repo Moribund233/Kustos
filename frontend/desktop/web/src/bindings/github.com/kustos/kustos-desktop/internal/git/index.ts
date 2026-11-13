@@ -10,6 +10,7 @@ export type {
     BlameLine,
     Branch,
     Change,
+    ContentMatch,
     HeadFile,
     Upstream
 } from "./models.js";

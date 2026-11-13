@@ -281,6 +281,7 @@ const en = {
     lineCount_other: "{{count}} lines",
     segments: {
       files: "Files",
+      content: "Content",
       symbols: "Symbols",
       changes: "Changes",
     },
@@ -289,6 +290,22 @@ const en = {
     noMatches: "No files match “{{query}}”.",
     matches_one: "{{count}} result",
     matches_other: "{{count}} results",
+    // Full-text search scans the working tree as it stands right now
+    // (untracked files included) — there is no index to go stale.
+    content: {
+      placeholder: "Search code…",
+      scopePlaceholder: "Scope to a directory (optional)",
+      regex: "re",
+      regexHint: "Treat the query as an extended regular expression (literal by default)",
+      case: "Aa",
+      caseHint: "Match case (ignored by default)",
+      searching: "Scanning the working tree…",
+      tooShort: "Type at least {{count}} characters to search.",
+      empty: "No line in the working tree contains “{{query}}”.",
+      truncated: "{{count}} matches is the cap — narrow the query or the directory.",
+      files_one: "{{count}} file",
+      files_other: "{{count}} files",
+    },
     symbolsHint: "A symbol outline needs the language server's syntax tree; that lands in a later milestone.",
     symbolsNoServer: "No language server is connected, so there is no outline to show.",
     symbolsLoading: "Reading symbols…",

@@ -173,6 +173,26 @@ export enum ClonePhase {
 };
 
 /**
+ * ContentMatch 是一条全文命中。
+ */
+export interface ContentMatch {
+    /**
+     * Path 是相对仓库根的路径（斜杠分隔）。
+     */
+    "path": string;
+
+    /**
+     * Line 是行号（1 起）。
+     */
+    "line": number;
+
+    /**
+     * Text 是该行内容（已去掉行尾换行）。
+     */
+    "text": string;
+}
+
+/**
  * HeadFile 是文件在 HEAD 里的版本。
  * 
  * 编辑器拿它和当前缓冲区在本地逐行对比，才能给出"随打字实时更新"的行标：

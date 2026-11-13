@@ -25,6 +25,8 @@ export type {
     CloneProgressEvent,
     CloneTarget,
     CodeLayout,
+    ContentSearchQuery,
+    ContentSearchResult,
     Credentials,
     DetectedLanguage,
     FileStat,
