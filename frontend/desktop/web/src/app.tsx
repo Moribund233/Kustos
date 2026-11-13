@@ -355,6 +355,20 @@ function MainShell({
       });
     }
     if (code.mode !== "disk") {
+      // 发布是独立于退出的动作：退出只是不写了，发布才让内容进正式历史。
+      // 只有草稿上真有东西时才进面板——空发布是一次什么都不发生的往返。
+      if (code.draftAhead > 0) {
+        local.push({
+          id: "local-collab-publish",
+          group: "local",
+          label: t("palette.publishCollab"),
+          icon: "git-commit",
+          run: () => {
+            onSelect("code");
+            code.openPublish();
+          },
+        });
+      }
       local.push({
         id: "local-collab-leave",
         group: "local",
@@ -368,7 +382,18 @@ function MainShell({
     }
 
     return groups;
-  }, [t, onSelect, wc.active, code.activePath, code.collabReady, code.mode, code.beginCollab, code.leaveCollab]);
+  }, [
+    t,
+    onSelect,
+    wc.active,
+    code.activePath,
+    code.collabReady,
+    code.mode,
+    code.draftAhead,
+    code.beginCollab,
+    code.leaveCollab,
+    code.openPublish,
+  ]);
 
   // 收件箱与工作副本已接真实数据；其余面保持骨架。
   if (surface === "inbox") {

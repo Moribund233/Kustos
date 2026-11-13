@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { Icon } from "@/shell/icon";
 import { applyEol, CodeView, detectEol, normalizeEol, type Eol } from "@kustos/editor";
@@ -52,6 +53,7 @@ import {
   useStage,
   useWorkingCopies,
   useWorkingCopyStatus,
+  workingCopyKeys,
   type WorkingCopy,
 } from "@/lib/working-copy";
 import {
@@ -61,10 +63,19 @@ import {
   collabPeerCount,
   createCollabSession,
   saveCollabDocument,
+  saveErrorIsKick,
   type CollabSession,
   type CollabStatus,
 } from "@/lib/collab";
 import { activePathCounts, connectionsFor, useActiveCollabDocs } from "@/lib/collab-active";
+import {
+  CollabPublishError,
+  collabPublishKeys,
+  emptyPreview,
+  publishCollabDraft,
+  useDraftPreview,
+  type DraftPublishResult,
+} from "@/lib/collab-publish";
 import {
   isWritable,
   precheck,
@@ -150,6 +161,7 @@ interface CollabSavedPayload {
  */
 export function useCodeSurface(userName = "") {
   const { t } = useTranslation();
+  const qc = useQueryClient();
   const copies = useWorkingCopies();
   const list = copies.data ?? [];
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -637,6 +649,12 @@ export function useCodeSurface(userName = "") {
    * 预检第一步就该要求先对齐，而不是悄悄在你的分支上开一份只有自己能看到的文档。
    */
   const collabBranch = repo?.defaultBranch ?? localBranch;
+  /**
+   * 本地视角的草稿领先数。
+   *
+   * 只用在**进入协作前**的预检里：那时不该为了一个提示去动网络，而"本地分支
+   * 与草稿引用差多少"已经足够判断要不要先 fetch。
+   */
   const draftAhead = useDraftAhead(workingCopyId, collabBranch);
   const activeDocs = useActiveCollabDocs(repo?.id ?? null);
 
@@ -654,6 +672,16 @@ export function useCodeSurface(userName = "") {
   // 预检选了"先写盘"：保存是异步落地的，得等缓冲区不再脏再重新判定，
   // 否则紧接着调预检读到的还是旧的 dirty，对话框会原地再弹一次。
   const [pendingJoin, setPendingJoin] = useState(false);
+
+  // 发布：预览对话框、发布中的忙态、结果与失败。
+  //
+  // 发布是**不可撤销**的动作（squash 进目标分支），所以它走一个独立的确认框：
+  // 框里先摊开"要合进去的是什么"，而不是把按钮挂在编辑栏上一点就发。
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [publishMessage, setPublishMessage] = useState("");
+  const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [published, setPublished] = useState<DraftPublishResult | null>(null);
 
   const stage = useStage(workingCopyId);
   const commit = useCommit(workingCopyId);
@@ -684,6 +712,22 @@ export function useCodeSurface(userName = "") {
       documentName: collabKey,
       username: userName,
       onStatus: (status) => setCollabStatus(status),
+      // 写入权限被吊销 / 被踢出会话：网关会断开连接，这里把模式降到观察态。
+      // 只降不升——重新连一次自动变回 live 是错的，权限没了就不该再能写。
+      onKicked: (reason) => {
+        setCollabSaving(false);
+        setCollabError(reason);
+        setMode((current) => transition(current, "kick"));
+        // 降级之后不能留一个"正在写"的编辑器：带走的光标会让别人以为还在改。
+        setCollabSaved(null);
+      },
+      // 保存失败（只读、内容过大、后端 500）：保存中必须收尾，否则按钮一直转。
+      onSaveError: (error) => {
+        setCollabSaving(false);
+        setCollabError(error === "" ? t("code.collab.saveFailed") : error);
+        // 权限类失败同样要降级：界面上继续允许写，写出去的字永远发不到服务端。
+        if (saveErrorIsKick(error)) setMode((current) => transition(current, "kick"));
+      },
     });
     setCollab(session);
     return () => {
@@ -693,7 +737,7 @@ export function useCodeSurface(userName = "") {
       setCollabSaved(null);
       setPeers(0);
     };
-  }, [collabEnabled, collabKey, userName]);
+  }, [collabEnabled, collabKey, userName, t]);
 
   // 在线人数（含自己）：感知层不可用时显示 0，而不是假装"1 人"。
   useEffect(() => {
@@ -731,12 +775,16 @@ export function useCodeSurface(userName = "") {
       if (message?.type !== "collab-saved" || message.docKey !== collabKey) return;
       setCollabSaving(false);
       setCollabSaved(message.commit_id ?? "");
+      // 草稿分支刚前进了一次：不立刻失效，"发布"按钮上的计数会停在旧值上
+      // （缓存 15 秒），用户看着一个灰按钮，以为自己的保存没算数。
+      void qc.invalidateQueries({ queryKey: workingCopyKeys.draftAhead(workingCopyId ?? "", collabBranch) });
+      void qc.invalidateQueries({ queryKey: collabPublishKeys.preview(repo?.id ?? "", collabBranch) });
     };
     provider.on("stateless", onStateless);
     return () => {
       provider.off("stateless", onStateless);
     };
-  }, [collab, collabKey]);
+  }, [collab, collabBranch, collabKey, qc, repo?.id, workingCopyId]);
 
   /** 进入协作：先跑四步预检，有问题摊开让用户决定，能过就直接连。 */
   const beginCollab = useCallback(() => {
@@ -864,6 +912,91 @@ export function useCodeSurface(userName = "") {
     beginCollab();
   }, [pendingJoin, activeBuffer?.dirty, conflict, beginCollab]);
 
+  /* ---------------------------------------------------------------- */
+  /* 发布                                                              */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * 预览：既是发布确认框的内容，也是"还有几次未发布"的唯一来源。
+   *
+   * 协作模式下常开并 30 秒重取：徽标上写着的数字错了会让人反复发布，
+   * 而这个查询本身只是一次 compare，比读本地引用更准。
+   */
+  const preview = useDraftPreview(repo?.id ?? null, collabBranch, mode !== "disk", 30_000);
+
+  /**
+   * 界面上"还有几次未发布"的唯一来源。
+   *
+   * 不用 `DraftAhead` 的本地计数：它比的是本地已有的引用，而本地引用可能落后
+   * 服务端——别人发布过、我还没 fetch，本地就会一直说"还有 5 次未发布"，
+   * 点开预览却只有 2 次。两个数字打架时用户只会信更悲观的那个，然后反复发布。
+   *
+   * 没有预览数据时（刚进协作、还没打开过对话框）先退回本地计数：那时给出
+   * 一个"可能不准"的数字，好过让徽标一直是灰的。
+   */
+  const pendingSaves = preview.data ? preview.data.commitCount : (draftAhead.data ?? 0);
+
+  /** 打开发布确认框；顺手把默认提交信息填好。 */
+  const openPublish = useCallback(() => {
+    setPublishError(null);
+    setPublished(null);
+    setPublishMessage(t("code.collab.publishMessage", { branch: collabBranch }));
+    setPublishOpen(true);
+  }, [collabBranch, t]);
+
+  const closePublish = useCallback(() => {
+    setPublishOpen(false);
+    setPublishError(null);
+  }, []);
+
+  /**
+   * 发布草稿。
+   *
+   * 发布成功后**不**切回本地模式：用户可能正和别人一起写着，发布只是把攒下的
+   * 保存落到正式历史，编辑会话不必为此中断。要停的是"草稿还有 N 次未发布"
+   * 那条提示——它靠重取服务端预览来消除。
+   */
+  const publishDraft = useCallback(async () => {
+    if (!repo || publishing) return;
+    setPublishing(true);
+    setPublishError(null);
+    try {
+      const result = await publishCollabDraft(repo.id, {
+        branch: collabBranch,
+        message: publishMessage.trim(),
+      });
+      setPublished(result);
+      // 发布把草稿分支重置到了发布提交：上一次"已存成 b38e3bc4"指向的提交
+      // 已经被 squash 掉，继续显示等于告诉用户草稿上还留着那个提交。
+      setCollabSaved(null);
+      // 草稿分支已被重置：立刻重取预览，界面上的"还有 N 次未发布"才会归零。
+      // 等 30 秒的轮询太久——这段时间里用户会以为发布没生效，再点一次。
+      await qc.invalidateQueries({ queryKey: collabPublishKeys.preview(repo.id, collabBranch) });
+      void qc.invalidateQueries({ queryKey: workingCopyKeys.draftAhead(workingCopyId ?? "", collabBranch) });
+      // 目标分支动了：工作副本侧的状态、diff 与真机上的引用都可能变。
+      void qc.invalidateQueries({ queryKey: ["working-copy", workingCopyId ?? "", "status"] });
+      void qc.invalidateQueries({ queryKey: workingCopyKeys.list });
+    } catch (err) {
+      // 冲突与权限失败的含义完全不同，不能塌成一句"发布失败"：
+      // 前者要人先去解决并行修改，后者是权限不够。
+      if (err instanceof CollabPublishError && err.code === "collab_publish_conflict") {
+        setPublishError(t("code.collab.publishConflict", { detail: err.detail ?? "" }));
+      } else if (err instanceof CollabPublishError && err.code === "collab_publish_no_common_ancestor") {
+        setPublishError(t("code.collab.publishNoAncestor"));
+      } else {
+        setPublishError(
+          err instanceof CollabPublishError && err.detail
+            ? err.detail
+            : err instanceof Error
+              ? err.message
+              : t("code.collab.publishFailed"),
+        );
+      }
+    } finally {
+      setPublishing(false);
+    }
+  }, [collabBranch, publishMessage, publishing, qc, repo, t, workingCopyId]);
+
   return {
     copies: list,
     active,
@@ -984,8 +1117,12 @@ export function useCodeSurface(userName = "") {
     /** 协作文档挂的分支（仓库默认分支）与它的草稿分支名。 */
     collabBranch,
     collabDraftBranch: collabDraftBranch(collabBranch),
-    /** 草稿分支比本地领先多少次未发布的保存。 */
-    draftAhead: draftAhead.data ?? 0,
+    /**
+     * 草稿分支上还有几次未发布的保存。
+     *
+     * 权威来源是服务端的 compare（`pendingSaves`），本地引用可能落后于它。
+     */
+    draftAhead: pendingSaves,
     collabReady: Boolean(repo) && activePath != null,
     precheck: precheckResult,
     precheckBusy,
@@ -997,6 +1134,24 @@ export function useCodeSurface(userName = "") {
     /** ⌘S 的语义：由模式决定写盘、存草稿，还是什么都不写。 */
     saveMode: saveSemantics(mode),
     writable: mode === "disk" ? true : isWritable(mode),
+
+    // 发布：草稿分支 squash 进目标分支。
+    //
+    // 与"存草稿"是两件事：存草稿只推进草稿分支，发布才会改正式历史。
+    // 因此它有一个自己的确认框，里面摊开待合入的提交数与逐文件增删。
+    openPublish,
+    closePublish,
+    publishOpen,
+    publish: publishDraft,
+    publishing,
+    publishError,
+    published,
+    publishMessage,
+    setPublishMessage,
+    /** 草稿分支相对目标分支的待发布内容；没打开对话框时为空。 */
+    preview: preview.data ?? emptyPreview(),
+    previewLoading: preview.isLoading,
+    previewError: preview.error instanceof Error ? preview.error.message : null,
   };
 }
 
@@ -1629,6 +1784,32 @@ export function CodeDetail({ state }: { state: CodeState }) {
             {state.collabSaving ? t("code.saving") : t("code.collab.saveDraft")}
           </button>
         )}
+        {/* 发布：只有草稿分支上真有未发布的保存时才可用。
+            入口常驻在协作模式里，而不是等攒够了才冒出来——用户需要知道
+            "我存下的东西现在算在哪儿"。 */}
+        {state.mode !== "disk" && (
+          <button
+            type="button"
+            onClick={state.openPublish}
+            disabled={!state.collabReady}
+            title={
+              state.draftAhead > 0
+                ? t("code.collab.publishHint", { count: state.draftAhead })
+                : t("code.collab.publishEmptyHint")
+            }
+            className={[
+              "h-[22px] shrink-0 rounded-[7px] border px-2 text-[10.5px]",
+              state.draftAhead > 0
+                ? "border-[var(--color-sage)] text-[var(--color-sage)] hover:bg-[rgba(134,183,158,0.12)]"
+                : "border-[var(--color-edge-2)] text-[var(--color-bone-2)] opacity-40",
+            ].join(" ")}
+          >
+            {t("code.collab.publish")}
+            {state.draftAhead > 0 && (
+              <span className="ml-1 font-mono">{state.draftAhead}</span>
+            )}
+          </button>
+        )}
       </div>
 
       {/* 协作现状：连接状态、在线人数、保存回执。
@@ -1753,6 +1934,10 @@ export function CodeDetail({ state }: { state: CodeState }) {
       {/* 预检对话框：只在按下"进入协作"之后出现，遮蔽整个编辑区——
           预检没过就动文档，等于先改再问。 */}
       <PrecheckDialog state={state} />
+
+      {/* 发布确认框：发布会把草稿压成目标分支上的一次提交，改的是正式历史，
+          所以先把"要合进去的是什么"摊开再让人点头。 */}
+      <PublishDialog state={state} />
     </>
   );
 }
@@ -1921,6 +2106,146 @@ function PrecheckDialog({ state }: { state: CodeState }) {
               className="h-[26px] rounded-[7px] border border-[var(--color-amber)] px-2.5 text-[11px] text-[var(--color-amber)] hover:bg-[rgba(232,163,58,0.12)] disabled:opacity-40"
             >
               {state.precheckBusy ? t("code.collab.committing") : t("code.collab.commitAndJoin")}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 发布确认框。
+ *
+ * 桌面端相对 Web 多做的正是这一步：发布前把草稿分支相对目标分支的内容摊开
+ * （提交数、逐文件增删）。草稿上可能是别人攒了一下午的保存，squash 进主分支
+ * 前看不见内容就是盲签。发布成功后框不自动关——用户需要看到"发布到哪、
+ * 落了哪些文件"，那正是这次动作的唯一凭据。
+ */
+function PublishDialog({ state }: { state: CodeState }) {
+  const { t } = useTranslation();
+  const preview = state.preview;
+  const done = state.published !== null;
+
+  if (!state.publishOpen) return null;
+
+  // 没有待发布内容时不该让"发布"可点：服务端会返回 commit_id=null，
+  // 那是一次什么都没发生的往返，而按钮看着像失败了。
+  //
+  // 但**预览失败时不能锁按钮**：读不出预览是网络或权限问题，不代表草稿是空的。
+  // 把两者混成"没东西可发"，用户会以为自己的保存在别处，或者干脆放弃发布。
+  const nothingToPublish =
+    state.previewError == null &&
+    !state.previewLoading &&
+    preview.commitCount === 0 &&
+    preview.files.length === 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(6,9,11,0.62)] p-6">
+      <div className="flex max-h-full w-[520px] max-w-full flex-col rounded-[10px] border border-[var(--color-edge-2)] bg-[var(--color-ink-900)] p-4 shadow-2xl">
+        <p className="text-[13px] text-[var(--color-bone)]">{t("code.collab.publishTitle")}</p>
+        <p className="mt-1 text-[11px] leading-relaxed text-[var(--color-muted)]">
+          {t("code.collab.publishHintDetail", { branch: state.collabBranch })}
+        </p>
+
+        {/* 待合入的内容：提交数 + 逐文件增删。 */}
+        <div className="mt-3 min-h-0 flex-1 overflow-auto rounded-[7px] border border-[var(--color-edge-1)] bg-[var(--color-ink-950)]">
+          {state.previewLoading && (
+            <p className="px-3 py-2 text-[11px] text-[var(--color-muted-2)]">
+              {t("code.collab.previewLoading")}
+            </p>
+          )}
+          {state.previewError != null && (
+            <p className="px-3 py-2 text-[11px] text-[var(--color-rose)]">{state.previewError}</p>
+          )}
+          {!state.previewLoading && state.previewError == null && preview.missingDraft && (
+            <p className="px-3 py-2 text-[11px] leading-relaxed text-[var(--color-muted-2)]">
+              {t("code.collab.previewMissingDraft", { draft: state.collabDraftBranch })}
+            </p>
+          )}
+          {!state.previewLoading && state.previewError == null && !preview.missingDraft && (
+            <>
+              <div className="flex items-center gap-2 border-b border-[var(--color-edge-1)] px-3 py-1.5 text-[10.5px]">
+                <span className="text-[var(--color-bone-2)]">
+                  {t("code.collab.previewCommits", { count: preview.commitCount })}
+                </span>
+                <span className="font-mono text-[var(--color-sage)]">+{preview.additions}</span>
+                <span className="font-mono text-[var(--color-rose)]">−{preview.deletions}</span>
+                <span className="ml-auto text-[var(--color-faint)]">
+                  {t("code.collab.previewFiles", { count: preview.files.length })}
+                </span>
+              </div>
+              {preview.files.length === 0 ? (
+                <p className="px-3 py-2 text-[11px] text-[var(--color-muted-2)]">
+                  {t("code.collab.previewEmpty")}
+                </p>
+              ) : (
+                <ul className="divide-y divide-[var(--color-edge-1)]">
+                  {preview.files.map((file) => (
+                    <li key={file.path} className="flex items-center gap-2 px-3 py-1 text-[10.5px]">
+                      <span className="w-3 shrink-0 font-mono text-[var(--color-amber)]">
+                        {file.status}
+                      </span>
+                      <span className="truncate text-[var(--color-bone-2)]">{file.path}</span>
+                      <span className="ml-auto shrink-0 font-mono text-[var(--color-sage)]">
+                        +{file.additions}
+                      </span>
+                      <span className="w-8 shrink-0 text-right font-mono text-[var(--color-rose)]">
+                        −{file.deletions}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </div>
+
+        <label className="mt-3 block">
+          <span className="text-[10.5px] text-[var(--color-faint)]">
+            {t("code.collab.publishCommitMessage")}
+          </span>
+          <input
+            value={state.publishMessage}
+            onChange={(e) => state.setPublishMessage(e.target.value)}
+            className="mt-1 h-[26px] w-full rounded-[6px] border border-[var(--color-edge-2)] bg-[var(--color-ink-950)] px-2 text-[11px] text-[var(--color-bone)] outline-none focus:border-[var(--color-sage)]"
+          />
+        </label>
+
+        {state.publishError != null && (
+          <p className="mt-2 text-[10.5px] leading-relaxed text-[var(--color-rose)]">
+            {state.publishError}
+          </p>
+        )}
+        {done && (
+          <p className="mt-2 text-[10.5px] leading-relaxed text-[var(--color-sage)]">
+            {state.published?.commitId
+              ? t("code.collab.publishDone", {
+                  branch: state.published.branch,
+                  commit: state.published.commitId.slice(0, 8),
+                  count: state.published.paths.length,
+                })
+              : t("code.collab.publishNothing")}
+          </p>
+        )}
+
+        <div className="mt-3 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={state.closePublish}
+            className="h-[26px] rounded-[7px] border border-[var(--color-edge-2)] px-2.5 text-[11px] text-[var(--color-muted-2)] hover:text-[var(--color-bone-2)]"
+          >
+            {done ? t("code.collab.close") : t("code.collab.cancel")}
+          </button>
+          {!done && (
+            <button
+              type="button"
+              disabled={state.publishing || nothingToPublish || state.publishMessage.trim() === ""}
+              onClick={() => void state.publish()}
+              title={nothingToPublish ? t("code.collab.publishEmptyHint") : t("code.collab.publishSubmitHint")}
+              className="h-[26px] rounded-[7px] border border-[var(--color-sage)] px-2.5 text-[11px] text-[var(--color-sage)] hover:bg-[rgba(134,183,158,0.12)] disabled:opacity-40"
+            >
+              {state.publishing ? t("code.collab.publishing") : t("code.collab.publishConfirm", { branch: state.collabBranch })}
             </button>
           )}
         </div>

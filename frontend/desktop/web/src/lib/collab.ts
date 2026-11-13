@@ -92,6 +92,31 @@ export function collabDraftBranch(branch: string): string {
 
 export type CollabStatus = "connecting" | "connected" | "disconnected" | "error";
 
+/**
+ * 网关关闭连接时给出的信号。
+ *
+ * 权限被吊销（网关侧 `connection.close({code: 4403})`）时服务端其实只发了一条
+ * CLOSE 消息，客户端把它合成 `code: 1000` + 原始 reason。因此**不能只看状态码**：
+ * 真正的判据是 reason 里那句"写入权限已吊销"，4403 / 4003 只作为将来的兼容。
+ * 这里把这些判断收成一个纯函数，因为猜错的方向很危险——把普通断线当成被踢，
+ * 用户会以为自己的权限没了；反过来，被踢了还继续当 live 编辑，写的字永远发不出去。
+ */
+export function collabKickReason(event: { code?: number; reason?: string } | null | undefined): string | null {
+  const reason = (event?.reason ?? "").trim();
+  const code = event?.code ?? 0;
+  if (code === 4403 || code === 4003) return reason;
+  // 网关与 app 的文案（"写入权限已吊销" / "已被移出协作会话"）。
+  if (/吊销|移出协作|已被踢|权限已撤销/i.test(reason)) return reason;
+  // 英文部署下的兜底；只认明确表达"权限没了"的说法，普通断开不在此列。
+  if (/revoked|kicked|permission denied/i.test(reason)) return reason;
+  return null;
+}
+
+/** 网关广播的保存失败回执里，哪些是"权限没了"（要转观察态）。 */
+export function saveErrorIsKick(error: string | null | undefined): boolean {
+  return /移出协作|吊销|已被踢|kicked|revoked/i.test(error ?? "");
+}
+
 export interface CollabSessionOptions {
   /** 文档键，`repositoryId:branch:path`。 */
   documentName: string;
@@ -103,6 +128,10 @@ export interface CollabSessionOptions {
   url?: string;
   /** 连接状态回调。 */
   onStatus?: (status: CollabStatus) => void;
+  /** 被网关赶出会话（写入权限吊销 / 被踢）：界面要据此转只读观察。 */
+  onKicked?: (reason: string) => void;
+  /** 保存失败的回执文案：不处理的话"保存中"会一直转下去。 */
+  onSaveError?: (error: string) => void;
 }
 
 export interface CollabSession {
@@ -132,9 +161,32 @@ export function createCollabSession(options: CollabSessionOptions): CollabSessio
       options.onStatus?.(status as CollabStatus);
     },
     // 鉴权失败时网关会关连接；这里只把状态透出去，权限判定留给后端
-    onAuthenticationFailed: () => {
+    onAuthenticationFailed: ({ reason }) => {
+      // 被踢的人下一次鉴权就会拿到 403，与"令牌过期"必须分开：前者是权限没了，
+      // 后者换一次令牌还能继续。只有前者该切观察态。
+      const kicked = collabKickReason({ reason });
+      if (kicked !== null) options.onKicked?.(kicked);
       options.onStatus?.("error");
     },
+    onClose: ({ event }) => {
+      // 权限被吊销时网关发的是 CLOSE 消息 + 原始 reason，客户端合成成 1000，
+      // 因此这里靠 reason 判定；普通的网络断开不含这些字样，不会误判。
+      const kicked = collabKickReason(event);
+      if (kicked !== null) options.onKicked?.(kicked);
+    },
+  });
+
+  // 保存失败的回执：网关回 `collab-save-error` 时不广播成功，界面必须收尾，
+  // 否则"保存中"会一直转，用户以为还在写。
+  provider.on("stateless", ({ payload }: { payload?: string }) => {
+    let message: { type?: string; docKey?: string; error?: string } | null = null;
+    try {
+      message = JSON.parse(payload ?? "") as { type?: string; docKey?: string; error?: string };
+    } catch {
+      return;
+    }
+    if (message?.type !== "collab-save-error" || message.docKey !== options.documentName) return;
+    options.onSaveError?.(message.error ?? "");
   });
 
   // awareness 广播本人的展示身份。网关用令牌里的身份盖章 user_id 与 name（防冒名），

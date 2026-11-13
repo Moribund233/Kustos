@@ -3,10 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   collabDocumentKey,
   collabDraftBranch,
+  collabKickReason,
   collabPeerCount,
   collabSocketUrl,
   collabUserColor,
   parseCollabDocumentKey,
+  saveErrorIsKick,
 } from "./collab";
 import { activePathCounts, collabActiveUrl, connectionsFor } from "./collab-active";
 
@@ -107,5 +109,38 @@ describe("connectionsFor", () => {
 
   it("不在清单里给 0", () => {
     expect(connectionsFor(docs, "repo:main:b.ts")).toBe(0);
+  });
+});
+
+describe("collabKickReason", () => {
+  it("网关的吊销 reason 命中，即使状态码被合成成 1000", () => {
+    expect(collabKickReason({ code: 1000, reason: "写入权限已吊销, 请重新连接" })).not.toBeNull();
+  });
+
+  it("被移出会话也算被踢", () => {
+    expect(collabKickReason({ code: 1000, reason: "已被移出协作会话" })).not.toBeNull();
+  });
+
+  it("4403 即使没有文案也认", () => {
+    expect(collabKickReason({ code: 4403, reason: "" })).toBe("");
+  });
+
+  it("普通断线不是被踢", () => {
+    expect(collabKickReason({ code: 1006, reason: "" })).toBeNull();
+    expect(collabKickReason({ code: 1000, reason: "going away" })).toBeNull();
+    expect(collabKickReason(null)).toBeNull();
+  });
+
+  it("连接数超限（4429）不是权限问题", () => {
+    expect(collabKickReason({ code: 4429, reason: "该文档连接数已达上限 (50)" })).toBeNull();
+  });
+});
+
+describe("saveErrorIsKick", () => {
+  it("保存失败里说权限没了才转观察态", () => {
+    expect(saveErrorIsKick("已被移出协作会话")).toBe(true);
+    expect(saveErrorIsKick("没有该仓库的写入权限")).toBe(false);
+    expect(saveErrorIsKick("文档内容过大, 拒绝保存")).toBe(false);
+    expect(saveErrorIsKick(null)).toBe(false);
   });
 });
