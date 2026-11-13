@@ -89,7 +89,8 @@ function toRepository(raw: RawRepository): Repository {
  *
  * 这个接口在契约里没有精确的响应类型（`unknown`），因此在这里按后端的
  * `build_repo_response` 收敛；服务端改字段时以它为准。
- */export function useRepositories() {
+ */
+export function useRepositories() {
   return useQuery({
     queryKey: repoKeys.list,
     queryFn: async () => {

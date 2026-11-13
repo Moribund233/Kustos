@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { ErrorDialog } from "@/shell/error-dialog";
 import { Icon } from "@/shell/icon";
+import { ClonePanel } from "@/surfaces/clone-panel";
 import {
   useAddWorkingCopy,
   useCommit,
@@ -189,6 +190,8 @@ export function WorkingCopyList({
 }) {
   const { t } = useTranslation();
   const [seg, setSeg] = useState<"changes" | "history" | "stashes">("changes");
+  // 克隆面板与"手输路径加入"互斥：同一块位置只能显示一个入口。
+  const [cloning, setCloning] = useState(false);
   const changes = state.status?.changes ?? [];
   const staged = useMemo(() => changes.filter((c) => c.staged), [changes]);
   const unstaged = useMemo(
@@ -322,22 +325,48 @@ export function WorkingCopyList({
             />
           ))}
 
-        {/* 添加仓库：没有仓库时是唯一入口，有仓库时藏在底部。 */}
+        {/* 添加仓库：没有仓库时是唯一入口，有仓库时藏在底部。
+            两个入口而不是一个输入框——桌面端最常见的动作是"把实例上的仓库
+            拉一份下来"，让他先去终端敲 git clone 再回来填路径是多余的一步。 */}
         <div className="border-t border-[var(--color-edge-1)] px-3 py-2">
-          {!state.adding ? (
-            <button
-              type="button"
-              onClick={() => state.setAdding(true)}
-              className="w-full rounded-[7px] border border-dashed border-[var(--color-edge-2)] py-1.5 text-[11px] text-[var(--color-muted-2)] hover:border-[var(--color-amber)] hover:text-[var(--color-bone-2)]"
-            >
-              + {t("workingCopy.addRepo")}
-            </button>
+          {!state.adding && !cloning ? (
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={() => setCloning(true)}
+                className="flex-1 rounded-[7px] border border-dashed border-[var(--color-edge-2)] py-1.5 text-[11px] text-[var(--color-muted-2)] hover:border-[var(--color-amber)] hover:text-[var(--color-bone-2)]"
+              >
+                + {t("workingCopy.cloneRepo")}
+              </button>
+              <button
+                type="button"
+                onClick={() => state.setAdding(true)}
+                className="flex-1 rounded-[7px] border border-dashed border-[var(--color-edge-2)] py-1.5 text-[11px] text-[var(--color-muted-2)] hover:border-[var(--color-amber)] hover:text-[var(--color-bone-2)]"
+              >
+                {t("workingCopy.openExisting")}
+              </button>
+            </div>
+          ) : cloning ? (
+            <div className="flex flex-col gap-1.5">
+              <ClonePanel
+                canSkip={false}
+                onSkip={() => setCloning(false)}
+                onDone={() => setCloning(false)}
+              />
+              <button
+                type="button"
+                onClick={() => setCloning(false)}
+                className="h-6 self-start rounded-[5px] border border-[var(--color-edge-2)] px-2 text-[11px] text-[var(--color-muted-2)]"
+              >
+                {t("common.cancel")}
+              </button>
+            </div>
           ) : (
             <div className="flex flex-col gap-1">
               <input
                 value={state.addPath}
                 onChange={(e) => state.setAddPath(e.target.value)}
-                placeholder="/path/to/repo"
+                placeholder={t("workingCopy.addPlaceholder")}
                 autoFocus
                 className="h-6 rounded-[5px] border border-[var(--color-edge-2)] bg-[var(--color-ink-850)] px-2 font-mono text-[11px] text-[var(--color-bone)] outline-none focus:border-[var(--color-amber)]"
               />

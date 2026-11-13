@@ -15,7 +15,27 @@ import type { Instance } from "@/bindings/github.com/kustos/kustos-desktop/inter
 export const sessionKeys = {
   instances: ["instances"] as const,
   active: ["active-instance"] as const,
+  probe: (baseURL: string) => ["instance-probe", baseURL] as const,
 };
+
+/**
+ * 探活一个实例。
+ *
+ * 引导页要用它判断"登录框能不能解锁"与"版本是否过旧"，而实例档案里只存了
+ * 名称与版本号，没有契约信息——进度条式的旧数据不能拿来当依据。
+ *
+ * `Probe` 不抛错而是把失败写成 `reachable: false`，因此这里不需要错误分支。
+ */
+export function useInstanceProbe(baseURL: string | null) {
+  return useQuery({
+    queryKey: sessionKeys.probe(baseURL ?? ""),
+    queryFn: () => SessionService.Probe(baseURL as string),
+    enabled: Boolean(baseURL),
+    // 用户可能刚改好网络就重试，别让缓存把结论钉死太久。
+    staleTime: 30_000,
+    retry: false,
+  });
+}
 
 /** 已保存的实例列表。 */
 export function useInstances() {
@@ -41,8 +61,7 @@ export function useActiveInstance() {
 }
 
 /** 添加实例（先探活）。 */
-export function useAddInstance() {
-  const qc = useQueryClient();
+export function useAddInstance() {  const qc = useQueryClient();
   return useMutation({
     mutationFn: (baseURL: string) => SessionService.AddInstance(baseURL),
     onSuccess: () => {

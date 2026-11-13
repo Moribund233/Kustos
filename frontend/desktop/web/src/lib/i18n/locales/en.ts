@@ -138,6 +138,8 @@ const en = {
       "No uncommitted changes. Once edits appear here you can stage and commit them file by file. They stay on your machine until you push.",
     notLoaded: "{{segment}} is not wired yet. Finish the changes column first.",
     addRepo: "+ Add local repository",
+    cloneRepo: "+ Clone repository",
+    openExisting: "Open existing repository",
     addPlaceholder: "/path/to/repo",
     adding: "Adding…",
     add: "Add",
@@ -611,7 +613,6 @@ const en = {
 
   session: {
     restoring: "Reading local instances…",
-    preparingLogin: "Preparing login…",
     connectTitle: "Connect to a Kustos instance",
     connectHint:
       "Enter the instance URL, for example https://kustos.example.com. It is probed first so you learn about reachability and version before saving.",
@@ -626,8 +627,6 @@ const en = {
       "This instance does not publish a contract version (older release); compatibility falls back to the app version.",
     tooOld: "The server contract is older than this client requires. Upgrade the instance first.",
     addFailed: "Could not add: {{error}}",
-    loginTitle: "Sign in",
-    switchInstance: "Switch instance",
     username: "Username",
     password: "Password",
     login: "Sign in",
@@ -635,6 +634,52 @@ const en = {
     invalidCredentials: "Wrong username or password",
     keychainDegraded:
       "The system keychain is unavailable, so credentials last only for this session; you will need to sign in again after a restart.",
+  },
+
+  onboarding: {
+    title: "Get started",
+    hint: "Three steps: reach an instance, sign in, then pull a repository down. Finished steps collapse — reopen one to change it.",
+    stepConnect: "Connect instance",
+    stepLogin: "Sign in",
+    stepClone: "Clone repository",
+    stepLocked: "Locked",
+    change: "Change",
+    useOther: "Connect another instance",
+    loginLockedHint: "You can sign in once the instance is confirmed reachable.",
+    done: "Done",
+    gitMissing: "git was not found on this machine",
+    gitMissingHint:
+      "The desktop app does not bundle git; every local operation calls the system git. Install Git, then restart the app.",
+    gitVersion: "git {{version}} detected",
+    fromInstance: "Repositories here",
+    fromURL: "Any git URL",
+    loadingRepos: "Loading repositories…",
+    noRepos: "This account has no visible repositories yet. You can clone from a git URL instead.",
+    publicRepo: "Public",
+    urlLabel: "Repository URL",
+    dirLabel: "Clone into",
+    dirUnknown: "Pick a repository first",
+    dirChoose: "Choose a location",
+    pickDir: "Choose…",
+    clone: "Clone",
+    cloning: "Cloning…",
+    cancelClone: "Cancel clone",
+    cloneFailed: "Clone failed: {{error}}",
+    cloneNoPermission:
+      "No permission to write there. Use Choose… to pick another folder — one on a different drive, for instance.",
+    cloneTargetExists:
+      "That folder already has something in it. Pick another one, or empty it first.",
+    cloneFailedFallback:
+      "The clone failed and no reason came back. Try again, or pick another folder.",
+    skip: "Skip",
+    skipHint:
+      "Skip if you only want Inbox and Issues; you can clone later from the Working Copy surface.",
+    clonePhaseStarting: "Connecting…",
+    clonePhaseCounting: "Counting objects…",
+    clonePhaseCompressing: "Compressing objects…",
+    clonePhaseReceiving: "Downloading…",
+    clonePhaseResolving: "Resolving deltas…",
+    clonePhaseCheckout: "Checking out files…",
   },
 
   common: {
