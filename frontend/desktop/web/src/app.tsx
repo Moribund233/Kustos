@@ -12,7 +12,7 @@ import {
   useRequestNotificationAuthorization,
 } from "@/lib/notifications";
 
-import { ConnectInstance } from "@/surfaces/connect-instance";
+import { Onboarding } from "@/surfaces/onboarding";
 import { ReviewWindow } from "@/surfaces/review-window";
 import {
   InboxDetail,
@@ -20,7 +20,6 @@ import {
   InboxList,
   useInbox,
 } from "@/surfaces/inbox";
-import { Login } from "@/surfaces/login";
 import {
   CodeDetail,
   CodeInspector,
@@ -47,7 +46,7 @@ import {
   WorkingCopyList,
   useWorkingCopySurface,
 } from "@/surfaces/working-copy";
-import { FramedNote, WindowFrame } from "@/shell/window-frame";
+import { FramedNote } from "@/shell/window-frame";
 import {
   Shell,
   SURFACES,
@@ -107,15 +106,13 @@ export function App() {
   );
 }
 
-type Phase = "loading" | "connect" | "login" | "ready";
+type Phase = "loading" | "onboarding" | "ready";
 
 function Root() {
   const { t } = useTranslation();
   const [surface, setSurface] = useState<Surface>("inbox");
   const [creds, setCreds] = useState<Credentials | null>(null);
   const [phase, setPhase] = useState<Phase>("loading");
-  // 手动"切换实例"时强制回到连接页，即使已有实例档案。
-  const [forceConnect, setForceConnect] = useState(false);
   // 这个窗口要显示什么，完全由它自己的 URL 片段决定。
   //
   // 不能用全局状态：多窗口下全局状态由最后写入者胜出，两个评审窗会显示同一个
@@ -125,10 +122,9 @@ function Root() {
   useEffect(() => onWindowRouteChange(() => setRoute(currentWindowRoute())), []);
 
   const instances = useInstances();
-  const activeInstance = useActiveInstance();
   const restore = useRestoreSession();
 
-  const instance = activeInstance.data ?? null;
+  const instance = useActiveInstance().data ?? null;
 
   // 启动时尝试恢复会话。
   useEffect(() => {
@@ -137,7 +133,7 @@ function Root() {
 
     const list = instances.data ?? [];
     if (list.length === 0) {
-      setPhase("connect");
+      setPhase("onboarding");
       return;
     }
 
@@ -154,7 +150,9 @@ function Root() {
           return;
         }
       }
-      if (!cancelled) setPhase("login");
+      // 恢复不出会话不是错误：refresh 过期或被吊销是常态，
+      // 直接进引导页让用户登录（实例已选好，展开的就是登录那一步）。
+      if (!cancelled) setPhase("onboarding");
     })();
 
     return () => {
@@ -163,17 +161,13 @@ function Root() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [instances.isLoading, instances.data, phase]);
 
-  const handleConnected = useCallback(() => {
-    setForceConnect(false);
-    setPhase("login");
-  }, []);
-
   const handleLoggedIn = useCallback((c: Credentials) => {
     // access token 进 JS 内存（与 Web 同级风险），refresh 已在 Go 的 Keychain 里。
     setAccessToken(c.accessToken);
     setCreds(c);
-    setPhase("ready");
   }, []);
+
+  const handleOnboardingDone = useCallback(() => setPhase("ready"), []);
 
   useSurfaceShortcuts(setSurface, phase === "ready");
 
@@ -181,46 +175,19 @@ function Root() {
     return <FramedNote>{t("session.restoring")}</FramedNote>;
   }
 
-  if (phase === "connect" || forceConnect) {
+  if (phase === "onboarding") {
     return (
-      <WindowFrame>
-        <ConnectInstance
-          onAdded={() => {
-            handleConnected();
-          }}
-        />
-      </WindowFrame>
-    );
-  }
-
-  if (phase === "login") {
-    // 活动实例是异步查出来的：首帧必然还没有值。此时若直接回退到连接页，
-    // 用户会看到"刚添加成功又被弹回表单"——所以先等这次查询有结果。
-    if (activeInstance.isLoading) {
-      return <FramedNote>{t("session.preparingLogin")}</FramedNote>;
-    }
-    // 确实没有活动实例（例如刚启动、还没选）才给连接页。
-    if (!instance) {
-      return (
-        <WindowFrame>
-          <ConnectInstance onAdded={handleConnected} />
-        </WindowFrame>
-      );
-    }
-    return (
-      <WindowFrame>
-        <Login
-          instance={instance}
-          onSuccess={handleLoggedIn}
-          onChangeInstance={() => setForceConnect(true)}
-        />
-      </WindowFrame>
+      <Onboarding
+        creds={creds}
+        onLoggedIn={handleLoggedIn}
+        onComplete={handleOnboardingDone}
+      />
     );
   }
 
   // 评审窗在会话就绪后走自己的渲染分支：它没有左轨与列表栏，也不该落进
-  // 主界面外壳。放在会话判定之后是有意的——评审窗同样要登录才拉得到 PR，
-  // 未登录时它和主窗口一样先给连接页/登录页。
+  // 主界面外壳。放在引导页判定之后是有意的——评审窗同样要登录才拉得到 PR，
+  // 未登录时它和主窗口一样先走引导。
   if (route.kind === "review") {
     return <ReviewWindow prNumber={route.prNumber} repoId={route.repoId} />;
   }
@@ -418,7 +385,11 @@ function MainShell({
         inspector={<InboxInspector state={inbox} />}
         statusLeft={
           <>
-            <StatusItem icon="git-commit">{t("status.noWorkingCopy")}</StatusItem>
+            {/* 克隆完落在这里：状态条必须说出"哪个仓库"，否则刚拉下来的东西
+                看起来像没成功——同一句"未选择工作副本"在克隆前后都成立。 */}
+            <StatusItem icon="git-commit">
+              {wc.active ? baseNameOf(wc.active.path) : t("status.noWorkingCopy")}
+            </StatusItem>
             <span className="text-[var(--color-faint)]">·</span>
             <StatusItem icon="pulse" tone={online ? "sage" : "amber"}>
               {online ? t("status.connected") : t("status.offline")}

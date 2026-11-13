@@ -4,17 +4,23 @@ import { useTranslation } from "react-i18next";
 import { Button, Input } from "@kustos/ui";
 
 import { useAddInstance, type InstanceInfo } from "@/lib/session";
+import { instanceTooOld } from "@/lib/onboarding";
 
 /**
- * 首次启动：添加实例。
+ * 添加实例的表单。
  *
- * 空状态直接给可执行动作——桌面用户要的是"在这输地址"，
- * 不是一段产品介绍。
+ * 这里是**表单**，不是页面：它出现在引导流程的第一步里，也可能出现在
+ * "切换实例"展开后的位置。居中和标题由外层容器负责——表单自己带 padding
+ * 与居中时，嵌进卡片就会多出一圈留白。
  *
  * 添加前先探活：让用户在**这一步**就知道地址对不对、版本是否可用，
  * 而不是等到登录时才失败（那时用户会怀疑是密码问题）。
  */
-export function ConnectInstance({ onAdded }: { onAdded: (id: string, info: InstanceInfo) => void }) {
+export function ConnectForm({
+  onPicked,
+}: {
+  onPicked: (id: string, info: InstanceInfo) => void;
+}) {
   const { t } = useTranslation();
   const [baseURL, setBaseURL] = useState("");
   const [probe, setProbe] = useState<InstanceInfo | null>(null);
@@ -28,58 +34,51 @@ export function ConnectInstance({ onAdded }: { onAdded: (id: string, info: Insta
     addInstance.mutate(url, {
       onSuccess: ([instance, info]) => {
         setProbe(info);
-        if (info.reachable && instance.id) {
-          onAdded(instance.id, info);
+        // 版本过旧是**阻断式**的：不尝试"降级兼容"，半兼容状态比明确失败更难查。
+        // 连不上同理——此时放行只会把失败推到登录那一步。
+        if (info.reachable && !instanceTooOld(info) && instance.id) {
+          onPicked(instance.id, info);
         }
       },
     });
   };
 
-  const info = probe ?? null;
-
   return (
-    <div className="flex flex-1 items-center justify-center p-8">
-      <form onSubmit={submit} className="w-full max-w-[420px]">
-        <h1 className="font-display mb-1 text-lg text-bone">{t("session.connectTitle")}</h1>
-        <p className="mb-5 text-[12px] leading-relaxed text-muted">
-          {t("session.connectHint")}
+    <form onSubmit={submit}>
+      <label htmlFor="instance-url" className="mb-1 block text-[11px] text-faint">
+        {t("session.instanceUrl")}
+      </label>
+      <div className="mb-3 flex gap-2">
+        <Input
+          id="instance-url"
+          value={baseURL}
+          onChange={(e) => {
+            setBaseURL(e.target.value);
+            setProbe(null);
+          }}
+          placeholder="https://kustos.example.com"
+          autoFocus
+          spellCheck={false}
+        />
+        <Button type="submit" disabled={addInstance.isPending || !baseURL.trim()}>
+          {addInstance.isPending ? t("session.connecting") : t("session.connect")}
+        </Button>
+      </div>
+
+      {/* 探活结果就地展示，不用 toast 掩盖持续故障 */}
+      {probe && <ProbeNote info={probe} />}
+
+      {addInstance.isError && (
+        <p className="mt-3 text-[12px] text-[var(--color-rose)]">
+          {t("session.addFailed", { error: String(addInstance.error) })}
         </p>
-
-        <label htmlFor="instance-url" className="mb-1 block text-[11px] text-faint">
-          {t("session.instanceUrl")}
-        </label>
-        <div className="mb-3 flex gap-2">
-          <Input
-            id="instance-url"
-            value={baseURL}
-            onChange={(e) => {
-              setBaseURL(e.target.value);
-              setProbe(null);
-            }}
-            placeholder="https://kustos.example.com"
-            autoFocus
-            spellCheck={false}
-          />
-          <Button type="submit" disabled={addInstance.isPending || !baseURL.trim()}>
-            {addInstance.isPending ? t("session.connecting") : t("session.connect")}
-          </Button>
-        </div>
-
-        {/* 探活结果就地展示，不用 toast 掩盖持续故障 */}
-        {info && <ProbeResult info={info} />}
-
-        {addInstance.isError && (
-          <p className="mt-3 text-[12px] text-[var(--color-rose)]">
-            {t("session.addFailed", { error: String(addInstance.error) })}
-          </p>
-        )}
-      </form>
-    </div>
+      )}
+    </form>
   );
 }
 
-/** 探活结果。不可达时给出原因与可重试动作，而不是"出错了"。 */
-function ProbeResult({ info }: { info: InstanceInfo }) {
+/** 探活结果。不可达时给出原因，而不是"出错了"。 */
+export function ProbeNote({ info }: { info: InstanceInfo }) {
   const { t } = useTranslation();
   if (!info.reachable) {
     return (
@@ -91,9 +90,6 @@ function ProbeResult({ info }: { info: InstanceInfo }) {
       </div>
     );
   }
-
-  // 版本过旧是**阻断式**的：不尝试"降级兼容"，半兼容状态比明确失败更难查。
-  const tooOld = info.apiCompat?.apiMin && info.apiCompat.apiMin !== "v1";
 
   return (
     <div className="rounded-md border border-[var(--color-edge-2)] px-3 py-2">
@@ -107,19 +103,11 @@ function ProbeResult({ info }: { info: InstanceInfo }) {
         </p>
       ) : (
         // 老实例没有 client-compat：如实说明，不假装知道兼容性。
-        <p className="mt-0.5 text-[11px] text-muted">
-          {t("session.noContract")}
-        </p>
+        <p className="mt-0.5 text-[11px] text-muted">{t("session.noContract")}</p>
       )}
-      {tooOld && (
-        <p className="mt-1 text-[11px] text-[var(--color-rose)]">
-          {t("session.tooOld")}
-        </p>
+      {instanceTooOld(info) && (
+        <p className="mt-1 text-[11px] text-[var(--color-rose)]">{t("session.tooOld")}</p>
       )}
     </div>
   );
 }
-
-
-
-
