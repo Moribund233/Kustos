@@ -4,7 +4,7 @@
 
 这份文档只陈述**代码里已经有什么**，不复述设计理由——设计意图看设计文档。每条状态都对应仓库里可查的实现，新增能力时同步更新本页，避免设计与实现对不上之后没人知道以哪个为准。
 
-最后更新：2026-11-12
+最后更新：2026-11-13
 
 ## 里程碑总览
 
@@ -12,7 +12,7 @@
 | --- | --- | --- |
 | M0 骨架 | ✅ 完成 | Wails v3 工程、loopback bridge、嵌入产物、单实例、窗口状态持久化、三栏外壳 |
 | M1 只读 | ✅ 完成 | 实例连接、登录 + Keychain、Inbox、命令面板、通知、托盘、PR 与 Issue 浏览 |
-| M2 工作副本 | 🟡 大部分 | 状态、未提交 diff、暂存（含逐 hunk）、提交、fetch、push、PR 评审窗（含行内评论与投票）已完成；**clone 未做** |
+| M2 工作副本 | 🟡 大部分 | 状态、未提交 diff、暂存（含逐 hunk）、提交、fetch、push、PR 评审窗（含行内评论与投票）、**clone（实例仓库列表 + 任意 URL）** 已完成；push/fetch 仍依赖用户自己的 git 凭据配置 |
 | M3 编辑器 | ✅ 完成 | 写盘、冲突检测、崩溃恢复、标签页布局恢复、`⌘P`/`⌘S`、diff 行标已完成 |
 | M4 本地智能 | 🟡 走近 | 进程池、`ws ↔ stdio` 转发、workspace trust、四种语言探测与状态条已完成；编辑器里已接 CodeMirror LSP 客户端（诊断、补全、hover、跳定义、重命名、文档符号）；行级 diff 行标与 blame 已完成 |
 | M5 协作 | 🟡 大部分 | 文档模式机、四步预检、`live` 编辑与远端光标、草稿保存、树上的 `live` 圆点、发布（含 draft vs 目标分支预览）、被踢降为只读已完成；**`seed` 的"以本地为准"入口未做** |
@@ -28,6 +28,9 @@
 - Wails IPC 经资产中间件注入 bridge，`/wails/runtime` 走同源校验；未接线时 501 而非 404。
 - 实例连接与探活：以 `GET /api/v1/client-compat` 为主判据，根路径仅对老实例兜底且要求响应非 HTML。
 - 登录、refresh（全局 single-flight）、登出、实例切换；refresh token 只进系统钥匙串，`Credentials` 结构里不含该字段。
+- **首次使用的三步引导在一页内完成**：连接实例 → 登录 → 克隆，不拆成三个路由。步进由状态机（`lib/onboarding.ts`）算而不是靠按钮跳转：实例不可达或契约过旧就停在第一步，此时登录框是禁用的——先让用户填密码再回一句"登录失败"等于把已知原因藏起来。已完成的步骤折叠成一行摘要，随时可点开重做；已有实例档案时第一步变成可选列表，不必回空表单重敲地址。版本过旧是**阻断式**的：`ConnectForm` 只有 `reachable && !instanceTooOld(info) && id` 才算连接成功（这里此前注释声称阻断、代码却放行，已对齐）。
+- **登录框的可用性靠现探判定**：实例档案只存名称与版本号，没有契约信息，所以引导页用 `useInstanceProbe` 打一次 `/client-compat`（30 秒缓存）来决定第二步能不能解锁。
+- **克隆可跳过**：只想翻 Inbox 的人不该被迫下载仓库，第三步给"跳过"，`ready = hasWorkingCopy || cloneSkipped`。登录后的默认落点仍是克隆。
 
 ### 本地 Git
 
@@ -40,6 +43,12 @@
 - 同一工作树的 git 调用在进程内串行化，避免用户看到 `index.lock exists`。
 - 相对 HEAD 的读取有三条：`HeadDiff`（`git diff HEAD --`，含已暂存与未暂存）、`HeadText`（`git show HEAD:<path>`，取原文给编辑器逐行比较）、`Blame`（`git blame --line-porcelain`）。`HeadText` 在路径不在 HEAD 里时返回 `Exists=false` 且不报错——新文件在编辑中是常态。
 - 提交与推送失败走居中弹窗：git 的原始输出原样放进可滚动的等宽区域，配一个复制按钮。这类输出常常是多行、带缩进的操作提示，塞在按钮下面既挤断布局又没法复制。
+- **克隆有两个来源**：本实例的仓库列表（`GET /api/v1/repositories`，用内存里的 access token）与任意 git URL（交给用户自己的 git 配置）。地址拼接只在 Go 侧做——前端只传 `owner/repo`，`git.InstanceCloneURL` 校验形状（拒 `.`/`..` 段、拒重复 `.git` 后缀、只接受 http/https）。地址决定"能让 git 去访问什么"，让界面拼就等于把这件事交给最不该管的一层。
+- **凭据走 Bearer，不走 Basic**：`http.<完整仓库 URL>.extraHeader=Authorization: Bearer <token>` 经 `GIT_CONFIG_*` 环境变量注入（不上命令行，`ps` 看不到），同时 `credential.helper=` 清空，避免 GCM/钥匙串在无终端环境里弹窗、挂死。Basic 形态试过不成立：`git_auth_controller` 的 Basic 分支校验的是账号密码，access token 当密码会被拒；Bearer 分支才是令牌的入口。作用域收到**具体仓库**而非主机：前缀同名的另一个仓库实测拿不到这个头。
+- **外部 URL 不注入凭据**：`git.ValidateRemoteURL` 拒空白、拒带密码的地址（带密码的 URL 会被 git 写进 `.git/config` 的 origin），scp 形式单独校验用户名段；这类 clone 继承用户自己的 git 环境。
+- **克隆的进度与取消**：`git clone --progress` 的 stderr 按 `\n` **或 `\r`** 切分（进度用 `\r` 原地刷新，只按 `\n` 切会让百分比停在最后一次），解析成 `{phase, percent}` 经 Wails 事件 `clone:progress` 推到界面。取消 = cancel context → 杀进程 → **只删自己创建的那个目标目录**；目标已存在时直接拒绝（`ErrTargetExists`）且不动原有内容。失败时保留 git 的最后几条原文而不是一句"克隆失败"。
+- **目标目录一律由用户选，桌面端不给默认值**。位置通过系统目录选择框指定（`CanChooseFiles(false)` + `CanChooseDirectories(true)`，Wails 默认是选文件的）；没选位置时克隆按钮保持禁用，位置行显示"请选择一个位置"。放弃自动选址是刻意的：机器上哪块盘可写、哪块盘够大，只有用户知道；替用户挑一个再撞上权限或空间不足，报错只会变成"它自己想放的地方放不了"。克隆完成后复用 `Add` 的登记逻辑并设为活动仓库——另写一份归一化逻辑只会漂移。
+- **权限失败翻译成人话**：`os.MkdirAll` 的 `Access is denied` 与 git 自己的报错都收成一句"没有权限在 X 下创建目录，请换一个位置"。Windows 上要额外比 `syscall.ERROR_ACCESS_DENIED`——`*os.PathError` 里包的是 `syscall.Errno(5)`，部分 Go 版本里它并不等于 `os.ErrPermission`。界面侧先剥掉绑定层加的 `RuntimeError:` 前缀再匹配，否则同一句话在两端会长得不一样。
 
 ### 编辑器（Code 面）
 
@@ -128,7 +137,7 @@ SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 6 版：
 
 ### 缺口（M1–M3 范围内）
 
-- **clone**：只能添加本地已有仓库，不能从远端克隆。
+- **push / fetch 不带凭据**：clone 时注入的 Bearer 头只作用于那一次进程（`GIT_CONFIG_*` 环境变量随进程消失）。之后在这个工作副本上 push/fetch 仍依赖用户自己的 git 配置——裸机第一次 push 会弹凭据，或者干脆失败。要补齐得把 `execGitNetwork` 也接到同一套注入上，且要处理令牌 30 分钟刷新一次的问题（长跑的命令会用到过期令牌）。
 - **协作感知的界面部分**：文件树的 `live` 圆点与在线人数已接；进入前的"多少人正在编辑"预警只做在预检对话框里，没有更早的提示。
 - **PR / Issue 的动作**：两个列表面当前只读，评论、关闭、合并等写操作仍在 Web。评审窗已有"行内评论 + 投票"两条写路径，见下。
 - **通知的自动触发**：发送通道已通，但"什么事件值得弹"要等后端给出待决策语义。
@@ -146,8 +155,9 @@ SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 6 版：
 
 ## 已知取舍
 
-- **服务绑定面按实际需要生长，尚未拆到设计文档 §4 的粒度**。设计文档列了 10 个服务，当前有 `SessionService`、`WorkingCopyService`、`WindowService`、`NotificationService` 与 `LSPService` 五个；`FileDiff`、`ListChanges`、`ReadText`/`WriteText`、`StageHunk`/`UnstageHunk`、`RemoteInfo`、`OpenInEditor`、`RevealInFileManager`、`LoadCodeLayout`/`SaveCodeLayout` 都挂在 `WorkingCopyService` 上。后续能力变多时再按"用户能感知的本地能力"拆开。
-- **窗口后端的接线用包级函数而非服务方法**。绑定生成器会把服务上所有导出方法都变成前端可调用的接口，接线函数一旦是方法，前端就能改写本机的窗口后端。因此 `BindWindowBackend` 是包级函数。
+- **服务绑定面按实际需要生长，尚未拆到设计文档里那种一服务一职责的粒度**。设计文档列了 10 个服务，当前有 `SessionService`、`WorkingCopyService`、`WindowService`、`NotificationService`、`LSPService` 与 `SystemService` 六个；`FileDiff`、`ListChanges`、`ReadText`/`WriteText`、`StageHunk`/`UnstageHunk`、`RemoteInfo`、`OpenInEditor`、`RevealInFileManager`、`LoadCodeLayout`/`SaveCodeLayout`、`CloneRemote`/`CancelClone` 都挂在 `WorkingCopyService` 上。后续能力变多时再按"用户能感知的本地能力"拆开。
+- **窗口后端、目录选择与克隆凭据的接线都用包级函数而非服务方法**。绑定生成器会把服务上所有导出方法都变成前端可调用的接口，接线函数一旦是方法，前端就能改写本机的窗口后端、目录选择器，或把 clone 凭据换成任意值。因此 `BindWindowBackend`、`BindDirectoryPicker`、`BindCloneProgress`、`BindCloneAuth` 都是包级函数；`SystemService` 上只留两个真正要被界面调用的动作（查 git 状态、请用户选目录）。
+- **clone 凭据是现取的，不缓存**。`BindCloneAuth` 每次发起克隆时回问 `SessionService`，因为一次 clone 可能跑几分钟，期间令牌会 refresh。
 - **Go 侧不做业务判断**。权限与合并策略一律回服务端，Go 只回答"本机是什么状态"。
 - **只读与只写单一真相**。磁盘模式下手动保存，不存在"自动保存到远端"的路径；协作模式把真相挪进共享文本、只在退出时写回缓冲区，两条路径靠模式互斥，不会双写。
 - **协作要信任网关的 awareness 盖章**。协作光标与在线人数都以网关广播的身份为准（网关用连接令牌里的 `user_id` / `name` 覆盖客户端自报的字段），桌面端只决定颜色与光标位置——自己判身份等于给冒名留口子。
@@ -159,7 +169,8 @@ SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 6 版：
 
 ## 验证方式
 
-- Go：`go test ./...`（在 `frontend/desktop/go` 下），覆盖 bridge 安全约束（含多窗口入口令牌并存、`/lsp/` 不外发与 `/ws/collab` 的 WebSocket 升级反代）、git 解析与逐 hunk 暂存、远端关联、相对 HEAD 的 diff 与文件内容、blame 的 porcelain 解析、协作草稿分支的领先计数、写盘冲突、崩溃恢复、标签页布局归一化、窗口状态、窗口种类与托盘语义、评审窗路由、通知校验、LSP 帧编解码与进程池生命周期（含崩溃退避与重试用尽）、子进程隐藏控制台窗口的进程属性。
-- 前端：`pnpm typecheck` / `pnpm test`（`frontend/desktop/web`、`frontend/packages/editor`）。当前 web 335 个、编辑器包 18 个用例，含 diff 解析与按文件切分、相对 HEAD 的行标对齐（新增 / 改动 / 删除三态与退化分支）、文档模式机的四步预检与模式迁移、协作文档键与感知收敛、被踢判定（reason 与状态码两条来源）、发布预览与结果的收敛、行内意见锚点、草稿存取、PR 评审数据层、相对时间、PR/Issue 数据层、remote 地址解析、窗口路由（含未选中 PR 的评审窗与旧片段兼容）、布局还原、换行符归一与 `file://` URI 往返。
+- Go：`go test ./...`（在 `frontend/desktop/go` 下），覆盖 bridge 安全约束（含多窗口入口令牌并存、`/lsp/` 不外发与 `/ws/collab` 的 WebSocket 升级反代）、git 解析与逐 hunk 暂存、远端关联、相对 HEAD 的 diff 与文件内容、blame 的 porcelain 解析、协作草稿分支的领先计数、写盘冲突、崩溃恢复、标签页布局归一化、窗口状态、窗口种类与托盘语义、评审窗路由、通知校验、LSP 帧编解码与进程池生命周期（含崩溃退避与重试用尽）、子进程隐藏控制台窗口的进程属性、克隆（进度行解析含 `\r` 切分、URL 校验与 `owner/repo` 拼接、Bearer 头的作用域与"只出现一份 `GIT_CONFIG_COUNT`"、取消后清理目标目录、目标已存在时不动原内容、权限失败换成可操作的提示）、git 版本探测。
+- 前端：`pnpm typecheck` / `pnpm test`（`frontend/desktop/web`、`frontend/packages/editor`）。当前 web 365 个、编辑器包 18 个用例，含 diff 解析与按文件切分、相对 HEAD 的行标对齐（新增 / 改动 / 删除三态与退化分支）、文档模式机的四步预检与模式迁移、协作文档键与感知收敛、被踢判定（reason 与状态码两条来源）、发布预览与结果的收敛、行内意见锚点、草稿存取、PR 评审数据层、相对时间、PR/Issue 数据层、remote 地址解析、窗口路由（含未选中 PR 的评审窗与旧片段兼容）、布局还原、换行符归一与 `file://` URI 往返、引导步进（含"连不上/过旧都停在第一步"与版本判定）、克隆的目标路径拼接与 URL 取名（含 scp 形式与分隔符归一）。
 - CI：`.github/workflows/ci.yml` 的 `desktop` job 跑前端 typecheck/单测与 Go 侧不依赖 cgo 的包（`internal/bridge`、`internal/codestate`、`internal/git`、`internal/lsp`、`internal/services`、`internal/store`、`internal/windowstate`、`internal/platform/*`）。Wails 的 `pkg/application` 在 Linux 上需要 GTK/WebKitGTK 头文件，因此 `main`、`internal/app` 与 `singleinstance` 不在 CI 的 Go 覆盖范围内，workflow 注释里写明了原因。
-- 端到端：设 `KUSTOS_DESKTOP_CDP_PORT` 后用 CDP 驱动真实 WebView，验证编辑、保存、冲突、崩溃恢复、信任确认、语言服务器启停与编辑器内的补全 / 跳定义 / 诊断、diff 行标与 blame（含点「允许」后行标不丢）、协作的进入与退出（含预检拦住未保存缓冲区）、与一个真实对端同时编辑同一文件（远端光标与在线人数）、草稿保存回执、发布链路（预览框摊开提交数与逐文件增删 → squash 成目标分支一次提交 → 回执失效），以及被踢后降为只读，还有评审窗的 diff 渲染、单栏/双栏切换、已查看标记、行内草稿、草稿提交、对话回复与投票拒绝。
+- 端到端：设 `KUSTOS_DESKTOP_CDP_PORT` 后用 CDP 驱动真实 WebView，验证首次引导（连接 → 登录框在实例确认前禁用 → 从仓库列表克隆 → 落地进主壳并显示仓库名）、编辑、保存、冲突、崩溃恢复、信任确认、语言服务器启停与编辑器内的补全 / 跳定义 / 诊断、diff 行标与 blame（含点「允许」后行标不丢）、协作的进入与退出（含预检拦住未保存缓冲区）、与一个真实对端同时编辑同一文件（远端光标与在线人数）、草稿保存回执、发布链路（预览框摊开提交数与逐文件增删 → squash 成目标分支一次提交 → 回执失效），以及被踢后降为只读，还有评审窗的 diff 渲染、单栏/双栏切换、已查看标记、行内草稿、草稿提交、对话回复与投票拒绝。
+- 克隆的端到端有自己的取样方式：系统目录选择框是原生窗口，CDP 点不到，所以脚本在页面里 `import('/wails/runtime.js')` 拿 `Call`/`Events`，直接调 `WorkingCopyService.CloneRemote` 并订阅 `clone:progress`——这与面板走的是同一条桥、同一个服务方法，只是"用户选了哪个目录"这一步由脚本给出。真实跑一次拿到 169 条进度事件，落盘后核对 `git status` 干净、`origin` 是实例地址、**`.git/config` 里没有令牌**。
