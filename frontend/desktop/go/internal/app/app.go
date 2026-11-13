@@ -15,6 +15,7 @@ import (
 	"sync"
 
 	"github.com/kustos/kustos-desktop/internal/bridge"
+	"github.com/kustos/kustos-desktop/internal/platform/deeplink"
 	"github.com/kustos/kustos-desktop/internal/platform/singleinstance"
 	"github.com/kustos/kustos-desktop/internal/services"
 	"github.com/kustos/kustos-desktop/internal/store"
@@ -67,6 +68,11 @@ type Desktop struct {
 	// savers 是各窗口的几何去抖器，退出前统一 Flush。
 	saversMu sync.Mutex
 	savers   []*windowstate.Saver
+
+	// pendingSurface 是深链要求落到、但前端还没消费的分区。
+	// 前端启动后主动读一次，覆盖"事件发出时监听器还没注册"的窗口。
+	pendingMu      sync.Mutex
+	pendingSurface string
 
 	// screens 返回当前可用屏幕，抽出来是为了让装配逻辑可测试。
 	screens func() []windowstate.Rect
@@ -529,13 +535,69 @@ func (d *Desktop) registerSaver(s *windowstate.Saver) {
 //
 //	data: 第二实例传来的参数（来自本机其它进程，按不可信输入处理）
 //
-// 当前没有深链路由，因此只做一件事：把已有窗口唤到前面。
-// 这正是用户双击图标时期望的结果，也避免了第二个进程持有同一份本地库。
-func (d *Desktop) handleSecondLaunch(_ application.SecondInstanceData) {
-	// 参数来自本机其它进程，一律视为不可信。当前没有深链路由，因此不解析
-	// 任何参数，只做用户双击图标时期望的那件事：把已有窗口唤到前面。
-	// 这样也避免了第二个进程持有同一份本地库、在 UI 状态上互相覆盖。
+// 参数里有一条 `kustos://` 深链时把它投递给本进程，否则只把已有窗口唤到前面。
+// 两种情况都要唤窗口：用户双击图标时不需要链接就已经表达了"让我用这个应用"。
+func (d *Desktop) handleSecondLaunch(data application.SecondInstanceData) {
+	// 参数来自本机其它进程，一律视为不可信：解析失败就当作没有深链，
+	// 退回"把窗口叫到前面"这个双击图标的默认语义。
+	if raw, ok := deeplink.FindInArgs(data.Args); ok {
+		d.OpenDeepLink(raw)
+		return
+	}
 	d.ShowMainWindow()
+}
+
+// OpenDeepLink 按一条深链把界面切到对应位置。
+//
+// Args:
+//
+//	raw: `kustos://` 深链原文
+//
+// Returns:
+//
+//	深链形状不合法时返回错误；界面已经切过去时为 nil。
+//
+// 解析失败**不回落到默认屏**：一条打不开的链接应当能被发现，悄悄打开 Inbox
+// 会让人以为链接生效了。调用方（第二实例路径）会忽略这个错误并唤出窗口，
+// 因为"用户双击了应用"这件事本身仍然成立。
+func (d *Desktop) OpenDeepLink(raw string) error {
+	target, err := deeplink.Parse(raw)
+	if err != nil {
+		return err
+	}
+	// 评审深链要开第二个窗口，主窗口也一并唤出：评审窗不是主工作台的替代品。
+	if target.Review != "" {
+		if err := d.OpenWindowWith(WindowKindReview, target.Review); err != nil {
+			return err
+		}
+	}
+	d.ShowMainWindow()
+	// 分区由前端路由决定，这里只把"要落到哪一屏"发过去。窗口可能刚创建、
+	// 前端尚未挂上监听，因此前端在启动时还会读一次待处理目标（见 PendingSurface）。
+	d.pendingMu.Lock()
+	d.pendingSurface = target.Surface
+	d.pendingMu.Unlock()
+	if target.Surface != "" && d.app != nil {
+		d.app.Event.Emit(DeeplinkNavigateEvent, target.Surface)
+	}
+	return nil
+}
+
+// PendingSurface 返回启动时收到、还没被前端消费的目标分区。
+//
+// Returns:
+//
+//	深链要求落到的分区；没有待处理目标时为空串。
+//
+// 为什么需要它：深链可能在窗口刚创建、前端脚本还没注册事件监听时到达，
+// 那时 `EmitEvent` 发出去的事件没有任何接收者。前端启动后主动问一次，
+// 两种情况就都覆盖到了。
+func (d *Desktop) PendingSurface() string {
+	d.pendingMu.Lock()
+	defer d.pendingMu.Unlock()
+	surface := d.pendingSurface
+	d.pendingSurface = ""
+	return surface
 }
 
 // Run 启动事件循环（阻塞直到退出）。
@@ -660,3 +722,9 @@ func (d *Desktop) EmitCloneProgress(ev services.CloneProgressEvent) {
 
 // cloneProgressEvent 是克隆进度事件名，与 main.go 里 RegisterEvent 的一致。
 const cloneProgressEvent = "clone:progress"
+
+// DeeplinkNavigateEvent 是深链要求切换分区的广播事件名。
+//
+// 前端启动时还会调一次 PendingSurface 兜底：深链可能在窗口刚创建、
+// 监听器还没注册时到达，那时广播没有任何接收者。
+const DeeplinkNavigateEvent = "deeplink:navigate"

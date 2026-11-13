@@ -344,6 +344,31 @@ export interface StatusResult {
 }
 
 /**
+ * SystemIntegration 描述本程序在系统里的注册现状。
+ */
+export interface SystemIntegration {
+    /**
+     * ExePath 是本进程可执行文件的绝对路径。
+     */
+    "exePath": string;
+
+    /**
+     * ProtocolRegistered 表示 `kustos://` 已注册且指向本进程。
+     */
+    "protocolRegistered": boolean;
+
+    /**
+     * Autostart 表示开机自启已开启且指向本进程。
+     */
+    "autostart": boolean;
+
+    /**
+     * Error 是查询失败的原因；正常时为空。
+     */
+    "error": string;
+}
+
+/**
  * TreeNode 是文件树上的一个节点。
  */
 export interface TreeNode {

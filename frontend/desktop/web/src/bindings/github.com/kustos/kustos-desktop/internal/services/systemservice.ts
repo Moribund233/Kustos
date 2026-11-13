@@ -32,6 +32,33 @@ export function GitStatus(): $CancellablePromise<$models.GitStatus> {
 }
 
 /**
+ * IntegrationStatus 报告深链协议与开机自启的注册现状。
+ * 
+ * Returns:
+ * 
+ * 	注册现状快照。读不到可执行文件路径时 Error 带原因，其余字段为零值——
+ * 	界面要能照常渲染，而不是整块空掉。
+ */
+export function IntegrationStatus(): $CancellablePromise<$models.SystemIntegration> {
+    return $Call.ByID(2360800249);
+}
+
+/**
+ * PendingSurface 返回启动时收到、还没被界面消费的深链目标分区。
+ * 
+ * Returns:
+ * 
+ * 	`inbox` / `working-copy` / `code` / `pulls` / `issues`；没有时为
+ * 	空串。读一次就清空——它不是"当前分区"，而是"还没处理的一次导航"。
+ * 
+ * 为什么界面要在启动时问一次：深链可能在窗口刚创建、前端还没注册事件监听
+ * 时到达，那时 Go 侧的广播没有任何接收者，这一次导航就丢了。
+ */
+export function PendingSurface(): $CancellablePromise<string> {
+    return $Call.ByID(4136688461);
+}
+
+/**
  * PickDirectory 打开系统目录选择框并返回用户选中的绝对路径。
  * 
  * Args:
@@ -45,4 +72,44 @@ export function GitStatus(): $CancellablePromise<$models.GitStatus> {
  */
 export function PickDirectory(title: string, start: string): $CancellablePromise<string> {
     return $Call.ByID(228003057, title, start);
+}
+
+/**
+ * RegisterProtocol 把本程序注册为 `kustos://` 的处理器。
+ * 
+ * Returns:
+ * 
+ * 	写注册表失败时返回错误。
+ * 
+ * 界面不自动调它：往注册表里写协议处理器是一次可观察的系统改动，应当由用户
+ * 显式点一次（设置页里的"注册深链"），而不是装完就悄悄写。
+ */
+export function RegisterProtocol(): $CancellablePromise<void> {
+    return $Call.ByID(2238681874);
+}
+
+/**
+ * SetAutostart 开启或关闭开机自启。
+ * 
+ * Args:
+ * 
+ * 	enabled: true 写入启动项，false 移除
+ * 
+ * Returns:
+ * 
+ * 	写注册表失败时返回错误（界面据此说"没设置成功"，而不是显示一个假的开关）。
+ */
+export function SetAutostart(enabled: boolean): $CancellablePromise<void> {
+    return $Call.ByID(3370292278, enabled);
+}
+
+/**
+ * UnregisterProtocol 移除 `kustos://` 的注册。
+ * 
+ * Returns:
+ * 
+ * 	写注册表失败时返回错误；本来就没注册时返回 nil。
+ */
+export function UnregisterProtocol(): $CancellablePromise<void> {
+    return $Call.ByID(2723794945);
 }

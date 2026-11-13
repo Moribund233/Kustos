@@ -14,6 +14,11 @@ import "../github.com/wailsapp/wails/v3/internal/eventcreate.js";
 export const CloneProgress = "clone:progress";
 
 /**
+ * Name of the custom event "deeplink:navigate".
+ */
+export const DeeplinkNavigate = "deeplink:navigate";
+
+/**
  * Name of the custom event "session:lost".
  */
 export const SessionLost = "session:lost";

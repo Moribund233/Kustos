@@ -32,6 +32,7 @@ export type {
     LoginResult,
     NotificationRequest,
     StatusResult,
+    SystemIntegration,
     TreeNode,
     TrustState,
     WindowInfo

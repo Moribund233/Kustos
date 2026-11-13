@@ -31,6 +31,26 @@ const en = {
     list: "List",
   },
 
+  // Settings: machine-local preferences only, independent of instance and repo.
+  settings: {
+    title: "Settings",
+    hint: "These switches concern this machine only, not the current instance or repository.",
+    deeplinkTitle: "kustos:// deep links",
+    deeplinkHint:
+      "Registering lets links in a browser or another program bring the desktop app up and land on the right surface. The command points at this executable.",
+    registered: "Registered",
+    notRegistered: "Not registered",
+    register: "Register",
+    unregister: "Remove",
+    autostartTitle: "Start at login",
+    autostartHint:
+      "Launches the desktop app at sign-in and keeps it in the tray. Closing the main window already leaves it running; this makes it start there.",
+    autostartOn: "On",
+    autostartOff: "Off",
+    writeScope:
+      "Both are written to your own registry hive (HKCU) and need no administrator rights; remove them here before uninstalling.",
+  },
+
   palette: {
     title: "Command palette",
     placeholder: "Search files, jump to a surface, or run a command…",

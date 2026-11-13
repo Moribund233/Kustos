@@ -34,7 +34,14 @@ export type Surface =
   | "pulls"
   | "issues"
   | "chat"
-  | "agent";
+  | "agent"
+  /**
+   * 设置面。
+   *
+   * 不在 `SURFACES` 里：它没有数字快捷键，也不该混在七个工作分区中间。
+   * 入口是左轨底部那个齿轮按钮，与语言、通知开关同属"这台机器上的偏好"。
+   */
+  | "settings";
 
 /** 左轨的一项。标签走翻译键，见下方 SURFACES 的说明。 */
 interface SurfaceMeta {
@@ -471,9 +478,16 @@ function IconRail({
       />
       <button
         type="button"
+        onClick={() => onSelect("settings")}
         aria-label={t("nav.settings")}
+        aria-current={active === "settings" ? "page" : undefined}
         title={t("nav.settings")}
-        className="grid h-[34px] w-[40px] place-items-center rounded-[7px] text-[var(--color-muted-2)] hover:bg-[var(--color-ink-800)] hover:text-[var(--color-bone-2)]"
+        className={[
+          "grid h-[34px] w-[40px] place-items-center rounded-[7px]",
+          active === "settings"
+            ? "bg-[var(--color-amber-wash)] text-[var(--color-amber)]"
+            : "text-[var(--color-muted-2)] hover:bg-[var(--color-ink-800)] hover:text-[var(--color-bone-2)]",
+        ].join(" ")}
       >
         <Icon name="settings" size={17} />
       </button>

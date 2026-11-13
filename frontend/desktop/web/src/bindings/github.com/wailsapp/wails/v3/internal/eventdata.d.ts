@@ -13,6 +13,7 @@ declare module "@wailsio/runtime" {
     namespace Events {
         interface CustomEvents {
             "clone:progress": services$0.CloneProgressEvent;
+            "deeplink:navigate": string;
             "session:lost": string;
         }
     }

@@ -33,6 +33,24 @@ const zh = {
     list: "列表",
   },
 
+  // 设置面：只放与实例、仓库都无关的本机偏好。
+  settings: {
+    title: "设置",
+    hint: "这些开关只影响这台机器，与当前实例和仓库无关。",
+    deeplinkTitle: "深链协议 kustos://",
+    deeplinkHint:
+      "注册之后，浏览器或其它程序里的 kustos:// 链接才能把桌面端叫起来并直接落到对应界面。命令指向本程序的可执行文件。",
+    registered: "已注册",
+    notRegistered: "未注册",
+    register: "注册",
+    unregister: "移除",
+    autostartTitle: "开机自启",
+    autostartHint: "登录系统时自动启动桌面端并收进托盘。主窗口关闭后本来就走托盘常驻，这个开关负责让它开机就在。",
+    autostartOn: "已开启",
+    autostartOff: "已关闭",
+    writeScope: "两项都写在当前用户自己的注册表（HKCU）里，不需要管理员权限；卸载时请先在这里移除。",
+  },
+
   palette: {
     title: "命令面板",
     placeholder: "搜索文件、跳转或执行命令…",

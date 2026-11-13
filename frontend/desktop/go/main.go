@@ -12,6 +12,7 @@ import (
 
 	"github.com/kustos/kustos-desktop/internal/app"
 	"github.com/kustos/kustos-desktop/internal/lsp"
+	"github.com/kustos/kustos-desktop/internal/platform/deeplink"
 	"github.com/kustos/kustos-desktop/internal/platform/diag"
 	"github.com/kustos/kustos-desktop/internal/platform/keychain"
 	"github.com/kustos/kustos-desktop/internal/services"
@@ -40,6 +41,8 @@ func main() {
 	// 克隆进度：一次 clone 可能跑几分钟，进度要靠事件逐帧推给界面，
 	// 因为 Wails 的一次方法调用只在结束时返回。
 	application.RegisterEvent[services.CloneProgressEvent]("clone:progress")
+	// 深链要求切换分区：由 app 包在 OpenDeepLink 里广播，前端订阅后落到对应屏。
+	application.RegisterEvent[string](app.DeeplinkNavigateEvent)
 
 	// 本地事实库与凭据存储：SQLite 存本机事实，凭据进系统钥匙串。
 	dir, err := localDataDir()
@@ -119,6 +122,7 @@ func main() {
 	// 服务方法，也是为了不让接线动作出现在前端可调用的绑定里。
 	services.BindDirectoryPicker(desktop.PickDirectory)
 	services.BindCloneProgress(desktop.EmitCloneProgress)
+	services.BindPendingSurface(desktop.PendingSurface)
 
 	// 联网 git 命令（clone / push / fetch）共用的凭据：从会话服务现取，不缓存。
 	// 一次 clone 或 push 可能跑几分钟，期间令牌会被刷新，缓存下来就等于拿一枚
@@ -141,6 +145,17 @@ func main() {
 	if err := restoreActiveUpstream(db, desktop); err != nil {
 		// 不是致命错误：界面会以"未连接实例"起步，用户仍可重新添加。
 		log.Printf("恢复上次实例失败: %v", err)
+	}
+
+	// 本次启动本身带着深链（Windows 注册表把 URL 作为第一个参数传进来）时，
+	// 在窗口起来之后投递一次。放在这里而不是 app.New 里：解析要等到窗口与
+	// 事件总线都就绪，否则目标分区无处可发。
+	if raw, ok := deeplink.FindInArgs(os.Args); ok {
+		if err := desktop.OpenDeepLink(raw); err != nil {
+			// 参数来自系统其它进程，一律不可信；解析失败就当作没有深链，
+			// 退回"正常启动"，不因为一条坏链接拒绝启动应用。
+			log.Printf("忽略无法解析的深链 %q: %v", raw, err)
+		}
 	}
 
 	if err := desktop.Run(); err != nil {

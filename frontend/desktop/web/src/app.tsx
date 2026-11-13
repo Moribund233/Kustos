@@ -7,6 +7,7 @@ import { WorkingCopyService } from "@/bindings/github.com/kustos/kustos-desktop/
 import { matchRepository, useRepositories, useWorkingCopySlug } from "@/lib/repos";
 import { useTrayLabels } from "@/lib/window";
 import { currentWindowRoute, onWindowRouteChange, type WindowRoute } from "@/lib/window-route";
+import { useDeeplinkNavigation } from "@/lib/deeplink";
 import {
   useNotificationAuthorization,
   useRequestNotificationAuthorization,
@@ -14,6 +15,7 @@ import {
 
 import { Onboarding } from "@/surfaces/onboarding";
 import { ReviewWindow } from "@/surfaces/review-window";
+import { SettingsDetail } from "@/surfaces/settings";
 import {
   InboxDetail,
   InboxInspector,
@@ -170,6 +172,10 @@ function Root() {
   const handleOnboardingDone = useCallback(() => setPhase("ready"), []);
 
   useSurfaceShortcuts(setSurface, phase === "ready");
+
+  // 深链：系统别处发来的 kustos:// 链接要落到对应分区。会话就绪后才订阅，
+  // 否则未登录时切分区没有任何意义。
+  useDeeplinkNavigation(setSurface, phase === "ready");
 
   if (phase === "loading") {
     return <FramedNote>{t("session.restoring")}</FramedNote>;
@@ -567,6 +573,46 @@ function MainShell({
             <span>{issues.repo?.path ?? t("pulls.noRepo")}</span>
           </>
         }
+        statusRight={
+          <StatusItem icon="pulse" tone={online ? "sage" : "amber"}>
+            {online ? t("status.connected") : t("status.offline")}
+          </StatusItem>
+        }
+      />
+    );
+  }
+
+  // 设置面：本机系统集成（深链协议、开机自启）。没有列表栏内容——
+  // 这些开关不分条目，硬塞一个清单只会让人以为还有别的东西可选。
+  if (surface === "settings") {
+    return (
+      <Shell
+        active={surface}
+        onSelect={onSelect}
+        conn={conn}
+        offline={!online}
+        badges={{ inbox: inbox.unreadCount }}
+        notificationsAuthorized={notifyAuth.data === true}
+        notificationsPending={requestNotifyAuth.isPending}
+        onEnableNotifications={() => requestNotifyAuth.mutate()}
+        userName={creds?.username}
+        repoChip={repoChip}
+        branchChip={branchChip}
+        ahead={ahead}
+        behind={behind}
+        paletteGroups={paletteGroups}
+        list={
+          <div className="flex h-full flex-col">
+            <div className="shrink-0 border-b border-[var(--color-edge-1)] px-3 pt-2.5 pb-2">
+              <h1 className="text-[13px] font-medium text-[var(--color-bone)]">{t("nav.settings")}</h1>
+            </div>
+            <p className="px-3 py-3 text-[11.5px] leading-relaxed text-[var(--color-muted)]">
+              {t("settings.hint")}
+            </p>
+          </div>
+        }
+        detail={<SettingsDetail />}
+        statusLeft={<StatusItem icon="settings">{t("nav.settings")}</StatusItem>}
         statusRight={
           <StatusItem icon="pulse" tone={online ? "sage" : "amber"}>
             {online ? t("status.connected") : t("status.offline")}

@@ -55,13 +55,16 @@ func Options(onSecondLaunch func(application.SecondInstanceData)) *application.S
 
 // ShouldIgnoreArgs 判断第二实例传来的参数是否可安全忽略。
 //
+// Args:
+//
+//	args: 第二实例的命令行参数（第 0 个是程序自身路径）
+//
 // Returns:
 //
 //	true 表示这组参数不需要处理（没有需要转交给第一实例的意图）。
 //
-// 当前桌面端还没有深链路由，第二实例除了参数外没有别的语义；
-// 把参数一律视为不可信并忽略，比先实现一个半成品的手势安全。
-// 等深链落地后，这里改为解析 URL 并投递给第一实例的 deeplink 队列。
+// 带附加参数时一律不忽略：深链就藏在这些参数里，忽略掉的表现是"点了链接
+// 什么都没发生"，而那与"链接本身没生效"根本分不开。
 func ShouldIgnoreArgs(args []string) bool {
 	return len(args) <= 1
 }
