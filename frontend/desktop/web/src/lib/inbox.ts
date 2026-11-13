@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "@kustos/api";
 
+import { cacheKeyFor, readSnapshot } from "@/lib/offline-cache";
+
 /**
  * Inbox 的数据层。
  *
@@ -91,6 +93,43 @@ export function useNotifications(unreadOnly = false, limit = 50) {
     },
     // 常驻应用：切 surface 不该重新拉；但通知会变，留一个不长的过期时间。
     staleTime: 15_000,
+  });
+}
+
+/**
+ * Inbox 的离线兜底。
+ *
+ * Args:
+ *
+ *	unreadOnly:  是否只看未读（要与在线查询用同一个键，否则会读到另一份缓存）
+ *	onlineFailed: 在线请求是否已经失败
+ *
+ * Returns:
+ *
+ *	缓存里的那份快照与取回时间；没有缓存时为 null。
+ *
+ * 只在在线请求确实失败时才去读：正常联网时读缓存既慢又可能读到更旧的一份。
+ * 取回时间要露给界面——不标"这是什么时候的数据"，用户会把几天前的 Inbox
+ * 当成现在的状态。
+ */
+export function useCachedNotifications(unreadOnly: boolean, onlineFailed: boolean) {
+  return useQuery({
+    queryKey: ["inbox", "offline", { unreadOnly }],
+    queryFn: async () => {
+      const key = cacheKeyFor(["inbox", "notifications", { unreadOnly }]);
+      if (key === null) return null;
+      return readSnapshot(key, (raw) => {
+        const payload = raw as { items?: InboxNotification[]; total?: number } | null;
+        return {
+          items: payload?.items ?? [],
+          total: payload?.total ?? 0,
+        };
+      });
+    },
+    enabled: onlineFailed,
+    // 缓存不会在进程内变（写入时是新的一次查询），不必反复读。
+    staleTime: 60_000,
+    retry: false,
   });
 }
 

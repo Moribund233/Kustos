@@ -138,6 +138,26 @@ var migrationSteps = [][]string{
 	{
 		`ALTER TABLE workspace_trust ADD COLUMN origin TEXT NOT NULL DEFAULT ''`,
 	},
+	// v7：只读数据的离线缓存。
+	//
+	// 断网时界面能翻的只有"已经取回来过的东西"：Inbox 列表、PR 与 Issue 的
+	// 上一次结果。缓存的键是查询标识（与前端 queryKey 同构的字符串），
+	// 值是响应 JSON 加取回时间。
+	//
+	// 为什么放在本地库而不是 WebView 的 localStorage：浏览器的存储在该
+	// 进程被杀时不保证刷盘，而"断网 10 分钟仍能翻 Inbox"正是被强杀之后
+	// 也要成立的场景。写库还让过期清理有地方做（见 PruneOfflineCache）。
+	//
+	// 只缓存**只读**数据：能写的东西（草稿、提交）另有自己的表，不能靠
+	// "恢复一份旧 JSON"来冒充写成功。
+	{
+		`CREATE TABLE IF NOT EXISTS offline_cache (
+			key        TEXT PRIMARY KEY,
+			payload    TEXT NOT NULL,
+			fetched_at INTEGER NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_offline_cache_fetched ON offline_cache(fetched_at)`,
+	},
 }
 
 // Open 打开（必要时创建）本地库。
@@ -577,6 +597,100 @@ func (d *DB) GetUIState(key string) (string, bool, error) {
 		return "", false, fmt.Errorf("读取 UI 状态失败: %w", err)
 	}
 	return value, true, nil
+}
+
+// CachedPayload 是一份离线缓存记录。
+type CachedPayload struct {
+	// Payload 是原样保存的响应 JSON。
+	Payload string
+	// FetchedAt 是取回时刻的 Unix 秒。
+	FetchedAt int64
+}
+
+// SetOfflineCache 覆盖写入一份离线缓存。
+//
+// Args:
+//
+//	key:     查询标识，调用方约定（与前端 queryKey 同构），存储层不解释
+//	payload: 任意 JSON 文本，原样保存
+//
+// Returns:
+//
+//	写入失败时返回错误。
+func (d *DB) SetOfflineCache(key, payload string) error {
+	if key == "" {
+		return errors.New("缓存 key 不能为空")
+	}
+	_, err := d.sql.Exec(`
+		INSERT INTO offline_cache (key, payload, fetched_at)
+		VALUES (?, ?, ?)
+		ON CONFLICT(key) DO UPDATE SET
+			payload = excluded.payload,
+			fetched_at = excluded.fetched_at`,
+		key, payload, time.Now().Unix())
+	if err != nil {
+		return fmt.Errorf("写入离线缓存失败: %w", err)
+	}
+	return nil
+}
+
+// GetOfflineCache 读取一份离线缓存，并丢弃过期的记录。
+//
+// Args:
+//
+//	key:    查询标识
+//	maxAge: 可接受的缓存年龄；传 0 表示不做过期判断
+//
+// Returns:
+//
+//	缓存内容、是否命中、错误。过期时返回 false 并把那一行删掉——
+//	留着一份永远读不到的旧数据只会让库悄悄长大。
+func (d *DB) GetOfflineCache(key string, maxAge time.Duration) (CachedPayload, bool, error) {
+	var payload string
+	var fetchedAt int64
+	err := d.sql.QueryRow(`SELECT payload, fetched_at FROM offline_cache WHERE key = ?`, key).
+		Scan(&payload, &fetchedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return CachedPayload{}, false, nil
+	}
+	if err != nil {
+		return CachedPayload{}, false, fmt.Errorf("读取离线缓存失败: %w", err)
+	}
+
+	if maxAge > 0 && time.Since(time.Unix(fetchedAt, 0)) > maxAge {
+		// 顺手清理：这条记录已经不可用，留着没有意义。
+		_, _ = d.sql.Exec(`DELETE FROM offline_cache WHERE key = ?`, key)
+		return CachedPayload{}, false, nil
+	}
+	return CachedPayload{Payload: payload, FetchedAt: fetchedAt}, true, nil
+}
+
+// PruneOfflineCache 删除超过 maxAge 的缓存记录。
+//
+// Args:
+//
+//	maxAge: 保留窗口；传 0 表示不清理
+//
+// Returns:
+//
+//	删除的条数与错误。
+//
+// 由启动路径调一次：缓存只在断网时才有价值，攒着几个月前的响应
+// 既占空间，也让"离线时看到的是什么时候的数据"更难回答。
+func (d *DB) PruneOfflineCache(maxAge time.Duration) (int64, error) {
+	if maxAge <= 0 {
+		return 0, nil
+	}
+	cutoff := time.Now().Add(-maxAge).Unix()
+	result, err := d.sql.Exec(`DELETE FROM offline_cache WHERE fetched_at < ?`, cutoff)
+	if err != nil {
+		return 0, fmt.Errorf("清理离线缓存失败: %w", err)
+	}
+	removed, err := result.RowsAffected()
+	if err != nil {
+		return 0, nil
+	}
+	return removed, nil
 }
 
 // BufferRecovery 是一条未保存的编辑器 buffer。

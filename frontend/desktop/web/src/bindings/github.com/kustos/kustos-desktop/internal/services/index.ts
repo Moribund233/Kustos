@@ -3,6 +3,7 @@
 
 import * as LSPService from "./lspservice.js";
 import * as NotificationService from "./notificationservice.js";
+import * as OfflineCacheService from "./offlinecacheservice.js";
 import * as SessionService from "./sessionservice.js";
 import * as SystemService from "./systemservice.js";
 import * as WindowService from "./windowservice.js";
@@ -10,6 +11,7 @@ import * as WorkingCopyService from "./workingcopyservice.js";
 export {
     LSPService,
     NotificationService,
+    OfflineCacheService,
     SessionService,
     SystemService,
     WindowService,
@@ -34,6 +36,7 @@ export type {
     NotificationAction,
     NotificationActivated,
     NotificationRequest,
+    OfflineCacheEntry,
     StatusResult,
     SystemIntegration,
     TreeNode,

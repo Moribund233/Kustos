@@ -58,8 +58,8 @@ func (w wailsNotifier) OnResponse(callback func(result notifications.Notificatio
 }
 
 var (
-	notifyMu    sync.RWMutex
-	notifyImpl  notifyBackend
+	notifyMu   sync.RWMutex
+	notifyImpl notifyBackend
 )
 
 // BindNotifier 接上系统通知的实现。
@@ -286,8 +286,8 @@ func (s *NotificationService) Send(req NotificationRequest) error {
 // 天然只有一份；而且回调要在 app.Run() 之前注册，那时服务对象可能还没被
 // 装配到界面上。
 var (
-	activatedMu     sync.RWMutex
-	activatedEmit   func(NotificationActivated)
+	activatedMu   sync.RWMutex
+	activatedEmit func(NotificationActivated)
 )
 
 // BindNotificationActivated 接上"用户响应了通知"的广播实现。

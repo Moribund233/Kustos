@@ -412,6 +412,23 @@ export interface NotificationRequest {
 }
 
 /**
+ * OfflineCacheEntry 是一份缓存记录。
+ */
+export interface OfflineCacheEntry {
+    /**
+     * Payload 是原样保存的 JSON 文本。
+     */
+    "payload": string;
+
+    /**
+     * FetchedAt 是取回时刻的 Unix 毫秒。
+     * 
+     * 用毫秒而不是纳秒：纳秒超出 JS 安全整数范围，经绑定层会被舍入。
+     */
+    "fetchedAt": number;
+}
+
+/**
  * StatusResult 是工作区扫描结果（对前端绑定友好，字段扁平）。
  */
 export interface StatusResult {

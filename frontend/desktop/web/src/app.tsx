@@ -10,6 +10,7 @@ import { currentWindowRoute, onWindowRouteChange, type WindowRoute } from "@/lib
 import { useDeeplinkNavigation } from "@/lib/deeplink";
 import { useNotificationActions } from "@/lib/notifications";
 import { useReviewNotifications } from "@/lib/review-notifications";
+import { useOfflineCacheWriter } from "@/lib/offline-cache";
 import { prReviewKeys, submitPrReview } from "@/lib/pr-reviewers";
 import { pullsKeys } from "@/lib/pulls";
 import {
@@ -257,6 +258,10 @@ function MainShell({
 
   const pulls = usePullsSurface(preferredRepoId);
   const issues = useIssuesSurface(preferredRepoId);
+
+  // 离线缓存：查询成功时把只读数据记一份，断网重开时先拿它顶上。
+  // 传 true 即可：MainShell 只在会话就绪后才渲染。
+  useOfflineCacheWriter(true);
 
   // 待我评审的 PR 推成系统通知，并带上批准按钮。只在已授权时挂：
   // 没有权限还去发只会得到一串静默失败。

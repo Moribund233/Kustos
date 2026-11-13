@@ -77,6 +77,8 @@ func main() {
 	windowSvc := services.NewWindowService()
 	notificationSvc := services.NewNotificationService()
 	systemSvc := services.NewSystemService()
+	// 离线缓存：只读数据的本地兜底，断网时界面还能翻 Inbox 与 PR。
+	offlineCacheSvc := services.NewOfflineCacheService(db)
 
 	// 通知后端先接上再启动：Wails 在启动时初始化这个服务，
 	// 晚于它接线会让第一批通知静默失败。
@@ -99,6 +101,7 @@ func main() {
 			application.NewService(notificationSvc),
 			application.NewService(lspSvc),
 			application.NewService(systemSvc),
+			application.NewService(offlineCacheSvc),
 		},
 	})
 	if err != nil {
@@ -155,6 +158,10 @@ func main() {
 		// 不是致命错误：界面会以"未连接实例"起步，用户仍可重新添加。
 		log.Printf("恢复上次实例失败: %v", err)
 	}
+
+	// 启动时清一次过期缓存：它只在断网时有用，攒着几个月前的响应既占空间，
+	// 也让"离线时看到的是什么时候的数据"更难回答。
+	offlineCacheSvc.Prune()
 
 	// 本次启动本身带着深链（Windows 注册表把 URL 作为第一个参数传进来）时，
 	// 在窗口起来之后投递一次。放在这里而不是 app.New 里：解析要等到窗口与

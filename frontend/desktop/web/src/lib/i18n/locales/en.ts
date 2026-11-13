@@ -104,6 +104,8 @@ const en = {
     read: "read",
     unread: "unread",
     loadFailed: "Could not load — check the instance connection",
+    offlineCached: "Offline — showing what was fetched {{when}}",
+    cachedUnknown: "earlier",
     fetchedFailed: "Failed to load notifications (HTTP {{status}})",
     unreadCountFailed: "Failed to load unread count (HTTP {{status}})",
     markReadFailed: "Failed to mark as read (HTTP {{status}})",

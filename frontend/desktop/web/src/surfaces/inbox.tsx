@@ -10,6 +10,7 @@ import {
   itemsInSegment,
   useMarkAllRead,
   useMarkRead,
+  useCachedNotifications,
   useNotifications,
   useUnreadCount,
   type InboxNotification,
@@ -53,6 +54,9 @@ export function useInbox() {
   const unread = useUnreadCount();
   const markRead = useMarkRead();
   const markAllRead = useMarkAllRead();
+  // 在线失败时回落到本地缓存：断网重开也能翻到上次的 Inbox，
+  // 但界面必须标明那份数据是什么时候的。
+  const cached = useCachedNotifications(false, list.isError);
 
   const items = list.data?.items ?? [];
   const unreadCount = unread.data ?? 0;
@@ -69,6 +73,8 @@ export function useInbox() {
     unreadCount,
     loading: list.isLoading,
     error: list.error,
+    /** 在线失败时的缓存快照；null 表示没有可用的离线内容。 */
+    cached: cached.data ?? null,
     select: (n: InboxNotification) => {
       setSelectedId(n.id);
       // 选中即视为看过：单键处理的桌面习惯，省掉一次显式操作。
@@ -123,7 +129,16 @@ export function InboxList({ state }: { state: InboxState }) {
 
       <div className="min-h-0 flex-1 overflow-auto">
         {loading && <Hint>{t("inbox.loading")}</Hint>}
-        {!loading && error != null && <Hint tone="rose">{errorText(error, t, "inbox.loadFailed")}</Hint>}
+        {/* 离线兜底：在线失败但本地有缓存时，不能只报一句"加载失败"——
+            用户断网时最需要看的正是上次那份清单。 */}
+        {!loading && error != null && state.cached != null && (
+          <div className="border-b border-[var(--color-edge-1)] bg-[rgba(242,174,91,0.08)] px-3 py-1.5 text-[10.5px] leading-relaxed text-[var(--color-amber-3)]">
+            {t("inbox.offlineCached", { when: cachedWhen(state.cached.fetchedAt, t) })}
+          </div>
+        )}
+        {!loading && error != null && state.cached == null && (
+          <Hint tone="rose">{errorText(error, t, "inbox.loadFailed")}</Hint>
+        )}
         {!loading && error == null && segmented.length === 0 && (
           <Hint>{t("inbox.emptySegment")}</Hint>
         )}
@@ -346,6 +361,17 @@ function Hint({ children, tone }: { children: React.ReactNode; tone?: "rose" }) 
  * 结构化错误按操作类型查翻译键，并保留 HTTP 状态码——"HTTP 401" 对
  * 排查很关键，而一句"加载失败"没有信息量。其余错误直接用 message。
  */
+/**
+ * 把缓存的取回时刻说成人话。
+ *
+ * 缺了这句"什么时候的"，用户会把几天前的 Inbox 当作现在的状态——
+ * 而断网时这正是最容易发生的误判。
+ */
+function cachedWhen(fetchedAt: number, t: (key: string, options?: Record<string, unknown>) => string): string {
+  if (fetchedAt <= 0) return t("inbox.cachedUnknown");
+  return relativeTime(new Date(fetchedAt).toISOString(), t);
+}
+
 function errorText(
   error: unknown,
   t: (key: string, opts?: Record<string, unknown>) => string,

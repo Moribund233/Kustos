@@ -104,6 +104,8 @@ const zh = {
     read: "已读",
     unread: "未读",
     loadFailed: "加载失败，请检查实例连接",
+    offlineCached: "断网中，显示的是 {{when}} 取回的缓存内容",
+    cachedUnknown: "之前",
     fetchedFailed: "获取通知失败（HTTP {{status}}）",
     unreadCountFailed: "获取未读数失败（HTTP {{status}}）",
     markReadFailed: "标记已读失败（HTTP {{status}}）",

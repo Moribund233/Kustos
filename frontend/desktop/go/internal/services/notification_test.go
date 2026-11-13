@@ -13,14 +13,14 @@ import (
 // 真实后端要 GUI 与系统通知中心，在单测里起不来；而这一层真正值得测的是
 // "校验拦住没有、参数有没有传对"，那些不需要真的弹一条通知。
 type fakeNotifier struct {
-	sent     []notifications.NotificationOptions
-	withActs []notifications.NotificationOptions
-	cats     []notifications.NotificationCategory
-	sendErr  error
-	catErr   error
-	allowed  bool
-	authErr  error
-	asked    bool
+	sent      []notifications.NotificationOptions
+	withActs  []notifications.NotificationOptions
+	cats      []notifications.NotificationCategory
+	sendErr   error
+	catErr    error
+	allowed   bool
+	authErr   error
+	asked     bool
 	responses func(notifications.NotificationResult)
 }
 
