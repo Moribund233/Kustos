@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 
 import { configureAuth, setAccessToken } from "@kustos/api";
 import { WorkingCopyService } from "@/bindings/github.com/kustos/kustos-desktop/internal/services";
@@ -8,6 +8,10 @@ import { matchRepository, useRepositories, useWorkingCopySlug } from "@/lib/repo
 import { useTrayLabels } from "@/lib/window";
 import { currentWindowRoute, onWindowRouteChange, type WindowRoute } from "@/lib/window-route";
 import { useDeeplinkNavigation } from "@/lib/deeplink";
+import { useNotificationActions } from "@/lib/notifications";
+import { useReviewNotifications } from "@/lib/review-notifications";
+import { prReviewKeys, submitPrReview } from "@/lib/pr-reviewers";
+import { pullsKeys } from "@/lib/pulls";
 import {
   useNotificationAuthorization,
   useRequestNotificationAuthorization,
@@ -253,6 +257,35 @@ function MainShell({
 
   const pulls = usePullsSurface(preferredRepoId);
   const issues = useIssuesSurface(preferredRepoId);
+
+  // 待我评审的 PR 推成系统通知，并带上批准按钮。只在已授权时挂：
+  // 没有权限还去发只会得到一串静默失败。
+  useReviewNotifications(inbox.items, notifyAuth.data === true);
+
+  // 通知里的动作按钮：用户点了"批准"之后真正提交评审。
+  //
+  // 桌面端不在通知里直接改状态——通知只是"用户表达了意图"，而批准是一次写请求，
+  // 仍要经服务端裁决（自己的 PR 会被 pr_self_approve_forbidden 拒绝）。
+  const qc = useQueryClient();
+  useNotificationActions((event) => {
+    if (event.actionId !== "approve") return;
+    const repoId = event.data.repoId ?? "";
+    const number = Number(event.data.number ?? "");
+    if (repoId === "" || !Number.isInteger(number) || number <= 0) {
+      // 缺标识时什么都不做：猜一个 PR 去批准，比不动作危险得多。
+      return;
+    }
+    void (async () => {
+      await submitPrReview(repoId, number, { status: "approved" });
+      // 与评审窗同一条路径：批准之后详情与评审人都要重取，否则界面停在旧计数上。
+      void qc.invalidateQueries({ queryKey: pullsKeys.detail(repoId, number) });
+      void qc.invalidateQueries({ queryKey: prReviewKeys.reviewers(repoId, number) });
+      void qc.invalidateQueries({ queryKey: ["pulls", repoId] });
+    })().catch(() => {
+      // 批准失败（自己的 PR、权限不足、网络）不该炸到界面：用户是从通知进来的，
+      // 该看到的是评审窗里的真实状态，而不是一条无从处置的弹窗。
+    });
+  }, true);
 
   const conn = online ? "online" : "offline";
 

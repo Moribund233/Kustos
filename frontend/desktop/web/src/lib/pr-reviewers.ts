@@ -374,8 +374,47 @@ export interface PrReviewInput {
  * 成功后详情、评审人列表都要失效：结论会改写 detail 里的 `reviews`，也会把
  * reviewers 里那一条从 pending 推进到 approved / changes_requested。
  */
-export function useCreatePrReview(repoId: string | null, number: number | null) {
-  const qc = useQueryClient();
+/**
+ * 提交一次评审（不经 React Query）。
+ *
+ * 给"通知里的批改按钮"这类**目标不固定**的路径用：那些调用拿到的 repoId 与
+ * 编号来自通知的附加数据，不是某个已挂载组件当下的 props，套不进
+ * `useCreatePrReview` 的固定参数形态。它只做请求本身，缓存失效由调用方决定。
+ *
+ * Args:
+ *
+ *	repoId:  仓库 id
+ *	number:  PR 编号
+ *	input:   评审内容
+ *
+ * Returns:
+ *
+ *	服务端返回的那条评审。
+ *
+ * Raises:
+ *
+ *	服务端拒绝时抛 `PRReviewError`：自己的 PR 会被 `pr_self_approve_forbidden`
+ *	拒掉，调用方要能把它和"网络失败"分开。
+ */
+export async function submitPrReview(
+  repoId: string,
+  number: number,
+  input: PrReviewInput,
+): Promise<PullRequestReview> {
+  const { data, error, response } = await api.POST(
+    "/api/v1/repositories/{repo_id}/pull-requests/{pr_number}/reviews",
+    {
+      params: { path: { repo_id: repoId, pr_number: number } },
+      body: { status: input.status, comment: input.comment ?? null },
+    },
+  );
+  if (error || !response.ok) {
+    throw await toFailure("review", response.status, response, error);
+  }
+  return toPullRequestReview(data);
+}
+
+export function useCreatePrReview(repoId: string | null, number: number | null) {  const qc = useQueryClient();
   const repo = repoId ?? "";
   const prNumber = number ?? 0;
 

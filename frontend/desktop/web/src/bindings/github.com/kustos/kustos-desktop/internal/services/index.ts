@@ -18,6 +18,7 @@ export {
 
 export type {
     APICompat,
+    ActionableNotification,
     BufferDraft,
     CloneProgressEvent,
     CloneTarget,
@@ -30,6 +31,8 @@ export type {
     InstanceInfo,
     LanguageHint,
     LoginResult,
+    NotificationAction,
+    NotificationActivated,
     NotificationRequest,
     StatusResult,
     SystemIntegration,

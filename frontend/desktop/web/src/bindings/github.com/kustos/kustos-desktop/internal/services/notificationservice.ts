@@ -56,3 +56,21 @@ export function RequestAuthorization(): $CancellablePromise<boolean> {
 export function Send(req: $models.NotificationRequest): $CancellablePromise<void> {
     return $Call.ByID(2313906719, req);
 }
+
+/**
+ * SendActionable 发出一条带动作按钮的通知。
+ * 
+ * Args:
+ * 
+ * 	req: 通知内容与按钮；按钮最多三个、ID 不能重复
+ * 
+ * Returns:
+ * 
+ * 	内容不合法、后端未接上或系统拒绝时返回错误。
+ * 
+ * 动作组会先注册：Windows 上按钮定义挂在分类下，先发通知再注册分类的话，
+ * 第一次点击可能落在一个系统不认识的按钮上。
+ */
+export function SendActionable(req: $models.ActionableNotification): $CancellablePromise<void> {
+    return $Call.ByID(4185725013, req);
+}

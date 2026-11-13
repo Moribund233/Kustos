@@ -14,6 +14,7 @@ declare module "@wailsio/runtime" {
         interface CustomEvents {
             "clone:progress": services$0.CloneProgressEvent;
             "deeplink:navigate": string;
+            "notification:activated": services$0.NotificationActivated;
             "session:lost": string;
         }
     }

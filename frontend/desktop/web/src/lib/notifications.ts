@@ -1,6 +1,9 @@
+import { useEffect, useRef } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { Events } from "@wailsio/runtime";
 
 import { NotificationService } from "@/bindings/github.com/kustos/kustos-desktop/internal/services";
+import { NotificationActivated as NotificationActivatedEvent } from "@/bindings/events";
 
 /**
  * 系统通知的数据层。
@@ -67,4 +70,90 @@ export function useRequestNotificationAuthorization() {
   return useMutation({
     mutationFn: () => NotificationService.RequestAuthorization(),
   });
+}
+
+/** 通知上的一个动作按钮。 */
+export interface NotifyAction {
+  /** 动作标识，用户点击后原样回到 `useNotificationActions`。 */
+  id: string;
+  /** 按钮文案。 */
+  title: string;
+}
+
+/** 一条带动作按钮的通知。 */
+export interface ActionableNotifyArgs extends NotifyArgs {
+  /** 动作组标识；同一组按钮注册一次即可复用。 */
+  categoryId: string;
+  /**
+   * 按钮清单，一到三个。
+   *
+   * 上限三个是系统的限制（Windows 通知最多放三个），超过会被静默截断；
+   * Go 侧直接拒绝，这里也按同一口径校验。
+   */
+  actions: NotifyAction[];
+  /** 随通知带上的附加数据，用户点击后原样回到回调里。 */
+  data?: Record<string, string>;
+}
+
+/**
+ * 发出一条带动作按钮的通知。
+ *
+ * 按钮本身不带权限判断：点了之后界面拿到的是一个标识，真正的动作（批准、
+ * 打开某个 PR）仍要经服务端裁决。桌面端不在通知里多开一条旁路。
+ */
+export function useNotifyWithActions() {
+  return useMutation({
+    mutationFn: (args: ActionableNotifyArgs) =>
+      NotificationService.SendActionable({
+        categoryId: args.categoryId,
+        actions: args.actions.map((action) => ({ id: action.id, title: action.title })),
+        request: {
+          id: args.id,
+          title: args.title,
+          body: args.body ?? "",
+          threadId: args.threadId ?? "",
+        },
+        data: args.data ?? {},
+      }),
+  });
+}
+
+/** 用户对通知的响应。 */
+export interface NotificationActivated {
+  notificationId: string;
+  /** 被点击的按钮标识；点了通知正文时为空串。 */
+  actionId: string;
+  categoryId: string;
+  title: string;
+  body: string;
+  data: Record<string, string>;
+}
+
+/**
+ * 订阅"用户点了通知"的回调。
+ *
+ * Args:
+ *
+ *	onActivate: 收到响应时调用；只在窗口存活期间订阅，卸载即取消。
+ *	enabled:    会话就绪后才订阅——未登录时执行不了任何动作。
+ *
+ * 回调里**不直接改本地状态**：动作要经服务端确认（比如批准 PR 是一次写请求），
+ * 成功后由对应的 mutation 失效缓存，界面才会更新。
+ */
+export function useNotificationActions(
+  onActivate: (event: NotificationActivated) => void,
+  enabled: boolean,
+): void {
+  const handler = useRef(onActivate);
+  handler.current = onActivate;
+
+  useEffect(() => {
+    if (!enabled) return;
+    const off = Events.On(NotificationActivatedEvent, (event) => {
+      const payload = event.data as NotificationActivated | null;
+      if (payload == null) return;
+      handler.current(payload);
+    });
+    return off;
+  }, [enabled]);
 }

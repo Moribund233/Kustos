@@ -19,6 +19,11 @@ export const CloneProgress = "clone:progress";
 export const DeeplinkNavigate = "deeplink:navigate";
 
 /**
+ * Name of the custom event "notification:activated".
+ */
+export const NotificationActivated = "notification:activated";
+
+/**
  * Name of the custom event "session:lost".
  */
 export const SessionLost = "session:lost";

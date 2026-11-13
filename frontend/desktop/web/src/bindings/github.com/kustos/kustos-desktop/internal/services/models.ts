@@ -19,6 +19,33 @@ export interface APICompat {
 }
 
 /**
+ * ActionableNotification 是一条带动作按钮的通知。
+ */
+export interface ActionableNotification {
+    /**
+     * CategoryID 是动作组的标识：同一组按钮注册一次即可复用。
+     */
+    "categoryId": string;
+
+    /**
+     * Actions 是按钮清单，至少一个、至多三个（Windows 通知最多放三个，
+     * 多了系统会自己截断，而截断哪几个是不可预期的）。
+     */
+    "actions": NotificationAction[] | null;
+
+    /**
+     * Request 是通知本体。
+     */
+    "request": NotificationRequest;
+
+    /**
+     * Data 随通知一起下发，用户点击后原样回到 `NotificationActivated` 事件里。
+     * 界面用它判断"这是哪个 PR 的批准按钮"。
+     */
+    "data": { [_ in string]?: string } | null;
+}
+
+/**
  * BufferDraft 是一条尚未保存的编辑内容。
  */
 export interface BufferDraft {
@@ -301,6 +328,58 @@ export interface LoginResult {
      * ErrorCode 供前端做分支（如 invalid_credentials 提示重输密码）。
      */
     "errorCode"?: string;
+}
+
+/**
+ * NotificationAction 是通知上的一个动作按钮。
+ * 
+ * 按钮本身只回传一个标识，**动作真正做什么由界面决定**：Go 侧不解析
+ * "批准"这件事，它只把"用户点了哪个按钮、来自哪条通知"原样交回前端。
+ * 这样审批权限、目标是否仍然有效仍由服务端判定，桌面端不多出一条旁路。
+ */
+export interface NotificationAction {
+    /**
+     * ID 是动作标识，回调里原样带回。
+     */
+    "id": string;
+
+    /**
+     * Title 是按钮文案。
+     */
+    "title": string;
+}
+
+/**
+ * NotificationActivated 是用户对通知做出的响应，会广播给界面。
+ * 
+ * 界面据此执行真正的动作（批准、打开某个 PR），Go 侧不替他判断权限。
+ */
+export interface NotificationActivated {
+    /**
+     * NotificationID 是原始通知的 ID。
+     */
+    "notificationId": string;
+
+    /**
+     * ActionID 是被点击的按钮标识；点击通知正文时为空（系统回默认动作）。
+     */
+    "actionId": string;
+
+    /**
+     * CategoryID 是动作组标识。
+     */
+    "categoryId": string;
+
+    /**
+     * Title、Body 回传原文，便于界面在没有本地记录时也能显示来源。
+     */
+    "title": string;
+    "body": string;
+
+    /**
+     * Data 是发送时随通知带上的附加数据。
+     */
+    "data": { [_ in string]?: string } | null;
 }
 
 /**

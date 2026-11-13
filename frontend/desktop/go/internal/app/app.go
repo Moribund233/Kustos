@@ -728,3 +728,18 @@ const cloneProgressEvent = "clone:progress"
 // 前端启动时还会调一次 PendingSurface 兜底：深链可能在窗口刚创建、
 // 监听器还没注册时到达，那时广播没有任何接收者。
 const DeeplinkNavigateEvent = "deeplink:navigate"
+
+// notificationActivatedEvent 是用户响应通知的广播事件名。
+const notificationActivatedEvent = "notification:activated"
+
+// EmitNotificationActivated 把"用户点了通知"广播给界面。
+//
+// Args:
+//
+//	ev: 系统回报的响应；Go 侧不判断该不该批准，动作由界面执行
+func (d *Desktop) EmitNotificationActivated(ev services.NotificationActivated) {
+	if d.app == nil {
+		return
+	}
+	d.app.Event.Emit(notificationActivatedEvent, ev)
+}

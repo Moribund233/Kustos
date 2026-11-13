@@ -43,6 +43,8 @@ func main() {
 	application.RegisterEvent[services.CloneProgressEvent]("clone:progress")
 	// 深链要求切换分区：由 app 包在 OpenDeepLink 里广播，前端订阅后落到对应屏。
 	application.RegisterEvent[string](app.DeeplinkNavigateEvent)
+	// 用户对通知的响应（点了正文或某个动作按钮）：前端据此执行真正的动作。
+	application.RegisterEvent[services.NotificationActivated]("notification:activated")
 
 	// 本地事实库与凭据存储：SQLite 存本机事实，凭据进系统钥匙串。
 	dir, err := localDataDir()
@@ -79,6 +81,9 @@ func main() {
 	// 通知后端先接上再启动：Wails 在启动时初始化这个服务，
 	// 晚于它接线会让第一批通知静默失败。
 	services.BindNotifier(notifications.New())
+	// 点击回调在这里注册：它属于"通知服务已经可用"这件事，而不是某次发送。
+	// 晚于 Wails 启动才注册的话，用户在启动瞬间点的通知会没有接收者。
+	services.ListenNotificationResponses()
 
 	desktop, err := app.New(app.Options{
 		Assets:   assets,
@@ -123,6 +128,10 @@ func main() {
 	services.BindDirectoryPicker(desktop.PickDirectory)
 	services.BindCloneProgress(desktop.EmitCloneProgress)
 	services.BindPendingSurface(desktop.PendingSurface)
+	// 用户对通知的响应：Go 侧只交事实，动作由界面执行（审批权限仍归服务端）。
+	services.BindNotificationActivated(func(ev services.NotificationActivated) {
+		desktop.EmitNotificationActivated(ev)
+	})
 
 	// 联网 git 命令（clone / push / fetch）共用的凭据：从会话服务现取，不缓存。
 	// 一次 clone 或 push 可能跑几分钟，期间令牌会被刷新，缓存下来就等于拿一枚
