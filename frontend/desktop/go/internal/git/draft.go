@@ -35,10 +35,15 @@ func DraftAhead(dir, branch string) (int, error) {
 	}
 
 	name := DraftBranchName(branch)
+	// 草稿与基准必须取同一侧。混着取会把"本地分支落后远端"的提交算成
+	// 未发布的保存：草稿在 origin/ 侧而基准取本地分支时，远端早已发布的那几次
+	// 提交会一直计在头上，发布成功后界面仍说"还有 N 次未发布"。
 	draft := ""
+	remote := false
 	for _, candidate := range []string{name, "origin/" + name} {
 		if exists, err := refExists(abs, candidate); err == nil && exists {
 			draft = candidate
+			remote = candidate != name
 			break
 		}
 	}
@@ -46,11 +51,21 @@ func DraftAhead(dir, branch string) (int, error) {
 		return 0, nil
 	}
 
-	// 基准取本地分支而不是 HEAD：用户可能停在一个游离提交上，而"本地有多新"
-	// 指的是这个分支有多新。
+	// 基准跟着草稿走：草稿来自远端跟踪引用时基准也取远端。
+	// 取本地分支而不是 HEAD 的理由仍然成立——用户可能停在游离提交上，
+	// 而"有多新"指的是分支有多新。
 	base := branch
-	if exists, err := refExists(abs, branch); err != nil || !exists {
-		base = "HEAD"
+	if remote {
+		base = "origin/" + branch
+	}
+	if exists, err := refExists(abs, base); err != nil || !exists {
+		// 远端基准不存在时退回本地分支；两边都没有就无从比较，按 0 处理。
+		if base != branch {
+			base = branch
+		}
+		if exists, err := refExists(abs, base); err != nil || !exists {
+			base = "HEAD"
+		}
 	}
 
 	out, err := execGit(abs, "rev-list", "--count", base+".."+draft)
