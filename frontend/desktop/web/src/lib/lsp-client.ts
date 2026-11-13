@@ -25,7 +25,7 @@ import {
   type WorkspaceFile,
 } from "@codemirror/lsp-client";
 
-import { relativePathFromUri, toFileUri } from "./lsp-uri";
+import { classifyDisplayTarget, toFileUri } from "./lsp-uri";
 
 /** 跳定义打开新文件时，等编辑器挂载的最长时间。 */
 const DISPLAY_TIMEOUT = 2000;
@@ -74,6 +74,9 @@ interface FileUpdate {
   changes: ChangeSet;
 }
 
+/** 跳定义打不开时的原因；`reason` 是给界面挑文案的稳定标识。 */
+export type DisplayFailureReason = "outside-root" | "not-file" | "root-itself" | "timeout";
+
 class DesktopWorkspace extends Workspace {
   files: DesktopFile[] = [];
 
@@ -84,6 +87,7 @@ class DesktopWorkspace extends Workspace {
     client: LSPClient,
     private readonly root: string,
     private readonly onOpenFile: (relativePath: string) => void,
+    private readonly onDisplayFailed: (reason: DisplayFailureReason, uri: string) => void,
   ) {
     super(client);
   }
@@ -144,20 +148,28 @@ class DesktopWorkspace extends Workspace {
    * 跳定义落到另一个文件时由 lsp-client 调用。
    *
    * 编辑器不在这一帧就能拿到（要先 setState、再由查询取内容、再挂载），
-   * 所以这里返回一个待兑现的 Promise，等 `openFile` 真正发生时兑现；
-   * 超时或不在仓库内就返回 null，让 lsp-client 老实什么都不做。
+   * 所以这里返回一个待兑现的 Promise，等 `openFile` 真正发生时兑现。
+   *
+   * 打不开的情况要**说出去**：指向仓库外的定义（标准库、依赖包）是常态，
+   * 但静默返回 null 的表现和"跳不过去"完全一样，用户只会以为补全坏了。
+   * 因此三种失败各带上一条原因，由界面翻成一句话。
    */
   displayFile(uri: string): Promise<EditorView | null> {
     const existing = this.findFile(uri);
     if (existing) return Promise.resolve(existing.view);
 
-    const relative = relativePathFromUri(this.root, uri);
-    if (relative === null || relative === "") return Promise.resolve(null);
+    const target = classifyDisplayTarget(this.root, uri);
+    if (!target.openable) {
+      this.onDisplayFailed(target.reason, uri);
+      return Promise.resolve(null);
+    }
 
     return new Promise((resolve) => {
       const queue = this.waiting.get(uri) ?? [];
       const timer = window.setTimeout(() => {
         this.drop(uri, settle);
+        // 超时与"不在仓库内"不同：文件在仓库里，只是编辑器没能在时限内挂上。
+        this.onDisplayFailed("timeout", uri);
         resolve(null);
       }, DISPLAY_TIMEOUT);
       const settle = (view: EditorView | null) => {
@@ -166,7 +178,7 @@ class DesktopWorkspace extends Workspace {
       };
       queue.push(settle);
       this.waiting.set(uri, queue);
-      this.onOpenFile(relative);
+      this.onOpenFile(target.path);
     });
   }
 
@@ -201,6 +213,13 @@ export interface LSPClientOptions {
   enabled: boolean;
   /** 跨文件跳转时把目标文件打开（传仓库内相对路径）。 */
   onOpenFile: (relativePath: string) => void;
+  /**
+   * 跳到了打开不了的位置。
+   *
+   * 最典型的是跳到依赖或标准库：语言服务器给的地址完全合法，只是不在这个
+   * 仓库里。上报而不是静默，界面才能说出"定义在 C:\Go\src\… 里"。
+   */
+  onOpenFailed?: (reason: DisplayFailureReason, uri: string) => void;
 }
 
 export interface LSPClientState {
@@ -214,12 +233,14 @@ export interface LSPClientState {
  * 连接的生命周期跟着"服务器是否在跑"走：进程被空闲回收、崩溃后重试用尽，
  * 这条 WebSocket 都会被对方关掉，因此重连由服务器状态驱动，不在这里无脑重试。
  */
-export function useLSPClient({ root, language, enabled, onOpenFile }: LSPClientOptions): LSPClientState {
+export function useLSPClient({ root, language, enabled, onOpenFile, onOpenFailed }: LSPClientOptions): LSPClientState {
   const [client, setClient] = useState<LSPClient | null>(null);
   const [error, setError] = useState<string | null>(null);
   const openFileRef = useRef(onOpenFile);
+  const openFailedRef = useRef(onOpenFailed);
 
   openFileRef.current = onOpenFile;
+  openFailedRef.current = onOpenFailed;
 
   useEffect(() => {
     if (!enabled || !root || !language) {
@@ -241,7 +262,13 @@ export function useLSPClient({ root, language, enabled, onOpenFile }: LSPClientO
       active = new LSPClient({
         rootUri: toFileUri(root),
         extensions: languageServerExtensions(),
-        workspace: (created) => new DesktopWorkspace(created, root, (path) => openFileRef.current(path)),
+        workspace: (created) =>
+          new DesktopWorkspace(
+            created,
+            root,
+            (path) => openFileRef.current(path),
+            (reason, uri) => openFailedRef.current?.(reason, uri),
+          ),
       });
       active.connect(transport);
       // 握手结果要落地：initialize 失败时界面上必须能说出原因，

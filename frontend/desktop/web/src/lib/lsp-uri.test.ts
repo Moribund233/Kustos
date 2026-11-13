@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { relativePathFromUri, toFileUri } from "@/lib/lsp-uri";
+import { classifyDisplayTarget, relativePathFromUri, toFileUri } from "@/lib/lsp-uri";
 
 /**
  * 路径与 URI 的互转值得测：写错不会报错，只会让语言服务器"什么都找不到"。
@@ -61,5 +61,40 @@ describe("relativePathFromUri", () => {
 
   it("非 file URI 返回 null", () => {
     expect(relativePathFromUri("D:\\proj\\demo", "untitled:Untitled-1")).toBeNull();
+  });
+});
+
+describe("classifyDisplayTarget", () => {
+  it("仓库内的文件可打开，给出仓库内相对路径", () => {
+    expect(classifyDisplayTarget("D:\\proj\\demo", "file:///D:/proj/demo/src/a.go")).toEqual({
+      openable: true,
+      path: "src/a.go",
+    });
+  });
+
+  it("仓库外的位置不可打开，原因单独给", () => {
+    // Go 标准库与 node_modules 是最常见的两种：都不是错误，只是打不开。
+    expect(classifyDisplayTarget("D:\\proj\\demo", "file:///C:/Go/src/fmt/print.go")).toEqual({
+      openable: false,
+      reason: "outside-root",
+    });
+    expect(classifyDisplayTarget("D:\\proj\\demo", "file:///D:/proj/demo/node_modules/react/index.js")).toEqual({
+      openable: true,
+      path: "node_modules/react/index.js",
+    });
+  });
+
+  it("指向根本身不是可打开的文件", () => {
+    expect(classifyDisplayTarget("D:\\proj\\demo", "file:///D:/proj/demo")).toEqual({
+      openable: false,
+      reason: "root-itself",
+    });
+  });
+
+  it("不是 file URI 的地址单独区分", () => {
+    expect(classifyDisplayTarget("D:\\proj\\demo", "untitled:Untitled-1")).toEqual({
+      openable: false,
+      reason: "not-file",
+    });
   });
 });

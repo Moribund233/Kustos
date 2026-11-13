@@ -86,3 +86,34 @@ export function relativePathFromUri(root: string, uri: string): string | null {
   if (!left.startsWith(`${right}/`)) return null;
   return decoded.slice(base.length + 1);
 }
+
+/**
+ * 跳定义结果能不能在 Code 面打开。
+ *
+ * 语言服务器常常把定义指到仓库外（Go 标准库、node_modules、别的包），那时
+ * 桌面端打不开那个文件。区分"仓库外"与"不是文件"是为了让界面能说出到底
+ * 怎么回事：前者是"这个定义在依赖里"，后者是"服务器给的地址不对"。
+ */
+export type DisplayTarget =
+  | { openable: true; path: string }
+  | { openable: false; reason: "outside-root" | "not-file" | "root-itself" };
+
+/**
+ * 判断一个 LSP 位置 URI 能否在仓库内打开。
+ *
+ * Args:
+ *
+ *	root: 工作区根的绝对路径
+ *	uri:  语言服务器给出的 location URI
+ *
+ * Returns:
+ *
+ *	可打开时给仓库内相对路径；否则给一条可翻译的原因。
+ */
+export function classifyDisplayTarget(root: string, uri: string): DisplayTarget {
+  if (!uri.startsWith("file://")) return { openable: false, reason: "not-file" };
+  const relative = relativePathFromUri(root, uri);
+  if (relative === null) return { openable: false, reason: "outside-root" };
+  if (relative === "") return { openable: false, reason: "root-itself" };
+  return { openable: true, path: relative };
+}
