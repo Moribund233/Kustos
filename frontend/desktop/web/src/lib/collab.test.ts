@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import * as Y from "yjs";
 
 import {
+  COLLAB_TEXT_KEY,
   collabDocumentKey,
   collabDraftBranch,
   collabKickReason,
@@ -8,7 +10,9 @@ import {
   collabSocketUrl,
   collabUserColor,
   parseCollabDocumentKey,
+  replaceCollabText,
   saveErrorIsKick,
+  type CollabSession,
 } from "./collab";
 import { activePathCounts, collabActiveUrl, connectionsFor } from "./collab-active";
 
@@ -142,5 +146,45 @@ describe("saveErrorIsKick", () => {
     expect(saveErrorIsKick("没有该仓库的写入权限")).toBe(false);
     expect(saveErrorIsKick("文档内容过大, 拒绝保存")).toBe(false);
     expect(saveErrorIsKick(null)).toBe(false);
+  });
+});
+
+describe("replaceCollabText", () => {
+  /** 只带共享文本的最小会话；替换逻辑不碰 provider 与感知。 */
+  function session(initial: string): CollabSession {
+    const doc = new Y.Doc();
+    doc.getText(COLLAB_TEXT_KEY).insert(0, initial);
+    return {
+      doc,
+      text: doc.getText(COLLAB_TEXT_KEY),
+      provider: null as unknown as CollabSession["provider"],
+      destroy: () => doc.destroy(),
+    };
+  }
+
+  it("整体换成传入的内容", () => {
+    const s = session("线上已有的一行\n");
+    expect(replaceCollabText(s, "本地这份\n")).toBe(true);
+    expect(s.text.toString()).toBe("本地这份\n");
+    s.destroy();
+  });
+
+  it("内容一致时不动共享文本，也不产生变更", () => {
+    const s = session("同一份\n");
+    expect(replaceCollabText(s, "同一份\n")).toBe(false);
+    s.destroy();
+  });
+
+  it("替换发生在一次事务里，观察者只看到一次变更", () => {
+    // 分两次（先删后插）会让别人在中间那一帧看到空文档。
+    const s = session("旧内容");
+    let updates = 0;
+    s.doc.on("update", () => {
+      updates += 1;
+    });
+    replaceCollabText(s, "新内容");
+    expect(updates).toBe(1);
+    expect(s.text.toString()).toBe("新内容");
+    s.destroy();
   });
 });

@@ -27,7 +27,21 @@ export type DocMode = "disk" | "live" | "observe";
 export type PrecheckStep = "branch" | "local" | "draft" | "peers";
 
 /** 用户在阻塞项上可以做的处置。 */
-export type PrecheckResolution = "checkout" | "commit" | "stash" | "discard" | "save" | "observe";
+export type PrecheckResolution =
+  | "checkout"
+  | "commit"
+  | "stash"
+  | "discard"
+  | "save"
+  | "observe"
+  /**
+   * 以本地内容开新会话（`seed`）。
+   *
+   * 这是一次**显式覆盖**：网关的初始内容来自服务端分支，本地没提交的内容
+   * 它看不见。只允许在"没人在线"时用它——有人在线还拿本地内容开新文档，
+   * 等于把别人的内容顶掉。
+   */
+  | "seed";
 
 /** 一条预检发现。 */
 export interface PrecheckIssue {
@@ -90,6 +104,17 @@ export interface PrecheckInput {
 }
 
 /**
+ * 这一步能不能用「以本地为准」开新会话。
+ *
+ * 条件是"确实没人在线"：感知不可用时按有人在线处理（`peersKnown === false`），
+ * 因为拿本地内容开新文档会把别人的内容顶掉，而猜错的代价不对称——join 猜错
+ * 只是白等一次同步，seed 猜错是丢数据。
+ */
+function canSeedFromLocal(input: PrecheckInput): boolean {
+  return input.peersKnown && input.peers === 0;
+}
+
+/**
  * 执行四步预检。
  *
  * Args:
@@ -106,6 +131,7 @@ export interface PrecheckInput {
  */
 export function precheck(input: PrecheckInput): PrecheckResult {
   const issues: PrecheckIssue[] = [];
+  const seedable = canSeedFromLocal(input);
 
   // 1. 分支对齐：docKey 里带分支，绑错分支等于在另一个世界编辑。
   if (input.localBranch !== input.docBranch) {
@@ -120,22 +146,27 @@ export function precheck(input: PrecheckInput): PrecheckResult {
 
   // 2. 本地改动：磁盘上的内容进不了 CRDT，直接 join 会被人当成本地改动要求
   //    处理，而用户以为自己的改动已经进文档了。
+  //
+  //    没人在线时多给一条「以本地为准」：那正是这些改动该有的去处——把它们
+  //    作为会话的首帧写进文档，再存成草稿分支的提交。它不解除阻塞，因为
+  //    "要不要拿本地内容覆盖文档"必须由用户点一下。
   if (input.changed) {
     issues.push({
       step: "local",
       code: "local-changes",
-      resolutions: ["commit", "stash", "discard"],
+      resolutions: seedable ? ["commit", "stash", "discard", "seed"] : ["commit", "stash", "discard"],
       blocking: true,
       count: 0,
     });
   }
 
   // 2b. 还没写盘的缓冲区：提交也带不走它，所以只能先保存（或放弃进入）。
+  //     没人在线时同样可以「以本地为准」——缓冲区的内容就是最"本地"的那一份。
   if (input.unsaved === true) {
     issues.push({
       step: "local",
       code: "unsaved-buffer",
-      resolutions: ["save", "observe"],
+      resolutions: seedable ? ["save", "observe", "seed"] : ["save", "observe"],
       blocking: true,
       count: 0,
     });
@@ -171,8 +202,7 @@ export function precheck(input: PrecheckInput): PrecheckResult {
   // 有人在线必须 join（本地内容会覆盖别人的文档）；没人在线才能 seed。
   // 感知不可用时按"有人在线"处理：seed 会把本地内容写进新文档，猜错的代价
   // 是别人的内容被顶掉，而 join 猜错只是白等一次同步。
-  const action: PrecheckResult["action"] =
-    peersUnknown || input.peers > 0 ? "join" : "seed";
+  const action: PrecheckResult["action"] = seedable ? "seed" : "join";
 
   return { action, issues };
 }

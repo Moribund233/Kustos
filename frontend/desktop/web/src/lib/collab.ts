@@ -132,6 +132,14 @@ export interface CollabSessionOptions {
   onKicked?: (reason: string) => void;
   /** 保存失败的回执文案：不处理的话"保存中"会一直转下去。 */
   onSaveError?: (error: string) => void;
+  /**
+   * 服务端的初始文档已经合并进来。
+   *
+   * 与 `onStatus` 的 `connected` 不是一回事：socket 连上时服务端的 Yjs 状态
+   * 可能还没同步完。在这之前往共享文本里写东西，本地的插入会与服务端随后
+   * 合并进来的内容叠成一段重复文本（实测行数翻倍）。要改写共享文本先等这个。
+   */
+  onSynced?: () => void;
 }
 
 export interface CollabSession {
@@ -139,6 +147,11 @@ export interface CollabSession {
   provider: HocuspocusProvider;
   text: Y.Text;
   destroy: () => void;
+}
+
+/** 文档同步状态：`synced` 之前服务端的初始内容还没到，别动共享文本。 */
+export interface CollabSyncState {
+  synced: boolean;
 }
 
 /**
@@ -173,6 +186,12 @@ export function createCollabSession(options: CollabSessionOptions): CollabSessio
       // 因此这里靠 reason 判定；普通的网络断开不含这些字样，不会误判。
       const kicked = collabKickReason(event);
       if (kicked !== null) options.onKicked?.(kicked);
+    },
+    // 服务端的初始文档合并完成。改写共享文本必须等到这一刻：socket 连上时
+    // 两边的 Yjs 状态可能还差着一次同步，此时写入会与随后合并进来的内容叠成
+    // 一段重复文本。
+    onSynced: () => {
+      options.onSynced?.();
     },
   });
 
@@ -224,6 +243,29 @@ export function collabPeerCount(awareness: unknown): number {
  */
 export function saveCollabDocument(provider: HocuspocusProvider, message: string): void {
   provider.sendStateless(JSON.stringify({ type: "collab-save", message }));
+}
+
+/**
+ * 用本地内容重写共享文本（「以本地为准」开新会话）。
+ *
+ * 网关的初始内容来自服务端分支，本地没提交的内容它看不见；要让"本地这份"
+ * 成为会话的起点，只能在连上之后把共享文本整体换掉，再存成一次草稿提交
+ * （可回滚——草稿分支上的提交不会自己跑到工作分支上）。
+ *
+ * 必须在**连上之后**做：连上之前改的是本地 Y.Doc，服务端状态同步进来时
+ * 会与本地的插入合并成一段谁也没写过的文本。连上之后改则是正常的更新，
+ * 服务端照单全收。
+ *
+ * 调用方必须先确认没人在线：替换会顶掉文档里已有的内容。
+ */
+export function replaceCollabText(session: CollabSession, text: string): boolean {
+  const current = session.text.toString();
+  if (current === text) return false;
+  session.doc.transact(() => {
+    session.text.delete(0, session.text.length);
+    session.text.insert(0, text);
+  });
+  return true;
 }
 
 /**

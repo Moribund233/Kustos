@@ -43,7 +43,18 @@ describe("precheck", () => {
   it("本地有未提交改动时阻塞，处置默认提交", () => {
     const result = precheck(input({ changed: true }));
     expect(result.action).toBe("blocked");
+    expect(result.issues[0].resolutions).toEqual(["commit", "stash", "discard", "seed"]);
+  });
+
+  it("有人在线时不给「以本地为准」：那会把别人的内容顶掉", () => {
+    const result = precheck(input({ changed: true, peers: 2 }));
     expect(result.issues[0].resolutions).toEqual(["commit", "stash", "discard"]);
+  });
+
+  it("感知不可用时也不给「以本地为准」", () => {
+    // 空清单既可能"真没人"也可能"感知坏了"，后者下 seed 会顶掉别人的内容。
+    const result = precheck(input({ changed: true, peersKnown: false }));
+    expect(result.issues[0].resolutions).not.toContain("seed");
   });
 
   it("缓冲区还有没写盘的改动时也阻塞，只能先保存或只读观察", () => {
@@ -51,6 +62,11 @@ describe("precheck", () => {
     expect(result.action).toBe("blocked");
     expect(sig(result)).toBe("local!");
     expect(result.issues[0].code).toBe("unsaved-buffer");
+    expect(result.issues[0].resolutions).toEqual(["save", "observe", "seed"]);
+  });
+
+  it("有人在线时未保存缓冲区也不给「以本地为准」", () => {
+    const result = precheck(input({ unsaved: true, peers: 1 }));
     expect(result.issues[0].resolutions).toEqual(["save", "observe"]);
   });
 

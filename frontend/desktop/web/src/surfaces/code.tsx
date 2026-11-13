@@ -43,7 +43,7 @@ import {
   useSetWorkspaceTrust,
   useWorkspaceTrust,
 } from "@/lib/lsp";
-import { useDocumentSymbols, useLSPClient, type FlatSymbol } from "@/lib/lsp-client";
+import { useDocumentSymbols, useLSPClient, type DisplayFailureReason, type FlatSymbol } from "@/lib/lsp-client";
 import { toFileUri } from "@/lib/lsp-uri";
 import {
   useFileBlame,
@@ -62,6 +62,7 @@ import {
   collabEditorExtension,
   collabPeerCount,
   createCollabSession,
+  replaceCollabText,
   saveCollabDocument,
   saveErrorIsKick,
   type CollabSession,
@@ -122,8 +123,7 @@ export interface CodeParts {
 }
 
 /** 编辑器里一份打开了的内容。 */
-interface Buffer {
-  /** 编辑器当前内容，换行一律是 `\n`（CodeMirror 的文档模型只存这个）。 */
+interface Buffer {  /** 编辑器当前内容，换行一律是 `\n`（CodeMirror 的文档模型只存这个）。 */
   text: string;
   /** 上次与磁盘同步时的内容，同样已归一成 `\n`；判断"改没改"只跟它比。 */
   saved: string;
@@ -134,6 +134,9 @@ interface Buffer {
   /** 是否与磁盘内容不同。 */
   dirty: boolean;
 }
+
+/** 跳定义失败提示的存活时长：这是一次性回执，不是持续故障。 */
+const JUMP_NOTICE_MS = 6000;
 
 /** 比较"改没改"必须归一换行：编辑器只存 `\n`，磁盘可能是 CRLF。 */
 function sameText(a: string, b: string): boolean {
@@ -243,7 +246,24 @@ export function useCodeSurface(userName = "") {
     language: languageID === "" ? null : languageID,
     enabled: trusted && Boolean(detected.data?.installed) && session?.state === "running",
     onOpenFile: openPath,
+    // 跳到依赖或标准库时语言服务器给的地址合法但打不开：静默返回 null 的
+    // 表现和"这个符号没有定义"一样，所以把原因摆到状态条上。
+    onOpenFailed: (reason, uri) => setJumpNotice({ reason, uri }),
   });
+
+  /**
+   * 跳定义失败的那条提示。
+   *
+   * 只留最近一次、几秒后自己消失：它是一条一次性回执，不是持续故障。
+   * 持续故障（服务器起不来、连接断了）另有状态条的那几条分支。
+   */
+  const [jumpNotice, setJumpNotice] = useState<{ reason: DisplayFailureReason; uri: string } | null>(null);
+
+  useEffect(() => {
+    if (jumpNotice === null) return;
+    const timer = window.setTimeout(() => setJumpNotice(null), JUMP_NOTICE_MS);
+    return () => window.clearTimeout(timer);
+  }, [jumpNotice]);
 
   const closeTab = useCallback(
     (path: string) => {
@@ -661,6 +681,14 @@ export function useCodeSurface(userName = "") {
   const [mode, setMode] = useState<DocMode>("disk");
   const [collab, setCollab] = useState<CollabSession | null>(null);
   const [collabStatus, setCollabStatus] = useState<CollabStatus | null>(null);
+  /**
+   * 服务端的初始文档已经合并进来。
+   *
+   * 与 `collabStatus === "connected"` 分开：socket 连上时两边的 Yjs 状态可能
+   * 还差一次同步，那时改写共享文本会与服务端内容叠成重复文本。「以本地为准」
+   * 的播种必须等到这一位为真。
+   */
+  const [collabSynced, setCollabSynced] = useState(false);
   const [collabError, setCollabError] = useState<string | null>(null);
   const [collabSaving, setCollabSaving] = useState(false);
   const [collabSaved, setCollabSaved] = useState<string | null>(null);
@@ -672,6 +700,14 @@ export function useCodeSurface(userName = "") {
   // 预检选了"先写盘"：保存是异步落地的，得等缓冲区不再脏再重新判定，
   // 否则紧接着调预检读到的还是旧的 dirty，对话框会原地再弹一次。
   const [pendingJoin, setPendingJoin] = useState(false);
+  /**
+   * 「以本地为准」开新会话时，等着被写进共享文本的那份内容。
+   *
+   * 不能在这里就地替换：模式切过去之后会话才建立，连上之前改的是本地
+   * Y.Doc，服务端状态同步进来时会与它合并成一段谁也没写过的文本。所以
+   * 只记下内容，等连接就绪（下面那个 effect）再替换。
+   */
+  const [pendingSeed, setPendingSeed] = useState<string | null>(null);
 
   // 发布：预览对话框、发布中的忙态、结果与失败。
   //
@@ -708,6 +744,7 @@ export function useCodeSurface(userName = "") {
     if (!collabEnabled) return;
     setCollabStatus("connecting");
     setCollabError(null);
+    setCollabSynced(false);
     const session = createCollabSession({
       documentName: collabKey,
       username: userName,
@@ -728,12 +765,14 @@ export function useCodeSurface(userName = "") {
         // 权限类失败同样要降级：界面上继续允许写，写出去的字永远发不到服务端。
         if (saveErrorIsKick(error)) setMode((current) => transition(current, "kick"));
       },
+      onSynced: () => setCollabSynced(true),
     });
     setCollab(session);
     return () => {
       session.destroy();
       setCollab(null);
       setCollabStatus(null);
+      setCollabSynced(false);
       setCollabSaved(null);
       setPeers(0);
     };
@@ -825,6 +864,49 @@ export function useCodeSurface(userName = "") {
     setMode("observe");
   }, []);
 
+  /**
+   * 「以本地为准」开新会话。
+   *
+   * 只在没人在线时可达（预检的处置列表给不给这一项由它决定）。本地这份内容
+   * 换成会话的首帧之后立刻存一次草稿提交：草稿分支上的提交可以回滚，而
+   * 只在内存里换掉的文本一旦崩溃就没了。
+   */
+  const seedFromLocal = useCallback(() => {
+    if (!activePath) return;
+    // 缓冲区优先：编辑器里的字比磁盘新，而"以本地为准"说的正是用户眼前这份。
+    const text = buffers[activePath]?.text ?? "";
+    if (text === "") return;
+    setPrecheckError(null);
+    setPendingSeed(text);
+    setPrecheckResult(null);
+    setMode(transition("disk", "enter"));
+  }, [activePath, buffers]);
+
+  /**
+   * 把待播种的内容写进共享文本。
+   *
+   * 等**同步完成**再做，而不是等 socket 连上：连上时服务端的初始内容可能
+   * 还在路上，此时写入会与随后合并进来的内容叠成一段重复文本（实测行数
+   * 翻了一倍）。`onSynced` 才是"服务端状态已经就位"的信号。
+   */
+  const seededFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (pendingSeed === null || collab === null) return;
+    if (!collabSynced) return;
+    // 同一次进入只播种一次：每次重连都重写一遍会把别人的后续改动顶掉。
+    if (seededFor.current === collabKey) return;
+    seededFor.current = collabKey;
+    const changed = replaceCollabText(collab, pendingSeed);
+    setPendingSeed(null);
+    if (!changed) return;
+    // 草稿提交也走 invoke，而不是在 effect 里直接发：它要等网关把新状态
+    // 收下之后才存得对。
+    saveCollabDocument(
+      collab.provider,
+      t("code.collab.seedMessage", { path: activePath ?? "", branch: collabBranch }),
+    );
+  }, [activePath, collab, collabBranch, collabKey, collabSynced, pendingSeed, t]);
+
   /** 退出协作：live 的内容写回缓冲区标脏，由用户决定要不要落盘。 */
   const leaveCollab = useCallback(() => {
     const text = collab?.text.toString() ?? "";
@@ -836,6 +918,9 @@ export function useCodeSurface(userName = "") {
     setMode(transition(mode, "leave"));
     setCollabSaved(null);
     setPrecheckResult(null);
+    // 播种是"进入时"的一次性动作，退出时清掉：下次进入重新判定。
+    setPendingSeed(null);
+    seededFor.current = null;
   }, [activePath, buffers, collab, edit, mode]);
 
   /** 协作模式下的保存：存成草稿分支的一次提交，不碰工作树。 */
@@ -857,6 +942,10 @@ export function useCodeSurface(userName = "") {
     async (resolution: PrecheckResolution) => {
       if (resolution === "observe") {
         observeCollab();
+        return;
+      }
+      if (resolution === "seed") {
+        seedFromLocal();
         return;
       }
       if (resolution === "save") {
@@ -894,7 +983,7 @@ export function useCodeSurface(userName = "") {
         setPrecheckBusy(false);
       }
     },
-    [pendingChanges.data, beginCollab, commit, commitMessage, observeCollab, saveActive, stage, workingCopyId],
+    [pendingChanges.data, beginCollab, commit, commitMessage, observeCollab, saveActive, seedFromLocal, stage, workingCopyId],
   );
 
   const closePrecheck = useCallback(() => {
@@ -1069,6 +1158,9 @@ export function useCodeSurface(userName = "") {
     // 协议层：编辑器挂载时用它拿插件，符号分段用它发 documentSymbol。
     lspClient: lsp.client,
     lspConnectError: lsp.error,
+    /** 跳定义打不开时的原因（跳到依赖/标准库，或编辑器没能在时限内挂上）。 */
+    jumpNotice,
+    dismissJumpNotice: () => setJumpNotice(null),
     // 符号点击后跳到那一行：先切到那个标签，再把行号交给编辑器。
     // 中间插一拍清空，是为了让"再点同一个符号"也能重新跳一次——
     // 编辑器的跳转 effect 只在行号数值变化时触发，值不变等于什么都没发生。
@@ -1131,6 +1223,8 @@ export function useCodeSurface(userName = "") {
     setCommitMessage,
     resolvePrecheck,
     closePrecheck,
+    /** 把编辑器里这份内容作为会话首帧写进共享文本（没人在线时才可达）。 */
+    seedFromLocal,
     /** ⌘S 的语义：由模式决定写盘、存草稿，还是什么都不写。 */
     saveMode: saveSemantics(mode),
     writable: mode === "disk" ? true : isWritable(mode),
@@ -1821,6 +1915,24 @@ export function CodeDetail({ state }: { state: CodeState }) {
           没装服务器，还是进程崩了正在重启。 */}
       <LSPBar state={state} />
 
+      {/* 跳定义打不开：语言服务器给的地址合法，只是指到了仓库外（标准库、
+          node_modules）。不说这一句，表现和"这个符号没有定义"一模一样。 */}
+      {state.jumpNotice != null && (
+        <div className="flex shrink-0 items-start gap-2 border-b border-[var(--color-edge-1)] bg-[rgba(131,169,196,0.1)] px-3 py-1.5">
+          <Icon name="external" size={12} className="mt-px shrink-0 text-[var(--color-sky)]" />
+          <span className="min-w-0 break-all text-[10.5px] leading-relaxed text-[var(--color-bone-2)]">
+            {jumpNoticeText(state.jumpNotice, t)}
+          </span>
+          <button
+            type="button"
+            onClick={state.dismissJumpNotice}
+            className="ml-auto shrink-0 text-[10.5px] text-[var(--color-muted-2)] hover:underline"
+          >
+            {t("code.jump.dismiss")}
+          </button>
+        </div>
+      )}
+
       {/* 遗留草稿提示：崩溃/强杀后重开，未保存的内容还在本地库里。
           不自动套用——磁盘可能已被外部改过，等于替用户做了合并决定。 */}
       {state.activeDraft != null && !dirty && (
@@ -2015,6 +2127,13 @@ function PrecheckDialog({ state }: { state: CodeState }) {
   const needsCommit = result.issues.some((i) => i.code === "local-changes");
   const needsBranch = result.issues.some((i) => i.code === "branch-mismatch");
   const needsSave = result.issues.some((i) => i.code === "unsaved-buffer");
+  /**
+   * 能不能「以本地为准」。
+   *
+   * 判据是预检自己给出的处置列表，而不是在这里再算一遍"有没有人在线"：
+   * 两处各算一次，漂移那天就是"按钮给了但点了会顶掉别人内容"。
+   */
+  const canSeed = result.issues.some((i) => i.resolutions.includes("seed"));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(6,9,11,0.62)] p-6">
@@ -2106,6 +2225,19 @@ function PrecheckDialog({ state }: { state: CodeState }) {
               className="h-[26px] rounded-[7px] border border-[var(--color-amber)] px-2.5 text-[11px] text-[var(--color-amber)] hover:bg-[rgba(232,163,58,0.12)] disabled:opacity-40"
             >
               {state.precheckBusy ? t("code.collab.committing") : t("code.collab.commitAndJoin")}
+            </button>
+          )}
+          {/* 以本地为准：只在没人在线时给。它不提交本地改动，而是把眼前这份
+              内容当会话首帧写进文档，并顺手存一次草稿提交（可回滚）。 */}
+          {canSeed && (
+            <button
+              type="button"
+              disabled={state.precheckBusy}
+              onClick={() => void state.resolvePrecheck("seed")}
+              title={t("code.collab.seedHint")}
+              className="h-[26px] rounded-[7px] border border-[var(--color-sky)] px-2.5 text-[11px] text-[var(--color-sky)] hover:bg-[rgba(131,169,196,0.12)] disabled:opacity-40"
+            >
+              {t("code.collab.seedFromLocal")}
             </button>
           )}
         </div>
@@ -2437,9 +2569,26 @@ function LSPBar({ state }: { state: CodeState }) {
   );
 }
 
+/** 跳定义失败提示的文案；URI 换成可读的路径再展示。 */
+function jumpNoticeText(
+  notice: { reason: DisplayFailureReason; uri: string },
+  t: (key: string, options?: Record<string, unknown>) => string,
+): string {
+  const path = decodeURIComponent(notice.uri.replace(/^file:\/\//, ""));
+  switch (notice.reason) {
+    case "outside-root":
+      return t("code.jump.outside", { path });
+    case "not-file":
+      return t("code.jump.notFile", { path: notice.uri });
+    case "root-itself":
+      return t("code.jump.root");
+    default:
+      return t("code.jump.timeout", { path });
+  }
+}
+
 /** 状态条里那种只有一句话的行。 */
-function LSPNote({ children }: { children: React.ReactNode }) {
-  return (
+function LSPNote({ children }: { children: React.ReactNode }) {  return (
     <div className="flex shrink-0 items-center gap-2 border-b border-[var(--color-edge-1)] px-3 py-1.5">
       <span aria-hidden className="shrink-0 text-[8px] text-[var(--color-faint)]">
         ●

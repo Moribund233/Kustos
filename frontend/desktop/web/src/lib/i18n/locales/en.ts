@@ -303,6 +303,15 @@ const en = {
       uncommittedHint: "This line has no commit yet",
       noLine: "No blame for the cursor line",
     },
+    // A jump target that cannot be opened has to say which kind of miss it was:
+    // doing nothing looks exactly like "this symbol has no definition".
+    jump: {
+      outside: "Defined in {{path}}, outside this working copy, so it cannot open here.",
+      notFile: "The target is not a file: {{path}}",
+      root: "The server pointed at the workspace directory itself, not a file.",
+      timeout: "{{path}} was opened, but the editor did not become ready within two seconds.",
+      dismiss: "Got it",
+    },
     // Collaboration: the mode badge, the precheck, and what ⌘S means now.
     collab: {
       enter: "Collaborate",
@@ -344,6 +353,10 @@ const en = {
       saveAndJoin: "Write to disk and join",
       saving: "Writing…",
       observeOnly: "Read-only",
+      seedFromLocal: "Use local content",
+      seedHint:
+        "Write the editor content into shared text as the starting point of this session, then save it as a draft commit right away (revertible)",
+      seedMessage: "Seed from local content: {{path}} ({{branch}})",
       cancel: "Cancel",
       manualBranchHint: "Switching branches happens on the working copy surface; this dialog will not do it for you.",
       manualCommitHint: "If you would rather keep the changes for now, observe read-only or handle it with git locally.",
