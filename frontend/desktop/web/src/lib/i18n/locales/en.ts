@@ -169,7 +169,7 @@ const en = {
     commit: "Commit",
     committing: "Committing…",
     commitAndPush: "Commit & push",
-    commitAndPushHint: "Pushing uses the system git credentials; the desktop never touches remote passwords",
+    commitAndPushHint: "Pushing to a repository of the connected instance uses your session token; anything else goes through your own git credentials",
 
     pushing: "Pushing…",
 
@@ -215,7 +215,7 @@ const en = {
       aheadBehind: "Ahead / behind",
       sectionNext: "Next",
       nextHint:
-        "Fetch and push both go through system git, so credentials come from the credential helper or SSH agent already configured on your machine. The desktop app never touches remote passwords.",
+        "Fetch and push both go through system git. When the remote belongs to the connected instance, the desktop authenticates with your session token on the spot (it lives only in that one process and is never written to disk); any other remote is left to the credential helper or SSH agent already configured on your machine. The desktop app never touches remote passwords.",
       yes: "yes",
       no: "no",
     },

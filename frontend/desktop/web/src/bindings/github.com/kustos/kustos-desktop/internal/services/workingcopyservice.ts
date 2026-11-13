@@ -304,10 +304,13 @@ export function OpenInEditor(id: string, path: string): $CancellablePromise<void
  * 
  * Returns:
  * 
- * 	失败时返回可读错误。凭证走系统 git 的 credential helper / SSH agent——
- * 	桌面端不接触也不存储远端密码，那是用户机器上已经配好的东西。
+ * 	失败时返回可读错误。
  * 
- * 推送是长任务，因此单独走网络超时，不受本地命令那 30 秒的限制。
+ * 凭据按远端裁决：这条命令要访问的远端指向**当前登录的那台实例**时注入
+ * access token，其余（GitHub、同事的 fork、ssh 写法的 origin）一概沿用用户
+ * 自己的 credential helper / SSH agent——桌面端不接触也不存储远端密码。
+ * 不这么做的话，用引导克隆仓库的用户第一次 push 就会被要凭据，而他从没
+ * 配过任何东西。
  */
 export function Push(id: string, force: boolean): $CancellablePromise<void> {
     return $Call.ByID(918850498, id, force);
@@ -318,6 +321,7 @@ export function Push(id: string, force: boolean): $CancellablePromise<void> {
  * 
  * 破坏性操作（尤其是强制推送）必须在确认框里显示完整命令：
  * "确认强制推送？"无法让人判断后果，`git push --force-with-lease` 可以。
+ * 与执行共用 git.PlanPush：用户看到的那条就是真跑的那条。
  */
 export function PushCommand(id: string, force: boolean): $CancellablePromise<string> {
     return $Call.ByID(1120904867, id, force);

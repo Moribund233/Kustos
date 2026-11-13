@@ -1,12 +1,15 @@
 package services
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/kustos/kustos-desktop/internal/platform/keychain"
 	"github.com/kustos/kustos-desktop/internal/store"
@@ -412,5 +415,259 @@ func TestDifferentInstancesDoNotCollide(t *testing.T) {
 	list, _ := db.ListInstances()
 	if len(list) != 4 {
 		t.Fatalf("四台不同实例应各占一行，实际 %d 行（ID 碰撞）", len(list))
+	}
+}
+
+/* ------------------------------------------------------------------ */
+/* 联网 git 命令的取令牌路径                                             */
+/* ------------------------------------------------------------------ */
+
+// push/fetch 没有 HTTP 那套 401 重试兜底：带上过期令牌只会换来一句用户
+// 看不懂的认证错误，所以这里要保证交出去的大概率还活着。
+
+// jwtWithExp 造一枚形状合法的假 JWT，payload 里只关心 exp。
+func jwtWithExp(t *testing.T, exp time.Time) string {
+	t.Helper()
+	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"HS256","typ":"JWT"}`))
+	claims, err := json.Marshal(map[string]any{"sub": "u1", "exp": exp.Unix()})
+	if err != nil {
+		t.Fatalf("构造 claims 失败: %v", err)
+	}
+	payload := base64.RawURLEncoding.EncodeToString(claims)
+	// 签名段是假的：这里的用途是"什么时候该换一枚"的缓存提示，不验签。
+	return header + "." + payload + ".c2ln"
+}
+
+// 令牌还没临期时不该刷新：每次 push 前都打一次 /auth/refresh 是白白增加
+// 被重用检测盯上的机会。
+func TestFreshAccessTokenSkipsRefreshWhenStillValid(t *testing.T) {
+	var refreshCalls int32
+	svc, _, _, _ := newAuthTestService(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/auth/login":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"id":"u1","username":"a","token":"` +
+				jwtWithExp(t, time.Now().Add(20*time.Minute)) + `","refresh_token":"r1"}`))
+		case "/api/v1/auth/refresh":
+			atomic.AddInt32(&refreshCalls, 1)
+			w.WriteHeader(http.StatusInternalServerError)
+		default:
+			http.NotFound(w, r)
+		}
+	})
+
+	if _, res := svc.Login("inst1", "a", "p"); !res.Success {
+		t.Fatalf("登录失败: %+v", res)
+	}
+
+	got := svc.FreshAccessToken()
+	if got != svc.AccessToken() {
+		t.Fatal("未临期时应当原样返回内存里的令牌")
+	}
+	if calls := atomic.LoadInt32(&refreshCalls); calls != 0 {
+		t.Fatalf("未临期时不该刷新，实际打了 %d 次", calls)
+	}
+}
+
+// 临期（不足 refreshLeeway 的余量）就先换一枚：否则命令还没发完令牌就过期了。
+func TestFreshAccessTokenRefreshesNearExpiry(t *testing.T) {
+	var refreshCalls int32
+	nearExpiry := jwtWithExp(t, time.Now().Add(5*time.Second))
+	fresh := jwtWithExp(t, time.Now().Add(30*time.Minute))
+
+	svc, _, _, _ := newAuthTestService(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/v1/auth/login":
+			_, _ = w.Write([]byte(`{"id":"u1","username":"a","token":"` + nearExpiry + `","refresh_token":"r1"}`))
+		case "/api/v1/auth/refresh":
+			atomic.AddInt32(&refreshCalls, 1)
+			_, _ = w.Write([]byte(`{"access_token":"` + fresh + `","refresh_token":"r2"}`))
+		default:
+			http.NotFound(w, r)
+		}
+	})
+
+	if _, res := svc.Login("inst1", "a", "p"); !res.Success {
+		t.Fatalf("登录失败: %+v", res)
+	}
+
+	if got := svc.FreshAccessToken(); got != fresh {
+		t.Fatal("临期时应当返回刷新后的令牌")
+	}
+	if calls := atomic.LoadInt32(&refreshCalls); calls != 1 {
+		t.Fatalf("应当恰好刷新 1 次，实际 %d 次", calls)
+	}
+}
+
+// 刷新失败时退回内存里那枚而不是空串：令牌"可能"过期不等于"一定"过期，
+// 让这次操作试一次，比直接告诉用户"登录已失效"更贴近事实。
+func TestFreshAccessTokenFallsBackOnRefreshFailure(t *testing.T) {
+	stale := jwtWithExp(t, time.Now().Add(-1*time.Minute))
+	svc, _, _, _ := newAuthTestService(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/auth/login":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"id":"u1","username":"a","token":"` + stale + `","refresh_token":"r1"}`))
+		case "/api/v1/auth/refresh":
+			w.WriteHeader(http.StatusUnauthorized)
+		default:
+			http.NotFound(w, r)
+		}
+	})
+
+	if _, res := svc.Login("inst1", "a", "p"); !res.Success {
+		t.Fatalf("登录失败: %+v", res)
+	}
+
+	if got := svc.FreshAccessToken(); got != stale {
+		t.Fatalf("刷新失败时应退回现有令牌，得到 %q", got)
+	}
+}
+
+// 令牌形状不对（不是标准 JWT）时不强制刷新：把"解不出"当成"已过期"，
+// 每一步都会多打一次 refresh，代价比偶尔一次认证失败大得多。
+func TestFreshAccessTokenWithoutReadableExpiry(t *testing.T) {
+	var refreshCalls int32
+	svc, _, _, _ := newAuthTestService(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/auth/login":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"id":"u1","username":"a","token":"opaque-token","refresh_token":"r1"}`))
+		case "/api/v1/auth/refresh":
+			atomic.AddInt32(&refreshCalls, 1)
+			w.WriteHeader(http.StatusInternalServerError)
+		default:
+			http.NotFound(w, r)
+		}
+	})
+
+	if _, res := svc.Login("inst1", "a", "p"); !res.Success {
+		t.Fatalf("登录失败: %+v", res)
+	}
+	if got := svc.FreshAccessToken(); got != "opaque-token" {
+		t.Fatalf("解不出 exp 时应原样返回，得到 %q", got)
+	}
+	if calls := atomic.LoadInt32(&refreshCalls); calls != 0 {
+		t.Fatalf("解不出 exp 时不该刷新，实际打了 %d 次", calls)
+	}
+}
+
+// 未登录时不刷新、不编造：空串就是"没有凭据"，调用方据此决定不注入。
+func TestFreshAccessTokenWithoutSession(t *testing.T) {
+	var refreshCalls int32
+	svc, _, _, _ := newAuthTestService(t, func(w http.ResponseWriter, _ *http.Request) {
+		atomic.AddInt32(&refreshCalls, 1)
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+
+	if got := svc.FreshAccessToken(); got != "" {
+		t.Fatalf("未登录时应返回空串，得到 %q", got)
+	}
+	if calls := atomic.LoadInt32(&refreshCalls); calls != 0 {
+		t.Fatalf("没有会话时不该打刷新，实际 %d 次", calls)
+	}
+}
+
+// exp 的读取只解码不验签，因此要能容忍几种真实存在的写法。
+func TestAccessTokenExpiryShapes(t *testing.T) {
+	later := time.Now().Add(10 * time.Minute)
+
+	cases := []struct {
+		name    string
+		token   string
+		wantSet bool
+		want    time.Time
+	}{
+		{"标准三段", jwtWithExp(t, later), true, later.Truncate(time.Second)},
+		{"两段（不是 JWT）", "header.payload", false, time.Time{}},
+		{"签名段缺失", "a.b.", false, time.Time{}},
+		{"空串", "", false, time.Time{}},
+		{"payload 不是 base64", "a.!!!.c", false, time.Time{}},
+		{"payload 不是 JSON", base64.RawURLEncoding.EncodeToString([]byte("a")) +
+			"." + base64.RawURLEncoding.EncodeToString([]byte("not json")) + ".c", false, time.Time{}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := accessTokenExpiry(tc.token)
+			if got.IsZero() == tc.wantSet {
+				t.Fatalf("是否解出 exp = %v，期望 %v（得到 %v）", !got.IsZero(), tc.wantSet, got)
+			}
+			if tc.wantSet && !got.Equal(tc.want) {
+				t.Fatalf("exp = %v，期望 %v", got, tc.want)
+			}
+		})
+	}
+}
+
+// exp 以整数秒写在 payload 里也要能读出来；用 RawMessage 保证序列化出来
+// 就是整数，不会因 Go 把数字写成浮点而误判成"读不出来"。
+func TestAccessTokenExpiryAcceptsIntegerSeconds(t *testing.T) {
+	secs := time.Now().Add(3 * time.Minute).Unix()
+	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"none"}`))
+	claims, err := json.Marshal(map[string]json.RawMessage{"exp": json.RawMessage(strconv.FormatInt(secs, 10))})
+	if err != nil {
+		t.Fatalf("构造 claims 失败: %v", err)
+	}
+	token := header + "." + base64.RawURLEncoding.EncodeToString(claims) + ".sig"
+
+	got := accessTokenExpiry(token)
+	if got.IsZero() {
+		t.Fatal("应当解出 exp")
+	}
+	if got.Unix() != secs {
+		t.Fatalf("exp = %v，期望 %d", got, secs)
+	}
+}
+
+// 登录写入的过期时刻必须与令牌一致：否则"临期判断"读的是另一枚令牌的时间。
+func TestLoginRecordsExpiryWithToken(t *testing.T) {
+	exp := time.Now().Add(7 * time.Minute)
+	token := jwtWithExp(t, exp)
+	svc, _, _, _ := newAuthTestService(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"u1","username":"a","token":"` + token + `","refresh_token":"r1"}`))
+	})
+
+	if _, res := svc.Login("inst1", "a", "p"); !res.Success {
+		t.Fatalf("登录失败: %+v", res)
+	}
+
+	svc.mu.RLock()
+	got := svc.accessTokenExp
+	svc.mu.RUnlock()
+	if got.IsZero() {
+		t.Fatal("登录后应记下令牌的过期时刻")
+	}
+	if !got.Equal(exp.Truncate(time.Second)) {
+		t.Fatalf("过期时刻 = %v，期望 %v", got, exp)
+	}
+}
+
+// 登出与切实例必须把过期时刻一起清掉：留下"旧 exp 配空令牌"这种半状态，
+// 下一次判断会拿着不存在的时间做决策。
+func TestClearingSessionAlsoClearsExpiry(t *testing.T) {
+	svc, _, _, _ := newAuthTestService(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/v1/auth/login":
+			_, _ = w.Write([]byte(`{"id":"u1","username":"a","token":"` +
+				jwtWithExp(t, time.Now().Add(20*time.Minute)) + `","refresh_token":"r1"}`))
+		default:
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	})
+
+	if _, res := svc.Login("inst1", "a", "p"); !res.Success {
+		t.Fatalf("登录失败: %+v", res)
+	}
+	_ = svc.Logout()
+
+	svc.mu.RLock()
+	exp := svc.accessTokenExp
+	svc.mu.RUnlock()
+	if !exp.IsZero() {
+		t.Fatalf("登出后过期时刻应清零，得到 %v", exp)
 	}
 }

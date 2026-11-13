@@ -12,20 +12,6 @@ import (
 	"github.com/kustos/kustos-desktop/internal/store"
 )
 
-// CloneAuth 是向本实例发起克隆所需的凭据。
-//
-// 它是"这一刻"的快照，由装配层从会话服务取：clone 期间用户可能切换实例或
-// 退出登录，那不该让一次还在传对象的克隆中途换掉身份。
-type CloneAuth struct {
-	// BaseURL 是实例地址，如 https://git.example.com。
-	BaseURL string
-	// Token 是访问令牌，以 Bearer 形式交给 git。
-	//
-	// 不记用户名：服务端 git-auth 的 Bearer 分支只验令牌，用户名填什么都不影响
-	// 结果，多存一个字段只会让"凭据该带什么"这件事看起来比实际复杂。
-	Token string
-}
-
 // CloneTarget 描述一次克隆的来源与去处。
 //
 // 两个来源二选一：
@@ -59,34 +45,11 @@ type CloneProgressEvent struct {
 // errCloneInProgress 表示同一个目标目录上已有一次克隆没结束。
 var errCloneInProgress = errors.New("这个目录上已经有克隆在进行")
 
-// cloneAuthProvider 返回当前实例的克隆凭据；未登录时返回零值。
-var cloneAuthProvider func() CloneAuth
-
 // cloneProgressSink 把进度发到界面；未接线时静默丢弃。
 var (
 	cloneSinkMu sync.RWMutex
 	cloneSink   func(CloneProgressEvent)
 )
-
-// BindCloneAuth 接上"当前实例凭据"的来源。
-func BindCloneAuth(provider func() CloneAuth) {
-	cloneAccountMu.Lock()
-	defer cloneAccountMu.Unlock()
-	cloneAuthProvider = provider
-}
-
-var cloneAccountMu sync.RWMutex
-
-// currentCloneAuth 返回已接上的凭据来源结果。
-func currentCloneAuth() CloneAuth {
-	cloneAccountMu.RLock()
-	provider := cloneAuthProvider
-	cloneAccountMu.RUnlock()
-	if provider == nil {
-		return CloneAuth{}
-	}
-	return provider()
-}
 
 // BindCloneProgress 接上进度事件的出口。
 //
@@ -187,7 +150,7 @@ func (s *WorkingCopyService) cloneRequest(target CloneTarget) (git.CloneRequest,
 	}
 
 	if repoPath != "" {
-		auth := currentCloneAuth()
+		auth := currentInstanceAuth()
 		if strings.TrimSpace(auth.BaseURL) == "" {
 			return git.CloneRequest{}, nil, errors.New("尚未连接实例")
 		}

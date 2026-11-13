@@ -35,8 +35,8 @@ func TestCloneRemoteRejectsEmptyTargets(t *testing.T) {
 // 实例仓库路径必须在连上实例且已登录之后才能拼地址。
 func TestCloneRemoteInstanceNeedsSession(t *testing.T) {
 	svc := newTestWorkingCopyService(t)
-	BindCloneAuth(func() CloneAuth { return CloneAuth{} })
-	t.Cleanup(func() { BindCloneAuth(nil) })
+	BindInstanceAuth(func() InstanceAuth { return InstanceAuth{} })
+	t.Cleanup(func() { BindInstanceAuth(nil) })
 
 	_, err := svc.CloneRemote(CloneTarget{
 		RepoPath: "alice/notes",
@@ -46,8 +46,8 @@ func TestCloneRemoteInstanceNeedsSession(t *testing.T) {
 		t.Fatalf("期望提示未连接实例，得到: %v", err)
 	}
 
-	BindCloneAuth(func() CloneAuth {
-		return CloneAuth{BaseURL: "https://git.example.com"}
+	BindInstanceAuth(func() InstanceAuth {
+		return InstanceAuth{BaseURL: "https://git.example.com"}
 	})
 	_, err = svc.CloneRemote(CloneTarget{
 		RepoPath: "alice/notes",
@@ -62,10 +62,10 @@ func TestCloneRemoteInstanceNeedsSession(t *testing.T) {
 // 写错了会把用户令牌递给第三方主机。
 func TestCloneRequestCredentialScope(t *testing.T) {
 	svc := newTestWorkingCopyService(t)
-	BindCloneAuth(func() CloneAuth {
-		return CloneAuth{BaseURL: "https://git.example.com:8443", Token: "tok-123"}
+	BindInstanceAuth(func() InstanceAuth {
+		return InstanceAuth{BaseURL: "https://git.example.com:8443", Token: "tok-123"}
 	})
-	t.Cleanup(func() { BindCloneAuth(nil) })
+	t.Cleanup(func() { BindInstanceAuth(nil) })
 
 	dir := filepath.Join(t.TempDir(), "notes")
 	req, cred, err := svc.cloneRequest(CloneTarget{RepoPath: "alice/notes", Dir: dir})

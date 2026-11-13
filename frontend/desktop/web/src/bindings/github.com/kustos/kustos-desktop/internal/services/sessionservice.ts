@@ -43,6 +43,30 @@ export function AddInstance(baseURL: string): $CancellablePromise<[store$0.Insta
 }
 
 /**
+ * FreshAccessToken 返回一枚**大概率还活着**的 access token，供联网 git 命令用。
+ * 
+ * 为什么需要它而不是 AccessToken()：push/fetch 一旦带上过期令牌，git 收到 401
+ * 只会转去找 credential helper，而桌面端已经把 helper 清空、终端提示也关了，
+ * 表现就是"点了推送，报一个看不懂的认证错误"。HTTP 请求有 401 重试这条兜底，
+ * git 子进程没有。
+ * 
+ * 判据是令牌自己的 `exp`：临期（不足 refreshLeeway 的余量）就先刷新。刷新走
+ * 既有的 single-flight，绝不绕过它直接打 /auth/refresh——重用检测会吊销整个
+ * family，把用户所有设备一起踢下线。
+ * 
+ * `exp` 解不出来时不刷新、直接用现有令牌试一次：把"解不出"当成"已过期"会
+ * 让每一步都强制刷新，代价比偶尔一次 401 大得多。
+ * 
+ * Returns:
+ * 
+ * 	当前可用的 access token；未登录或刷新失败时返回内存里那枚（可能是空串），
+ * 	由调用方决定如何提示。
+ */
+export function FreshAccessToken(): $CancellablePromise<string> {
+    return $Call.ByID(676563771);
+}
+
+/**
  * ListInstances 返回已保存实例。
  */
 export function ListInstances(): $CancellablePromise<store$0.Instance[] | null> {

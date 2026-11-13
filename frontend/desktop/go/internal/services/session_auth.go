@@ -45,6 +45,11 @@ type SessionService struct {
 	activeInstanceID string
 	// accessToken 只驻内存，重启即失效（由 refresh 重新换发）。
 	accessToken string
+	// accessTokenExp 是内存里那枚 access token 的过期时刻（来自 JWT 的 exp）。
+	//
+	// 零值表示没能解出来（令牌不是标准 JWT），此时任何"临期"判断都放行——
+	// 宁可用一枚可能过期的令牌试一次，也不要每步都强制刷新。
+	accessTokenExp time.Time
 	// deviceID 是本机在该实例上的稳定标识，用于"已登录设备"里辨认。
 	deviceID string
 
@@ -182,6 +187,7 @@ func (s *SessionService) SetActiveInstance(id string) error {
 	s.mu.Lock()
 	s.activeInstanceID = id
 	s.accessToken = ""
+	s.accessTokenExp = time.Time{}
 	s.mu.Unlock()
 
 	s.syncUpstream(it.BaseURL)
@@ -198,6 +204,7 @@ func (s *SessionService) RemoveInstance(id string) error {
 	if s.activeInstanceID == id {
 		s.activeInstanceID = ""
 		s.accessToken = ""
+		s.accessTokenExp = time.Time{}
 	}
 	s.mu.Unlock()
 	return nil
@@ -267,6 +274,7 @@ func (s *SessionService) Login(instanceID, username, password string) (Credentia
 	s.mu.Lock()
 	s.activeInstanceID = instanceID
 	s.accessToken = resp.Token
+	s.accessTokenExp = accessTokenExpiry(resp.Token)
 	s.deviceID = deviceID
 	s.mu.Unlock()
 
@@ -308,6 +316,7 @@ func (s *SessionService) Logout() error {
 	_ = s.keychain.Delete(refreshKey(instanceID))
 	s.mu.Lock()
 	s.accessToken = ""
+	s.accessTokenExp = time.Time{}
 	s.mu.Unlock()
 
 	return revokeErr
@@ -318,6 +327,72 @@ func (s *SessionService) AccessToken() string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.accessToken
+}
+
+// FreshAccessToken 返回一枚**大概率还活着**的 access token，供联网 git 命令用。
+//
+// 为什么需要它而不是 AccessToken()：push/fetch 一旦带上过期令牌，git 收到 401
+// 只会转去找 credential helper，而桌面端已经把 helper 清空、终端提示也关了，
+// 表现就是"点了推送，报一个看不懂的认证错误"。HTTP 请求有 401 重试这条兜底，
+// git 子进程没有。
+//
+// 判据是令牌自己的 `exp`：临期（不足 refreshLeeway 的余量）就先刷新。刷新走
+// 既有的 single-flight，绝不绕过它直接打 /auth/refresh——重用检测会吊销整个
+// family，把用户所有设备一起踢下线。
+//
+// `exp` 解不出来时不刷新、直接用现有令牌试一次：把"解不出"当成"已过期"会
+// 让每一步都强制刷新，代价比偶尔一次 401 大得多。
+//
+// Returns:
+//
+//	当前可用的 access token；未登录或刷新失败时返回内存里那枚（可能是空串），
+//	由调用方决定如何提示。
+func (s *SessionService) FreshAccessToken() string {
+	s.mu.RLock()
+	token := s.accessToken
+	exp := s.accessTokenExp
+	s.mu.RUnlock()
+
+	if token == "" {
+		return ""
+	}
+	if exp.IsZero() || time.Now().Add(refreshLeeway).Before(exp) {
+		return token
+	}
+	if creds, ok := s.Refresh(); ok && creds.AccessToken != "" {
+		return creds.AccessToken
+	}
+	return s.AccessToken()
+}
+
+// accessTokenExpiry 从 JWT 的 payload 里读 `exp`，只做解码、**不验签**。
+//
+// 这里的用途是一个缓存提示（"什么时候该换一枚"），不是授权判断：真正的
+// 校验永远发生在服务端。签名由谁签的不重要，因为令牌本来就是这台实例发给
+// 我们的；解不出或形状不对一律返回零值，让调用方退回"先试一次"。
+func accessTokenExpiry(token string) time.Time {
+	parts := strings.Split(strings.TrimSpace(token), ".")
+	if len(parts) != 3 {
+		return time.Time{}
+	}
+	raw, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		// 有些网关会给出带填充的段，补一次再试。
+		if raw, err = base64.URLEncoding.DecodeString(parts[1]); err != nil {
+			return time.Time{}
+		}
+	}
+	var claims struct {
+		Exp json.Number `json:"exp"`
+	}
+	if err := json.Unmarshal(raw, &claims); err != nil {
+		return time.Time{}
+	}
+	secs, err := claims.Exp.Int64()
+	if err != nil || secs <= 0 {
+		return time.Time{}
+	}
+	return time.Unix(secs, 0)
 }
 
 // RestoreSession 在启动时用 Keychain 里的 refresh 恢复登录态。
@@ -426,6 +501,7 @@ func (s *SessionService) refreshNow(instanceID, refresh string) (Credentials, bo
 	s.mu.Lock()
 	s.activeInstanceID = instanceID
 	s.accessToken = resp.AccessToken
+	s.accessTokenExp = accessTokenExpiry(resp.AccessToken)
 	s.mu.Unlock()
 
 	return Credentials{

@@ -76,7 +76,7 @@ export interface WorkingCopyState {
   /** 主动重扫状态与 diff：工作树会被外部编辑器改动。 */
   refresh: () => void;
   refetching: boolean;
-  /** 推送（凭证走系统 git 的 credential helper，不经服务端）。 */
+  /** 推送（本实例远端用登录令牌，其余走用户自己的 git 凭据；不经服务端裁决）。 */
   push: ReturnType<typeof usePush>;
   fetchRemote: ReturnType<typeof useFetch>;
   /** 在外部编辑器中打开选中文件。 */

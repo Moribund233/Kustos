@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -627,6 +628,44 @@ func runAt(t *testing.T, dir string, args ...string) string {
 	return string(out)
 }
 
+// remoteNames 要给出**全部**远端，origin 只是排到最前。
+//
+// 回归用例：早期实现一看到 origin 就直接返回，把字母序排在它之后的
+// upstream 整个丢掉；配置解析的存在性校验因此认为"没有这个远端"。
+func TestRemoteNamesIncludesAllRemotes(t *testing.T) {
+	dir := newRepo(t)
+	for _, args := range [][]string{
+		{"remote", "add", "origin", "https://git.example.com/alice/notes.git"},
+		{"remote", "add", "upstream", "https://git.example.com/c/d.git"},
+		{"remote", "add", "zeal", "https://git.example.com/z/z.git"},
+	} {
+		runAt(t, dir, args...)
+	}
+
+	names := remoteNames(dir)
+	if names[0] != "origin" {
+		t.Fatalf("origin 应当排最前，得到 %v", names)
+	}
+	for _, want := range []string{"upstream", "zeal"} {
+		if !slices.Contains(names, want) {
+			t.Fatalf("远端 %q 丢了，得到 %v", want, names)
+		}
+	}
+	if len(names) != 3 {
+		t.Fatalf("应有 3 个远端，得到 %v", names)
+	}
+}
+
+// 只有非 origin 的远端时不硬塞一个 origin。
+func TestRemoteNamesWithoutOrigin(t *testing.T) {
+	dir := newRepo(t)
+	runAt(t, dir, "remote", "add", "upstream", "https://git.example.com/c/d.git")
+
+	if names := remoteNames(dir); len(names) != 1 || names[0] != "upstream" {
+		t.Fatalf("应只列出真实存在的远端，得到 %v", names)
+	}
+}
+
 // push 之后本地应与远端持平（ahead 归零）。
 func TestPushSendsCommitToRemote(t *testing.T) {
 	dir, remote := newRemotePair(t)
@@ -643,7 +682,7 @@ func TestPushSendsCommitToRemote(t *testing.T) {
 		t.Fatalf("提交后应领先 1，实际 %d", ahead)
 	}
 
-	if err := Push(dir, false); err != nil {
+	if err := Push(dir, false, nil); err != nil {
 		t.Fatalf("push 失败: %v", err)
 	}
 
@@ -673,7 +712,7 @@ func TestPushWithoutUpstreamFails(t *testing.T) {
 	runAt(t, dir, "add", ".")
 	runAt(t, dir, "commit", "-m", "init")
 
-	err := Push(dir, false)
+	err := Push(dir, false, nil)
 	if err == nil {
 		t.Fatal("无上游时 push 应失败")
 	}
@@ -685,7 +724,7 @@ func TestPushWithoutUpstreamFails(t *testing.T) {
 // 空仓库（还没提交）push 也要失败而不是静默成功。
 func TestPushOnEmptyRepoFails(t *testing.T) {
 	dir := newRepo(t)
-	if err := Push(dir, false); err == nil {
+	if err := Push(dir, false, nil); err == nil {
 		t.Fatal("没有提交时 push 应失败")
 	}
 }
@@ -697,7 +736,7 @@ func TestPushForceFlagIsExplicit(t *testing.T) {
 	write(t, dir, "a.txt", "1\n")
 	runAt(t, dir, "add", ".")
 	runAt(t, dir, "commit", "-m", "one")
-	if err := Push(dir, false); err != nil {
+	if err := Push(dir, false, nil); err != nil {
 		t.Fatalf("首次 push 失败: %v", err)
 	}
 
@@ -705,11 +744,11 @@ func TestPushForceFlagIsExplicit(t *testing.T) {
 	write(t, dir, "a.txt", "2\n")
 	runAt(t, dir, "add", ".")
 	runAt(t, dir, "commit", "--amend", "-m", "amended")
-	if err := Push(dir, false); err == nil {
+	if err := Push(dir, false, nil); err == nil {
 		t.Fatal("改写历史后普通 push 应被拒绝")
 	}
 	// 显式 force 才能成功。
-	if err := Push(dir, true); err != nil {
+	if err := Push(dir, true, nil); err != nil {
 		t.Fatalf("强制 push 应成功: %v", err)
 	}
 }

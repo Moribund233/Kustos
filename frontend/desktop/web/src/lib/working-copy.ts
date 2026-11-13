@@ -206,8 +206,10 @@ export function useCommit(id: string | null) {
 /**
  * 推送。
  *
- * 凭证走系统 git 的 credential helper / SSH agent：桌面端不接触也不存储
- * 远端密码。因此这条路径既不需要服务端参与，也不需要额外的凭据界面。
+ * 远端属于当前实例时，Go 侧把登录令牌注入那一次 git 进程的环境里完成认证；
+ * 其余远端沿用用户机器上的 credential helper / SSH agent。两种情况桌面端
+ * 都不接触也不存储远端密码，因此这条路径不需要服务端参与，也不需要额外的
+ * 凭据界面。
  */
 export function usePush(id: string | null) {
   const qc = useQueryClient();

@@ -4,7 +4,7 @@
 
 这份文档只陈述**代码里已经有什么**，不复述设计理由——设计意图看设计文档。每条状态都对应仓库里可查的实现，新增能力时同步更新本页，避免设计与实现对不上之后没人知道以哪个为准。
 
-最后更新：2026-11-13
+最后更新：2026-11-13（M2 收尾：push/fetch 注入登录令牌、首次推送建立上游）
 
 ## 里程碑总览
 
@@ -12,7 +12,7 @@
 | --- | --- | --- |
 | M0 骨架 | ✅ 完成 | Wails v3 工程、loopback bridge、嵌入产物、单实例、窗口状态持久化、三栏外壳 |
 | M1 只读 | ✅ 完成 | 实例连接、登录 + Keychain、Inbox、命令面板、通知、托盘、PR 与 Issue 浏览 |
-| M2 工作副本 | 🟡 大部分 | 状态、未提交 diff、暂存（含逐 hunk）、提交、fetch、push、PR 评审窗（含行内评论与投票）、**clone（实例仓库列表 + 任意 URL）** 已完成；push/fetch 仍依赖用户自己的 git 凭据配置 |
+| M2 工作副本 | ✅ 完成 | 状态、未提交 diff、暂存（含逐 hunk）、提交、fetch、push、PR 评审窗（含行内评论与投票）、**clone（实例仓库列表 + 任意 URL）**、**push/fetch 对本实例远端注入登录令牌**、**首次推送建立上游** 已完成 |
 | M3 编辑器 | ✅ 完成 | 写盘、冲突检测、崩溃恢复、标签页布局恢复、`⌘P`/`⌘S`、diff 行标已完成 |
 | M4 本地智能 | 🟡 走近 | 进程池、`ws ↔ stdio` 转发、workspace trust、四种语言探测与状态条已完成；编辑器里已接 CodeMirror LSP 客户端（诊断、补全、hover、跳定义、重命名、文档符号）；行级 diff 行标与 blame 已完成 |
 | M5 协作 | 🟡 大部分 | 文档模式机、四步预检、`live` 编辑与远端光标、草稿保存、树上的 `live` 圆点、发布（含 draft vs 目标分支预览）、被踢降为只读已完成；**`seed` 的"以本地为准"入口未做** |
@@ -28,6 +28,7 @@
 - Wails IPC 经资产中间件注入 bridge，`/wails/runtime` 走同源校验；未接线时 501 而非 404。
 - 实例连接与探活：以 `GET /api/v1/client-compat` 为主判据，根路径仅对老实例兜底且要求响应非 HTML。
 - 登录、refresh（全局 single-flight）、登出、实例切换；refresh token 只进系统钥匙串，`Credentials` 结构里不含该字段。
+- **联网 git 命令取的是"新鲜"令牌**：`FreshAccessToken` 读 JWT 自己的 `exp`，临期就先经 single-flight 刷新再交出去（详见"本地 Git"一节）。刷新失败时退回内存里那枚而不是清空——"可能过期"不等于"确定过期"，直接判定登录失效会把一次本可以成功的推送变成一次重新登录。
 - **首次使用的三步引导在一页内完成**：连接实例 → 登录 → 克隆，不拆成三个路由。步进由状态机（`lib/onboarding.ts`）算而不是靠按钮跳转：实例不可达或契约过旧就停在第一步，此时登录框是禁用的——先让用户填密码再回一句"登录失败"等于把已知原因藏起来。已完成的步骤折叠成一行摘要，随时可点开重做；已有实例档案时第一步变成可选列表，不必回空表单重敲地址。版本过旧是**阻断式**的：`ConnectForm` 只有 `reachable && !instanceTooOld(info) && id` 才算连接成功（这里此前注释声称阻断、代码却放行，已对齐）。
 - **登录框的可用性靠现探判定**：实例档案只存名称与版本号，没有契约信息，所以引导页用 `useInstanceProbe` 打一次 `/client-compat`（30 秒缓存）来决定第二步能不能解锁。
 - **克隆可跳过**：只想翻 Inbox 的人不该被迫下载仓库，第三步给"跳过"，`ready = hasWorkingCopy || cloneSkipped`。登录后的默认落点仍是克隆。
@@ -49,6 +50,12 @@
 - **克隆的进度与取消**：`git clone --progress` 的 stderr 按 `\n` **或 `\r`** 切分（进度用 `\r` 原地刷新，只按 `\n` 切会让百分比停在最后一次），解析成 `{phase, percent}` 经 Wails 事件 `clone:progress` 推到界面。取消 = cancel context → 杀进程 → **只删自己创建的那个目标目录**；目标已存在时直接拒绝（`ErrTargetExists`）且不动原有内容。失败时保留 git 的最后几条原文而不是一句"克隆失败"。
 - **目标目录一律由用户选，桌面端不给默认值**。位置通过系统目录选择框指定（`CanChooseFiles(false)` + `CanChooseDirectories(true)`，Wails 默认是选文件的）；没选位置时克隆按钮保持禁用，位置行显示"请选择一个位置"。放弃自动选址是刻意的：机器上哪块盘可写、哪块盘够大，只有用户知道；替用户挑一个再撞上权限或空间不足，报错只会变成"它自己想放的地方放不了"。克隆完成后复用 `Add` 的登记逻辑并设为活动仓库——另写一份归一化逻辑只会漂移。
 - **权限失败翻译成人话**：`os.MkdirAll` 的 `Access is denied` 与 git 自己的报错都收成一句"没有权限在 X 下创建目录，请换一个位置"。Windows 上要额外比 `syscall.ERROR_ACCESS_DENIED`——`*os.PathError` 里包的是 `syscall.Errno(5)`，部分 Go 版本里它并不等于 `os.ErrPermission`。界面侧先剥掉绑定层加的 `RuntimeError:` 前缀再匹配，否则同一句话在两端会长得不一样。
+- **联网命令的凭据与克隆共用一套注入**：`git.Push` / `git.Fetch` 走 `NetworkEnv`，与 `cloneEnv` 同一份实现（`GIT_CONFIG_*` 里的 `http.<远端>.extraHeader` + 清空 `credential.helper` + `GIT_TERMINAL_PROMPT=0`）。此前只有 clone 带凭据，于是"用引导克隆了仓库、什么也没配"的用户第一次 push 会被要凭据——坑是桌面端自己挖的。
+- **注入与否按"这条命令真正访问的远端"裁决**，判据是**仓库路径前缀**而不是主机名：`remoteMatchesInstance` 要求 scheme/主机/端口一致且实例路径是远端路径的前缀（边界必须落在 `/`，否则 `example.com/git` 会认领 `git-fastlab/repo`）。按主机匹配会把同主机上的别人仓库、共存的其他 git 服务一起当成自己人散令牌。只认 http/https：ssh 写法与本地路径回落到用户自己的凭据体系，Bearer 对它们本来就不适用；带 userinfo 的远端一律拒绝，那说明有人把凭据写进了地址。作用域取 `git remote get-url` 的原样输出而不是拼接结果——用户可能 set-url 改写过写法，只有原样输出与 git 实际发出的请求对得上。
+- **令牌在发起前保证新鲜**：`FreshAccessToken` 读 JWT 自己的 `exp`（只解码不验签——用途是"什么时候该换一枚"，授权判断永远在服务端），临期就走既有 single-flight 刷新。HTTP 请求有 401 重试兜底，git 子进程没有：带上过期令牌只会换来一句用户看不懂的认证错误。`exp` 解不出来时不强制刷新，先用现有令牌试一次。联网命令上限 3 分钟、令牌有效期 30 分钟，因此不需要中途轮换。
+- **push 的计划只算一次**：`PlanPush` 同时给出「跑什么参数」「确认框显示什么」「碰哪个远端」，`PushCommand` 与 `Push` 共用它。破坏性操作的确认一旦与执行对不上，整个闸门就白做。
+- **分支没有上游时推同一条终端会建议的命令**：`git push --set-upstream origin <分支>`，而不是把 git 那句 "no tracking information" 甩进错误弹窗。远端名按 git 自己的优先级解析（`branch.<name>.pushremote` → `remote.pushdefault` → origin → 第一个远端），且要求该远端真实存在。拿不到分支名（游离 HEAD、空仓库）或根本没有远端时退回裸 `git push` 让 git 报错——猜一个分支名去推，可能把提交落到用户没打算碰的分支上。
+- **顺带修掉一个既有缺陷**：`remoteNames` 早期一遇到 `origin` 就直接返回，把字母序排在它之后的远端（`upstream` 恰是最常见的第二个）整个丢掉，表现为"明明配了 upstream，程序却说这仓库只有 origin"。
 
 ### 编辑器（Code 面）
 
@@ -137,7 +144,6 @@ SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 6 版：
 
 ### 缺口（M1–M3 范围内）
 
-- **push / fetch 不带凭据**：clone 时注入的 Bearer 头只作用于那一次进程（`GIT_CONFIG_*` 环境变量随进程消失）。之后在这个工作副本上 push/fetch 仍依赖用户自己的 git 配置——裸机第一次 push 会弹凭据，或者干脆失败。要补齐得把 `execGitNetwork` 也接到同一套注入上，且要处理令牌 30 分钟刷新一次的问题（长跑的命令会用到过期令牌）。
 - **协作感知的界面部分**：文件树的 `live` 圆点与在线人数已接；进入前的"多少人正在编辑"预警只做在预检对话框里，没有更早的提示。
 - **PR / Issue 的动作**：两个列表面当前只读，评论、关闭、合并等写操作仍在 Web。评审窗已有"行内评论 + 投票"两条写路径，见下。
 - **通知的自动触发**：发送通道已通，但"什么事件值得弹"要等后端给出待决策语义。
@@ -155,9 +161,11 @@ SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 6 版：
 
 ## 已知取舍
 
+- **凭据机制与设计文档 §9 不同，是有意的**：设计里写的是随应用带一个 `kustos git-credential` 子命令当 `credential.helper`，由 Go 经 stdin 交令牌。实现改成 `GIT_CONFIG_*` 环境变量注入（clone 与 push/fetch 同一套），理由有二：helper 是全局配置，替用户写一条进他的 gitconfig，副作用比一次性环境注入大得多；而且 helper 拿不到"这条命令要访问哪个远端"的上下文，作用域收敛反而更难写对。Basic 形态试过不成立的原因见上面克隆那一节。
+- **不做文件监听**。设计文档 §9 写了 `fsnotify` + 去抖，实现里没有任何 watcher，这是裁决而不是遗漏：本地状态的刷新走三条现成的路——窗口聚焦时重取（`refetchOnWindowFocus`）、每个动作之后精确失效对应查询、状态条上那个手动刷新按钮。代价是"用户在外部编辑器改了文件、桌面端不知情"，直到他切回来或点刷新。做 watcher 要连带决定溢出降级、大仓库阈值、`.git`/`node_modules` 过滤，而它换来的只是把这几秒的滞后抹平；M2 的验收口径是"改 + 推 + 评闭环、行为与终端一致"，这条不卡那个闭环。真要做时按设计文档的阈值与降级方案补齐，不要只挂个 watcher 假装实时。
 - **服务绑定面按实际需要生长，尚未拆到设计文档里那种一服务一职责的粒度**。设计文档列了 10 个服务，当前有 `SessionService`、`WorkingCopyService`、`WindowService`、`NotificationService`、`LSPService` 与 `SystemService` 六个；`FileDiff`、`ListChanges`、`ReadText`/`WriteText`、`StageHunk`/`UnstageHunk`、`RemoteInfo`、`OpenInEditor`、`RevealInFileManager`、`LoadCodeLayout`/`SaveCodeLayout`、`CloneRemote`/`CancelClone` 都挂在 `WorkingCopyService` 上。后续能力变多时再按"用户能感知的本地能力"拆开。
-- **窗口后端、目录选择与克隆凭据的接线都用包级函数而非服务方法**。绑定生成器会把服务上所有导出方法都变成前端可调用的接口，接线函数一旦是方法，前端就能改写本机的窗口后端、目录选择器，或把 clone 凭据换成任意值。因此 `BindWindowBackend`、`BindDirectoryPicker`、`BindCloneProgress`、`BindCloneAuth` 都是包级函数；`SystemService` 上只留两个真正要被界面调用的动作（查 git 状态、请用户选目录）。
-- **clone 凭据是现取的，不缓存**。`BindCloneAuth` 每次发起克隆时回问 `SessionService`，因为一次 clone 可能跑几分钟，期间令牌会 refresh。
+- **窗口后端、目录选择与实例凭据的接线都用包级函数而非服务方法**。绑定生成器会把服务上所有导出方法都变成前端可调用的接口，接线函数一旦是方法，前端就能改写本机的窗口后端、目录选择器，或把联网 git 的凭据换成任意值。因此 `BindWindowBackend`、`BindDirectoryPicker`、`BindCloneProgress`、`BindInstanceAuth` 都是包级函数；`SystemService` 上只留两个真正要被界面调用的动作（查 git 状态、请用户选目录）。
+- **联网 git 的凭据是现取的，不缓存**。`BindInstanceAuth` 每次发起 clone/push/fetch 时回问 `SessionService`，因为一次操作可能跑几分钟，期间令牌会 refresh。三条链路共用这一份 provider：它们回答的是同一个问题（我是谁、访问哪台实例），各存一份迟早漂移。
 - **Go 侧不做业务判断**。权限与合并策略一律回服务端，Go 只回答"本机是什么状态"。
 - **只读与只写单一真相**。磁盘模式下手动保存，不存在"自动保存到远端"的路径；协作模式把真相挪进共享文本、只在退出时写回缓冲区，两条路径靠模式互斥，不会双写。
 - **协作要信任网关的 awareness 盖章**。协作光标与在线人数都以网关广播的身份为准（网关用连接令牌里的 `user_id` / `name` 覆盖客户端自报的字段），桌面端只决定颜色与光标位置——自己判身份等于给冒名留口子。
@@ -169,8 +177,9 @@ SQLite（`modernc.org/sqlite`，纯 Go，无 CGO），迁移共 6 版：
 
 ## 验证方式
 
-- Go：`go test ./...`（在 `frontend/desktop/go` 下），覆盖 bridge 安全约束（含多窗口入口令牌并存、`/lsp/` 不外发与 `/ws/collab` 的 WebSocket 升级反代）、git 解析与逐 hunk 暂存、远端关联、相对 HEAD 的 diff 与文件内容、blame 的 porcelain 解析、协作草稿分支的领先计数、写盘冲突、崩溃恢复、标签页布局归一化、窗口状态、窗口种类与托盘语义、评审窗路由、通知校验、LSP 帧编解码与进程池生命周期（含崩溃退避与重试用尽）、子进程隐藏控制台窗口的进程属性、克隆（进度行解析含 `\r` 切分、URL 校验与 `owner/repo` 拼接、Bearer 头的作用域与"只出现一份 `GIT_CONFIG_COUNT`"、取消后清理目标目录、目标已存在时不动原内容、权限失败换成可操作的提示）、git 版本探测。
+- Go：`go test ./...`（在 `frontend/desktop/go` 下），覆盖 bridge 安全约束（含多窗口入口令牌并存、`/lsp/` 不外发与 `/ws/collab` 的 WebSocket 升级反代）、git 解析与逐 hunk 暂存、远端关联、相对 HEAD 的 diff 与文件内容、blame 的 porcelain 解析、协作草稿分支的领先计数、写盘冲突、崩溃恢复、标签页布局归一化、窗口状态、窗口种类与托盘语义、评审窗路由、通知校验、LSP 帧编解码与进程池生命周期（含崩溃退避与重试用尽）、子进程隐藏控制台窗口的进程属性、克隆（进度行解析含 `\r` 切分、URL 校验与 `owner/repo` 拼接、Bearer 头的作用域与"只出现一份 `GIT_CONFIG_COUNT`"、取消后清理目标目录、目标已存在时不动原内容、权限失败换成可操作的提示）、联网命令的凭据（`remoteMatchesInstance` 二十种地址形状：子路径实例、前缀同名、端口差异、ssh 写法、带 userinfo、深层路径；注入与否的判定矩阵；`NetworkEnv` 与 `cloneEnv` 逐字节一致；无凭据时仍关终端提示）、push 计划（有上游 / 强制 / 无上游建立上游 / 游离 HEAD 退回通用形式 / 无任何远端 / `remote.pushdefault` 与 `branch.*.pushremote` 优先 / 配置指向已不存在的远端时忽略；并断言 `PushCommand` 与 `PlanPush` 给出同一条命令）、`remoteNames` 含全部远端、access token 的 `exp` 读取与临期刷新（未临期不刷新、临期恰好刷新一次、刷新失败退回现有令牌、`exp` 解不出时不强制刷新、未登录不打刷新、登录与登出成对写入/清零过期时刻）、服务层凭据出口（半个凭据一律为 nil、未接线不 panic、每次现取）。git 版本探测。
 - 前端：`pnpm typecheck` / `pnpm test`（`frontend/desktop/web`、`frontend/packages/editor`）。当前 web 365 个、编辑器包 18 个用例，含 diff 解析与按文件切分、相对 HEAD 的行标对齐（新增 / 改动 / 删除三态与退化分支）、文档模式机的四步预检与模式迁移、协作文档键与感知收敛、被踢判定（reason 与状态码两条来源）、发布预览与结果的收敛、行内意见锚点、草稿存取、PR 评审数据层、相对时间、PR/Issue 数据层、remote 地址解析、窗口路由（含未选中 PR 的评审窗与旧片段兼容）、布局还原、换行符归一与 `file://` URI 往返、引导步进（含"连不上/过旧都停在第一步"与版本判定）、克隆的目标路径拼接与 URL 取名（含 scp 形式与分隔符归一）。
 - CI：`.github/workflows/ci.yml` 的 `desktop` job 跑前端 typecheck/单测与 Go 侧不依赖 cgo 的包（`internal/bridge`、`internal/codestate`、`internal/git`、`internal/lsp`、`internal/services`、`internal/store`、`internal/windowstate`、`internal/platform/*`）。Wails 的 `pkg/application` 在 Linux 上需要 GTK/WebKitGTK 头文件，因此 `main`、`internal/app` 与 `singleinstance` 不在 CI 的 Go 覆盖范围内，workflow 注释里写明了原因。
 - 端到端：设 `KUSTOS_DESKTOP_CDP_PORT` 后用 CDP 驱动真实 WebView，验证首次引导（连接 → 登录框在实例确认前禁用 → 从仓库列表克隆 → 落地进主壳并显示仓库名）、编辑、保存、冲突、崩溃恢复、信任确认、语言服务器启停与编辑器内的补全 / 跳定义 / 诊断、diff 行标与 blame（含点「允许」后行标不丢）、协作的进入与退出（含预检拦住未保存缓冲区）、与一个真实对端同时编辑同一文件（远端光标与在线人数）、草稿保存回执、发布链路（预览框摊开提交数与逐文件增删 → squash 成目标分支一次提交 → 回执失效），以及被踢后降为只读，还有评审窗的 diff 渲染、单栏/双栏切换、已查看标记、行内草稿、草稿提交、对话回复与投票拒绝。
 - 克隆的端到端有自己的取样方式：系统目录选择框是原生窗口，CDP 点不到，所以脚本在页面里 `import('/wails/runtime.js')` 拿 `Call`/`Events`，直接调 `WorkingCopyService.CloneRemote` 并订阅 `clone:progress`——这与面板走的是同一条桥、同一个服务方法，只是"用户选了哪个目录"这一步由脚本给出。真实跑一次拿到 169 条进度事件，落盘后核对 `git status` 干净、`origin` 是实例地址、**`.git/config` 里没有令牌**。
+- push/fetch 凭据的端到端**必须打在私有仓库上**：公开仓库匿名也能读写，测不出令牌到底有没有用上。验收机不配置任何 git 凭据（无 `credential.helper`、无 PAT），于是"成功"与"没弹 Git Credential Manager 窗"是同一个事实的两面——一旦弹窗，就说明那条命令根本没拿到凭据。真实链路：引导里连接与登录 → 克隆私有仓库 → `ReadText` 读 README 拿 mtime → `WriteText` 写回 → 暂存 → 提交（`ahead=1`）→ `Push` 成功且 `ahead=0` → `Fetch` 成功 → 核对服务端 `refs/heads/main` 就是桌面端那个提交、`.git` 全树搜不到令牌。建立上游那条也在真机验过：用底层 git 造一个无上游分支（桌面端故意没有 `checkout -b` 能力，造场景在脚本外、被测的仍是服务方法），`PushCommand` 如实给出 `git push --set-upstream origin <分支>`，执行后本地上游与服务端分支都在。

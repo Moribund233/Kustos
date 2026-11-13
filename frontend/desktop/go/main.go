@@ -120,14 +120,15 @@ func main() {
 	services.BindDirectoryPicker(desktop.PickDirectory)
 	services.BindCloneProgress(desktop.EmitCloneProgress)
 
-	// 克隆到本实例仓库时用的凭据：从会话服务现取，不缓存。clone 可能跑几分钟，
-	// 期间令牌会被刷新，缓存下来就等于拿一个过期的令牌去拉代码。
-	services.BindCloneAuth(func() services.CloneAuth {
+	// 联网 git 命令（clone / push / fetch）共用的凭据：从会话服务现取，不缓存。
+	// 一次 clone 或 push 可能跑几分钟，期间令牌会被刷新，缓存下来就等于拿一枚
+	// 过期令牌去访问远端；而 git 子进程没有 HTTP 那套 401 重试兜底。
+	services.BindInstanceAuth(func() services.InstanceAuth {
 		it, ok, err := sessionSvc.ActiveInstance()
 		if err != nil || !ok {
-			return services.CloneAuth{}
+			return services.InstanceAuth{}
 		}
-		return services.CloneAuth{BaseURL: it.BaseURL, Token: sessionSvc.AccessToken()}
+		return services.InstanceAuth{BaseURL: it.BaseURL, Token: sessionSvc.FreshAccessToken()}
 	})
 
 	// 会话层负责决定"现在用哪台实例"，bridge 负责把请求发过去。把后者注入

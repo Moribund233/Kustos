@@ -621,111 +621,8 @@ func CurrentBranch(dir string) (string, error) {
 }
 
 /* ------------------------------------------------------------------ */
-/* 远端同步                                                            */
+/* 远端读取                                                            */
 /* ------------------------------------------------------------------ */
-
-// networkTimeout 是联网类 git 命令的上限。
-//
-// 比本地命令宽松得多：push/fetch 要走网络，自托管实例可能在 VPN 后面，
-// 30 秒内没完成是常态而非故障。但也不能无限等——界面要能给出明确失败。
-const networkTimeout = 3 * time.Minute
-
-// execGitNetwork 与 execGit 相同，但用网络超时。
-func execGitNetwork(dir string, args ...string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), networkTimeout)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, "git", args...)
-	cmd.Dir = dir
-	cmd.Env = gitEnv()
-	noconsole.Hide(cmd)
-
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	err := cmd.Run()
-	if err != nil {
-		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			return "", fmt.Errorf("git %s 超时（%s）", strings.Join(args, " "), networkTimeout)
-		}
-		msg := strings.TrimSpace(stderr.String())
-		if msg == "" {
-			msg = err.Error()
-		}
-		return stdout.String(), fmt.Errorf("git %s: %s", strings.Join(args, " "), msg)
-	}
-	return stdout.String(), nil
-}
-
-// PushCommand 返回将要执行的 push 命令，供确认框展示。
-//
-// 破坏性操作必须让用户看到**完整命令**再确认——"确认强制推送？"这种问法
-// 无法让人判断后果，而 `git push --force-with-lease` 能。
-//
-// Args:
-//
-//	dir:   仓库目录
-//	force: 是否强制推送
-//
-// Returns:
-//
-//	可读的命令字符串。拿不到上游时给出不含远端名的通用形式，
-//	而不是返回空串——确认框里空白比写明"不知道远端"更糟。
-func PushCommand(dir string, force bool) string {
-	abs, err := checkDir(dir)
-	if err != nil {
-		return "git push"
-	}
-
-	remote, branch := upstreamInfo(abs)
-	parts := []string{"git", "push"}
-	if force {
-		parts = append(parts, "--force-with-lease")
-	}
-	if remote != "" && branch != "" {
-		parts = append(parts, remote, branch)
-	}
-	return strings.Join(parts, " ")
-}
-
-// Push 把当前分支推送到上游。
-//
-// Args:
-//
-//	dir:   仓库目录
-//	force: 是否强制推送；用 `--force-with-lease` 而不是 `--force`，
-//	       前者在远端已被别人更新时会拒绝，避免覆盖他人的提交
-//
-// Returns:
-//
-//	没有上游、没有提交、凭证缺失或被远端拒绝时返回可读错误。
-//
-// 用系统 git 的凭证机制（credential helper / SSH agent）：桌面端不接触
-// 也不存储远端密码，那正是用户机器上已经配置好的东西。
-func Push(dir string, force bool) error {
-	abs, err := checkDir(dir)
-	if err != nil {
-		return err
-	}
-
-	args := []string{"push"}
-	if force {
-		args = append(args, "--force-with-lease")
-	}
-	_, err = execGitNetwork(abs, args...)
-	return err
-}
-
-// Fetch 从上游拉取引用（不改工作区）。
-func Fetch(dir string) error {
-	abs, err := checkDir(dir)
-	if err != nil {
-		return err
-	}
-	_, err = execGitNetwork(abs, "fetch", "--prune")
-	return err
-}
 
 // upstreamInfo 返回当前分支的上游远端与分支名；没有上游时返回空串。
 func upstreamInfo(dir string) (remote, branch string) {
@@ -794,6 +691,10 @@ func RemoteInfo(dir string) Upstream {
 //
 // 排序理由：多远端时 origin 是用户心智里"这个仓库的正主"，
 // 其余（upstream、同事的 fork）都是附加的。
+//
+// 必须先收集完再挪位：git 按字母序输出，早期实现一看到 "origin" 就直接
+// return，把排在它之后的远端（upstream 正是最常见的第二个）全丢了，
+// 表现为"明明配了 upstream，程序却说这个仓库只有 origin"。
 func remoteNames(dir string) []string {
 	out, err := execGit(dir, "remote")
 	if err != nil {
@@ -803,13 +704,15 @@ func remoteNames(dir string) []string {
 	var names []string
 	for _, line := range strings.Split(out, "\n") {
 		name := strings.TrimSpace(line)
-		if name == "" {
-			continue
+		if name != "" {
+			names = append(names, name)
 		}
-		if name == "origin" {
-			return append([]string{"origin"}, names...)
+	}
+
+	for i, name := range names {
+		if name == "origin" && i != 0 {
+			return append([]string{"origin"}, append(names[:i:i], names[i+1:]...)...)
 		}
-		names = append(names, name)
 	}
 	return names
 }

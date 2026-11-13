@@ -171,7 +171,7 @@ const zh = {
     commit: "提交",
     committing: "提交中…",
     commitAndPush: "提交并推送",
-    commitAndPushHint: "推送使用系统 git 的凭证，桌面端不接触远端密码",
+    commitAndPushHint: "推送到当前实例的仓库使用登录令牌，其余远端走你机器自己的 git 凭据；令牌不写入磁盘",
 
     pushing: "推送中…",
 
@@ -215,7 +215,7 @@ const zh = {
       aheadBehind: "领先 / 落后",
       sectionNext: "下一步",
       nextHint:
-        "拉取与推送都走系统 git，凭证由你机器上已配置的 credential helper 或 SSH agent 提供，桌面端不接触远端密码。",
+        "拉取与推送都走系统 git。远端属于当前实例时，桌面端用你的登录令牌当场完成认证（只活在那一次进程里，不写进磁盘）；其余远端由你机器上已配置的 credential helper 或 SSH agent 负责，桌面端不接触远端密码。",
       yes: "是",
       no: "否",
     },
